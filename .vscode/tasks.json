@@ -1,0 +1,15 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Materials example (Clang x64)",
+      "type": "shell",
+      "command": "cmake --build --preset clang-x64 --config Debug --target materials",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$cmake"]
+    }
+  ]
+}

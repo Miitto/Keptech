@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "codelldb",
+      "name": "Launch Materials example (Debug, Clang x64)",
+      "request": "launch",
+      "program": "${workspaceFolder}/__output/clang-x64/examples/materials/src/Debug/materials.exe",
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Build Materials example (Clang x64)"
+    }
+  ]
+}
