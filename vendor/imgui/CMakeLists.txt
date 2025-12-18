@@ -11,8 +11,8 @@ target_sources(imgui PRIVATE
   imgui/imgui_draw.cpp
   imgui/imgui_tables.cpp
   imgui/imgui_widgets.cpp
-  imgui/backends/imgui_impl_opengl3.cpp
-  imgui/backends/imgui_impl_win32.cpp
+  imgui/backends/imgui_impl_vulkan.cpp
+  imgui/backends/imgui_impl_sdl3.cpp
   PUBLIC
   FILE_SET HEADERS
   PUBLIC
@@ -22,6 +22,15 @@ target_sources(imgui PRIVATE
   FILES
   imgui/imgui.h
 )
+
+include(sdl)
+link_sdl(imgui PUBLIC)
+
+if (USE_VULKAN)
+  include(vulkan)
+  find_vulkan(23)
+  link_vulkan(imgui PUBLIC)
+endif()
 
 # Disable warnings
 target_compile_options(imgui PRIVATE

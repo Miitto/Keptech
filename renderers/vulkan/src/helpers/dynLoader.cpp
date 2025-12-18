@@ -1,0 +1,5 @@
+#define VULKAN_VERSION_1_4
+
+#include <vulkan/vulkan_raii.hpp>
+
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE

@@ -10,7 +10,6 @@ set_target_properties(${PROJECT_NAME}
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
-    EXPORT_COMPILE_COMMANDS ON
 )
 
 # Deps
@@ -20,9 +19,6 @@ link_glm(${PROJECT_NAME} PUBLIC)
 
 include(spdlog)
 link_spdlog(${PROJECT_NAME} PUBLIC)
-
-include(imgui)
-link_imgui(${PROJECT_NAME} PUBLIC)
 
 include(sdl)
 link_sdl(${PROJECT_NAME} PUBLIC)

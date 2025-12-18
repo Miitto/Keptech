@@ -49,4 +49,5 @@ namespace keptech::core::window {
     SDL_GetWindowSizeInPixels(handle, &w, &h);
     renderSize = glm::ivec2(w, h);
   }
+
 } // namespace keptech::core::window

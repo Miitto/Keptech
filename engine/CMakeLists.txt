@@ -10,7 +10,6 @@ set_target_properties(${PROJECT_NAME}
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
-    EXPORT_COMPILE_COMMANDS ON
 )
 
 add_subdirectory(src)
@@ -25,3 +24,10 @@ target_link_libraries(${PROJECT_NAME}
   PUBLIC
     keptech::core
 )
+
+if(USE_VULKAN)
+  target_link_libraries(${PROJECT_NAME}
+    PUBLIC
+      keptech::vulkan
+  )
+endif()

@@ -1,11 +1,14 @@
 #pragma once
 
-#include <concepts>
 #include <type_traits>
 
 namespace keptech::core {
+  // Ensure that T is an enum type and that it is an enum class
   template <typename T>
-    requires std::is_enum_v<T>
+  concept BitflagEnum = std::is_enum_v<T> && !std::is_convertible_v<T, int>;
+
+  template <typename T>
+    requires BitflagEnum<T>
   struct Bitflag {
     using Underlying = std::underlying_type_t<T>;
     constexpr inline Bitflag() : flags(0) {}
@@ -118,23 +121,23 @@ operator^(keptech::core::Bitflag<T> lhs, T rhs) {
   return lhs;
 }
 
-template <typename T>
-  requires std::is_enum_v<T> &&
-           std::constructible_from<keptech::core::Bitflag<T>, T>
-constexpr inline keptech::core::Bitflag<T> operator|(T lhs, T rhs) {
-  return Bitflag<T>(lhs) | rhs;
-}
-
-template <typename T>
-  requires std::is_enum_v<T> &&
-           std::constructible_from<keptech::core::Bitflag<T>, T>
-constexpr inline keptech::core::Bitflag<T> operator&(T lhs, T rhs) {
-  return Bitflag<T>(lhs) & rhs;
-}
-
-template <typename T>
-  requires std::is_enum_v<T> &&
-           std::constructible_from<keptech::core::Bitflag<T>, T>
-constexpr inline keptech::core::Bitflag<T> operator^(T lhs, T rhs) {
-  return Bitflag<T>(lhs) ^ rhs;
-}
+// NOLINTBEGIN(cppcoreguidelines-macro-usage, bugprone-macro-parentheses)
+#pragma warning(push)
+#pragma warning(disable : 26812)
+#define DEFINE_BITFLAG_ENUM_OPERATORS(EnumType)                                \
+  constexpr inline keptech::core::Bitflag<EnumType> operator|(EnumType lhs,    \
+                                                              EnumType rhs) {  \
+    return keptech::core::Bitflag<EnumType>(lhs) | rhs;                        \
+  }                                                                            \
+                                                                               \
+  constexpr inline keptech::core::Bitflag<EnumType> operator&(EnumType lhs,    \
+                                                              EnumType rhs) {  \
+    return keptech::core::Bitflag<EnumType>(lhs) & rhs;                        \
+  }                                                                            \
+                                                                               \
+  constexpr inline keptech::core::Bitflag<EnumType> operator^(EnumType lhs,    \
+                                                              EnumType rhs) {  \
+    return keptech::core::Bitflag<EnumType>(lhs) ^ rhs;                        \
+  }
+#pragma warning(pop)
+// NOLINTEND(cppcoreguidelines-macro-usage, bugprone-macro-parentheses)
