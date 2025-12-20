@@ -1,11 +1,4 @@
-find_program(SLANGC_EXECUTABLE NAMES slangc)
-
-if(NOT SLANGC_EXECUTABLE})
-  message(STATUS "slangc not found in PATH, looking in ${CMAKE_SOURCE_DIR}/external/slang/bin")
-  find_program(SLANGC_EXECUTABLE NAMES slangc PATHS ${CMAKE_SOURCE_DIR}/external/slang/bin REQUIRED)
-else()
-  message(STATUS "Found slangc: ${SLANGC_EXECUTABLE}")
-endif()
+find_program(SLANGC_EXECUTABLE NAMES slangc REQUIRED)
 
 function(_compile_slang_file)
   set(SINGLEVALUE SOURCE OUT TARGET)
@@ -33,7 +26,7 @@ function(_compile_slang_file)
 endfunction()
 
 
-function(compile_shader target shader_target link_target)
+function(compile_shader target shader_target)
   set(MULTIVALUE SOURCES INCLUDES)
   cmake_parse_arguments(PARSE_ARGV 0 arg "" "" "${MULTIVALUE}")
 
@@ -47,41 +40,63 @@ function(compile_shader target shader_target link_target)
   set(INCLUDED_FILES "")
 
   foreach(file ${arg_INCLUDES})
-    set(INCLUDED_FILES ${INCLUDED_FILES} include/${file}.slang)
+    list(APPEND INCLUDED_FILES include/${file}.slang)
   endforeach()
 
 
+  file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
   foreach(source ${arg_SOURCES})
     set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/${source}.slang)
 
     if(${shader_target} STREQUAL SPIRV)
-      set(OUT_FILE ${CMAKE_BINARY_DIR}/shaders/${source}.spv)
+      set(OUT_FILE ${CMAKE_BINARY_DIR}/shaders/raw/${source}.spv)
       _compile_slang_file(SOURCE ${SOURCE_FILE} TARGET ${shader_target} ENTRIES vert frag OUT ${OUT_FILE})
-      set(OUTPUTS ${OUTPUTS} ${OUT_FILE})
+      list(APPEND OUTPUTS ${OUT_FILE})
     else()
       foreach(stage vert frag)
-        set(OUT_FILE ${CMAKE_BINARY_DIR}/shaders/${source}_${stage}.glsl)
+        set(OUT_FILE ${CMAKE_BINARY_DIR}/shaders/raw/${source}_${stage}.glsl)
         _compile_slang_file(SOURCE ${SOURCE_FILE} TARGET ${shader_target} ENTRIES "${stage}" OUT ${OUT_FILE})
-        set(OUTPUTS ${OUTPUTS} ${OUT_FILE})
+        list(APPEND OUTPUTS ${OUT_FILE})
       endforeach()
     endif()
   endforeach()
 
-
-  add_custom_target(${target} ALL
+  add_custom_target(${target}_raw_shaders
     DEPENDS ${OUTPUTS}
     COMMENT "Compiling shaders for target ${target}"
   )
 
-  add_dependencies(${link_target} ${target})
-endfunction()
+  set(OUT_HEADERS "")
 
-function(copy_shaders target shader_target)
-  add_custom_target(
-    ${target}_copy_shaders
-    ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/shaders $<TARGET_FILE_DIR:${target}>/shaders
-    DEPENDS ${shader_target}
-    COMMENT "Copying shaders to output directory"
+  foreach(source ${arg_SOURCES})
+    if(${shader_target} STREQUAL SPIRV)
+      set(RAW_FILES ${CMAKE_BINARY_DIR}/shaders/raw/${source}.spv)
+    else()
+      set(RAW_FILES "")
+      foreach(stage vert frag)
+        set(RAW_FILES ${RAW_FILES} ${CMAKE_BINARY_DIR}/shaders/raw/${source}_${stage}.glsl)
+      endforeach()
+    endif()
+
+    set(OUT_FILE ${CMAKE_BINARY_DIR}/shaders/gen/shaders/${source}.h)
+
+    add_custom_command(
+    OUTPUT ${OUT_FILE}
+    DEPENDS ${RAW_FILES} Keptech_shader_embedder
+    COMMAND Keptech_shader_embedder ${source} ${RAW_FILES} ${OUT_FILE}
+    COMMENT "Embedding shaders into header for target ${target}"
+    VERBATIM
   )
+
+    list(APPEND OUT_HEADERS ${OUT_FILE})
+  endforeach()
+
+  add_custom_target(${target}_shaders
+    DEPENDS ${OUT_HEADERS}
+    COMMENT "Embedding shaders into headers for target ${target}"
+  )
+
+  add_dependencies(${target} ${target}_shaders)
+
+  target_include_directories(${target} PRIVATE ${CMAKE_BINARY_DIR}/shaders/gen)
 endfunction()

@@ -28,6 +28,42 @@ namespace keptech::vkh {
     };
 
     graphicsCmdBuffer.beginRendering(renderingInfo);
+
+    for (auto& renderObject : renderObjects) {
+      vkh::Mesh* meshP = loadedMeshes.get(renderObject->mesh);
+      if (meshP == nullptr) {
+        VK_WARN("RenderObject has invalid mesh handle, skipping draw call");
+        continue;
+      }
+      vkh::Mesh& mesh = *meshP;
+
+      graphicsCmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                     *renderObject->material->pipeline);
+
+      setupGraphicsCommandBuffer(info, graphicsCmdBuffer);
+
+      struct PushConstantData {
+        vk::DeviceAddress vertexBufferAddress;
+      } pushConstantData{
+          .vertexBufferAddress = mesh.vertexBuffer.address,
+      };
+
+      graphicsCmdBuffer.pushConstants<PushConstantData>(
+          *renderObject->material->pipelineLayout,
+          vk::ShaderStageFlagBits::eVertex, 0, pushConstantData);
+
+      for (const auto& submesh : mesh.submeshes) {
+        if (mesh.indexBuffer.has_value()) {
+          graphicsCmdBuffer.bindIndexBuffer(mesh.indexBuffer->buffer, 0,
+                                            vk::IndexType::eUint32);
+          graphicsCmdBuffer.drawIndexed(submesh.indexCount, 1,
+                                        submesh.indexOffset, 0, 0);
+        } else {
+          graphicsCmdBuffer.draw(submesh.indexCount, 1, 0, 0);
+        }
+      }
+    }
+
     graphicsCmdBuffer.endRendering();
   }
 
@@ -35,7 +71,8 @@ namespace keptech::vkh {
     Frame info = startFrame();
 
     vk::CommandBufferAllocateInfo cmdBufAllocInfo{
-        .commandPool = *vkcore.frameResources[info.index].pools.graphics.get(),
+        .commandPool =
+            *vkcore.frameResources[info.index].pools.graphics.get()->pool,
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = 1,
     };

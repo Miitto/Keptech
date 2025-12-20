@@ -1,0 +1,1 @@
+add_executable(Keptech_shader_embedder main.cpp)

@@ -13,14 +13,19 @@ namespace keptech::vkh {
                 "Renderer does not satisfy Renderer concept");
 
   void Renderer::Pools::resetAll() {
-    std::set<vk::raii::CommandPool*> unique{graphics.get(), present.get(),
-                                            compute.get(), transfer.get()};
+    std::set<vk::raii::CommandPool*> unique{
+        &graphics.get()->pool,
+        &present.get()->pool,
+        &compute.get()->pool,
+    };
     for (auto& pool : unique) {
       pool->reset();
     }
   }
 
   void Renderer::newFrame() {
+    renderObjects.clear();
+
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplSDL3_NewFrame();
 
@@ -29,6 +34,7 @@ namespace keptech::vkh {
 
   Renderer::Frame Renderer::startFrame() {
     checkSwapchain();
+    checkCompletedCommandBuffers();
 
     auto& sync = vkcore.frameResources[frameIndex].syncObjects;
     auto nextImageRes = vkcore.swapchain.getNextImage(
@@ -67,6 +73,27 @@ namespace keptech::vkh {
     return frameInfo;
   }
 
+  void Renderer::setupGraphicsCommandBuffer(
+      const Frame& info, const vk::raii::CommandBuffer& graphicsCmdBuffer) {
+    graphicsCmdBuffer.setViewport(
+        0,
+        vk::Viewport{
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = static_cast<float>(vkcore.swapchain.config().extent.width),
+            .height =
+                static_cast<float>(vkcore.swapchain.config().extent.height),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
+        });
+
+    graphicsCmdBuffer.setScissor(0,
+                                 vk::Rect2D{
+                                     .offset = {.x = 0, .y = 0},
+                                     .extent = vkcore.swapchain.config().extent,
+                                 });
+  }
+
   void Renderer::presentFrame(const Frame& info) {
     auto& sync = info.syncObjects.get();
 
@@ -100,9 +127,19 @@ namespace keptech::vkh {
 
     vkcore.device.logical.waitIdle();
 
+    auto meshes = loadedMeshes.values();
+    checkCompletedCommandBuffers();
+
+    for (auto& mesh : meshes) {
+      mesh->destroy(allocator);
+    }
+
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
+
+    allocator.destroy();
+    vkcore.device.logical.waitIdle();
   }
 
   std::expected<void, std::string> Renderer::recreateSwapchain() {
@@ -137,5 +174,63 @@ namespace keptech::vkh {
             VK_TRUE, UINT64_MAX) == vk::Result::eSuccess) {
       vkcore.oldSwapchain.reset();
     }
+  }
+
+  std::expected<core::SlotMap<Mesh>::Handle, std::string>
+  Renderer::meshFromData(std::span<const Vertex> vertices,
+                         std::span<const uint32_t> indices,
+                         std::vector<vkh::Mesh::Submesh> submeshes,
+                         bool backgroundLoad) {
+    Pools& pools =
+        vkcore.frameResources[frameIndex].pools; // Use current frame pools
+
+    auto res = vkh::Mesh::fromData(vkcore.device.logical, allocator,
+                                   backgroundLoad ? vkcore.transferPool
+                                                  : *pools.graphics,
+                                   vertices, indices, std::move(submeshes));
+
+    if (!res) {
+      return std::unexpected(res.error());
+    }
+
+    ongoingCommandBuffers.push_back(std::move(res.value().second));
+
+    auto handle = loadedMeshes.emplace(std::move(res.value().first));
+
+    return handle;
+  }
+
+  std::expected<Material, std::string>
+  Renderer::createMaterial(Material::Stage stage,
+                           GraphicsPipelineConfig&& config) {
+    return createMaterial(stage, static_cast<GraphicsPipelineConfig&>(config));
+  }
+
+  std::expected<Material, std::string>
+  Renderer::createMaterial(Material::Stage stage,
+                           GraphicsPipelineConfig& config) {
+    auto vkLayoutInfo = config.layout.build();
+
+    VK_MAKE(pipelineLayout,
+            vkcore.device.logical.createPipelineLayout(vkLayoutInfo),
+            "Failed to create pipeline layout");
+
+    auto vkConfig = config.build();
+    vkConfig.layout = *pipelineLayout;
+
+    VK_MAKE(pipeline,
+            vkcore.device.logical.createGraphicsPipeline(nullptr, vkConfig),
+            "Failed to create graphics pipeline");
+
+    return Material{
+        .stage = stage,
+        .pipeline = std::move(pipeline),
+        .pipelineLayout = std::move(pipelineLayout),
+    };
+  }
+
+  std::expected<Shader, std::string>
+  Renderer::createShader(const unsigned char* const code, size_t size) {
+    return Shader::create(vkcore.device.logical, code, size);
   }
 } // namespace keptech::vkh

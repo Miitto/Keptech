@@ -13,6 +13,7 @@ set(KT_GNU_WARNINGS
   -Wdouble-promotion
   -Wformat=2
   -Wno-c++17-extensions
+  -Wno-format-security
 )
 
 set(KT_MSVC_WARNINGS

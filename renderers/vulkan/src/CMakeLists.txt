@@ -13,6 +13,7 @@ target_sources(${PROJECT_NAME}
     helpers/validators.cpp
     helpers/vmaImpl.cpp
 
+    mesh.cpp
     renderer.cpp
     rendering.cpp
     structs.cpp

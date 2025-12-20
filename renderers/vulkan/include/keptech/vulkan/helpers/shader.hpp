@@ -20,7 +20,7 @@ namespace keptech::vkh {
     };
 
     static auto create(const vk::raii::Device& device,
-                       const std::string& filename)
+                       const unsigned char* const code, size_t size)
         -> std::expected<Shader, std::string>;
 
     [[nodiscard]] auto get() const noexcept -> const vk::raii::ShaderModule& {

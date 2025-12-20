@@ -335,16 +335,28 @@ namespace keptech::vkh {
     vk::CommandPoolCreateInfo poolCreateInfo{
         .flags = vk::CommandPoolCreateFlagBits::eTransient,
     };
-    for (int i = 0; i < 2; i++) {
-      Pools& pools = *poolsArray[i];
-      for (uint32_t familyIndex : uniqueQueueFamilies) {
-        poolCreateInfo.queueFamilyIndex = familyIndex;
+    for (uint32_t familyIndex : uniqueQueueFamilies) {
+      poolCreateInfo.queueFamilyIndex = familyIndex;
+
+      Queue queue;
+      if (familyIndex == queueIndices.graphics) {
+        queue = queues.graphics;
+      } else if (familyIndex == queueIndices.present) {
+        queue = queues.present;
+      } else if (familyIndex == queueIndices.compute) {
+        queue = queues.compute;
+      } else {
+        continue;
+      }
+
+      for (int i = 0; i < 2; i++) {
+        Pools& pools = *poolsArray[i];
 
         VK_MAKE(poolRaii, device.createCommandPool(poolCreateInfo),
                 "Failed to create command pool.");
 
-        std::shared_ptr pool =
-            std::make_shared<vk::raii::CommandPool>(std::move(poolRaii));
+        std::shared_ptr pool = std::make_shared<CommandPool>(std::move(
+            CommandPool{.pool = std::move(poolRaii), .queue = queue}));
 
         if (familyIndex == queueIndices.graphics) {
           pools.graphics = pool;
@@ -355,11 +367,15 @@ namespace keptech::vkh {
         if (familyIndex == queueIndices.compute) {
           pools.compute = pool;
         }
-        if (familyIndex == queueIndices.transfer) {
-          pools.transfer = pool;
-        }
       }
     }
+
+    VK_MAKE(transferPool,
+            device.createCommandPool(vk::CommandPoolCreateInfo{
+                .flags = vk::CommandPoolCreateFlagBits::eTransient,
+                .queueFamilyIndex = queueIndices.transfer,
+            }),
+            "Failed to create transfer command pool.");
 
     VMA_MAKE(allocator,
              vma::createAllocator(vma::AllocatorCreateInfo{
@@ -392,6 +408,8 @@ namespace keptech::vkh {
         .queues = std::move(queues),
         .swapchain = std::move(swapchain),
         .frameResources = std::move(frameResources),
+        .transferPool = {.pool = std::move(transferPool),
+                         .queue = queues.transfer},
     };
 
     VKH_MAKE(imguiObjects,

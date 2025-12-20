@@ -14,3 +14,5 @@ target_sources(materials
 )
 
 target_compile_definitions(materials PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
+
+add_subdirectory(shaders)

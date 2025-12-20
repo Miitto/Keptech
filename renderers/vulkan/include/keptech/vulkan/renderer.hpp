@@ -1,8 +1,14 @@
 #pragma once
 
 #include "keptech/core/moveGuard.hpp"
+#include "keptech/core/slotmap.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
+#include "keptech/vulkan/helpers/pipeline.hpp"
+#include "keptech/vulkan/helpers/shader.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
+#include "keptech/vulkan/material.hpp"
+#include "keptech/vulkan/renderObject.hpp"
+#include <algorithm>
 #include <expected>
 #include <functional>
 #include <keptech/vulkan/structs.hpp>
@@ -18,6 +24,10 @@ namespace keptech::core::window {
 namespace keptech::vkh {
   class Renderer {
   public:
+    using Mesh = core::SlotMap<vkh::Mesh>::Handle;
+    using Material = vkh::Material;
+    using RenderObject = vkh::RenderObject;
+
     struct Queues {
       Queue graphics;
       Queue present;
@@ -26,10 +36,9 @@ namespace keptech::vkh {
     };
 
     struct Pools {
-      std::shared_ptr<vk::raii::CommandPool> graphics;
-      std::shared_ptr<vk::raii::CommandPool> present;
-      std::shared_ptr<vk::raii::CommandPool> compute;
-      std::shared_ptr<vk::raii::CommandPool> transfer;
+      std::shared_ptr<CommandPool> graphics;
+      std::shared_ptr<CommandPool> present;
+      std::shared_ptr<CommandPool> compute;
 
       void resetAll();
     };
@@ -58,6 +67,7 @@ namespace keptech::vkh {
       Queues queues;
       Swapchain swapchain;
       std::array<FrameResources, MAX_FRAMES_IN_FLIGHT> frameResources;
+      CommandPool transferPool;
 
       std::optional<OldSwapchain> oldSwapchain = std::nullopt;
     };
@@ -91,7 +101,35 @@ namespace keptech::vkh {
     Renderer(Renderer&&) noexcept = default;
     Renderer& operator=(Renderer&&) = default;
 
+    std::expected<core::SlotMap<Mesh>::Handle, std::string>
+    meshFromData(std::span<const Vertex> vertices,
+                 std::span<const uint32_t> indices,
+                 std::vector<vkh::Mesh::Submesh> submeshes = {},
+                 bool backgroundLoad = false);
+    void unloadMesh(core::SlotMap<Mesh>::Handle handle) {
+      auto opt = loadedMeshes.erase(handle);
+      if (opt.has_value()) {
+        opt->destroy(allocator);
+      }
+    }
+
+    std::expected<Material, std::string>
+    createMaterial(Material::Stage stage, GraphicsPipelineConfig&& config);
+    std::expected<Material, std::string>
+    createMaterial(Material::Stage stage, GraphicsPipelineConfig& config);
+
+    std::expected<Shader, std::string>
+    createShader(const unsigned char* const code, size_t size);
+
+    [[nodiscard]] const vk::Format& getSwapchainImageFormat() const {
+      return vkcore.swapchain.config().format.format;
+    }
+
     void newFrame();
+
+    void addRenderObject(RenderObject* renderObject) {
+      renderObjects.emplace_back(renderObject);
+    }
 
     void render();
 
@@ -102,6 +140,8 @@ namespace keptech::vkh {
     std::expected<void, std::string> recreateSwapchain();
 
     Frame startFrame();
+    void setupGraphicsCommandBuffer(
+        const Frame& info, const vk::raii::CommandBuffer& graphicsCmdBuffer);
     void draw(const Frame& info,
               const vk::raii::CommandBuffer& graphicsCmdBuffer);
     void drawImGui(const Frame& info,
@@ -115,6 +155,17 @@ namespace keptech::vkh {
           std::move(commandBuffer));
     }
 
+    inline void checkCompletedCommandBuffers() {
+      auto [first, last] = std::ranges::remove_if(
+          ongoingCommandBuffers,
+          [](const OnGoingCmdTransfer& ongoing) { return ongoing.finished(); });
+
+      for (auto it = first; it != last; ++it) {
+        it->buffer.destroy(allocator);
+      }
+      ongoingCommandBuffers.erase(first, last);
+    }
+
     core::MoveGuard moveGuard = core::MoveGuard{};
 
     core::window::Window* window;
@@ -125,6 +176,11 @@ namespace keptech::vkh {
         submittedCommandBuffers;
 
     uint8_t frameIndex = 0;
+
+    std::vector<RenderObject*> renderObjects;
+
+    std::vector<OnGoingCmdTransfer> ongoingCommandBuffers;
+    core::SlotMap<vkh::Mesh> loadedMeshes;
   };
 
   namespace setup {

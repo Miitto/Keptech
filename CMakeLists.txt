@@ -18,6 +18,7 @@ project(Keptech VERSION 0.1 LANGUAGES CXX)
 add_subdirectory(core)
 add_subdirectory(renderers)
 add_subdirectory(engine)
+add_subdirectory(shader_embedder)
 
 # Vendored Deps
 add_subdirectory(vendor/imgui imgui)
