@@ -32,7 +32,7 @@ public:
   App(keptech::core::window::Window&& window, R& renderer, Materials& materials,
       Meshes& meshes)
       : keptech::App(std::move(window)), renderer(&renderer),
-        materials(std::move(materials)), meshes(std::move(meshes)) {
+        materials(materials), meshes(meshes) {
 
     auto& ecs = keptech::ecs::ECS::get();
     auto& triangle = ecs.createEntity("Triangle");

@@ -62,6 +62,8 @@ namespace keptech::core {
     constexpr inline operator bool() const { return flags != 0; }
     constexpr inline bool operator!() const { return flags == 0; }
 
+    [[nodiscard]] constexpr inline bool any() const { return flags != 0; }
+
     constexpr explicit inline operator Underlying() const { return flags; }
     constexpr explicit inline operator T() const {
       return static_cast<T>(flags);

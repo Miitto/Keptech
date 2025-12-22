@@ -21,6 +21,7 @@
 #include <keptech/vulkan/structs.hpp>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vk_mem_alloc.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
@@ -117,11 +118,12 @@ namespace keptech::vkh {
     Renderer& operator=(Renderer&&) = default;
 
     std::expected<core::rendering::Mesh::Handle, std::string>
-    meshFromData(std::span<const core::rendering::Mesh::Vertex> vertices,
+    meshFromData(const std::string& name,
+                 std::span<const core::rendering::Mesh::Vertex> vertices,
                  std::span<const uint32_t> indices,
                  std::vector<core::rendering::Mesh::Submesh> submeshes = {},
                  bool backgroundLoad = false);
-    void unloadMesh(core::SlotMapHandle handle) { loadedMeshes.erase(handle); }
+    void unloadMesh(const std::string& handle) { loadedMeshes.erase(handle); }
 
     std::expected<core::rendering::Material::Handle, std::string>
     createMaterial(core::rendering::Material::Stage stage,
@@ -197,11 +199,11 @@ namespace keptech::vkh {
     std::array<std::vector<vk::raii::CommandBuffer>, MAX_FRAMES_IN_FLIGHT>
         submittedCommandBuffers;
 
-    uint8_t frameIndex = 0;
+    uint8_t nextFrameIndex = 0;
 
     std::vector<OnGoingCmdTransfer> ongoingCommandBuffers = {};
-    core::SlotMap<vkh::Mesh> loadedMeshes = {};
-    core::SlotMap<vkh::Material> loadedMaterials = {};
+    std::unordered_map<std::string, vkh::Mesh> loadedMeshes = {};
+    std::unordered_map<std::string, vkh::Material> loadedMaterials = {};
   };
 
   namespace setup {
