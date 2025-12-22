@@ -1,4 +1,4 @@
-#include "keptech/core/ecs/ecs.hpp"
+#include "keptech/ecs/ecs.hpp"
 
 namespace keptech::ecs {
   ECS ECS::singleton{};

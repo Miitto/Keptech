@@ -1,6 +1,6 @@
-#include "keptech/core/ecs/ecs-logger.hpp"
+#include "keptech/ecs/ecs-logger.hpp"
 
-#include "keptech/core/createLogger.hpp"
+#include "keptech/logging/createLogger.hpp"
 
 namespace keptech::ecs {
   const std::shared_ptr<spdlog::logger> logger = keptech::core::createLogger(

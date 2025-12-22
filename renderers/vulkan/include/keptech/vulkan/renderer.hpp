@@ -10,7 +10,6 @@
 #include <expected>
 #include <functional>
 #include <keptech/core/components/transform.hpp>
-#include <keptech/core/ecs/ecs.hpp>
 #include <keptech/core/maths/frustum.hpp>
 #include <keptech/core/maths/transform.hpp>
 #include <keptech/core/moveGuard.hpp>
@@ -18,6 +17,7 @@
 #include <keptech/core/rendering/mesh.hpp>
 #include <keptech/core/rendering/renderObject.hpp>
 #include <keptech/core/slotmap.hpp>
+#include <keptech/ecs/ecs.hpp>
 #include <keptech/vulkan/structs.hpp>
 #include <memory>
 #include <string>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "keptech/core/ecs/base.hpp"
 #include "keptech/core/maths/transform.hpp"
+#include "keptech/ecs/base.hpp"
 
 namespace keptech::components {
   struct Transform {

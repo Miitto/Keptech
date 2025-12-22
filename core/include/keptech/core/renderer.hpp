@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/core/ecs/system.hpp"
+#include "keptech/ecs/system.hpp"
 #include <concepts>
 
 namespace keptech::core::renderer {

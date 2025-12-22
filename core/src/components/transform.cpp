@@ -1,6 +1,6 @@
 #include "keptech/core/components/transform.hpp"
 
-#include "keptech/core/ecs/ecs.hpp"
+#include "keptech/ecs/ecs.hpp"
 
 namespace keptech::components {
   void Transform::recalculateGlobalTransform() {

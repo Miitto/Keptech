@@ -4,7 +4,5 @@ target_sources(${PROJECT_NAME}
     TYPE HEADERS
   PRIVATE
     components/transform.cpp
-    ecs/ecs-logger.cpp
-    ecs/ecs.cpp
     window.cpp
 )

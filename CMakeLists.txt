@@ -15,6 +15,8 @@ endif()
 
 project(Keptech VERSION 0.1 LANGUAGES CXX)
 
+add_subdirectory(logging)
+add_subdirectory(ecs)
 add_subdirectory(core)
 add_subdirectory(renderers)
 add_subdirectory(engine)
