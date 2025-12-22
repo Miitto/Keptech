@@ -4,21 +4,43 @@
 #include <expected>
 #include <glm/glm.hpp>
 #include <keptech/core/moveGuard.hpp>
-#include <keptech/core/vertex.hpp>
+#include <keptech/core/rendering/mesh.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace keptech::vkh {
-  using Vertex = keptech::core::Vertex;
+  struct Mesh : public core::rendering::Mesh {
+    Mesh(AddressedAllocatedBuffer vBuffer,
+         std::optional<AllocatedBuffer> iBuffer,
+         std::vector<core::rendering::Mesh::Submesh> submeshes,
+         vma::Allocator& allocator)
+        : core::rendering::Mesh{std::move(submeshes)}, vertexBuffer(vBuffer),
+          indexBuffer(iBuffer), allocator(&allocator) {}
 
-  struct Mesh {
-    struct Submesh {
-      uint32_t indexCount;
-      uint32_t indexOffset;
-    };
+    Mesh() = delete;
+    Mesh(const Mesh&) = delete;
+    Mesh& operator=(const Mesh&) = delete;
+    Mesh(Mesh&& o) noexcept
+        : core::rendering::Mesh(std::move(o)), vertexBuffer(o.vertexBuffer),
+          indexBuffer(o.indexBuffer), allocator(o.allocator) {
+      o.allocator = nullptr;
+    }
+    Mesh& operator=(Mesh&& o) noexcept {
+      if (this != &o) {
+        destroy();
+
+        core::rendering::Mesh::operator=(std::move(o));
+        vertexBuffer = o.vertexBuffer;
+        indexBuffer = o.indexBuffer;
+        allocator = o.allocator;
+        o.allocator = nullptr;
+      }
+      return *this;
+    }
 
     AddressedAllocatedBuffer vertexBuffer;
     std::optional<AllocatedBuffer> indexBuffer;
-    std::vector<Submesh> submeshes;
+
+    vma::Allocator* allocator;
 
     static std::expected<std::pair<Mesh, OnGoingCmdTransfer>, std::string>
     fromData(const vk::raii::Device& device, vma::Allocator& allocator,
@@ -26,11 +48,17 @@ namespace keptech::vkh {
              std::span<const uint32_t> indices,
              std::vector<Mesh::Submesh> submeshes = {});
 
-    void destroy(vma::Allocator& allocator) {
-      vertexBuffer.destroy(allocator);
+    void destroy() {
+      if (!allocator)
+        return;
+      vertexBuffer.destroy(*allocator);
       if (indexBuffer.has_value()) {
-        indexBuffer->destroy(allocator);
+        indexBuffer->destroy(*allocator);
       }
+
+      allocator = nullptr;
     }
+
+    ~Mesh() { destroy(); }
   };
 } // namespace keptech::vkh

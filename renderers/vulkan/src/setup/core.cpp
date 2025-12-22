@@ -287,7 +287,7 @@ namespace keptech::vkh::setup {
 namespace keptech::vkh {
   using namespace keptech::vkh::setup;
 
-  std::expected<Renderer, std::string>
+  std::expected<Renderer*, std::string>
   Renderer::create(const char* const name, core::window::Window& window) {
     auto context = vk::raii::Context{};
 
@@ -399,6 +399,11 @@ namespace keptech::vkh {
     std::array<FrameResources, MAX_FRAMES_IN_FLIGHT> frameResources = {
         std::move(frameResource1), std::move(frameResource2)};
 
+    CommandPool transferPoolStruct{
+        .pool = std::move(transferPool),
+        .queue = queues.transfer,
+    };
+
     Renderer::VulkanCore vkcore{
         .context = std::move(context),
         .instance = std::move(instance),
@@ -408,8 +413,7 @@ namespace keptech::vkh {
         .queues = std::move(queues),
         .swapchain = std::move(swapchain),
         .frameResources = std::move(frameResources),
-        .transferPool = {.pool = std::move(transferPool),
-                         .queue = queues.transfer},
+        .transferPool = std::move(transferPoolStruct),
     };
 
     VKH_MAKE(imguiObjects,
@@ -420,7 +424,10 @@ namespace keptech::vkh {
              "Failed to create ImGui Vulkan objects.");
 
     VK_DEBUG("Vulkan renderer created successfully.");
-    return std::move(Renderer{window, std::move(vkcore), allocator,
-                              std::move(imguiObjects)});
+
+    Renderer r{window, std::move(vkcore), allocator, std::move(imguiObjects)};
+
+    auto& renderer = addToEcs(std::move(r));
+    return &renderer;
   }
 } // namespace keptech::vkh

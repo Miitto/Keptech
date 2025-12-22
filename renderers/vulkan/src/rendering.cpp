@@ -29,16 +29,14 @@ namespace keptech::vkh {
 
     graphicsCmdBuffer.beginRendering(renderingInfo);
 
-    for (auto& renderObject : renderObjects) {
-      vkh::Mesh* meshP = loadedMeshes.get(renderObject->mesh);
-      if (meshP == nullptr) {
-        VK_WARN("RenderObject has invalid mesh handle, skipping draw call");
-        continue;
-      }
-      vkh::Mesh& mesh = *meshP;
+    auto objLists = buildRenderObjectLists(maths::Frustum{});
+
+    for (auto& renderObject : objLists.forward) {
+      auto& material = *renderObject.material;
+      auto& mesh = *renderObject.mesh;
 
       graphicsCmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                     *renderObject->material->pipeline);
+                                     material.pipeline);
 
       setupGraphicsCommandBuffer(info, graphicsCmdBuffer);
 
@@ -49,8 +47,8 @@ namespace keptech::vkh {
       };
 
       graphicsCmdBuffer.pushConstants<PushConstantData>(
-          *renderObject->material->pipelineLayout,
-          vk::ShaderStageFlagBits::eVertex, 0, pushConstantData);
+          material.pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0,
+          pushConstantData);
 
       for (const auto& submesh : mesh.submeshes) {
         if (mesh.indexBuffer.has_value()) {

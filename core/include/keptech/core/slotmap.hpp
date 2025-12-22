@@ -1,13 +1,15 @@
 #pragma once
 
-#include <map>
+#include <atomic>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 namespace keptech::core {
+  using SlotMapHandle = size_t;
   template <typename T> class SlotMap {
   public:
-    using Handle = size_t;
+    using Handle = SlotMapHandle;
 
     SlotMap() = default;
     SlotMap(const SlotMap&) = default;
@@ -95,7 +97,7 @@ namespace keptech::core {
       return data.at(indexMap.at(handle)).value();
     }
 
-    std::optional<T> erase(Handle handle) {
+    std::optional<T> erase(Handle handle, bool swapEnd = false) {
       auto it = indexMap.find(handle);
       if (it == indexMap.end()) {
         return std::nullopt;
@@ -104,7 +106,27 @@ namespace keptech::core {
       std::optional<T> value = std::move(data[index]);
       data[index] = std::nullopt;
       indexMap.erase(it);
-      if (index < nextFree) {
+      if (swapEnd) {
+        size_t lastIndex = data.size() - 1;
+        for (; lastIndex > 0; --lastIndex) {
+          if (data[lastIndex].has_value()) {
+            break;
+          }
+        }
+        if (!data[lastIndex].has_value()) {
+          if (index < nextFree) {
+            nextFree = index;
+          }
+          return value;
+        }
+
+        data[index] = std::move(data[lastIndex]);
+        data[lastIndex] = std::nullopt;
+
+        if (lastIndex < nextFree) {
+          nextFree = lastIndex;
+        }
+      } else if (index < nextFree) {
         nextFree = index;
       }
       return value;
@@ -138,6 +160,15 @@ namespace keptech::core {
       indexMap.clear();
     }
 
+    [[nodiscard]] std::vector<SlotMapHandle> handles() const {
+      std::vector<SlotMapHandle> handles;
+      handles.reserve(indexMap.size());
+      for (const auto& [handle, index] : indexMap) {
+        handles.push_back(handle);
+      }
+      return handles;
+    }
+
     std::vector<T*> values() {
       std::vector<T*> vals;
       for (auto& opt : data) {
@@ -148,10 +179,122 @@ namespace keptech::core {
       return vals;
     }
 
+    std::vector<std::optional<T>>& rawData() { return data; }
+
+    /// Packs the SlotMap to remove gaps from erased elements.
+    void pack() {
+      std::vector<std::optional<size_t>> handleIndices;
+
+      size_t indexMapSize = indexMap.size();
+      size_t dataSize = data.size();
+
+      size_t maxSize = std::max(indexMapSize, dataSize);
+
+      handleIndices.resize(maxSize);
+
+      for (const auto& [handle, index] : indexMap) {
+        handleIndices[index] = handle;
+      }
+
+      for (size_t i = 0; i < data.size(); ++i) {
+        std::optional<T>& dataOpt = data[i];
+        if (!dataOpt.has_value()) {
+          // Find next valid entry
+          size_t j = i + 1;
+          while (j < data.size() && !data[j].has_value()) {
+            ++j;
+          }
+          if (j >= data.size()) {
+            break; // No more valid entries
+          }
+          // Move entry from j to i
+          data[i] = std::move(data[j]);
+          data[j] = std::nullopt;
+
+          // Update indexMap
+          std::optional<size_t>& handleOpt = handleIndices[j];
+          if (handleOpt.has_value()) {
+            Handle handle = handleOpt.value();
+            indexMap[handle] = i;
+            handleOpt = std::nullopt;
+            handleIndices[i] = handle;
+          }
+        }
+      }
+
+      for (size_t i = data.size(); i-- > 0;) {
+        if (data[i].has_value()) {
+          nextFree = i + 1;
+          break;
+        }
+      }
+    }
+
+    [[nodiscard]] size_t size() const { return indexMap.size(); }
+
   private:
     size_t nextFree = 0;
     Handle nextHandle = 0;
     std::vector<std::optional<T>> data;
-    std::map<Handle, size_t> indexMap;
+    std::unordered_map<Handle, size_t> indexMap;
+  };
+
+  class SlotMapSmartHandle {
+  public:
+    SlotMapSmartHandle() = delete;
+    SlotMapSmartHandle(const SlotMapSmartHandle& o)
+        : handle(o.handle), refCount(o.refCount), deleter(o.deleter) {
+      if (!refCount)
+        return;
+      refCount->fetch_add(1, std::memory_order_seq_cst);
+    }
+    SlotMapSmartHandle& operator=(const SlotMapSmartHandle& o) {
+      if (this != &o) {
+        handle = o.handle;
+        deleter = o.deleter;
+        refCount = o.refCount;
+        if (!refCount)
+          return *this;
+        refCount->fetch_add(1, std::memory_order_seq_cst);
+      }
+      return *this;
+    }
+    SlotMapSmartHandle(SlotMapSmartHandle&& o) noexcept
+        : handle(o.handle), refCount(o.refCount),
+          deleter(std::move(o.deleter)) {
+      o.refCount = nullptr;
+    }
+    SlotMapSmartHandle& operator=(SlotMapSmartHandle&& o) noexcept {
+      if (this != &o) {
+        handle = o.handle;
+        deleter = std::move(o.deleter);
+        refCount = o.refCount;
+        o.refCount = nullptr;
+      }
+      return *this;
+    }
+    ~SlotMapSmartHandle() {
+      if (refCount == nullptr)
+        return;
+
+      if (refCount->fetch_sub(1, std::memory_order_seq_cst) == 1) {
+        deleter();
+        delete refCount;
+      }
+    }
+
+    template <typename T>
+    SlotMapSmartHandle(SlotMapHandle handle, SlotMap<T>& map)
+        : handle(handle), refCount(new std::atomic<size_t>(1)),
+          deleter([this, &map]() { map.erase(this->handle); }) {}
+
+    operator SlotMapHandle() const { return handle; }
+
+    [[nodiscard]] SlotMapHandle get() const { return handle; }
+
+  private:
+    SlotMapHandle handle;
+    std::atomic<size_t>* refCount;
+    std::function<void()> deleter;
   };
 } // namespace keptech::core

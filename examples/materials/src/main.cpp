@@ -1,12 +1,11 @@
 #include <keptech/app.hpp>
 
+#include <keptech/core/rendering/renderObject.hpp>
 #include <keptech/core/window.hpp>
 #include <keptech/gui.h>
 #include <keptech/vulkan/helpers/shader.hpp>
 #include <keptech/vulkan/material.hpp>
-#include <keptech/vulkan/renderObject.hpp>
 #include <keptech/vulkan/renderer.hpp>
-#include <span>
 #include <spdlog/spdlog.h>
 
 namespace shaders {
@@ -16,38 +15,45 @@ namespace shaders {
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 
-template <class R>
-  requires(keptech::core::renderer::Renderer<R>)
-class App : public keptech::App {
+template <class R> class App : public keptech::App {
 public:
   struct Materials {
-    using Material = R::Material;
+    using Material = R::MaterialHandle;
 
     Material basic;
   };
 
   struct Meshes {
-    using Mesh = R::Mesh;
+    using Mesh = R::MeshHandle;
 
     Mesh triangle;
   };
 
-  App(keptech::core::window::Window&& window, R* renderer,
-      Materials&& materials, Meshes& meshes)
-      : keptech::App(std::move(window)), renderer(renderer),
-        materials(std::move(materials)), meshes(std::move(meshes)) {}
+  App(keptech::core::window::Window&& window, R& renderer, Materials& materials,
+      Meshes& meshes)
+      : keptech::App(std::move(window)), renderer(&renderer),
+        materials(std::move(materials)), meshes(std::move(meshes)) {
+
+    auto& ecs = keptech::ecs::ECS::get();
+    auto& triangle = ecs.createEntity("Triangle");
+    ecs.addComponent<keptech::components::Transform>(
+        triangle, keptech::components::Transform());
+    ecs.addComponent<keptech::core::rendering::RenderObject>(
+        triangle, keptech::core::rendering::RenderObject{
+                      .mesh = meshes.triangle,
+                      .material = materials.basic,
+                  });
+  }
 
   void update() override {
     {
       keptech::gui::Frame frame("Demo");
       frame.text("Material Editor Example");
     }
-
-    renderer->addRenderObject(&renderObject);
   }
 
   void onEvent(const keptech::core::window::Window::Event& event) override {
-    // Handle window events here
+    (void)event;
   }
 
 private:
@@ -55,11 +61,6 @@ private:
 
   Materials materials;
   Meshes meshes;
-
-  keptech::vkh::RenderObject renderObject{
-      .mesh = meshes.triangle,
-      .material = &materials.basic,
-  };
 };
 
 int main() {
@@ -78,8 +79,7 @@ int main() {
                       renderer_res.error());
       return -1;
     }
-
-    auto renderer = std::move(renderer_res.value());
+    auto& renderer = *renderer_res.value();
 
     using Material = keptech::vkh::Material;
 
@@ -112,11 +112,11 @@ int main() {
       return -1;
     }
     auto materials = App::Materials{
-        .basic = std::move(materialRes.value()),
+        .basic = materialRes.value(),
     };
 
-    using Vertex = keptech::core::Vertex;
-    using UnpackedVertex = keptech::core::UnpackedVertex;
+    using Vertex = keptech::core::rendering::Mesh::Vertex;
+    using UnpackedVertex = keptech::core::rendering::Mesh::UnpackedVertex;
 
     std::array<Vertex, 3> triangleVertices = {
         UnpackedVertex{
@@ -149,7 +149,7 @@ int main() {
         .triangle = triangleMeshRes.value(),
     };
 
-    App app(std::move(window), &renderer, std::move(materials), meshes);
+    App app(std::move(window), renderer, materials, meshes);
 
     SPDLOG_INFO("Starting Material Editor");
     keptech::run(app, renderer);

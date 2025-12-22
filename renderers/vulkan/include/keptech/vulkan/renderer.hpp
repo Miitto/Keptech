@@ -1,16 +1,23 @@
 #pragma once
 
-#include "keptech/core/moveGuard.hpp"
-#include "keptech/core/slotmap.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
 #include "keptech/vulkan/helpers/pipeline.hpp"
 #include "keptech/vulkan/helpers/shader.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include "keptech/vulkan/material.hpp"
-#include "keptech/vulkan/renderObject.hpp"
+#include "keptech/vulkan/mesh.hpp"
 #include <algorithm>
 #include <expected>
 #include <functional>
+#include <keptech/core/components/transform.hpp>
+#include <keptech/core/ecs/ecs.hpp>
+#include <keptech/core/maths/frustum.hpp>
+#include <keptech/core/maths/transform.hpp>
+#include <keptech/core/moveGuard.hpp>
+#include <keptech/core/renderer.hpp>
+#include <keptech/core/rendering/mesh.hpp>
+#include <keptech/core/rendering/renderObject.hpp>
+#include <keptech/core/slotmap.hpp>
 #include <keptech/vulkan/structs.hpp>
 #include <memory>
 #include <string>
@@ -22,11 +29,11 @@ namespace keptech::core::window {
 }
 
 namespace keptech::vkh {
-  class Renderer {
+  class Renderer : public core::renderer::Renderer {
   public:
-    using Mesh = core::SlotMap<vkh::Mesh>::Handle;
-    using Material = vkh::Material;
-    using RenderObject = vkh::RenderObject;
+    using Shader = keptech::vkh::Shader;
+    using MaterialHandle = core::rendering::Material::Handle;
+    using MeshHandle = core::rendering::Mesh::Handle;
 
     struct Queues {
       Queue graphics;
@@ -91,8 +98,16 @@ namespace keptech::vkh {
         : window(&window), vkcore(std::move(vkcore)), allocator(allocator),
           imGuiObjects(std::move(imGuiObjects)) {}
 
+    template <typename... Args> static Renderer& addToEcs(Renderer&& renderer) {
+      auto& ecs = ecs::ECS::get();
+      return ecs.registerSystem<Renderer>(
+          ecs.signatureFromComponents<components::Transform,
+                                      core::rendering::RenderObject>(),
+          std::move(renderer));
+    }
+
   public:
-    std::expected<Renderer, std::string> static create(
+    std::expected<Renderer*, std::string> static create(
         const char* const name, core::window::Window& window);
 
     Renderer() = delete;
@@ -101,22 +116,19 @@ namespace keptech::vkh {
     Renderer(Renderer&&) noexcept = default;
     Renderer& operator=(Renderer&&) = default;
 
-    std::expected<core::SlotMap<Mesh>::Handle, std::string>
-    meshFromData(std::span<const Vertex> vertices,
+    std::expected<core::rendering::Mesh::Handle, std::string>
+    meshFromData(std::span<const core::rendering::Mesh::Vertex> vertices,
                  std::span<const uint32_t> indices,
-                 std::vector<vkh::Mesh::Submesh> submeshes = {},
+                 std::vector<core::rendering::Mesh::Submesh> submeshes = {},
                  bool backgroundLoad = false);
-    void unloadMesh(core::SlotMap<Mesh>::Handle handle) {
-      auto opt = loadedMeshes.erase(handle);
-      if (opt.has_value()) {
-        opt->destroy(allocator);
-      }
-    }
+    void unloadMesh(core::SlotMapHandle handle) { loadedMeshes.erase(handle); }
 
-    std::expected<Material, std::string>
-    createMaterial(Material::Stage stage, GraphicsPipelineConfig&& config);
-    std::expected<Material, std::string>
-    createMaterial(Material::Stage stage, GraphicsPipelineConfig& config);
+    std::expected<core::rendering::Material::Handle, std::string>
+    createMaterial(core::rendering::Material::Stage stage,
+                   GraphicsPipelineConfig&& config);
+    std::expected<core::rendering::Material::Handle, std::string>
+    createMaterial(core::rendering::Material::Stage stage,
+                   GraphicsPipelineConfig& config);
 
     std::expected<Shader, std::string>
     createShader(const unsigned char* const code, size_t size);
@@ -127,15 +139,25 @@ namespace keptech::vkh {
 
     void newFrame();
 
-    void addRenderObject(RenderObject* renderObject) {
-      renderObjects.emplace_back(renderObject);
-    }
-
     void render();
 
     ~Renderer();
 
   private:
+    struct VkRenderObject {
+      keptech::maths::Transform transform;
+      vkh::Material* material;
+      vkh::Mesh* mesh;
+    };
+
+    struct ObjectLists {
+      std::vector<VkRenderObject> deferred;
+      std::vector<VkRenderObject> forward;
+      std::vector<VkRenderObject> transparent;
+    };
+
+    ObjectLists buildRenderObjectLists(const maths::Frustum& frustum);
+
     void checkSwapchain();
     std::expected<void, std::string> recreateSwapchain();
 
@@ -177,10 +199,9 @@ namespace keptech::vkh {
 
     uint8_t frameIndex = 0;
 
-    std::vector<RenderObject*> renderObjects;
-
-    std::vector<OnGoingCmdTransfer> ongoingCommandBuffers;
-    core::SlotMap<vkh::Mesh> loadedMeshes;
+    std::vector<OnGoingCmdTransfer> ongoingCommandBuffers = {};
+    core::SlotMap<vkh::Mesh> loadedMeshes = {};
+    core::SlotMap<vkh::Material> loadedMaterials = {};
   };
 
   namespace setup {

@@ -42,5 +42,15 @@ target_precompile_headers(${PROJECT_NAME} PUBLIC
   <string>
   <vector>
   <array>
+  <unordered_map>
+  <concepts>
+  <set>
+  <type_traits>
+  <spdlog/spdlog.h>
+  <algorithm>
+  <expected>
+  <optional>
+  <functional>
+  <memory>
   <glm/glm.hpp>
 )

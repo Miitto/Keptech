@@ -31,8 +31,8 @@ namespace keptech::vkh {
   };
 
   struct PipelineLayoutConfig {
-    std::vector<vk::DescriptorSetLayout> setLayouts;
-    std::vector<vk::PushConstantRange> pushConstantRanges;
+    std::vector<vk::DescriptorSetLayout> setLayouts = {};
+    std::vector<vk::PushConstantRange> pushConstantRanges = {};
 
     vk::PipelineLayoutCreateInfo build() noexcept {
       return vk::PipelineLayoutCreateInfo{
@@ -67,13 +67,13 @@ namespace keptech::vkh {
 
   struct GraphicsPipelineConfig {
     struct VertexInput {
-      std::span<vk::VertexInputBindingDescription> bindings;
-      std::span<vk::VertexInputAttributeDescription> attributes;
+      std::span<vk::VertexInputBindingDescription> bindings = {};
+      std::span<vk::VertexInputAttributeDescription> attributes = {};
     };
 
-    RenderingConfig rendering;
-    std::span<vk::PipelineShaderStageCreateInfo> shaders;
-    VertexInput vertexInput;
+    RenderingConfig rendering = {};
+    std::span<vk::PipelineShaderStageCreateInfo> shaders = {};
+    VertexInput vertexInput = {};
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly = {
         .topology = vk::PrimitiveTopology::eTriangleList};
     vk::PipelineViewportStateCreateInfo viewport = {.viewportCount = 1,

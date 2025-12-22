@@ -26,7 +26,7 @@ namespace keptech {
       return window;
     }
 
-  private:
+  protected:
     core::window::Window window;
   };
 
@@ -38,7 +38,7 @@ namespace keptech {
                                         const core::window::Window::Event&>;
 
   template <typename T, class R>
-    requires(AppDerived<T> && core::renderer::Renderer<R>)
+    requires(AppDerived<T> && core::renderer::CRenderer<R>)
   void run(T& app, R& renderer) {
     keptech::core::window::Window& window = app.getWindow();
 
@@ -76,7 +76,7 @@ namespace keptech {
         while (window.pollEvent(event)) {
           ImGui_ImplSDL3_ProcessEvent(&event);
           if ((io.WantCaptureKeyboard && isKeyboardEvent(event)) ||
-              io.WantCaptureMouse && isMouseEvent(event)) {
+              (io.WantCaptureMouse && isMouseEvent(event))) {
             continue;
           }
           app.onEvent(event);
