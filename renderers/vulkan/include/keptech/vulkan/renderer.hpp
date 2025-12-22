@@ -146,8 +146,8 @@ namespace keptech::vkh {
   private:
     struct VkRenderObject {
       keptech::maths::Transform transform;
-      vkh::Material* material;
-      vkh::Mesh* mesh;
+      vkh::Material* material = nullptr;
+      vkh::Mesh* mesh = nullptr;
     };
 
     struct ObjectLists {

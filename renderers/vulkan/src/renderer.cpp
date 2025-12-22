@@ -254,9 +254,9 @@ namespace keptech::vkh {
     return meshHandle;
   }
 
-  std::expected<Renderer::MaterialHandle, std::string>
-  Renderer::createMaterial(Material::Stage stage,
-                           GraphicsPipelineConfig&& config) {
+  std::expected<Renderer::MaterialHandle, std::string> Renderer::createMaterial(
+      Material::Stage stage,
+      GraphicsPipelineConfig&& config) { // NOLINT: Allow passing temporaries
     return createMaterial(stage, static_cast<GraphicsPipelineConfig&>(config));
   }
 
