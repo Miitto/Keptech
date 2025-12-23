@@ -101,7 +101,26 @@ namespace keptech::ecs {
     template <typename T> void setSystemSignature(Signature signature) {
       systemManager->setSignature<T>(signature);
     }
+
+    inline void preUpdateAllSystems(const FrameData& frameData) {
+      systemManager->preUpdateAllSystems(frameData);
+    }
+
+    inline void updateAllSystems(const FrameData& frameData) {
+      systemManager->updateAllSystems(frameData);
+    }
+
+    inline void postUpdateAllSystems(const FrameData& frameData) {
+      systemManager->postUpdateAllSystems(frameData);
+    }
 #pragma endregion
+
+    void destroy() {
+      entityManager.reset();
+      componentManager.reset();
+      systemManager.reset();
+    }
+
   private:
     static ECS singleton;
 

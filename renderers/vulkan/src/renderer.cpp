@@ -10,7 +10,7 @@
 
 namespace keptech::vkh {
   static_assert(core::renderer::CRenderer<Renderer>,
-                "Renderer does not satisfy CRenderer concept");
+                "Renderer must satisfy CRenderer concept");
 
   void Renderer::Pools::resetAll() {
     std::set<vk::raii::CommandPool*> unique{
@@ -85,7 +85,7 @@ namespace keptech::vkh {
     checkSwapchain();
     checkCompletedCommandBuffers();
 
-    auto& sync = vkcore.frameResources[frameIndex].syncObjects;
+    auto& sync = vkcore.frameResources[nextFrameIndex].syncObjects;
     auto nextImageRes = vkcore.swapchain.getNextImage(
         vkcore.device, sync.drawingFence, sync.presentCompleteSemaphore);
 
@@ -108,16 +108,17 @@ namespace keptech::vkh {
     }
 
     Frame frameInfo{
-        .index = frameIndex,
+        .index = nextFrameIndex,
         .imageIndex = static_cast<uint8_t>(imageIndex),
-        .syncObjects = std::ref(vkcore.frameResources[frameIndex].syncObjects),
-        .pools = std::ref(vkcore.frameResources[frameIndex].pools),
+        .syncObjects =
+            std::ref(vkcore.frameResources[nextFrameIndex].syncObjects),
+        .pools = std::ref(vkcore.frameResources[nextFrameIndex].pools),
     };
 
     frameInfo.pools.get().resetAll();
-    submittedCommandBuffers[frameIndex].clear();
+    submittedCommandBuffers[nextFrameIndex].clear();
 
-    this->frameIndex = (this->frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+    this->nextFrameIndex = (this->nextFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 
     return frameInfo;
   }
@@ -176,7 +177,10 @@ namespace keptech::vkh {
 
     vkcore.device.logical.waitIdle();
 
+    checkCompletedCommandBuffers();
+
     loadedMeshes.reset();
+    loadedMaterials.reset();
 
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL3_Shutdown();
@@ -184,6 +188,8 @@ namespace keptech::vkh {
 
     allocator.destroy();
     vkcore.device.logical.waitIdle();
+
+    VK_INFO("Vulkan renderer shut down cleanly");
   }
 
   std::expected<void, std::string> Renderer::recreateSwapchain() {
@@ -197,7 +203,7 @@ namespace keptech::vkh {
 
     std::optional<OldSwapchain> oldSwapchain = OldSwapchain{
         .swapchain = std::move(vkcore.swapchain),
-        .frameIndex = frameIndex,
+        .frameIndex = nextFrameIndex,
     };
 
     vkcore.swapchain = std::move(newSwapchain);
@@ -222,11 +228,12 @@ namespace keptech::vkh {
 
   std::expected<core::rendering::Mesh::Handle, std::string>
   Renderer::meshFromData(
+      const std::string& name,
       std::span<const core::rendering::Mesh::Vertex> vertices,
       std::span<const uint32_t> indices,
       std::vector<vkh::Mesh::Submesh> submeshes, bool backgroundLoad) {
     Pools& pools =
-        vkcore.frameResources[frameIndex].pools; // Use current frame pools
+        vkcore.frameResources[nextFrameIndex].pools; // Use current frame pools
 
     auto res = vkh::Mesh::fromData(vkcore.device.logical, allocator,
                                    backgroundLoad ? vkcore.transferPool
@@ -242,6 +249,7 @@ namespace keptech::vkh {
     else {
       auto waitRes = vkcore.device.logical.waitForFences(
           *res.value().second.fence, VK_TRUE, UINT64_MAX);
+      res.value().second.buffer.destroy(allocator);
       if (waitRes != vk::Result::eSuccess) {
         return std::unexpected("Failed to wait for mesh upload fence");
       }
@@ -249,9 +257,34 @@ namespace keptech::vkh {
 
     auto handle = loadedMeshes.emplace(std::move(res.value().first));
 
-    core::rendering::Mesh::Handle meshHandle(handle, loadedMeshes);
+    core::rendering::Mesh::Handle meshHandle(
+        handle, [this, name]() { unloadMesh(name); });
 
     return meshHandle;
+  }
+
+  void Renderer::unloadMesh(const std::string& name) {
+    auto found = meshNameMap.find(name);
+    if (found != meshNameMap.end()) {
+      loadedMeshes.erase(found->second.get());
+      meshNameMap.erase(found);
+    }
+  }
+
+  std::optional<core::rendering::Mesh::Handle>
+  Renderer::getMesh(const std::string& name) {
+    auto found = meshNameMap.find(name);
+    if (found != meshNameMap.end()) {
+      core::SlotMapWeakHandle weakHandle = found->second;
+      if (!weakHandle.valid()) {
+        meshNameMap.erase(found);
+        return std::nullopt;
+      }
+      auto handle = core::rendering::Mesh::Handle(
+          weakHandle, [this, name]() { unloadMesh(name); });
+      return handle;
+    }
+    return std::nullopt;
   }
 
   std::expected<Renderer::MaterialHandle, std::string> Renderer::createMaterial(

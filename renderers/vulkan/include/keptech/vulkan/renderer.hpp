@@ -115,7 +115,7 @@ namespace keptech::vkh {
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
     Renderer(Renderer&&) noexcept = default;
-    Renderer& operator=(Renderer&&) = default;
+    Renderer& operator=(Renderer&&) noexcept = default;
 
     std::expected<core::rendering::Mesh::Handle, std::string>
     meshFromData(const std::string& name,
@@ -123,7 +123,9 @@ namespace keptech::vkh {
                  std::span<const uint32_t> indices,
                  std::vector<core::rendering::Mesh::Submesh> submeshes = {},
                  bool backgroundLoad = false);
-    void unloadMesh(const std::string& handle) { loadedMeshes.erase(handle); }
+    void unloadMesh(const std::string& name);
+    std::optional<core::rendering::Mesh::Handle>
+    getMesh(const std::string& name);
 
     std::expected<core::rendering::Material::Handle, std::string>
     createMaterial(core::rendering::Material::Stage stage,
@@ -143,7 +145,7 @@ namespace keptech::vkh {
 
     void render();
 
-    ~Renderer();
+    ~Renderer() override;
 
   private:
     struct VkRenderObject {
@@ -202,8 +204,12 @@ namespace keptech::vkh {
     uint8_t nextFrameIndex = 0;
 
     std::vector<OnGoingCmdTransfer> ongoingCommandBuffers = {};
-    std::unordered_map<std::string, vkh::Mesh> loadedMeshes = {};
-    std::unordered_map<std::string, vkh::Material> loadedMaterials = {};
+
+    core::SlotMap<vkh::Mesh> loadedMeshes = {};
+    core::SlotMap<vkh::Material> loadedMaterials = {};
+    std::unordered_map<std::string, core::SlotMapWeakHandle> meshNameMap = {};
+    std::unordered_map<std::string, core::SlotMapWeakHandle> materialNameMap =
+        {};
   };
 
   namespace setup {

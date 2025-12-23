@@ -139,7 +139,8 @@ int main() {
         },
     };
 
-    auto triangleMeshRes = renderer.meshFromData(triangleVertices, {});
+    auto triangleMeshRes =
+        renderer.meshFromData("Triangle", triangleVertices, {});
     if (!triangleMeshRes) {
       SPDLOG_CRITICAL("Failed to create triangle mesh: {}",
                       triangleMeshRes.error());
@@ -156,6 +157,8 @@ int main() {
   }
 
   keptech::core::window::shutdown();
+
+  SPDLOG_INFO("Material Editor exited cleanly");
 
   return 0;
 }

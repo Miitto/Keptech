@@ -77,6 +77,24 @@ namespace keptech::ecs {
       }
     }
 
+    inline void preUpdateAllSystems(const FrameData& frameData) {
+      for (auto& [_, system] : systems) {
+        system->preUpdate(frameData);
+      }
+    }
+
+    inline void updateAllSystems(const FrameData& frameData) {
+      for (auto& [_, system] : systems) {
+        system->onUpdate(frameData);
+      }
+    }
+
+    inline void postUpdateAllSystems(const FrameData& frameData) {
+      for (auto& [_, system] : systems) {
+        system->postUpdate(frameData);
+      }
+    }
+
   private:
     std::unordered_map<TypeHash, std::unique_ptr<System>> systems{};
     std::unordered_map<TypeHash, Signature> signatures{};

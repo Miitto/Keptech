@@ -5,6 +5,7 @@
 #include <imgui/imgui.h>
 #include <keptech/core/renderer.hpp>
 #include <keptech/core/window.hpp>
+#include <keptech/ecs/ecs.hpp>
 
 namespace keptech {
   class App {
@@ -70,6 +71,12 @@ namespace keptech {
       }
     };
 
+    auto& ecs = keptech::ecs::ECS::get();
+
+    keptech::ecs::FrameData frameData{};
+
+    auto now = std::chrono::high_resolution_clock::now();
+
     while (true) {
       {
         keptech::core::window::Window::Event event;
@@ -86,11 +93,25 @@ namespace keptech {
         break;
       }
 
+      auto newTime = std::chrono::high_resolution_clock::now();
+
+      float dt = std::chrono::duration<float, std::chrono::seconds::period>(
+                     newTime - now)
+                     .count();
+
+      frameData.dt = dt;
+
+      now = newTime;
+
       renderer.newFrame();
 
-      app.update();
+      ecs.preUpdateAllSystems(frameData);
+      ecs.updateAllSystems(frameData);
+      ecs.postUpdateAllSystems(frameData);
 
       renderer.render();
     }
+
+    ecs.destroy();
   }
 } // namespace keptech
