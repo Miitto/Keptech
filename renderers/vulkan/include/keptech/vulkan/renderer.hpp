@@ -128,18 +128,10 @@ namespace keptech::vkh {
     getMesh(const std::string& name);
 
     std::expected<core::rendering::Material::Handle, std::string>
-    createMaterial(core::rendering::Material::Stage stage,
-                   GraphicsPipelineConfig&& config);
-    std::expected<core::rendering::Material::Handle, std::string>
-    createMaterial(core::rendering::Material::Stage stage,
-                   GraphicsPipelineConfig& config);
+    createMaterial(const Material::CreateInfo& createInfo);
 
     std::expected<Shader, std::string>
     createShader(const unsigned char* const code, size_t size);
-
-    [[nodiscard]] const vk::Format& getSwapchainImageFormat() const {
-      return vkcore.swapchain.config().format.format;
-    }
 
     void newFrame();
 
@@ -148,6 +140,10 @@ namespace keptech::vkh {
     ~Renderer() override;
 
   private:
+    [[nodiscard]] const vk::Format& getSwapchainImageFormat() const {
+      return vkcore.swapchain.config().format.format;
+    }
+
     struct VkRenderObject {
       keptech::maths::Transform transform;
       vkh::Material* material = nullptr;

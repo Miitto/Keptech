@@ -1,5 +1,6 @@
 #include <keptech/app.hpp>
 
+#include <keptech/core/rendering/material.hpp>
 #include <keptech/core/rendering/renderObject.hpp>
 #include <keptech/core/window.hpp>
 #include <keptech/gui.h>
@@ -83,28 +84,25 @@ int main() {
 
     using Material = keptech::vkh::Material;
 
-    auto basicShaderRes =
-        renderer.createShader(shaders::basic, shaders::basic_size);
-    if (!basicShaderRes) {
-      SPDLOG_CRITICAL("Failed to create basic shader: {}",
-                      basicShaderRes.error());
-      return -1;
-    }
-    auto basicShader = std::move(basicShaderRes.value());
-
-    auto basicShaderStages = basicShader.vertFrag();
-
-    auto materialRes = renderer.createMaterial(
-        Material::Stage::Forward,
-        keptech::vkh::GraphicsPipelineConfig{
-            .rendering = {.colorAttachmentFormats =
-                              {renderer.getSwapchainImageFormat()}},
-            .shaders = {basicShaderStages},
-            .layout = {.pushConstantRanges = {{vk::PushConstantRange{
-                           .stageFlags = vk::ShaderStageFlagBits::eVertex,
-                           .offset = 0,
-                           .size = sizeof(vk::DeviceAddress),
-                       }}}},
+    auto materialRes = renderer.createMaterial({
+        .stage = Material::Stage::Forward,
+        .pipelineConfig = {
+            .shaders = {{
+              .code = shaders::basic,
+              .size = shaders::basic_size,
+            }},
+            .attachments = {
+                .colorFormats = {keptech::core::rendering::Format::Default},
+            },
+            .layout = {
+                .pushConstantRanges = {
+                    {
+                        .stages = keptech::core::rendering::ShaderStages::Vertex,
+                        .size = sizeof(vk::DeviceAddress),
+                    },
+                },
+            },
+        },
         });
     if (!materialRes) {
       SPDLOG_CRITICAL("Failed to create basic material: {}",

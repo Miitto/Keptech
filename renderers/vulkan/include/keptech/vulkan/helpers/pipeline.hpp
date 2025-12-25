@@ -1,5 +1,6 @@
 #pragma once
 
+#include <keptech/core/rendering/material.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace keptech::vkh {

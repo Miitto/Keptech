@@ -1,5 +1,7 @@
 #include "keptech/vulkan/renderer.hpp"
+#include "keptech/core/rendering/pipeline.hpp"
 #include "macros.hpp"
+#include "vulkan/vulkan.hpp"
 
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
@@ -11,6 +13,120 @@
 namespace keptech::vkh {
   static_assert(core::renderer::CRenderer<Renderer>,
                 "Renderer must satisfy CRenderer concept");
+
+  namespace {
+    vk::ShaderStageFlagBits from(core::rendering::ShaderStages stages) {
+      switch (stages) {
+      case core::rendering::ShaderStages::Vertex:
+        return vk::ShaderStageFlagBits::eVertex;
+      case core::rendering::ShaderStages::Fragment:
+        return vk::ShaderStageFlagBits::eFragment;
+      case core::rendering::ShaderStages::Compute:
+        return vk::ShaderStageFlagBits::eCompute;
+      }
+    }
+
+    vk::ShaderStageFlags
+    from(core::Bitflag<core::rendering::ShaderStages> stages) {
+      using S = core::rendering::ShaderStages;
+      vk::ShaderStageFlags flags = {};
+      if (stages.has(S::Vertex)) {
+        flags = flags | vk::ShaderStageFlagBits::eVertex;
+      }
+      if (stages.has(S::Fragment)) {
+        flags = flags | vk::ShaderStageFlagBits::eFragment;
+      }
+      if (stages.has(S::Compute)) {
+        flags = flags | vk::ShaderStageFlagBits::eCompute;
+      }
+
+      return flags;
+    }
+
+    vk::Format from(core::rendering::Format format, vk::Format defaultFormat) {
+      switch (format) {
+      case core::rendering::Format::RGB8:
+        return vk::Format::eR8G8B8Unorm;
+      case core::rendering::Format::RGBA8:
+        return vk::Format::eR8G8B8A8Unorm;
+      case core::rendering::Format::Default:
+        return defaultFormat;
+      default:
+        return vk::Format::eUndefined;
+      }
+    }
+
+    vk::PrimitiveTopology from(core::rendering::Topology topology) {
+      switch (topology) {
+      case core::rendering::Topology::TriangleList:
+        return vk::PrimitiveTopology::eTriangleList;
+      case core::rendering::Topology::TriangleStrip:
+        return vk::PrimitiveTopology::eTriangleStrip;
+      case core::rendering::Topology::LineList:
+        return vk::PrimitiveTopology::eLineList;
+      case core::rendering::Topology::LineStrip:
+        return vk::PrimitiveTopology::eLineStrip;
+      case core::rendering::Topology::PointList:
+        return vk::PrimitiveTopology::ePointList;
+      default:
+        return vk::PrimitiveTopology::eTriangleList;
+      }
+    }
+
+    vk::PolygonMode from(core::rendering::PolygonMode mode) {
+      switch (mode) {
+      case core::rendering::PolygonMode::Fill:
+        return vk::PolygonMode::eFill;
+      case core::rendering::PolygonMode::Line:
+        return vk::PolygonMode::eLine;
+      case core::rendering::PolygonMode::Point:
+        return vk::PolygonMode::ePoint;
+      default:
+        return vk::PolygonMode::eFill;
+      }
+    }
+
+    vk::CullModeFlags from(core::rendering::CullMode mode) {
+      switch (mode) {
+      case core::rendering::CullMode::None:
+        return vk::CullModeFlagBits::eNone;
+      case core::rendering::CullMode::Front:
+        return vk::CullModeFlagBits::eFront;
+      case core::rendering::CullMode::Back:
+        return vk::CullModeFlagBits::eBack;
+      case core::rendering::CullMode::FrontAndBack:
+        return vk::CullModeFlagBits::eFrontAndBack;
+      default:
+        return vk::CullModeFlagBits::eNone;
+      }
+    }
+
+    vk::FrontFace from(core::rendering::FrontFace face) {
+      switch (face) {
+      case core::rendering::FrontFace::Clockwise:
+        return vk::FrontFace::eClockwise;
+      case core::rendering::FrontFace::CounterClockwise:
+        return vk::FrontFace::eCounterClockwise;
+      default:
+        return vk::FrontFace::eClockwise;
+      }
+    }
+
+    vk::BlendFactor from(core::rendering::BlendFactor factor) {
+      switch (factor) {
+      case core::rendering::BlendFactor::Zero:
+        return vk::BlendFactor::eZero;
+      case core::rendering::BlendFactor::One:
+        return vk::BlendFactor::eOne;
+      case core::rendering::BlendFactor::SrcAlpha:
+        return vk::BlendFactor::eSrcAlpha;
+      case core::rendering::BlendFactor::OneMinusSrcAlpha:
+        return vk::BlendFactor::eOneMinusSrcAlpha;
+      default:
+        return vk::BlendFactor::eOne;
+      }
+    }
+  } // namespace
 
   void Renderer::Pools::resetAll() {
     std::set<vk::raii::CommandPool*> unique{
@@ -287,15 +403,85 @@ namespace keptech::vkh {
     return std::nullopt;
   }
 
-  std::expected<Renderer::MaterialHandle, std::string> Renderer::createMaterial(
-      Material::Stage stage,
-      GraphicsPipelineConfig&& config) { // NOLINT: Allow passing temporaries
-    return createMaterial(stage, static_cast<GraphicsPipelineConfig&>(config));
-  }
-
   std::expected<Renderer::MaterialHandle, std::string>
-  Renderer::createMaterial(Material::Stage stage,
-                           GraphicsPipelineConfig& config) {
+  Renderer::createMaterial(const Material::CreateInfo& createInfo) {
+    GraphicsPipelineConfig config;
+
+    std::vector<Shader> shaderModules;
+
+    std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
+
+    for (auto& shaderInfo : createInfo.pipelineConfig.shaders) {
+      VKH_MAKE(shaderModule,
+               Shader::create(vkcore.device.logical, shaderInfo.code,
+                              shaderInfo.size),
+               "Failed to create shader module");
+
+      shaderModules.push_back(std::move(shaderModule));
+
+      auto& shder = shaderModules.back();
+
+      for (auto& stage : shaderInfo.stages) {
+        vk::PipelineShaderStageCreateInfo stageInfo{
+            .stage = from(stage.stage),
+            .module = shder.get(),
+            .pName = stage.name.data(),
+        };
+
+        shaderStages.push_back(stageInfo);
+      }
+    }
+
+    config.shaders = shaderStages;
+
+    for (auto& colorFormat :
+         createInfo.pipelineConfig.attachments.colorFormats) {
+      config.rendering.colorAttachmentFormats.push_back(
+          from(colorFormat, getSwapchainImageFormat()));
+    }
+
+    config.rendering.depthAttachmentFormat =
+        from(createInfo.pipelineConfig.attachments.depthFormat,
+             vk::Format::eD16Unorm);
+    config.rendering.stencilAttachmentFormat =
+        from(createInfo.pipelineConfig.attachments.stencilFormat,
+             vk::Format::eUndefined);
+
+    // Input Assembly
+    config.inputAssembly.topology = from(createInfo.pipelineConfig.topology);
+
+    // Rasterizer
+    config.rasterizer.polygonMode =
+        from(createInfo.pipelineConfig.rasterizer.polygonMode);
+    config.rasterizer.cullMode =
+        from(createInfo.pipelineConfig.rasterizer.cullMode);
+    config.rasterizer.frontFace =
+        from(createInfo.pipelineConfig.rasterizer.frontFace);
+
+    // Blending
+    for (auto& colorFormat :
+         createInfo.pipelineConfig.attachments.colorFormats) {
+      config.blendAttachments.push_back(vk::PipelineColorBlendAttachmentState{
+          .blendEnable = createInfo.pipelineConfig.blend.enableBlending,
+          .srcColorBlendFactor = from(createInfo.pipelineConfig.blend.src),
+          .dstColorBlendFactor = from(createInfo.pipelineConfig.blend.dst),
+          .colorWriteMask =
+              vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+              vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+      });
+    }
+
+    // Layout
+    for (auto& pushConstant :
+         createInfo.pipelineConfig.layout.pushConstantRanges) {
+      vk::PushConstantRange range{
+          .stageFlags = from(pushConstant.stages),
+          .offset = pushConstant.offset,
+          .size = pushConstant.size,
+      };
+      config.layout.pushConstantRanges.push_back(range);
+    }
+
     auto vkLayoutInfo = config.layout.build();
 
     VK_MAKE(pipelineLayout,
@@ -313,7 +499,7 @@ namespace keptech::vkh {
         .pipeline = std::move(pipeline),
         .pipelineLayout = std::move(pipelineLayout),
     };
-    mat.stage = stage;
+    mat.stage = createInfo.stage;
 
     auto handle = loadedMaterials.emplace(std::move(mat));
     return MaterialHandle(handle, loadedMaterials);
