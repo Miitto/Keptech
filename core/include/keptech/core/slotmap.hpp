@@ -379,7 +379,7 @@ namespace keptech::core {
 
       refCount->delStrongRef();
 
-      if (refCount->hasStrongRefs()) {
+      if (!refCount->hasStrongRefs()) {
         deleter();
       }
 

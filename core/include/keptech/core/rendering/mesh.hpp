@@ -12,16 +12,17 @@ namespace keptech::core::rendering {
       glm::vec3 normal;
       float uvY;
       glm::vec4 color;
+      glm::vec4 tangent;
 
       constexpr inline static Vertex create(glm::vec3 pos, glm::vec2 uv,
-                                            glm::vec3 norm, glm::vec4 col) {
-        return Vertex{
-            .position = pos,
-            .uvX = uv.x,
-            .normal = norm,
-            .uvY = uv.y,
-            .color = col,
-        };
+                                            glm::vec3 norm, glm::vec4 col,
+                                            glm::vec4 tang = glm::vec4(0.0f)) {
+        return Vertex{.position = pos,
+                      .uvX = uv.x,
+                      .normal = norm,
+                      .uvY = uv.y,
+                      .color = col,
+                      .tangent = tang};
       }
     };
 
@@ -41,6 +42,14 @@ namespace keptech::core::rendering {
       uint32_t indexOffset;
     };
 
+    std::string name;
     std::vector<Submesh> submeshes;
+  };
+
+  struct MeshData {
+    std::string name;
+    std::vector<rendering::Mesh::Vertex> vertices;
+    std::vector<uint32_t> indices = {};
+    std::vector<rendering::Mesh::Submesh> submeshes = {};
   };
 } // namespace keptech::core::rendering

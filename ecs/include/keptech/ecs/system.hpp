@@ -2,6 +2,7 @@
 
 #include "base.hpp"
 #include "frameData.hpp"
+#include <functional>
 #include <set>
 
 namespace keptech::ecs {
@@ -13,13 +14,19 @@ namespace keptech::ecs {
   public:
     System() = default;
     System(const System&) = default;
-    System(System&&) = delete;
+    System(System&&) noexcept = default;
     System& operator=(const System&) = default;
-    System& operator=(System&&) = delete;
+    System& operator=(System&&) = default;
 
     virtual void preUpdate(const FrameData& frameData) { (void)frameData; }
     virtual void onUpdate(const FrameData& frameData) { (void)frameData; }
     virtual void postUpdate(const FrameData& frameData) { (void)frameData; }
+
+    virtual void onEntityAdded(EntityHandle entity) { entities.insert(entity); }
+
+    virtual void onEntityRemoved(EntityHandle entity) {
+      entities.erase(entity);
+    }
 
     std::function<void(const FrameData&)> getPreUpdateFunction() {
       return [this](const FrameData& frameData) { this->preUpdate(frameData); };
@@ -30,6 +37,13 @@ namespace keptech::ecs {
     std::function<void(const FrameData&)> getPostUpdateFunction() {
       return
           [this](const FrameData& frameData) { this->postUpdate(frameData); };
+    }
+
+    std::function<void(EntityHandle)> getOnEntityAddedFunction() {
+      return [this](EntityHandle entity) { this->onEntityAdded(entity); };
+    }
+    std::function<void(EntityHandle)> getOnEntityRemovedFunction() {
+      return [this](EntityHandle entity) { this->onEntityRemoved(entity); };
     }
 
     virtual ~System() = default;

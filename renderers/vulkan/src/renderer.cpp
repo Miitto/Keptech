@@ -7,6 +7,7 @@
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
 #include <keptech/core/renderer.hpp>
+#include <keptech/core/rendering/gltf/loaded.hpp>
 #include <keptech/core/window.hpp>
 #include <set>
 
@@ -342,19 +343,49 @@ namespace keptech::vkh {
     }
   }
 
+  std::expected<std::vector<core::rendering::Mesh::Handle>, std::string>
+  Renderer::loadMesh(const std::string_view path, bool backgroundLoad) {
+    auto loadedGltfRes = core::gltf::LoadedGltf::fromFile(path);
+    if (!loadedGltfRes) {
+      return std::unexpected(fmt::format("Failed to load glTF file '{}': {}",
+                                         path, loadedGltfRes.error()));
+    }
+
+    auto& loadedGltf = loadedGltfRes.value();
+
+    if (loadedGltf.meshses.empty()) {
+      return std::unexpected(
+          fmt::format("No meshes found in glTF file '{}'", path));
+    }
+
+    std::vector<core::rendering::Mesh::Handle> meshHandles;
+    for (auto& [name, meshDataPtr] : loadedGltf.meshses) {
+      auto& meshData = *meshDataPtr;
+
+      auto meshRes = meshFromData(meshData, backgroundLoad);
+
+      if (!meshRes) {
+        return std::unexpected(
+            fmt::format("Failed to create mesh '{}' from glTF file '{}': {}",
+                        name, path, meshRes.error()));
+      }
+
+      auto meshHandle = meshRes.value();
+      meshHandles.push_back(std::move(meshHandle));
+    }
+
+    return meshHandles;
+  }
+
   std::expected<core::rendering::Mesh::Handle, std::string>
-  Renderer::meshFromData(
-      const std::string& name,
-      std::span<const core::rendering::Mesh::Vertex> vertices,
-      std::span<const uint32_t> indices,
-      std::vector<vkh::Mesh::Submesh> submeshes, bool backgroundLoad) {
+  Renderer::meshFromData(const core::rendering::MeshData& meshData,
+                         bool backgroundLoad) {
     Pools& pools =
         vkcore.frameResources[nextFrameIndex].pools; // Use current frame pools
 
-    auto res = vkh::Mesh::fromData(vkcore.device.logical, allocator,
-                                   backgroundLoad ? vkcore.transferPool
-                                                  : *pools.graphics,
-                                   vertices, indices, std::move(submeshes));
+    auto res = vkh::Mesh::fromData(
+        vkcore.device.logical, allocator,
+        backgroundLoad ? vkcore.transferPool : *pools.graphics, meshData);
 
     if (!res) {
       return std::unexpected(res.error());
@@ -373,8 +404,11 @@ namespace keptech::vkh {
 
     auto handle = loadedMeshes.emplace(std::move(res.value().first));
 
+    std::string name = meshData.name;
+
     core::rendering::Mesh::Handle meshHandle(
         handle, [this, name]() { unloadMesh(name); });
+    meshNameMap.emplace(meshData.name, meshHandle.toWeak());
 
     return meshHandle;
   }
@@ -438,6 +472,14 @@ namespace keptech::vkh {
          createInfo.pipelineConfig.attachments.colorFormats) {
       config.rendering.colorAttachmentFormats.push_back(
           from(colorFormat, getSwapchainImageFormat()));
+      config.blendAttachments.push_back(vk::PipelineColorBlendAttachmentState{
+          .blendEnable = createInfo.pipelineConfig.blend.enableBlending,
+          .srcColorBlendFactor = from(createInfo.pipelineConfig.blend.src),
+          .dstColorBlendFactor = from(createInfo.pipelineConfig.blend.dst),
+          .colorWriteMask =
+              vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+              vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+      });
     }
 
     config.rendering.depthAttachmentFormat =
@@ -457,19 +499,6 @@ namespace keptech::vkh {
         from(createInfo.pipelineConfig.rasterizer.cullMode);
     config.rasterizer.frontFace =
         from(createInfo.pipelineConfig.rasterizer.frontFace);
-
-    // Blending
-    for (auto& colorFormat :
-         createInfo.pipelineConfig.attachments.colorFormats) {
-      config.blendAttachments.push_back(vk::PipelineColorBlendAttachmentState{
-          .blendEnable = createInfo.pipelineConfig.blend.enableBlending,
-          .srcColorBlendFactor = from(createInfo.pipelineConfig.blend.src),
-          .dstColorBlendFactor = from(createInfo.pipelineConfig.blend.dst),
-          .colorWriteMask =
-              vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-              vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
-      });
-    }
 
     // Layout
     for (auto& pushConstant :

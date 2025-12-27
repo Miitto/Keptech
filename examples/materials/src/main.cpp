@@ -28,6 +28,7 @@ public:
     using Mesh = R::MeshHandle;
 
     Mesh triangle;
+    Mesh monkey;
   };
 
   App(keptech::core::window::Window&& window, R& renderer, Materials& materials,
@@ -86,24 +87,30 @@ int main() {
 
     auto materialRes = renderer.createMaterial({
         .stage = Material::Stage::Forward,
-        .pipelineConfig = {
-            .shaders = {{
-              .code = shaders::basic,
-              .size = shaders::basic_size,
-            }},
-            .attachments = {
-                .colorFormats = {keptech::core::rendering::Format::Default},
-            },
-            .layout = {
-                .pushConstantRanges = {
+        .pipelineConfig =
+            {
+                .shaders = {{
+                    .code = shaders::basic,
+                    .size = shaders::basic_size,
+                }},
+                .attachments =
                     {
-                        .stages = keptech::core::rendering::ShaderStages::Vertex,
-                        .size = sizeof(vk::DeviceAddress),
+                        .colorFormats =
+                            {keptech::core::rendering::Format::Default},
                     },
-                },
+                .layout =
+                    {
+                        .pushConstantRanges =
+                            {
+                                {
+                                    .size = sizeof(vk::DeviceAddress),
+                                    .stages = keptech::core::rendering::
+                                        ShaderStages::Vertex,
+                                },
+                            },
+                    },
             },
-        },
-        });
+    });
     if (!materialRes) {
       SPDLOG_CRITICAL("Failed to create basic material: {}",
                       materialRes.error());
@@ -116,7 +123,7 @@ int main() {
     using Vertex = keptech::core::rendering::Mesh::Vertex;
     using UnpackedVertex = keptech::core::rendering::Mesh::UnpackedVertex;
 
-    std::array<Vertex, 3> triangleVertices = {
+    std::vector<Vertex> triangleVertices = {
         UnpackedVertex{
             .position = {-0.5f, -0.5f, 0.0f},
             .uv = {0.0f, 0.0f},
@@ -137,15 +144,23 @@ int main() {
         },
     };
 
-    auto triangleMeshRes =
-        renderer.meshFromData("Triangle", triangleVertices, {});
+    auto triangleMeshRes = renderer.meshFromData(
+        {.name = "Triangle", .vertices = triangleVertices});
     if (!triangleMeshRes) {
       SPDLOG_CRITICAL("Failed to create triangle mesh: {}",
                       triangleMeshRes.error());
       return -1;
     }
+
+    auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
+    if (!monkeyMeshRes) {
+      SPDLOG_CRITICAL("Failed to load monkey mesh: {}", monkeyMeshRes.error());
+      return -1;
+    }
+
     App::Meshes meshes{
         .triangle = triangleMeshRes.value(),
+        .monkey = monkeyMeshRes.value().front(),
     };
 
     App app(std::move(window), renderer, materials, meshes);

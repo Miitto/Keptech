@@ -5,16 +5,17 @@
 #include <glm/glm.hpp>
 #include <keptech/core/moveGuard.hpp>
 #include <keptech/core/rendering/mesh.hpp>
+#include <utility>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace keptech::vkh {
   struct Mesh : public core::rendering::Mesh {
-    Mesh(AddressedAllocatedBuffer vBuffer,
+    Mesh(std::string name, AddressedAllocatedBuffer vBuffer,
          std::optional<AllocatedBuffer> iBuffer,
          std::vector<core::rendering::Mesh::Submesh> submeshes,
          vma::Allocator& allocator)
-        : core::rendering::Mesh{std::move(submeshes)}, vertexBuffer(vBuffer),
-          indexBuffer(iBuffer), allocator(&allocator) {}
+        : core::rendering::Mesh{std::move(name), std::move(submeshes)},
+          vertexBuffer(vBuffer), indexBuffer(iBuffer), allocator(&allocator) {}
 
     Mesh() = delete;
     Mesh(const Mesh&) = delete;
@@ -44,9 +45,8 @@ namespace keptech::vkh {
 
     static std::expected<std::pair<Mesh, OnGoingCmdTransfer>, std::string>
     fromData(const vk::raii::Device& device, vma::Allocator& allocator,
-             const CommandPool& transferPool, std::span<const Vertex> vertices,
-             std::span<const uint32_t> indices,
-             std::vector<Mesh::Submesh> submeshes = {});
+             const CommandPool& transferPool,
+             const core::rendering::MeshData& meshData);
 
     void destroy() {
       if (!allocator)

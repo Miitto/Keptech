@@ -13,7 +13,7 @@ target_sources(materials
     main.cpp
 )
 
-target_compile_definitions(materials PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
+target_compile_definitions(materials PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG ASSET_DIR="${EXAMPLE_ASSET_DIR}")
 
 add_subdirectory(shaders)
 

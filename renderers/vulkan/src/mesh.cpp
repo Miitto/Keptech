@@ -7,9 +7,11 @@ namespace keptech::vkh {
   std::expected<std::pair<Mesh, OnGoingCmdTransfer>, std::string>
   Mesh::fromData(const vk::raii::Device& device, vma::Allocator& allocator,
                  const CommandPool& transferPool,
-                 std::span<const Vertex> vertices,
-                 std::span<const uint32_t> indices,
-                 std::vector<Mesh::Submesh> submeshes) {
+                 const core::rendering::MeshData& meshData) {
+
+    auto& vertices = meshData.vertices;
+    auto& indices = meshData.indices;
+    auto submeshes = meshData.submeshes;
 
     vk::DeviceSize verticesSize = sizeof(Vertex) * vertices.size();
     vk::DeviceSize indicesSize = sizeof(uint32_t) * indices.size();
@@ -133,10 +135,10 @@ namespace keptech::vkh {
       });
     }
 
-    return std::make_pair(
-        Mesh(vertexBuffer, indexBuffer, std::move(submeshes), allocator),
-        OnGoingCmdTransfer{.cmdBuffer = std::move(cmdBuffer),
-                           .buffer = stagingBuf,
-                           .fence = std::move(fence)});
+    return std::make_pair(Mesh(meshData.name, vertexBuffer, indexBuffer,
+                               std::move(submeshes), allocator),
+                          OnGoingCmdTransfer{.cmdBuffer = std::move(cmdBuffer),
+                                             .buffer = stagingBuf,
+                                             .fence = std::move(fence)});
   }
 } // namespace keptech::vkh

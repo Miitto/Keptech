@@ -24,6 +24,8 @@ namespace keptech::ecs {
       preUpdateFunctions.push_back(system->getPreUpdateFunction());
       updateFunctions.push_back(system->getUpdateFunction());
       postUpdateFunctions.push_back(system->getPostUpdateFunction());
+      onEntityAddedFunctions.push_back(system->getOnEntityAddedFunction());
+      onEntityRemovedFunctions.push_back(system->getOnEntityRemovedFunction());
       systems.push_back(std::move(system));
       signatures.push_back(signature);
       ecs::System& sys = *systems[index].get();
@@ -69,8 +71,10 @@ namespace keptech::ecs {
 
         if ((entitySignature & systemSignature) == systemSignature) {
           system->entities.insert(entity);
+          onEntityAddedFunctions[i](entity);
         } else {
           system->entities.erase(entity);
+          onEntityRemovedFunctions[i](entity);
         }
       }
     }
@@ -100,6 +104,8 @@ namespace keptech::ecs {
     std::vector<std::function<void(const FrameData&)>> preUpdateFunctions{};
     std::vector<std::function<void(const FrameData&)>> updateFunctions{};
     std::vector<std::function<void(const FrameData&)>> postUpdateFunctions{};
+    std::vector<std::function<void(EntityHandle)>> onEntityAddedFunctions{};
+    std::vector<std::function<void(EntityHandle)>> onEntityRemovedFunctions{};
     std::vector<Signature> signatures{};
   };
 } // namespace keptech::ecs

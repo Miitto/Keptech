@@ -94,11 +94,7 @@ namespace keptech::vkh {
         .rasterizationSamples = vk::SampleCountFlagBits::e1,
         .sampleShadingEnable = VK_FALSE,
         .minSampleShading = 1.0f};
-    std::vector<vk::PipelineColorBlendAttachmentState> blendAttachments = {
-        {.blendEnable = VK_FALSE,
-         .colorWriteMask =
-             vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-             vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA}};
+    std::vector<vk::PipelineColorBlendAttachmentState> blendAttachments = {};
     vk::PipelineColorBlendStateCreateInfo blending = {.logicOpEnable =
                                                           VK_FALSE};
     DynamicStateInfo dynamicState = {vk::DynamicState::eViewport,

@@ -117,11 +117,10 @@ namespace keptech::vkh {
     Renderer(Renderer&&) noexcept = default;
     Renderer& operator=(Renderer&&) noexcept = default;
 
+    std::expected<std::vector<core::rendering::Mesh::Handle>, std::string>
+    loadMesh(const std::string_view path, bool backgroundLoad = false);
     std::expected<core::rendering::Mesh::Handle, std::string>
-    meshFromData(const std::string& name,
-                 std::span<const core::rendering::Mesh::Vertex> vertices,
-                 std::span<const uint32_t> indices,
-                 std::vector<core::rendering::Mesh::Submesh> submeshes = {},
+    meshFromData(const core::rendering::MeshData& meshData,
                  bool backgroundLoad = false);
     void unloadMesh(const std::string& name);
     std::optional<core::rendering::Mesh::Handle>

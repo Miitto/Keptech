@@ -3,6 +3,7 @@
 #include <concepts>
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/imgui.h>
+#include <keptech/core/cameras/cameraManager.hpp>
 #include <keptech/core/renderer.hpp>
 #include <keptech/core/window.hpp>
 #include <keptech/ecs/ecs.hpp>
@@ -41,6 +42,11 @@ namespace keptech {
   template <typename T, class R>
     requires(AppDerived<T> && core::renderer::CRenderer<R>)
   void run(T& app, R& renderer) {
+    auto& ecs = keptech::ecs::ECS::get();
+
+    ecs.registerSystem<core::cameras::CameraManager>(
+        core::cameras::CameraManager::getSignature());
+
     keptech::core::window::Window& window = app.getWindow();
 
     auto& io = ImGui::GetIO();
@@ -70,8 +76,6 @@ namespace keptech {
         return false;
       }
     };
-
-    auto& ecs = keptech::ecs::ECS::get();
 
     keptech::ecs::FrameData frameData{};
 

@@ -15,9 +15,7 @@ namespace keptech::ecs {
 
     [[nodiscard]] const std::string& getName() const { return name; }
     [[nodiscard]] EntityHandle getHandle() const { return handle; }
-    [[nodiscard]] std::optional<EntityHandle> getParent() const {
-      return parent;
-    }
+
     Signature& getSignature() { return signature; }
 
     [[nodiscard]] bool isValid() const {
@@ -27,14 +25,12 @@ namespace keptech::ecs {
     void onDestroy() {
       handle = INVALID_ENTITY_HANDLE;
       name = "Destroyed";
-      parent.reset();
       signature.reset();
     }
 
   private:
     EntityHandle handle;
     std::string name;
-    std::optional<EntityHandle> parent;
     Signature signature;
   };
 } // namespace keptech::ecs

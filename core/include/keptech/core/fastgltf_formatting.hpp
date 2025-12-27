@@ -9,7 +9,7 @@ struct fmt::formatter<fastgltf::Error> : fmt::formatter<std::string_view> {
   constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
   template <typename FormatContext>
-  auto format(const fastgltf::Error& error, FormatContext& ctx) {
+  auto format(const fastgltf::Error& error, FormatContext& ctx) const {
     std::string_view msg;
 
     using Error = fastgltf::Error;

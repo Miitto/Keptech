@@ -4,6 +4,7 @@ struct Vertex {
   float3 normal;
   float uvY;
   float4 color;
+  float4 tangent;
 };
 
 [vk::push_constant]

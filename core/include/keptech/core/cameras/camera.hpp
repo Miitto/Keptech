@@ -29,9 +29,9 @@ namespace keptech::core::cameras {
   public:
     Camera() = default;
     Camera(const Camera&) = default;
-    Camera(Camera&&) = delete;
+    Camera(Camera&&) = default;
     Camera& operator=(const Camera&) = default;
-    Camera& operator=(Camera&&) = delete;
+    Camera& operator=(Camera&&) = default;
     virtual ~Camera() = default;
 
     Camera& translate(const glm::vec3& deltaPosition) {

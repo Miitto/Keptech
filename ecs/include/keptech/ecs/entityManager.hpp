@@ -30,13 +30,26 @@ namespace keptech::ecs {
       freedEntities.push(entity);
     }
 
-    Entity& get(EntityHandle entity) {
+    Entity& at(EntityHandle entity) {
       assert(entity < nextEntity && "Entity out of range.");
       return entities[entity];
     }
 
+    Entity* get(EntityHandle entity) {
+      if (entity >= nextEntity || !entities[entity].isValid()) {
+        return nullptr;
+      }
+      return &entities[entity];
+    }
+
     [[nodiscard]] uint16_t getEntityCount() const {
       return nextEntity - static_cast<uint16_t>(freedEntities.size());
+    }
+
+    bool has(EntityHandle entity) {
+      if (entity >= nextEntity)
+        return false;
+      return entities[entity].isValid();
     }
 
   private:

@@ -26,6 +26,23 @@ namespace keptech::ecs {
       componentManager->onEntityDestroyed(entity);
       systemManager->onEntityDestroyed(entity);
     }
+
+    bool hasEntity(EntityHandle entity) {
+      try {
+        entityManager->get(entity);
+        return true;
+      } catch (...) {
+        return false;
+      }
+    }
+
+    Entity* getEntity(EntityHandle entity) {
+      return entityManager->get(entity);
+    }
+
+    Entity& getEntityRef(EntityHandle entity) {
+      return entityManager->at(entity);
+    }
 #pragma endregion
 
 #pragma region Component Methods
@@ -35,8 +52,8 @@ namespace keptech::ecs {
       componentManager->add<T>(entity, std::forward<T>(component));
 
       auto componentType = componentManager->getComponentType<T>();
-      auto& entitySig = entityManager->get(entity);
-      entityManager->get(entity).getSignature().set(componentType, true);
+      auto& entitySig = entityManager->at(entity);
+      entityManager->at(entity).getSignature().set(componentType, true);
       systemManager->onEntitySignatureChanged(entity, entitySig.getSignature());
     }
 
@@ -45,8 +62,8 @@ namespace keptech::ecs {
       componentManager->remove<T>(entity);
 
       auto componentType = componentManager->getComponentType<T>();
-      auto& entitySig = entityManager->get(entity);
-      entityManager->get(entity).getSignature().set(componentType, false);
+      auto& entitySig = entityManager->at(entity);
+      entityManager->at(entity).getSignature().set(componentType, false);
       systemManager->onEntitySignatureChanged(entity, entitySig.getSignature());
     }
 
