@@ -45,6 +45,14 @@ public:
                       .mesh = meshes.triangle,
                       .material = materials.basic,
                   });
+
+    auto& camera = ecs.createEntity("Camera");
+    keptech::core::cameras::Camera camObj{
+        keptech::core::cameras::Camera::ProjectionType::Perspective};
+    camObj.sizeToWindow(WINDOW_WIDTH, WINDOW_HEIGHT)
+        .setPosition({0.0f, 0.0f, 2.0f})
+        .setFovY(90.0f);
+    ecs.addComponent<keptech::core::cameras::Camera>(camera, std::move(camObj));
   }
 
   void update() override {

@@ -1,3 +1,8 @@
+import keptech;
+
+[[vk::binding(0)]]
+uniform keptech::Camera camera : register(t0);
+
 struct Vertex {
   float3 position;
   float uvX;
@@ -22,7 +27,7 @@ VertexOutput vert(uint vid: SV_VertexID) {
 
   Vertex v = vBuffer[vid];
 
-  output.position = float4(v.position, 1.0);
+  output.position = camera.worldToClip(float4(v.position, 1.0));
   output.color = v.color;
 
   return output;

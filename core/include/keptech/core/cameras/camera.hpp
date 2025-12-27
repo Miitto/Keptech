@@ -32,6 +32,7 @@ namespace keptech::core::cameras {
     enum class ProjectionType : uint8_t { Orthographic, Perspective };
 
     Camera() = default;
+    Camera(ProjectionType projectionType) : projectionType(projectionType) {}
     Camera(const Camera&) = default;
     Camera(Camera&&) = default;
     Camera& operator=(const Camera&) = default;
@@ -73,7 +74,7 @@ namespace keptech::core::cameras {
       return dirty.has(CameraMatrixFlags::View);
     }
 
-    void recalculate() {
+    bool recalculate() {
       bool proj = remakeProjectionMatrix();
       bool view = remakeViewMatrix();
 
@@ -85,6 +86,8 @@ namespace keptech::core::cameras {
         uniforms.inverseView = glm::inverse(uniforms.view);
       if (proj)
         uniforms.inverseProjection = glm::inverse(uniforms.projection);
+
+      return view || proj;
     }
 
     [[nodiscard]] const maths::Extent2Df& getViewport() const {
@@ -99,6 +102,21 @@ namespace keptech::core::cameras {
     [[nodiscard]] const maths::Extent2Du& getScissor() const { return scissor; }
     Camera& setScissor(const maths::Extent2Du& newScissor) {
       scissor = newScissor;
+      return *this;
+    }
+
+    Camera& sizeToWindow(uint32_t windowWidth, uint32_t windowHeight) {
+      viewport = maths::Extent2Df{
+          .offset = {0, 0},
+          .size = {static_cast<float>(windowWidth),
+                   static_cast<float>(windowHeight)},
+
+      };
+      scissor = maths::Extent2Du{
+          .offset = {0, 0},
+          .size = {windowWidth, windowHeight},
+      };
+      dirty.set(CameraMatrixFlags::Projection);
       return *this;
     }
 

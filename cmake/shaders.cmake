@@ -1,8 +1,10 @@
 find_program(SLANGC_EXECUTABLE NAMES slangc REQUIRED)
 
+set(KT_SHADERS "${KT_SHADER_DIR}/camera.slang" "${KT_SHADER_DIR}/keptech.slang")
+
 function(_compile_slang_file)
   set(SINGLEVALUE SOURCE OUT TARGET)
-  set(MULTIVALUES ENTRIES)
+  set(MULTIVALUES ENTRIES INCLUDED_FILES)
   cmake_parse_arguments(PARSE_ARGV 0 arg "" "${SINGLEVALUE}" "${MULTIVALUES}")
 
   if(${arg_TARGET} STREQUAL GLSL)
@@ -18,8 +20,8 @@ function(_compile_slang_file)
   endforeach()
   add_custom_command(
     OUTPUT ${OUT_FILE}
-    DEPENDS ${source}.slang ${INCLUDED_FILES}
-    COMMAND ${SLANGC_EXECUTABLE} ${arg_SOURCE} ${COMMAND_TARGET} -fvk-use-entrypoint-name ${ENTRIES} -o ${arg_OUT}
+    DEPENDS ${source}.slang ${arg_INCLUDED_FILES}
+    COMMAND ${SLANGC_EXECUTABLE} ${arg_SOURCE} -I ${KT_SHADER_DIR} ${COMMAND_TARGET} -fvk-use-entrypoint-name ${ENTRIES} -o ${arg_OUT}
     COMMENT "Compiling shader ${source} to ${arg_TARGET} (${arg_OUT})"
     VERBATIM
   )
@@ -37,12 +39,11 @@ function(compile_shader target shader_target)
   endif()
 
   set(OUTPUTS "")
-  set(INCLUDED_FILES "")
+  set(INCLUDED_FILES "${KT_SHADERS}")
 
   foreach(file ${arg_INCLUDES})
     list(APPEND INCLUDED_FILES include/${file}.slang)
   endforeach()
-
 
   file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
   foreach(source ${arg_SOURCES})
@@ -50,7 +51,7 @@ function(compile_shader target shader_target)
 
     if(${shader_target} STREQUAL SPIRV)
       set(OUT_FILE ${CMAKE_BINARY_DIR}/shaders/raw/${source}.spv)
-      _compile_slang_file(SOURCE ${SOURCE_FILE} TARGET ${shader_target} ENTRIES vert frag OUT ${OUT_FILE})
+      _compile_slang_file(SOURCE ${SOURCE_FILE} TARGET ${shader_target} ENTRIES vert frag OUT ${OUT_FILE} INCLUDED_FILES ${INCLUDED_FILES})
       list(APPEND OUTPUTS ${OUT_FILE})
     else()
       foreach(stage vert frag)

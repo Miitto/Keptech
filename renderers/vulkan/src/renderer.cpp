@@ -307,6 +307,9 @@ namespace keptech::vkh {
     loadedMeshes.reset();
     loadedMaterials.reset();
 
+    cameraObjects.descriptorSet.release(); // The pool destructor will free this
+    cameraObjects.uniformBuffer.destroy(allocator);
+
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
@@ -518,6 +521,9 @@ namespace keptech::vkh {
       };
       config.layout.pushConstantRanges.push_back(range);
     }
+
+    config.layout.setLayouts.insert(config.layout.setLayouts.begin(),
+                                    cameraObjects.layout);
 
     auto vkLayoutInfo = config.layout.build();
 

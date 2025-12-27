@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.15..4.0)
 
+project(Keptech VERSION 0.1 LANGUAGES CXX)
+
+set(KT_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(FetchContent)
@@ -13,7 +17,6 @@ if (BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
-project(Keptech VERSION 0.1 LANGUAGES CXX)
 
 add_subdirectory(logging)
 add_subdirectory(ecs)

@@ -20,6 +20,50 @@ namespace keptech::vkh {
 
     auto& cameras = ecs::ECS::get().getAllComponents<core::cameras::Camera>();
     for (auto& camera : cameras) {
+      camera.recalculate();
+      auto uniforms = camera.getUniforms();
+
+      {
+        vk::BufferMemoryBarrier2 cameraBufferBarrier{
+            .srcStageMask = vk::PipelineStageFlagBits2::eVertexShader,
+            .srcAccessMask = vk::AccessFlagBits2::eShaderRead,
+            .dstStageMask = vk::PipelineStageFlagBits2::eHost,
+            .dstAccessMask = vk::AccessFlagBits2::eHostWrite,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .buffer = cameraObjects.uniformBuffer.buffer,
+            .offset = 0,
+            .size = sizeof(core::cameras::Uniforms),
+        };
+
+        graphicsCmdBuffer.pipelineBarrier2(vk::DependencyInfo{
+            .bufferMemoryBarrierCount = 1,
+            .pBufferMemoryBarriers = &cameraBufferBarrier,
+        });
+      }
+
+      memcpy(cameraObjects.uniformBuffer.mapping(), &uniforms,
+             sizeof(core::cameras::Uniforms));
+
+      {
+        vk::BufferMemoryBarrier2 cameraBufferBarrier{
+            .srcStageMask = vk::PipelineStageFlagBits2::eHost,
+            .srcAccessMask = vk::AccessFlagBits2::eHostWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eVertexShader,
+            .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .buffer = cameraObjects.uniformBuffer.buffer,
+            .offset = 0,
+            .size = sizeof(core::cameras::Uniforms),
+        };
+
+        graphicsCmdBuffer.pipelineBarrier2(vk::DependencyInfo{
+            .bufferMemoryBarrierCount = 1,
+            .pBufferMemoryBarriers = &cameraBufferBarrier,
+        });
+      }
+
       vk::RenderingInfo renderingInfo{
           .renderArea =
               {
@@ -43,6 +87,15 @@ namespace keptech::vkh {
                                        material.pipeline);
 
         setupGraphicsCommandBuffer(info, graphicsCmdBuffer, camera);
+
+        graphicsCmdBuffer.bindDescriptorSets2({
+            .stageFlags = vk::ShaderStageFlagBits::eVertex |
+                          vk::ShaderStageFlagBits::eFragment,
+            .layout = material.pipelineLayout,
+            .firstSet = 0,
+            .descriptorSetCount = 1,
+            .pDescriptorSets = &*cameraObjects.descriptorSet,
+        });
 
         struct PushConstantData {
           vk::DeviceAddress vertexBufferAddress;

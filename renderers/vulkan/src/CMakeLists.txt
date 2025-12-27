@@ -4,6 +4,7 @@ target_sources(${PROJECT_NAME}
     TYPE HEADERS
   PRIVATE
     setup/core.cpp
+    helpers/descriptors.cpp
     helpers/dynLoader.cpp
     helpers/instance.cpp
     helpers/physicalDevice.cpp

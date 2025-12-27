@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/vulkan/helpers/descriptors.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
 #include "keptech/vulkan/helpers/pipeline.hpp"
 #include "keptech/vulkan/helpers/shader.hpp"
@@ -88,6 +89,13 @@ namespace keptech::vkh {
       vk::raii::DescriptorPool descriptorPool;
     };
 
+    struct CameraObjects {
+      vk::raii::DescriptorSetLayout layout;
+      vk::raii::DescriptorPool pool;
+      vk::raii::DescriptorSet descriptorSet;
+      AllocatedBuffer uniformBuffer;
+    };
+
     struct Frame {
       constexpr static uint8_t INVALID_INDEX = 255;
 
@@ -99,9 +107,11 @@ namespace keptech::vkh {
 
   private:
     Renderer(core::window::Window& window, VulkanCore&& vkcore,
-             vma::Allocator& allocator, ImGuiVkObjects&& imGuiObjects)
+             vma::Allocator& allocator, ImGuiVkObjects&& imGuiObjects,
+             CameraObjects&& cameraObjects)
         : window(&window), vkcore(std::move(vkcore)), allocator(allocator),
-          imGuiObjects(std::move(imGuiObjects)) {}
+          imGuiObjects(std::move(imGuiObjects)),
+          cameraObjects(std::move(cameraObjects)) {}
 
     template <typename... Args> static Renderer& addToEcs(Renderer&& renderer) {
       auto& ecs = ecs::ECS::get();
@@ -199,6 +209,8 @@ namespace keptech::vkh {
     VulkanCore vkcore;
     vma::Allocator allocator;
     ImGuiVkObjects imGuiObjects;
+    CameraObjects cameraObjects;
+
     std::array<std::vector<vk::raii::CommandBuffer>, MAX_FRAMES_IN_FLIGHT>
         submittedCommandBuffers;
 

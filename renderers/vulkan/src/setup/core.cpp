@@ -1,3 +1,5 @@
+#include "keptech/core/cameras/camera.hpp"
+#include "keptech/vulkan/helpers/descriptors.hpp"
 #include "keptech/vulkan/renderer.hpp"
 
 #include "imgui.hpp"
@@ -282,6 +284,67 @@ namespace keptech::vkh::setup {
 
     return std::move(syncObjects);
   }
+
+  std::expected<Renderer::CameraObjects, std::string>
+  createCameraObjects(const vk::raii::Device& device,
+                      vma::Allocator& allocator) {
+    vk::DescriptorPoolSize poolSize{
+        .type = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = 1,
+    };
+    VK_MAKE(descPool,
+            device.createDescriptorPool(
+                {.maxSets = 1, .poolSizeCount = 1, .pPoolSizes = &poolSize}),
+            "Faild to create camera "
+            "descriptor pool.");
+
+    DescriptorLayoutBuilder layoutBuilder;
+    layoutBuilder.addBinding(0, vk::DescriptorType::eUniformBuffer,
+                             vk::ShaderStageFlagBits::eAll);
+    VKH_MAKE(descLayout, layoutBuilder.build(device, nullptr),
+             "Failed to create camera descriptor layout.");
+
+    VK_MAKE(descSet,
+            device.allocateDescriptorSets({.descriptorPool = *descPool,
+                                           .descriptorSetCount = 1,
+                                           .pSetLayouts = &*descLayout}),
+            "Failed to allocate camera descriptor set.");
+
+    VKH_MAKE(uniformBuffer,
+             AllocatedBuffer::create(
+                 allocator,
+                 {
+                     .size = sizeof(core::cameras::Uniforms),
+                     .usage = vk::BufferUsageFlagBits::eUniformBuffer,
+                     .sharingMode = vk::SharingMode::eExclusive,
+                 },
+                 {
+                     .flags = vma::AllocationCreateFlagBits::eMapped,
+                     .usage = vma::MemoryUsage::eCpuToGpu,
+                 }),
+             "Failed to create camera uniform buffer.");
+
+    DescriptorWriter descWriter{};
+
+    descWriter.writeBuffer(0,
+                           vk::DescriptorBufferInfo{
+                               .buffer = uniformBuffer.buffer,
+                               .offset = 0,
+                               .range = sizeof(core::cameras::Uniforms),
+                           },
+                           DescriptorWriter::BufferType::Uniform);
+
+    descWriter.update(device, *descSet.front());
+
+    Renderer::CameraObjects cameraObjects{
+        .layout = std::move(descLayout),
+        .pool = std::move(descPool),
+        .descriptorSet = std::move(descSet.front()),
+        .uniformBuffer = uniformBuffer,
+    };
+
+    return std::move(cameraObjects);
+  }
 } // namespace keptech::vkh::setup
 
 namespace keptech::vkh {
@@ -416,6 +479,10 @@ namespace keptech::vkh {
         .transferPool = std::move(transferPoolStruct),
     };
 
+    VKH_MAKE(cameraObjects,
+             createCameraObjects(vkcore.device.logical, allocator),
+             "Failed to create camera objects.");
+
     VKH_MAKE(imguiObjects,
              keptech::vkh::setup::setupImGui(
                  window, vkcore.instance, vkcore.device.logical,
@@ -425,7 +492,8 @@ namespace keptech::vkh {
 
     VK_DEBUG("Vulkan renderer created successfully.");
 
-    Renderer r{window, std::move(vkcore), allocator, std::move(imguiObjects)};
+    Renderer r{window, std::move(vkcore), allocator, std::move(imguiObjects),
+               std::move(cameraObjects)};
 
     auto& renderer = addToEcs(std::move(r));
     return &renderer;

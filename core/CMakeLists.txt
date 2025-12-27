@@ -85,3 +85,5 @@ target_precompile_headers(${PROJECT_NAME} PUBLIC
   <memory>
   <glm/glm.hpp>
 )
+
+set(KT_CORE_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")

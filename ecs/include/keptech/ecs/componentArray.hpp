@@ -76,8 +76,14 @@ namespace keptech::ecs {
       return components;
     }
 
+    std::vector<T>::iterator begin() { return components.begin(); }
+    std::vector<T>::iterator end() { return components.end(); }
     std::vector<T>::const_iterator begin() const { return components.cbegin(); }
     std::vector<T>::const_iterator end() const { return components.cend(); }
+    std::vector<T>::const_iterator cbegin() const {
+      return components.cbegin();
+    }
+    std::vector<T>::const_iterator cend() const { return components.cend(); }
 
   private:
     std::vector<T> components;
