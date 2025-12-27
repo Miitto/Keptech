@@ -29,6 +29,10 @@ namespace keptech::core::window {
   class Window;
 }
 
+namespace keptech::core::cameras {
+  class Camera;
+}
+
 namespace keptech::vkh {
   class Renderer : public core::renderer::Renderer {
   public:
@@ -161,8 +165,10 @@ namespace keptech::vkh {
     std::expected<void, std::string> recreateSwapchain();
 
     Frame startFrame();
-    void setupGraphicsCommandBuffer(
-        const Frame& info, const vk::raii::CommandBuffer& graphicsCmdBuffer);
+    void
+    setupGraphicsCommandBuffer(const Frame& info,
+                               const vk::raii::CommandBuffer& graphicsCmdBuffer,
+                               const core::cameras::Camera& camera);
     void draw(const Frame& info,
               const vk::raii::CommandBuffer& graphicsCmdBuffer);
     void drawImGui(const Frame& info,

@@ -76,6 +76,9 @@ namespace keptech::ecs {
       return components;
     }
 
+    std::vector<T>::const_iterator begin() const { return components.cbegin(); }
+    std::vector<T>::const_iterator end() const { return components.cend(); }
+
   private:
     std::vector<T> components;
     std::unordered_map<EntityHandle, size_t> entityToIndexMap;

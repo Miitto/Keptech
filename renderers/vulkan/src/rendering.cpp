@@ -1,8 +1,10 @@
 #include "keptech/vulkan/renderer.hpp"
+
 #include "vk-logger.hpp"
 #include "vulkan/vulkan.hpp"
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
+#include <keptech/core/cameras/camera.hpp>
 
 namespace keptech::vkh {
 
@@ -16,53 +18,56 @@ namespace keptech::vkh {
         .clearValue = {
             .color = {std::array<float, 4>{0.1f, 0.1f, 0.1f, 1.0f}}}};
 
-    vk::RenderingInfo renderingInfo{
-        .renderArea =
-            {
-                .offset = {.x = 0, .y = 0},
-                .extent = vkcore.swapchain.config().extent,
-            },
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &aInfo,
-    };
-
-    graphicsCmdBuffer.beginRendering(renderingInfo);
-
-    auto objLists = buildRenderObjectLists(maths::Frustum{});
-
-    for (auto& renderObject : objLists.forward) {
-      auto& material = *renderObject.material;
-      auto& mesh = *renderObject.mesh;
-
-      graphicsCmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                     material.pipeline);
-
-      setupGraphicsCommandBuffer(info, graphicsCmdBuffer);
-
-      struct PushConstantData {
-        vk::DeviceAddress vertexBufferAddress;
-      } pushConstantData{
-          .vertexBufferAddress = mesh.vertexBuffer.address,
+    auto& cameras = ecs::ECS::get().getAllComponents<core::cameras::Camera>();
+    for (auto& camera : cameras) {
+      vk::RenderingInfo renderingInfo{
+          .renderArea =
+              {
+                  .offset = {.x = 0, .y = 0},
+                  .extent = vkcore.swapchain.config().extent,
+              },
+          .layerCount = 1,
+          .colorAttachmentCount = 1,
+          .pColorAttachments = &aInfo,
       };
 
-      graphicsCmdBuffer.pushConstants<PushConstantData>(
-          material.pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0,
-          pushConstantData);
+      graphicsCmdBuffer.beginRendering(renderingInfo);
 
-      for (const auto& submesh : mesh.submeshes) {
-        if (mesh.indexBuffer.has_value()) {
-          graphicsCmdBuffer.bindIndexBuffer(mesh.indexBuffer->buffer, 0,
-                                            vk::IndexType::eUint32);
-          graphicsCmdBuffer.drawIndexed(submesh.indexCount, 1,
-                                        submesh.indexOffset, 0, 0);
-        } else {
-          graphicsCmdBuffer.draw(submesh.indexCount, 1, 0, 0);
+      auto objLists = buildRenderObjectLists(maths::Frustum{});
+
+      for (auto& renderObject : objLists.forward) {
+        auto& material = *renderObject.material;
+        auto& mesh = *renderObject.mesh;
+
+        graphicsCmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                       material.pipeline);
+
+        setupGraphicsCommandBuffer(info, graphicsCmdBuffer, camera);
+
+        struct PushConstantData {
+          vk::DeviceAddress vertexBufferAddress;
+        } pushConstantData{
+            .vertexBufferAddress = mesh.vertexBuffer.address,
+        };
+
+        graphicsCmdBuffer.pushConstants<PushConstantData>(
+            material.pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0,
+            pushConstantData);
+
+        for (const auto& submesh : mesh.submeshes) {
+          if (mesh.indexBuffer.has_value()) {
+            graphicsCmdBuffer.bindIndexBuffer(mesh.indexBuffer->buffer, 0,
+                                              vk::IndexType::eUint32);
+            graphicsCmdBuffer.drawIndexed(submesh.indexCount, 1,
+                                          submesh.indexOffset, 0, 0);
+          } else {
+            graphicsCmdBuffer.draw(submesh.indexCount, 1, 0, 0);
+          }
         }
       }
-    }
 
-    graphicsCmdBuffer.endRendering();
+      graphicsCmdBuffer.endRendering();
+    }
   }
 
   void Renderer::render() {

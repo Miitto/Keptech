@@ -6,6 +6,7 @@
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
+#include <keptech/core/cameras/camera.hpp>
 #include <keptech/core/renderer.hpp>
 #include <keptech/core/rendering/gltf/loaded.hpp>
 #include <keptech/core/window.hpp>
@@ -241,24 +242,31 @@ namespace keptech::vkh {
   }
 
   void Renderer::setupGraphicsCommandBuffer(
-      const Frame& info, const vk::raii::CommandBuffer& graphicsCmdBuffer) {
-    graphicsCmdBuffer.setViewport(
-        0,
-        vk::Viewport{
-            .x = 0.0f,
-            .y = 0.0f,
-            .width = static_cast<float>(vkcore.swapchain.config().extent.width),
-            .height =
-                static_cast<float>(vkcore.swapchain.config().extent.height),
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f,
-        });
+      const Frame& info, const vk::raii::CommandBuffer& graphicsCmdBuffer,
+      const core::cameras::Camera& camera) {
 
-    graphicsCmdBuffer.setScissor(0,
-                                 vk::Rect2D{
-                                     .offset = {.x = 0, .y = 0},
-                                     .extent = vkcore.swapchain.config().extent,
-                                 });
+    auto& viewport = camera.getViewport();
+    auto& scissor = camera.getScissor();
+
+    graphicsCmdBuffer.setViewport(0, vk::Viewport{
+                                         .x = viewport.offset.x,
+                                         .y = viewport.offset.y,
+                                         .width = viewport.size.x,
+                                         .height = viewport.size.y,
+                                         .minDepth = 0.0f,
+                                         .maxDepth = 1.0f,
+                                     });
+
+    graphicsCmdBuffer.setScissor(
+        0, vk::Rect2D{
+               .offset = {.x = static_cast<int32_t>(scissor.offset.x),
+                          .y = static_cast<int32_t>(scissor.offset.y)},
+               .extent =
+                   vk::Extent2D{
+                       .width = scissor.size.x,
+                       .height = scissor.size.y,
+                   },
+           });
   }
 
   void Renderer::presentFrame(const Frame& info) {

@@ -2,6 +2,8 @@
 
 #include "keptech/core/bitflag.hpp"
 #include "keptech/core/macros.hpp"
+#include "keptech/core/maths/extent.hpp"
+#include "keptech/ecs/base.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -27,6 +29,8 @@ DEFINE_BITFLAG_ENUM_OPERATORS(keptech::core::cameras::CameraMatrixFlags)
 namespace keptech::core::cameras {
   class Camera {
   public:
+    enum class ProjectionType : uint8_t { Orthographic, Perspective };
+
     Camera() = default;
     Camera(const Camera&) = default;
     Camera(Camera&&) = default;
@@ -68,27 +72,87 @@ namespace keptech::core::cameras {
     [[nodiscard]] bool isViewDirty() const {
       return dirty.has(CameraMatrixFlags::View);
     }
-    void recalculate() {
-      remakeProjectionMatrix();
-      remakeViewMatrix();
 
-      uniforms.viewProjection = uniforms.projection * uniforms.view;
-      uniforms.inverseView = glm::inverse(uniforms.view);
-      uniforms.inverseProjection = glm::inverse(uniforms.projection);
-      uniforms.inverseViewProjection = glm::inverse(uniforms.viewProjection);
+    void recalculate() {
+      bool proj = remakeProjectionMatrix();
+      bool view = remakeViewMatrix();
+
+      if (view || proj) {
+        uniforms.viewProjection = uniforms.projection * uniforms.view;
+        uniforms.inverseViewProjection = glm::inverse(uniforms.viewProjection);
+      }
+      if (view)
+        uniforms.inverseView = glm::inverse(uniforms.view);
+      if (proj)
+        uniforms.inverseProjection = glm::inverse(uniforms.projection);
     }
 
-    virtual void onViewportResize(int newWidth, int newHeight) = 0;
+    [[nodiscard]] const maths::Extent2Df& getViewport() const {
+      return viewport;
+    }
+    Camera& setViewport(const maths::Extent2Df& newViewport) {
+      viewport = newViewport;
+      dirty.set(CameraMatrixFlags::Projection);
+      return *this;
+    }
+
+    [[nodiscard]] const maths::Extent2Du& getScissor() const { return scissor; }
+    Camera& setScissor(const maths::Extent2Du& newScissor) {
+      scissor = newScissor;
+      return *this;
+    }
+
+    Camera& attachToEntity(ecs::EntityHandle entity) {
+      attachedEntity = entity;
+      return *this;
+    }
+    Camera& detachFromEntity() {
+      attachedEntity = ecs::INVALID_ENTITY_HANDLE;
+      return *this;
+    }
+    [[nodiscard]] ecs::EntityHandle getAttachedEntity() const {
+      return attachedEntity;
+    }
+
+    Camera& setProjectionType(ProjectionType type) {
+      projectionType = type;
+      dirty.set(CameraMatrixFlags::Projection);
+      return *this;
+    }
+    [[nodiscard]] ProjectionType getProjectionType() const {
+      return projectionType;
+    }
+
+    Camera& setFovY(float fovYDegrees) {
+      fovY = glm::radians(fovYDegrees);
+      dirty.set(CameraMatrixFlags::Projection);
+      return *this;
+    }
+
+    Camera& setPriority(float newPriority) {
+      priority = newPriority;
+      return *this;
+    }
+    [[nodiscard]] float getPriority() const { return priority; }
 
   protected:
-    void remakeViewMatrix();
-    virtual void remakeProjectionMatrix() = 0;
+    bool remakeViewMatrix();
+    bool remakeProjectionMatrix();
 
     core::Bitflag<CameraMatrixFlags> dirty{CameraMatrixFlags::Projection |
                                            CameraMatrixFlags::View};
 
+    ProjectionType projectionType{ProjectionType::Perspective};
+
     glm::vec3 position{};
     glm::quat rotation{};
+    maths::Extent2Df viewport{};
+    maths::Extent2Du scissor{};
+    float nearPlane{0.1f};
+    float farPlane{1000.0f};
+    float fovY{60.0f};
     Uniforms uniforms{};
+    ecs::EntityHandle attachedEntity{ecs::INVALID_ENTITY_HANDLE};
+    float priority{1.0f};
   };
 } // namespace keptech::core::cameras

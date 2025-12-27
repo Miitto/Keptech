@@ -1,7 +1,6 @@
 #pragma once
 
 #include "camera.hpp"
-#include "keptech/core/components/camera.hpp"
 #include "keptech/ecs/base.hpp"
 #include <keptech/ecs/ecs.hpp>
 
@@ -41,7 +40,7 @@ namespace keptech::core::cameras {
 
     [[nodiscard]] static inline ecs::Signature getSignature() {
       auto& ecs = ecs::ECS::get();
-      return ecs.signatureFromComponents<components::Camera>();
+      return ecs.signatureFromComponents<Camera>();
     }
 
   private:

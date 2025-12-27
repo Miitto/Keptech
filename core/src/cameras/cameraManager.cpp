@@ -1,7 +1,5 @@
 #include "keptech/core/cameras/cameraManager.hpp"
 
-#include "keptech/core/components/camera.hpp"
-
 namespace keptech::core::cameras {
   CameraManager* CameraManager::singleton{};
 
@@ -15,8 +13,8 @@ namespace keptech::core::cameras {
     }
 
     auto& ecs = ecs::ECS::get();
-    auto& cameraComp = ecs.getComponentRef<components::Camera>(activeCamera);
-    return &*cameraComp;
+    auto camera = ecs.getComponent<Camera>(activeCamera);
+    return camera;
   }
 
   CameraManager& CameraManager::setActive(ecs::EntityHandle cameraEntity) {

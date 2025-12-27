@@ -84,6 +84,10 @@ namespace keptech::ecs {
       return componentManager->at<T>(entity);
     }
 
+    template <typename T> ComponentArray<T>& getAllComponents() {
+      return componentManager->all<T>();
+    }
+
     /// Gets the ComponentType for the component type T.
     template <typename T> ComponentType getComponentType() {
       return componentManager->getComponentType<T>();
