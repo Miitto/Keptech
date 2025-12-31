@@ -1,7 +1,7 @@
 #include <keptech/app.hpp>
 
+#include <keptech/core/components/renderObject.hpp>
 #include <keptech/core/rendering/material.hpp>
-#include <keptech/core/rendering/renderObject.hpp>
 #include <keptech/core/window.hpp>
 #include <keptech/gui.h>
 #include <keptech/vulkan/helpers/shader.hpp>
@@ -16,82 +16,26 @@ namespace shaders {
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 
-template <class R> class App : public keptech::App {
-public:
-  struct Materials {
-    using Material = R::MaterialHandle;
-
-    Material basic;
-  };
-
-  struct Meshes {
-    using Mesh = R::MeshHandle;
-
-    Mesh triangle;
-    Mesh monkey;
-  };
-
-  App(keptech::core::window::Window&& window, R& renderer, Materials& materials,
-      Meshes& meshes)
-      : keptech::App(std::move(window)), renderer(&renderer),
-        materials(materials), meshes(meshes) {
-
-    auto& ecs = keptech::ecs::ECS::get();
-    auto& triangle = ecs.createEntity("Triangle");
-    ecs.addComponent<keptech::components::Transform>(
-        triangle, keptech::components::Transform());
-    ecs.addComponent<keptech::core::rendering::RenderObject>(
-        triangle, keptech::core::rendering::RenderObject{
-                      .mesh = meshes.triangle,
-                      .material = materials.basic,
-                  });
-
-    auto& camera = ecs.createEntity("Camera");
-    keptech::core::cameras::Camera camObj{
-        keptech::core::cameras::Camera::ProjectionType::Perspective};
-    camObj.sizeToWindow(WINDOW_WIDTH, WINDOW_HEIGHT)
-        .setPosition({0.0f, 0.0f, 2.0f})
-        .setFovY(90.0f);
-    ecs.addComponent<keptech::core::cameras::Camera>(camera, std::move(camObj));
-  }
-
-  void update() override {
-    {
-      keptech::gui::Frame frame("Demo");
-      frame.text("Material Editor Example");
-    }
-  }
-
-  void onEvent(const keptech::core::window::Window::Event& event) override {
-    (void)event;
-  }
-
-private:
-  R* renderer;
-
-  Materials materials;
-  Meshes meshes;
+struct Materials {
+  keptech::core::SlotMapSmartHandle basic;
 };
 
+struct Meshes {
+  keptech::core::SlotMapSmartHandle triangle;
+  keptech::core::SlotMapSmartHandle monkey;
+};
 int main() {
-  using App = App<keptech::vkh::Renderer>;
+  struct Resources {
+    Meshes meshes;
+    Materials materials;
+  };
 
-  keptech::core::window::init();
-
-  {
-    keptech::core::window::Window window("Material Editor", WINDOW_WIDTH,
-                                         WINDOW_HEIGHT);
-
-    auto renderer_res =
-        keptech::vkh::Renderer::create("Material Editor", window);
-    if (!renderer_res) {
-      SPDLOG_CRITICAL("Failed to create Vulkan renderer: {}",
-                      renderer_res.error());
-      return -1;
-    }
-    auto& renderer = *renderer_res.value();
-
+  auto setup = [](keptech::core::window::Window& window,
+                  keptech::vkh::Renderer& renderer)
+      -> std::expected<Resources, std::string> {
     using Material = keptech::vkh::Material;
+
+    (void)window;
 
     auto materialRes = renderer.createMaterial({
         .stage = Material::Stage::Forward,
@@ -120,13 +64,13 @@ int main() {
             },
     });
     if (!materialRes) {
-      SPDLOG_CRITICAL("Failed to create basic material: {}",
-                      materialRes.error());
-      return -1;
+      return std::unexpected(fmt::format("Failed to create basic material: {}",
+                                         materialRes.error()));
     }
-    auto materials = App::Materials{
+    auto materials = Materials{
         .basic = materialRes.value(),
     };
+    SPDLOG_INFO("Created materials");
 
     using Vertex = keptech::core::rendering::Mesh::Vertex;
     using UnpackedVertex = keptech::core::rendering::Mesh::UnpackedVertex;
@@ -155,29 +99,55 @@ int main() {
     auto triangleMeshRes = renderer.meshFromData(
         {.name = "Triangle", .vertices = triangleVertices});
     if (!triangleMeshRes) {
-      SPDLOG_CRITICAL("Failed to create triangle mesh: {}",
-                      triangleMeshRes.error());
-      return -1;
+      return std::unexpected(fmt::format("Failed to create triangle mesh: {}",
+                                         triangleMeshRes.error()));
     }
+    SPDLOG_INFO("Created triangle mesh");
 
     auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
     if (!monkeyMeshRes) {
-      SPDLOG_CRITICAL("Failed to load monkey mesh: {}", monkeyMeshRes.error());
-      return -1;
+      return std::unexpected(
+          fmt::format("Failed to load monkey mesh: {}", monkeyMeshRes.error()));
     }
+    SPDLOG_INFO("Loaded monkey mesh");
 
-    App::Meshes meshes{
+    Meshes meshes{
         .triangle = triangleMeshRes.value(),
         .monkey = monkeyMeshRes.value().front(),
     };
 
-    App app(std::move(window), renderer, materials, meshes);
+    auto& ecs = keptech::ecs::ECS::get();
 
-    SPDLOG_INFO("Starting Material Editor");
-    keptech::run(app, renderer);
-  }
+    auto triangle = ecs.createEntity("Triangle");
+    ecs.addComponent<keptech::components::RenderObject>(
+        triangle, {.mesh = meshes.triangle, .material = materials.basic});
+    ecs.addComponent<keptech::components::Transform>(triangle, {});
+
+    auto camera = ecs.createEntity("Camera");
+    keptech::core::cameras::Camera camObj{
+        keptech::core::cameras::Camera::ProjectionType::Perspective};
+    camObj.sizeToWindow(WINDOW_WIDTH, WINDOW_HEIGHT)
+        .setPosition({0.f, 0.f, 2.f})
+        .setFovY(90.f);
+    ecs.addComponent<keptech::core::cameras::Camera>(camera, std::move(camObj));
+
+    return Resources{.meshes = meshes, .materials = materials};
+  };
+
+  SPDLOG_INFO("Starting Material Editor");
+  bool success = keptech::run<keptech::vkh::Renderer, Resources>(
+      {.title = "Material Editor",
+       .width = WINDOW_WIDTH,
+       .height = WINDOW_HEIGHT},
+      {.applicationName = "Material Editor"}, setup,
+      [](auto& window, auto event, auto& resources) {});
 
   keptech::core::window::shutdown();
+
+  if (!success) {
+    SPDLOG_CRITICAL("Material Editor exited with errors");
+    return -1;
+  }
 
   SPDLOG_INFO("Material Editor exited cleanly");
 

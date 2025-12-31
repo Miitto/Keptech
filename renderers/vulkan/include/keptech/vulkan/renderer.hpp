@@ -10,13 +10,13 @@
 #include <algorithm>
 #include <expected>
 #include <functional>
+#include <keptech/core/components/renderObject.hpp>
 #include <keptech/core/components/transform.hpp>
 #include <keptech/core/maths/frustum.hpp>
 #include <keptech/core/maths/transform.hpp>
 #include <keptech/core/moveGuard.hpp>
 #include <keptech/core/renderer.hpp>
 #include <keptech/core/rendering/mesh.hpp>
-#include <keptech/core/rendering/renderObject.hpp>
 #include <keptech/core/slotmap.hpp>
 #include <keptech/ecs/ecs.hpp>
 #include <keptech/vulkan/structs.hpp>
@@ -40,6 +40,8 @@ namespace keptech::vkh {
     using Shader = keptech::vkh::Shader;
     using MaterialHandle = core::rendering::Material::Handle;
     using MeshHandle = core::rendering::Mesh::Handle;
+
+    static inline constexpr const char* getName() { return "VulkanRenderer"; }
 
     struct Queues {
       Queue graphics;
@@ -106,7 +108,7 @@ namespace keptech::vkh {
     };
 
   private:
-    Renderer(core::window::Window& window, VulkanCore&& vkcore,
+    Renderer(const core::window::Window& window, VulkanCore&& vkcore,
              vma::Allocator& allocator, ImGuiVkObjects&& imGuiObjects,
              CameraObjects&& cameraObjects)
         : window(&window), vkcore(std::move(vkcore)), allocator(allocator),
@@ -117,13 +119,14 @@ namespace keptech::vkh {
       auto& ecs = ecs::ECS::get();
       return ecs.registerSystem<Renderer>(
           ecs.signatureFromComponents<components::Transform,
-                                      core::rendering::RenderObject>(),
+                                      components::RenderObject>(),
           std::move(renderer));
     }
 
   public:
     std::expected<Renderer*, std::string> static create(
-        const char* const name, core::window::Window& window);
+        const core::renderer::CreateInfo& createInfo,
+        const core::window::Window& window);
 
     Renderer() = delete;
     Renderer(const Renderer&) = delete;
@@ -203,9 +206,10 @@ namespace keptech::vkh {
       ongoingCommandBuffers.erase(first, last);
     }
 
+  private:
     core::MoveGuard moveGuard = core::MoveGuard{};
 
-    core::window::Window* window;
+    const core::window::Window* window;
     VulkanCore vkcore;
     vma::Allocator allocator;
     ImGuiVkObjects imGuiObjects;

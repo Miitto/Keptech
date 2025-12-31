@@ -8,17 +8,27 @@ namespace keptech::vkh {
 
   class DescriptorLayoutBuilder {
   public:
+    constexpr static vk::DescriptorBindingFlags INDEX_BINDING_FLAGS =
+        vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending |
+        vk::DescriptorBindingFlagBits::eUpdateAfterBind |
+        vk::DescriptorBindingFlagBits::ePartiallyBound |
+        vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
+
     void clear() { bindings.clear(); }
 
     void addBinding(uint32_t binding, vk::DescriptorType descriptorType,
                     vk::ShaderStageFlags stageFlags,
-                    uint32_t descriptorCount = 1, void* pNext = nullptr);
+                    uint32_t descriptorCount = 1,
+                    vk::DescriptorBindingFlagBits bindingFlags =
+                        vk::DescriptorBindingFlagBits{},
+                    void* pNext = nullptr);
 
     std::expected<vk::raii::DescriptorSetLayout, std::string>
     build(const vk::raii::Device& device, void* pNext = nullptr) const;
 
   private:
     std::vector<vk::DescriptorSetLayoutBinding> bindings{};
+    std::vector<vk::DescriptorBindingFlags> bFlags = {};
   };
 
   class GrowableDescriptorPool {
@@ -28,10 +38,10 @@ namespace keptech::vkh {
       float ratio;
     };
 
-    std::expected<void, std::string> init(const vk::raii::Device& device,
-                                          std::span<PoolRatios> ratios,
-                                          bool individualFree = false,
-                                          uint32_t poolSize = 256);
+    std::expected<void, std::string>
+    init(const vk::raii::Device& device, std::span<PoolRatios> ratios,
+         vk::DescriptorPoolCreateFlags poolCreateFlags = {},
+         uint32_t poolSize = 256);
 
     std::expected<vk::raii::DescriptorSet, std::string>
     allocate(const vk::DescriptorSetLayout& layout, void* pNext = nullptr);
@@ -51,12 +61,12 @@ namespace keptech::vkh {
     createPool(uint32_t setCount, std::span<PoolRatios> ratios);
 
     const vk::raii::Device* device;
-    bool individualFree = false;
     uint32_t poolSize;
     std::optional<vk::raii::DescriptorPool> pool;
     std::vector<vk::raii::DescriptorPool> oldPools{};
 
     std::vector<PoolRatios> size{};
+    vk::DescriptorPoolCreateFlags poolCreateFlags = {};
   };
 
   struct DescriptorWriter {

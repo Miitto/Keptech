@@ -18,10 +18,18 @@ function(_compile_slang_file)
   foreach(entry ${arg_ENTRIES})
     set(ENTRIES ${ENTRIES} -entry ${entry})
   endforeach()
+
+  set(SLANG_DEBUG_FLAGS "-g")
+  set(SLANG_OPTIMIZATION_FLAGS "-O0")
+  if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(SLANG_DEBUG_FLAGS "")
+    set(SLANG_OPTIMIZATION_FLAGS "-O3 -obfuscate")
+  endif()
+
   add_custom_command(
     OUTPUT ${OUT_FILE}
     DEPENDS ${source}.slang ${arg_INCLUDED_FILES}
-    COMMAND ${SLANGC_EXECUTABLE} ${arg_SOURCE} -I ${KT_SHADER_DIR} ${COMMAND_TARGET} -fvk-use-entrypoint-name ${ENTRIES} -o ${arg_OUT}
+    COMMAND ${SLANGC_EXECUTABLE} ${arg_SOURCE} -I ${KT_SHADER_DIR} ${SLANG_DEBUG_FLAGS} ${SLANG_OPTIMIZATION_FLAGS} ${COMMAND_TARGET} -fvk-use-entrypoint-name ${ENTRIES} -o ${arg_OUT}
     COMMENT "Compiling shader ${source} to ${arg_TARGET} (${arg_OUT})"
     VERBATIM
   )

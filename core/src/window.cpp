@@ -5,17 +5,16 @@ namespace keptech::core::window {
   void init() { SDL_Init(SDL_INIT_VIDEO); }
   void shutdown() { SDL_Quit(); }
 
-  Window::Window(const char* const title, const int width, const int height,
-                 CreationFlags flags)
+  Window::Window(const CreateInfo& info)
       : handle(
-            SDL_CreateWindow(title, width, height, SDL_WINDOW_VULKAN | flags)) {
+            SDL_CreateWindow(info.title, info.width, info.height, SDL_WINDOW_VULKAN | info.flags)) {
     updateSize();
     updateRenderSize();
   }
 
   bool Window::shouldClose() const { return shouldExit; }
 
-  bool Window::pollEvent(Window::Event& event) {
+  bool Window::pollEvent(Event& event) {
     if (SDL_PollEvent(&event)) {
       switch (event.type) {
       case SDL_EVENT_QUIT: {

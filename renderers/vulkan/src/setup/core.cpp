@@ -1,4 +1,5 @@
 #include "keptech/core/cameras/camera.hpp"
+#include "keptech/core/renderer.hpp"
 #include "keptech/vulkan/helpers/descriptors.hpp"
 #include "keptech/vulkan/renderer.hpp"
 
@@ -20,8 +21,10 @@
 namespace keptech::vkh::setup {
   using namespace keptech::vkh;
   constexpr std::array<const char*, 3> REQUIRED_DEVICE_EXTENSIONS = {
-      vk::KHRSwapchainExtensionName, vk::KHRSpirv14ExtensionName,
-      vk::KHRCreateRenderpass2ExtensionName};
+      vk::KHRSwapchainExtensionName,
+      vk::KHRSpirv14ExtensionName,
+      vk::KHRCreateRenderpass2ExtensionName,
+  };
 
   std::expected<vk::raii::PhysicalDevice, std::string>
   createPhysicalDevice(vk::raii::Instance& instance,
@@ -165,12 +168,17 @@ namespace keptech::vkh::setup {
         vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
         vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
-        ENGINE_DEVICE_EXTENSIONS = {
-            {},
-            {.shaderDrawParameters = true},
-            {.bufferDeviceAddress = true},
-            {.synchronization2 = true, .dynamicRendering = true},
-            {.extendedDynamicState = true}};
+        ENGINE_DEVICE_EXTENSIONS = {{},
+                                    {.shaderDrawParameters = true},
+                                    {
+                                        .descriptorIndexing = true,
+                                        .bufferDeviceAddress = true,
+                                    },
+                                    {
+                                        .synchronization2 = true,
+                                        .dynamicRendering = true,
+                                    },
+                                    {.extendedDynamicState = true}};
 
     vk::DeviceCreateInfo deviceCreateInfo{
         .pNext =
@@ -351,10 +359,18 @@ namespace keptech::vkh {
   using namespace keptech::vkh::setup;
 
   std::expected<Renderer*, std::string>
-  Renderer::create(const char* const name, core::window::Window& window) {
+  Renderer::create(const core::renderer::CreateInfo& createInfo,
+                   const core::window::Window& window) {
     auto context = vk::raii::Context{};
 
-    auto instance_res = createInstance(context, name, true);
+#ifndef NDEBUG
+    constexpr bool enableValidationLayers = true;
+#else
+    constexpr bool enableValidationLayers = false;
+#endif
+
+    auto instance_res = createInstance(context, createInfo.applicationName,
+                                       enableValidationLayers);
     if (!instance_res) {
       return std::unexpected(instance_res.error());
     }

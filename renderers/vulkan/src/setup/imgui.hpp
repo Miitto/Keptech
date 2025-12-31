@@ -78,6 +78,10 @@ namespace keptech::vkh::setup {
     // this initializes the core structures of imgui
     ImGui::CreateContext();
 
+    auto& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;     // Enable Docking
+
     ImGui_ImplSDL3_InitForVulkan(window.getHandle());
 
     // this initializes imgui for Vulkan

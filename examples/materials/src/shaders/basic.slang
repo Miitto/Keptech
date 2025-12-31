@@ -1,7 +1,6 @@
 import keptech;
 
-[[vk::binding(0)]]
-uniform keptech::Camera camera : register(t0);
+#include "keptech/cameraUniform.slang"
 
 struct Vertex {
   float3 position;

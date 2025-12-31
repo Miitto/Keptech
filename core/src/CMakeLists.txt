@@ -7,5 +7,6 @@ target_sources(${PROJECT_NAME}
     cameras/cameraManager.cpp
     components/transform.cpp
     gltf/loaded.cpp
+    kt-logger.cpp
     window.cpp
 )

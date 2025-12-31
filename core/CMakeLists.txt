@@ -87,3 +87,10 @@ target_precompile_headers(${PROJECT_NAME} PUBLIC
 )
 
 set(KT_CORE_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
+
+set(KT_LOG_LEVEL "INFO" CACHE STRING "Core log level")
+
+target_compile_definitions(${PROJECT_NAME}
+  PUBLIC
+    KT_LOG_LEVEL=SPDLOG_LEVEL_${KT_LOG_LEVEL}
+)

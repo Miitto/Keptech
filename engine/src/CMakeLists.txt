@@ -3,5 +3,5 @@ target_sources(${PROJECT_NAME}
     FILE_SET internalHeaders
     TYPE HEADERS
   PRIVATE
-    app.cpp
+    a.cpp
 )

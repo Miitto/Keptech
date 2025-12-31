@@ -1,12 +1,12 @@
 #include "keptech/vulkan/helpers/descriptors.hpp"
 #include "macros.hpp"
+#include "vulkan/vulkan.hpp"
 
 namespace keptech::vkh {
-  void DescriptorLayoutBuilder::addBinding(uint32_t binding,
-                                           vk::DescriptorType descriptorType,
-                                           vk::ShaderStageFlags stageFlags,
-                                           uint32_t descriptorCount,
-                                           void* pNext) {
+  void DescriptorLayoutBuilder::addBinding(
+      uint32_t binding, vk::DescriptorType descriptorType,
+      vk::ShaderStageFlags stageFlags, uint32_t descriptorCount,
+      vk::DescriptorBindingFlagBits bindingFlags, void* pNext) {
     bindings.push_back(vk::DescriptorSetLayoutBinding{
         .binding = binding,
         .descriptorType = descriptorType,
@@ -14,13 +14,20 @@ namespace keptech::vkh {
         .stageFlags = stageFlags,
         .pImmutableSamplers = nullptr,
     });
+    bFlags.emplace_back(bindingFlags);
   }
 
   std::expected<vk::raii::DescriptorSetLayout, std::string>
   DescriptorLayoutBuilder::build(const vk::raii::Device& device,
                                  void* pNext) const {
-    vk::DescriptorSetLayoutCreateInfo layoutCreateInfo{
+    vk::DescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{
         .pNext = pNext,
+        .bindingCount = static_cast<uint32_t>(bFlags.size()),
+        .pBindingFlags = bFlags.data(),
+    };
+
+    vk::DescriptorSetLayoutCreateInfo layoutCreateInfo{
+        .pNext = &bindingFlagsInfo,
         .bindingCount = static_cast<uint32_t>(bindings.size()),
         .pBindings = bindings.data(),
     };
@@ -32,13 +39,12 @@ namespace keptech::vkh {
     return std::move(descriptorSetLayout);
   }
 
-  std::expected<void, std::string>
-  GrowableDescriptorPool::init(const vk::raii::Device& device,
-                               std::span<PoolRatios> ratios,
-                               bool individualFree, uint32_t poolSize) {
+  std::expected<void, std::string> GrowableDescriptorPool::init(
+      const vk::raii::Device& device, std::span<PoolRatios> ratios,
+      vk::DescriptorPoolCreateFlags flags, uint32_t poolSize) {
     this->device = &device;
     this->poolSize = poolSize;
-    this->individualFree = individualFree;
+    this->poolCreateFlags = flags;
     for (const auto& ratio : ratios) {
       size.push_back(ratio);
     }
@@ -99,9 +105,7 @@ namespace keptech::vkh {
     }
 
     vk::DescriptorPoolCreateInfo poolCreateInfo{
-        .flags = individualFree
-                     ? vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet
-                     : vk::DescriptorPoolCreateFlagBits{},
+        .flags = poolCreateFlags,
         .maxSets = setCount,
         .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
         .pPoolSizes = poolSizes.data(),

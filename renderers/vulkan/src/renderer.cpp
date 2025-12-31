@@ -149,8 +149,7 @@ namespace keptech::vkh {
 
     for (auto& entity : entities) {
       auto transform = ecs.getComponentRef<components::Transform>(entity);
-      auto renderObj =
-          ecs.getComponentRef<core::rendering::RenderObject>(entity);
+      auto renderObj = ecs.getComponentRef<components::RenderObject>(entity);
 
       auto meshP = loadedMeshes.get(renderObj.mesh);
       if (!meshP) {
