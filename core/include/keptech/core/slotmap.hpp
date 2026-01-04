@@ -241,7 +241,7 @@ namespace keptech::core {
   };
 
   struct SlotMapRefs {
-    std::atomic<size_t> strongRefs = 0;
+    std::atomic<size_t> strongRefs = 1;
     std::atomic<size_t> weakRefs = 0;
 
     void newStrongRef() { strongRefs.fetch_add(1, std::memory_order_seq_cst); }
@@ -393,9 +393,7 @@ namespace keptech::core {
     template <typename T>
     SlotMapSmartHandle(SlotMapHandle handle, SlotMap<T>& map)
         : handle(handle), refCount(new SlotMapRefs()),
-          deleter([this, &map]() { map.erase(this->handle); }) {
-      refCount->newStrongRef();
-    }
+          deleter([this, &map]() { map.erase(this->handle); }) {}
 
     SlotMapSmartHandle(SlotMapHandle handle, std::function<void()> deleter)
         : handle(handle), refCount(new SlotMapRefs()),
@@ -403,9 +401,7 @@ namespace keptech::core {
 
     SlotMapSmartHandle(SlotMapHandle handle, SlotMapRefs& refCount,
                        std::function<void()> deleter)
-        : handle(handle), refCount(&refCount), deleter(std::move(deleter)) {
-      this->refCount->newStrongRef();
-    }
+        : handle(handle), refCount(&refCount), deleter(std::move(deleter)) {}
 
     SlotMapSmartHandle(const SlotMapWeakHandle& weakHandle,
                        std::function<void()> deleter)
@@ -415,7 +411,6 @@ namespace keptech::core {
         throw std::runtime_error(
             "Cannot promote weak handle to strong handle: no strong refs");
       }
-      refCount->newStrongRef();
     }
 
     operator SlotMapHandle() const { return handle; }
