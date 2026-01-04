@@ -1,23 +1,22 @@
 #include "keptech/core/components/transform.hpp"
 
-#include "keptech/ecs/ecs.hpp"
-
 namespace keptech::components {
   void Transform::recalculateGlobalTransform() {
     if (!dirty) {
       return;
     }
 
-    global = local;
-    if (parent == ecs::INVALID_ENTITY_HANDLE) {
-      return;
+    bool hasParent = parent.isValid();
+
+    Transform* parentTransform = nullptr;
+    if (hasParent) {
+      parentTransform = &parent.getComponents<Transform>();
+      parentTransform->recalculateGlobalTransform();
     }
 
-    auto& ecs = ecs::ECS::get();
+    global = local;
 
-    auto& parentTransform = ecs.getComponentRef<Transform>(parent);
-    parentTransform.recalculateGlobalTransform();
-
-    global.apply(parentTransform.global);
+    if (hasParent)
+      global.apply(parentTransform->global);
   }
 } // namespace keptech::components

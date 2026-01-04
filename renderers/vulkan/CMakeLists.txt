@@ -33,7 +33,9 @@ target_link_libraries(${PROJECT_NAME}
 
 target_compile_definitions(${PROJECT_NAME}
   PUBLIC
-    KEPTECH_VULKAN_RENDERER
+    KEPTECH_RENDERER_VULKAN
+    KEPTECH_RENDERER_NAMESPACE=keptech::vkh
+    KEPTECH_RENDERER=keptech::vkh::Renderer
     MAX_FRAMES_IN_FLIGHT=2
     VK_LOG_LEVEL=SPDLOG_LEVEL_${RENDERERER_LOG_LEVEL}
 )

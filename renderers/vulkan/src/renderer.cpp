@@ -3,10 +3,11 @@
 #include "macros.hpp"
 #include "vulkan/vulkan.hpp"
 
+#include "vk-logger.hpp"
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
-#include <keptech/core/cameras/camera.hpp>
+#include <keptech/core/components/camera.hpp>
 #include <keptech/core/renderer.hpp>
 #include <keptech/core/rendering/gltf/loaded.hpp>
 #include <keptech/core/window.hpp>
@@ -142,24 +143,24 @@ namespace keptech::vkh {
   }
 
   Renderer::ObjectLists
-  Renderer::buildRenderObjectLists(const maths::Frustum& frustum) {
+  Renderer::buildRenderObjectLists(core::Scene& scene,
+                                   const maths::Frustum& frustum) {
     ObjectLists lists;
 
-    auto& ecs = ecs::ECS::get();
+    auto view =
+        scene.getEcs().view<components::Transform, components::RenderObject>();
 
-    for (auto& entity : entities) {
-      auto transform = ecs.getComponentRef<components::Transform>(entity);
-      auto renderObj = ecs.getComponentRef<components::RenderObject>(entity);
-
-      auto meshP = loadedMeshes.get(renderObj.mesh);
-      if (!meshP) {
-        VK_WARN("RenderObject has invalid mesh handle, skipping");
-        continue;
-      }
+    for (auto [entity, transform, renderObj] : view.each()) {
 
       auto materialP = loadedMaterials.get(renderObj.material);
       if (!materialP) {
         VK_WARN("RenderObject has invalid material handle, skipping");
+        continue;
+      }
+
+      auto meshP = loadedMeshes.get(renderObj.mesh);
+      if (!meshP) {
+        VK_WARN("RenderObject has invalid mesh handle, skipping");
         continue;
       }
 
@@ -171,7 +172,7 @@ namespace keptech::vkh {
       // TODO: Frustum cull
 
       struct VkRenderObject ro{
-          .transform = transform.global,
+          .transform = transform.getGlobal(),
           .material = &material,
           .mesh = &mesh,
       };
@@ -192,6 +193,8 @@ namespace keptech::vkh {
   }
 
   void Renderer::newFrame() {
+    frameScenes.clear();
+
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplSDL3_NewFrame();
 
@@ -242,30 +245,37 @@ namespace keptech::vkh {
 
   void Renderer::setupGraphicsCommandBuffer(
       const Frame& info, const vk::raii::CommandBuffer& graphicsCmdBuffer,
-      const core::cameras::Camera& camera) {
+      const components::Camera& camera) {
 
     auto& viewport = camera.getViewport();
     auto& scissor = camera.getScissor();
 
+    VK_TRACE("Setting viewport to x:{} y:{} w:{} h:{}", viewport.x, viewport.y,
+             viewport.width, viewport.height);
+    VK_TRACE("Setting scissor to x:{} y:{} w:{} h:{}", scissor.x, scissor.y,
+             scissor.width, scissor.height);
+
     graphicsCmdBuffer.setViewport(0, vk::Viewport{
-                                         .x = viewport.offset.x,
-                                         .y = viewport.offset.y,
-                                         .width = viewport.size.x,
-                                         .height = viewport.size.y,
-                                         .minDepth = 0.0f,
-                                         .maxDepth = 1.0f,
+                                         .x = viewport.x,
+                                         .y = viewport.y,
+                                         .width = viewport.width,
+                                         .height = viewport.height,
+                                         .minDepth = viewport.minDepth,
+                                         .maxDepth = viewport.maxDepth,
                                      });
 
-    graphicsCmdBuffer.setScissor(
-        0, vk::Rect2D{
-               .offset = {.x = static_cast<int32_t>(scissor.offset.x),
-                          .y = static_cast<int32_t>(scissor.offset.y)},
-               .extent =
-                   vk::Extent2D{
-                       .width = scissor.size.x,
-                       .height = scissor.size.y,
-                   },
-           });
+    graphicsCmdBuffer.setScissor(0, vk::Rect2D{
+                                        .offset =
+                                            {
+                                                .x = scissor.x,
+                                                .y = scissor.y,
+                                            },
+                                        .extent =
+                                            vk::Extent2D{
+                                                .width = scissor.width,
+                                                .height = scissor.height,
+                                            },
+                                    });
   }
 
   void Renderer::presentFrame(const Frame& info) {
@@ -380,11 +390,18 @@ namespace keptech::vkh {
                         name, path, meshRes.error()));
       }
 
-      auto meshHandle = meshRes.value();
-      meshHandles.push_back(std::move(meshHandle));
+      auto& meshHandle = meshRes.value();
+      meshHandles.emplace_back(std::move(meshHandle));
+      VK_DEBUG("Loaded mesh '{}' from glTF file '{}'", name, path);
+    }
+    VK_DEBUG("Loaded {} meshes from glTF file '{}'", meshHandles.size(), path);
+
+    if (meshHandles.empty()) {
+      return std::unexpected(
+          fmt::format("No meshes created from glTF file '{}'", path));
     }
 
-    return meshHandles;
+    return std::move(meshHandles);
   }
 
   std::expected<core::rendering::Mesh::Handle, std::string>
@@ -420,7 +437,7 @@ namespace keptech::vkh {
         handle, [this, name]() { unloadMesh(name); });
     meshNameMap.emplace(meshData.name, meshHandle.toWeak());
 
-    return meshHandle;
+    return std::move(meshHandle);
   }
 
   void Renderer::unloadMesh(const std::string& name) {
@@ -428,6 +445,7 @@ namespace keptech::vkh {
     if (found != meshNameMap.end()) {
       loadedMeshes.erase(found->second.get());
       meshNameMap.erase(found);
+      VK_DEBUG("Unloaded mesh '{}'", name);
     }
   }
 

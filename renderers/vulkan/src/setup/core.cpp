@@ -1,4 +1,3 @@
-#include "keptech/core/cameras/camera.hpp"
 #include "keptech/core/renderer.hpp"
 #include "keptech/vulkan/helpers/descriptors.hpp"
 #include "keptech/vulkan/renderer.hpp"
@@ -16,6 +15,7 @@
 #include <SDL3/SDL_vulkan.h>
 #include <algorithm>
 #include <expected>
+#include <keptech/core/components/camera.hpp>
 #include <set>
 
 namespace keptech::vkh::setup {
@@ -322,7 +322,7 @@ namespace keptech::vkh::setup {
              AllocatedBuffer::create(
                  allocator,
                  {
-                     .size = sizeof(core::cameras::Uniforms),
+                     .size = sizeof(components::Camera::Uniforms),
                      .usage = vk::BufferUsageFlagBits::eUniformBuffer,
                      .sharingMode = vk::SharingMode::eExclusive,
                  },
@@ -338,7 +338,7 @@ namespace keptech::vkh::setup {
                            vk::DescriptorBufferInfo{
                                .buffer = uniformBuffer.buffer,
                                .offset = 0,
-                               .range = sizeof(core::cameras::Uniforms),
+                               .range = sizeof(components::Camera::Uniforms),
                            },
                            DescriptorWriter::BufferType::Uniform);
 
@@ -358,7 +358,7 @@ namespace keptech::vkh::setup {
 namespace keptech::vkh {
   using namespace keptech::vkh::setup;
 
-  std::expected<Renderer*, std::string>
+  std::expected<Renderer, std::string>
   Renderer::create(const core::renderer::CreateInfo& createInfo,
                    const core::window::Window& window) {
     auto context = vk::raii::Context{};
@@ -511,7 +511,6 @@ namespace keptech::vkh {
     Renderer r{window, std::move(vkcore), allocator, std::move(imguiObjects),
                std::move(cameraObjects)};
 
-    auto& renderer = addToEcs(std::move(r));
-    return &renderer;
+    return std::move(r);
   }
 } // namespace keptech::vkh

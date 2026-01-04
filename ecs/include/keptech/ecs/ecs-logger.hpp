@@ -60,6 +60,18 @@
 #define ECS_CRITICAL(...) (void)0
 #endif
 
+#ifndef NDEBUG
+#define ECS_ASSERT(cond, ...)                                                  \
+  if (!(cond)) {                                                               \
+    keptech::ecs::logger->log(                                                 \
+        spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION},               \
+        spdlog::level::critical, "Assertion failed: " __VA_ARGS__);            \
+    std::abort();                                                              \
+  }
+#else
+#define ECS_ASSERT(cond, ...) (void)0
+#endif
+
 namespace keptech::ecs {
   extern const std::shared_ptr<spdlog::logger> logger;
 } // namespace keptech::ecs

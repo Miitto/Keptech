@@ -1,36 +1,63 @@
 #pragma once
 
-#include "base.hpp"
-#include <string>
-#include <utility>
+#include "ecs-logger.hpp"
+#include <entt/entt.hpp>
 
 namespace keptech::ecs {
+  using EntityHandle = entt::entity;
+  inline constexpr EntityHandle INVALID_ENTITY_HANDLE = entt::null;
+
+  using Ecs = entt::registry;
+
   class Entity {
   public:
-    Entity() : handle(INVALID_ENTITY_HANDLE), name("Unnamed") {}
-    Entity(EntityHandle handle, std::string name)
-        : handle(handle), name(std::move(name)) {}
+    Entity() = default;
+    Entity(EntityHandle handle, entt::registry* ecs)
+        : handle(handle), ecs(ecs) {}
 
     operator EntityHandle() const { return handle; }
-
-    [[nodiscard]] const std::string& getName() const { return name; }
     [[nodiscard]] EntityHandle getHandle() const { return handle; }
-
-    Signature& getSignature() { return signature; }
-
     [[nodiscard]] bool isValid() const {
-      return handle != INVALID_ENTITY_HANDLE;
+      return handle != INVALID_ENTITY_HANDLE && ecs != nullptr &&
+             ecs->valid(handle);
     }
 
-    void onDestroy() {
+    Ecs& getEcs() {
+      ECS_ASSERT(ecs != nullptr, "Entity is not associated with any ECS");
+      return *ecs;
+    }
+
+    template <typename C, typename... Args> auto& addComponent(Args&&... args) {
+      return ecs->emplace<C>(handle, std::forward<Args>(args)...);
+    }
+
+    template <typename C> void eraseComponent() { ecs->erase<C>(handle); }
+
+    template <typename C> void removeComponent() { ecs->remove<C>(handle); }
+
+    template <typename... C> [[nodiscard]] bool hasAllComponents() const {
+      return ecs->all_of<C...>(handle);
+    }
+
+    template <typename... C> [[nodiscard]] bool hasAnyComponent() const {
+      return ecs->any_of<C...>(handle);
+    }
+
+    template <typename... C> [[nodiscard]] decltype(auto) getComponents() {
+      ECS_ASSERT(hasAllComponents<C...>(),
+                 "Entity does not have the requested component");
+      return ecs->get<C...>(handle);
+    }
+
+    void destroy() {
+      ECS_ASSERT(isValid(), "Cannot destroy an invalid entity");
+      ecs->destroy(handle);
       handle = INVALID_ENTITY_HANDLE;
-      name = "Destroyed";
-      signature.reset();
+      ecs = nullptr;
     }
 
   private:
-    EntityHandle handle;
-    std::string name;
-    Signature signature;
+    EntityHandle handle = INVALID_ENTITY_HANDLE;
+    entt::registry* ecs = nullptr;
   };
 } // namespace keptech::ecs

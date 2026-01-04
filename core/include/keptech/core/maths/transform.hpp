@@ -23,6 +23,11 @@ namespace keptech::maths {
       return *this;
     }
 
+    Transform& lookAt(const glm::vec3& target, const glm::vec3& up) {
+      rotation = glm::quatLookAtRH(glm::normalize(target - position), up);
+      return *this;
+    }
+
     Transform& resize(const glm::vec3& factor) {
       _scale *= factor;
       return *this;

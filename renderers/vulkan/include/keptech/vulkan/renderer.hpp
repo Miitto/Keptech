@@ -17,8 +17,8 @@
 #include <keptech/core/moveGuard.hpp>
 #include <keptech/core/renderer.hpp>
 #include <keptech/core/rendering/mesh.hpp>
+#include <keptech/core/scene.hpp>
 #include <keptech/core/slotmap.hpp>
-#include <keptech/ecs/ecs.hpp>
 #include <keptech/vulkan/structs.hpp>
 #include <memory>
 #include <string>
@@ -30,12 +30,12 @@ namespace keptech::core::window {
   class Window;
 }
 
-namespace keptech::core::cameras {
+namespace keptech::components {
   class Camera;
 }
 
 namespace keptech::vkh {
-  class Renderer : public core::renderer::Renderer {
+  class Renderer {
   public:
     using Shader = keptech::vkh::Shader;
     using MaterialHandle = core::rendering::Material::Handle;
@@ -115,16 +115,8 @@ namespace keptech::vkh {
           imGuiObjects(std::move(imGuiObjects)),
           cameraObjects(std::move(cameraObjects)) {}
 
-    template <typename... Args> static Renderer& addToEcs(Renderer&& renderer) {
-      auto& ecs = ecs::ECS::get();
-      return ecs.registerSystem<Renderer>(
-          ecs.signatureFromComponents<components::Transform,
-                                      components::RenderObject>(),
-          std::move(renderer));
-    }
-
   public:
-    std::expected<Renderer*, std::string> static create(
+    std::expected<Renderer, std::string> static create(
         const core::renderer::CreateInfo& createInfo,
         const core::window::Window& window);
 
@@ -151,9 +143,11 @@ namespace keptech::vkh {
 
     void newFrame();
 
+    void submitScene(core::Scene& scene) { frameScenes.emplace_back(&scene); }
+
     void render();
 
-    ~Renderer() override;
+    ~Renderer();
 
   private:
     [[nodiscard]] const vk::Format& getSwapchainImageFormat() const {
@@ -172,7 +166,8 @@ namespace keptech::vkh {
       std::vector<VkRenderObject> transparent;
     };
 
-    ObjectLists buildRenderObjectLists(const maths::Frustum& frustum);
+    ObjectLists buildRenderObjectLists(core::Scene& scene,
+                                       const maths::Frustum& frustum);
 
     void checkSwapchain();
     std::expected<void, std::string> recreateSwapchain();
@@ -181,7 +176,7 @@ namespace keptech::vkh {
     void
     setupGraphicsCommandBuffer(const Frame& info,
                                const vk::raii::CommandBuffer& graphicsCmdBuffer,
-                               const core::cameras::Camera& camera);
+                               const components::Camera& camera);
     void draw(const Frame& info,
               const vk::raii::CommandBuffer& graphicsCmdBuffer);
     void drawImGui(const Frame& info,
@@ -227,6 +222,8 @@ namespace keptech::vkh {
     std::unordered_map<std::string, core::SlotMapWeakHandle> meshNameMap = {};
     std::unordered_map<std::string, core::SlotMapWeakHandle> materialNameMap =
         {};
+
+    std::vector<core::Scene*> frameScenes = {};
   };
 
   namespace setup {

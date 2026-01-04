@@ -3,10 +3,11 @@ target_sources(${PROJECT_NAME}
     FILE_SET private_headers
     TYPE HEADERS
   PRIVATE
-    cameras/camera.cpp
-    cameras/cameraManager.cpp
+    components/camera.cpp
     components/transform.cpp
     gltf/loaded.cpp
+    layers/layerStack.cpp
+    events.cpp
     kt-logger.cpp
     window.cpp
 )

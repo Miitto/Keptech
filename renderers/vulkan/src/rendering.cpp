@@ -4,7 +4,7 @@
 #include "vulkan/vulkan.hpp"
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
-#include <keptech/core/cameras/camera.hpp>
+#include <keptech/core/components/camera.hpp>
 
 namespace keptech::vkh {
 
@@ -18,112 +18,139 @@ namespace keptech::vkh {
         .clearValue = {
             .color = {std::array<float, 4>{0.1f, 0.1f, 0.1f, 1.0f}}}};
 
-    auto& cameras = ecs::ECS::get().getAllComponents<core::cameras::Camera>();
-    for (auto& camera : cameras) {
-      camera.recalculate();
-      auto uniforms = camera.getUniforms();
+    for (auto& scenePtr : frameScenes) {
+      auto& scene = *scenePtr;
+      auto view =
+          scene.getEcs().view<components::Transform, components::Camera>();
+      size_t cameraCount = view.size_hint();
+      VK_TRACE("Rendering {} cameras", cameraCount);
+      cameraCount = 0;
+      for (auto [entity, transform, camera] : view.each()) {
+        VK_TRACE("Rendering camera entity {}", ++cameraCount);
+        transform.recalculateGlobalTransform();
+        glm::mat4 invViewMatrix = transform.getGlobal().toMatrix();
+        glm::mat4 viewMatrix = glm::inverse(invViewMatrix);
 
-      {
-        vk::BufferMemoryBarrier2 cameraBufferBarrier{
-            .srcStageMask = vk::PipelineStageFlagBits2::eVertexShader,
-            .srcAccessMask = vk::AccessFlagBits2::eShaderRead,
-            .dstStageMask = vk::PipelineStageFlagBits2::eHost,
-            .dstAccessMask = vk::AccessFlagBits2::eHostWrite,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .buffer = cameraObjects.uniformBuffer.buffer,
-            .offset = 0,
-            .size = sizeof(core::cameras::Uniforms),
+        glm::mat4 projectionMatrix = camera.getProjectionMatrix();
+        glm::mat4 viewProjectionMatrix = projectionMatrix * viewMatrix;
+        glm::mat4 invProjectionMatrix = glm::inverse(projectionMatrix);
+        glm::mat4 invViewProjectionMatrix = invViewMatrix * invProjectionMatrix;
+
+        components::Camera::Uniforms uniforms{
+            .projectionMatrix = projectionMatrix,
+            .viewMatrix = viewMatrix,
+            .viewProjectionMatrix = viewProjectionMatrix,
+            .invProjectionMatrix = invProjectionMatrix,
+            .invViewMatrix = invViewMatrix,
+            .invViewProjectionMatrix = invViewProjectionMatrix,
         };
 
-        graphicsCmdBuffer.pipelineBarrier2(vk::DependencyInfo{
-            .bufferMemoryBarrierCount = 1,
-            .pBufferMemoryBarriers = &cameraBufferBarrier,
-        });
-      }
+        {
+          vk::BufferMemoryBarrier2 cameraBufferBarrier{
+              .srcStageMask = vk::PipelineStageFlagBits2::eVertexShader,
+              .srcAccessMask = vk::AccessFlagBits2::eShaderRead,
+              .dstStageMask = vk::PipelineStageFlagBits2::eHost,
+              .dstAccessMask = vk::AccessFlagBits2::eHostWrite,
+              .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+              .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+              .buffer = cameraObjects.uniformBuffer.buffer,
+              .offset = 0,
+              .size = sizeof(components::Camera::Uniforms),
+          };
 
-      memcpy(cameraObjects.uniformBuffer.mapping(), &uniforms,
-             sizeof(core::cameras::Uniforms));
+          graphicsCmdBuffer.pipelineBarrier2(vk::DependencyInfo{
+              .bufferMemoryBarrierCount = 1,
+              .pBufferMemoryBarriers = &cameraBufferBarrier,
+          });
+        }
 
-      {
-        vk::BufferMemoryBarrier2 cameraBufferBarrier{
-            .srcStageMask = vk::PipelineStageFlagBits2::eHost,
-            .srcAccessMask = vk::AccessFlagBits2::eHostWrite,
-            .dstStageMask = vk::PipelineStageFlagBits2::eVertexShader,
-            .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .buffer = cameraObjects.uniformBuffer.buffer,
-            .offset = 0,
-            .size = sizeof(core::cameras::Uniforms),
+        memcpy(cameraObjects.uniformBuffer.mapping(), &uniforms,
+               sizeof(components::Camera::Uniforms));
+
+        {
+          vk::BufferMemoryBarrier2 cameraBufferBarrier{
+              .srcStageMask = vk::PipelineStageFlagBits2::eHost,
+              .srcAccessMask = vk::AccessFlagBits2::eHostWrite,
+              .dstStageMask = vk::PipelineStageFlagBits2::eVertexShader,
+              .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+              .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+              .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+              .buffer = cameraObjects.uniformBuffer.buffer,
+              .offset = 0,
+              .size = sizeof(components::Camera::Uniforms),
+          };
+
+          graphicsCmdBuffer.pipelineBarrier2(vk::DependencyInfo{
+              .bufferMemoryBarrierCount = 1,
+              .pBufferMemoryBarriers = &cameraBufferBarrier,
+          });
+        }
+
+        vk::RenderingInfo renderingInfo{
+            .renderArea =
+                {
+                    .offset = {.x = 0, .y = 0},
+                    .extent = vkcore.swapchain.config().extent,
+                },
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &aInfo,
         };
 
-        graphicsCmdBuffer.pipelineBarrier2(vk::DependencyInfo{
-            .bufferMemoryBarrierCount = 1,
-            .pBufferMemoryBarriers = &cameraBufferBarrier,
-        });
-      }
+        graphicsCmdBuffer.beginRendering(renderingInfo);
 
-      vk::RenderingInfo renderingInfo{
-          .renderArea =
-              {
-                  .offset = {.x = 0, .y = 0},
-                  .extent = vkcore.swapchain.config().extent,
-              },
-          .layerCount = 1,
-          .colorAttachmentCount = 1,
-          .pColorAttachments = &aInfo,
-      };
+        auto objLists = buildRenderObjectLists(
+            scene,
+            maths::Frustum::fromViewProjectionMatrix(viewProjectionMatrix));
 
-      graphicsCmdBuffer.beginRendering(renderingInfo);
+        VK_TRACE("Drawing {} forward objects", objLists.forward.size());
+        for (auto& renderObject : objLists.forward) {
+          auto& material = *renderObject.material;
+          auto& mesh = *renderObject.mesh;
 
-      auto objLists = buildRenderObjectLists(maths::Frustum{});
+          graphicsCmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                         material.pipeline);
 
-      for (auto& renderObject : objLists.forward) {
-        auto& material = *renderObject.material;
-        auto& mesh = *renderObject.mesh;
+          setupGraphicsCommandBuffer(info, graphicsCmdBuffer, camera);
 
-        graphicsCmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                       material.pipeline);
+          graphicsCmdBuffer.bindDescriptorSets2({
+              .stageFlags = vk::ShaderStageFlagBits::eVertex |
+                            vk::ShaderStageFlagBits::eFragment,
+              .layout = material.pipelineLayout,
+              .firstSet = 0,
+              .descriptorSetCount = 1,
+              .pDescriptorSets = &*cameraObjects.descriptorSet,
+          });
 
-        setupGraphicsCommandBuffer(info, graphicsCmdBuffer, camera);
+          struct PushConstantData {
+            vk::DeviceAddress vertexBufferAddress;
+          } pushConstantData{
+              .vertexBufferAddress = mesh.vertexBuffer.address,
+          };
 
-        graphicsCmdBuffer.bindDescriptorSets2({
-            .stageFlags = vk::ShaderStageFlagBits::eVertex |
-                          vk::ShaderStageFlagBits::eFragment,
-            .layout = material.pipelineLayout,
-            .firstSet = 0,
-            .descriptorSetCount = 1,
-            .pDescriptorSets = &*cameraObjects.descriptorSet,
-        });
+          graphicsCmdBuffer.pushConstants<PushConstantData>(
+              material.pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0,
+              pushConstantData);
 
-        struct PushConstantData {
-          vk::DeviceAddress vertexBufferAddress;
-        } pushConstantData{
-            .vertexBufferAddress = mesh.vertexBuffer.address,
-        };
-
-        graphicsCmdBuffer.pushConstants<PushConstantData>(
-            material.pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0,
-            pushConstantData);
-
-        for (const auto& submesh : mesh.submeshes) {
-          if (mesh.indexBuffer.has_value()) {
-            graphicsCmdBuffer.bindIndexBuffer(mesh.indexBuffer->buffer, 0,
-                                              vk::IndexType::eUint32);
-            graphicsCmdBuffer.drawIndexed(submesh.indexCount, 1,
-                                          submesh.indexOffset, 0, 0);
-          } else {
-            graphicsCmdBuffer.draw(submesh.indexCount, 1, 0, 0);
+          for (const auto& submesh : mesh.submeshes) {
+            if (mesh.indexBuffer.has_value()) {
+              graphicsCmdBuffer.bindIndexBuffer(mesh.indexBuffer->buffer, 0,
+                                                vk::IndexType::eUint32);
+              graphicsCmdBuffer.drawIndexed(submesh.indexCount, 1,
+                                            submesh.indexOffset, 0, 0);
+            } else {
+              graphicsCmdBuffer.draw(submesh.indexCount, 1, 0, 0);
+            }
           }
         }
-      }
 
-      graphicsCmdBuffer.endRendering();
+        graphicsCmdBuffer.endRendering();
+      }
     }
   }
 
   void Renderer::render() {
+    VK_TRACE("Rendering {} scenes", frameScenes.size());
     Frame info = startFrame();
 
     vk::CommandBufferAllocateInfo cmdBufAllocInfo{
