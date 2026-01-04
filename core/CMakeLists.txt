@@ -27,6 +27,7 @@ target_link_libraries(${PROJECT_NAME}
   PUBLIC
     keptech::logging
     keptech::ecs
+    stb::stb
 )
 
 FetchContent_Declare(

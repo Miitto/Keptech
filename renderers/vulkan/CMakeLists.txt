@@ -23,12 +23,10 @@ target_sources(${PROJECT_NAME}
 
 add_subdirectory(src)
 
-include(imgui)
-link_imgui(${PROJECT_NAME} PUBLIC)
-
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     keptech::core
+    imgui::imgui
 )
 
 target_compile_definitions(${PROJECT_NAME}

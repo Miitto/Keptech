@@ -27,5 +27,6 @@ add_subdirectory(shader_embedder)
 
 # Vendored Deps
 add_subdirectory(vendor/imgui imgui)
+add_subdirectory(vendor/stb stb)
 
 
