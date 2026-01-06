@@ -1,8 +1,6 @@
 #pragma once
 
-#include "keptech/vulkan/helpers/descriptors.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
-#include "keptech/vulkan/helpers/pipeline.hpp"
 #include "keptech/vulkan/helpers/shader.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include "keptech/vulkan/material.hpp"
@@ -12,11 +10,13 @@
 #include <functional>
 #include <keptech/core/components/renderObject.hpp>
 #include <keptech/core/components/transform.hpp>
+#include <keptech/core/image.hpp>
 #include <keptech/core/maths/frustum.hpp>
 #include <keptech/core/maths/transform.hpp>
 #include <keptech/core/moveGuard.hpp>
 #include <keptech/core/renderer.hpp>
 #include <keptech/core/rendering/mesh.hpp>
+#include <keptech/core/rendering/texture.hpp>
 #include <keptech/core/scene.hpp>
 #include <keptech/core/slotmap.hpp>
 #include <keptech/vulkan/structs.hpp>
@@ -141,6 +141,16 @@ namespace keptech::vkh {
     std::expected<Shader, std::string>
     createShader(const unsigned char* const code, size_t size);
 
+    std::expected<core::rendering::Texture::Handle, std::string>
+    createTexture(glm::uvec3 size, core::rendering::Texture::Format format,
+                  core::Bitflag<core::rendering::Texture::Usage> usage,
+                  uint32_t mipLevels, bool cpuAccess = false,
+                  const void* data = nullptr);
+    std::expected<core::rendering::Texture::Handle, std::string>
+    createTexture(const core::Image& image,
+                  core::rendering::Texture::Usage usage,
+                  bool cpuAccess = false);
+
     void newFrame();
 
     void submitScene(core::Scene& scene) { frameScenes.emplace_back(&scene); }
@@ -219,8 +229,11 @@ namespace keptech::vkh {
 
     core::SlotMap<vkh::Mesh> loadedMeshes = {};
     core::SlotMap<vkh::Material> loadedMaterials = {};
+    core::SlotMap<AllocatedImage> loadedTextures = {};
     std::unordered_map<std::string, core::SlotMapWeakHandle> meshNameMap = {};
     std::unordered_map<std::string, core::SlotMapWeakHandle> materialNameMap =
+        {};
+    std::unordered_map<std::string, core::SlotMapWeakHandle> textureNameMap =
         {};
 
     std::vector<core::Scene*> frameScenes = {};

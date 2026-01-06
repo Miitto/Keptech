@@ -4,7 +4,12 @@
 
 namespace keptech::core::rendering {
   struct Mesh {
-    using Handle = SlotMapSmartHandle;
+    struct Handle {
+      SlotMapSmartHandle handle;
+    };
+    struct WeakHandle {
+      SlotMapWeakHandle handle;
+    };
 
     struct Vertex {
       glm::vec3 position;

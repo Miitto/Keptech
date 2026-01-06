@@ -5,7 +5,12 @@
 
 namespace keptech::core::rendering {
   struct Material {
-    using Handle = SlotMapSmartHandle;
+    struct Handle {
+      SlotMapSmartHandle handle;
+    };
+    struct WeakHandle {
+      SlotMapWeakHandle handle;
+    };
 
     enum class Stage : uint8_t { Deferred, Forward, Transparent };
 

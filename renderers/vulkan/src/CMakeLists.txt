@@ -17,6 +17,7 @@ target_sources(${PROJECT_NAME}
     mesh.cpp
     renderer.cpp
     rendering.cpp
+    resourceManagement.cpp
     structs.cpp
     vk-logger.cpp
 )

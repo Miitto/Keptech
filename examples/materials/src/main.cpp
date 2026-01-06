@@ -1,14 +1,9 @@
 #include <keptech/app.hpp>
 
-#include <keptech/core/components/camera.hpp>
-#include <keptech/core/components/renderObject.hpp>
-#include <keptech/core/rendering/material.hpp>
+#include <keptech/components.hpp>
 #include <keptech/core/window.hpp>
-#include <keptech/gui.h>
-#include <keptech/vulkan/helpers/shader.hpp>
-#include <keptech/vulkan/material.hpp>
-#include <keptech/vulkan/renderer.hpp>
-#include <spdlog/spdlog.h>
+#include <keptech/keptech.hpp>
+#include <keptech/vulkan.hpp>
 
 namespace shaders {
 #include "shaders/basic.h"
@@ -18,12 +13,12 @@ constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 
 struct Materials {
-  keptech::core::SlotMapSmartHandle basic;
+  keptech::MaterialHandle basic;
 };
 
 struct Meshes {
-  keptech::core::SlotMapSmartHandle triangle;
-  keptech::core::SlotMapSmartHandle monkey;
+  keptech::MeshHandle triangle;
+  keptech::MeshHandle monkey;
 };
 
 keptech::SetupInfo keptech::configureApp() {

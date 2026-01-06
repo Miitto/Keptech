@@ -31,3 +31,10 @@ if(KEPTECH_RENDERER STREQUAL "Vulkan")
       keptech::vulkan
   )
 endif()
+
+target_precompile_headers(${PROJECT_NAME}
+  PUBLIC
+    <keptech/components.hpp>
+    <keptech/keptech.hpp>
+    <keptech/vulkan.hpp>
+)

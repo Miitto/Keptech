@@ -1,8 +1,8 @@
 #pragma once
 
-#include "image.hpp"
 #include "keptech/core/bitflag.hpp"
 #include "keptech/core/macros.hpp"
+#include "texture.hpp"
 #include <vector>
 
 namespace keptech::core::rendering {
@@ -30,9 +30,9 @@ namespace keptech::core::rendering {
   };
 
   struct AttachmentConfig {
-    std::vector<Format> colorFormats = {};
-    Format depthFormat = Format::Undefined;
-    Format stencilFormat = Format::Undefined;
+    std::vector<Texture::Format> colorFormats = {};
+    Texture::Format depthFormat = Texture::Format::Undefined;
+    Texture::Format stencilFormat = Texture::Format::Undefined;
   };
 
   enum class Topology : uint8_t {
