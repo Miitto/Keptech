@@ -55,19 +55,6 @@ namespace keptech::vkh {
     return minImageCount;
   }
 
-  auto
-  desiredImageCount(const vk::SurfaceCapabilitiesKHR& capabilities) noexcept
-      -> uint32_t {
-    auto desired = capabilities.minImageCount + 1;
-
-    if (capabilities.maxImageCount > 0 &&
-        desired > capabilities.maxImageCount) {
-      desired = capabilities.maxImageCount;
-    }
-
-    return desired;
-  }
-
   auto Swapchain::create(const vk::raii::Device& device,
                          const SwapchainConfig& swapchainConfig,
                          const vk::raii::PhysicalDevice& physicalDevice,
@@ -82,7 +69,7 @@ namespace keptech::vkh {
 
     vk::SwapchainCreateInfoKHR swapchainCreateInfo{
         .surface = *surface,
-        .minImageCount = swapchainConfig.minImageCount,
+        .minImageCount = swapchainConfig.imageCount,
         .imageFormat = swapchainConfig.format.format,
         .imageColorSpace = swapchainConfig.format.colorSpace,
         .imageExtent = swapchainConfig.extent,
@@ -92,7 +79,8 @@ namespace keptech::vkh {
         .preTransform = surfaceCapabilities.currentTransform,
         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
         .presentMode = swapchainConfig.presentMode,
-        .clipped = VK_TRUE};
+        .clipped = VK_TRUE,
+    };
 
     if (queues.graphicsQueueIndex != queues.presentQueueIndex) {
       swapchainCreateInfo.imageSharingMode = vk::SharingMode::eConcurrent;

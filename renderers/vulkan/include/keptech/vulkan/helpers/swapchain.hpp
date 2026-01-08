@@ -10,7 +10,6 @@ namespace keptech::vkh {
     ::vk::SurfaceFormatKHR format;
     ::vk::PresentModeKHR presentMode;
     ::vk::Extent2D extent;
-    uint32_t minImageCount;
     uint32_t imageCount;
   };
 
@@ -28,9 +27,6 @@ namespace keptech::vkh {
 
   uint32_t minImageCount(const ::vk::SurfaceCapabilitiesKHR& capabilities,
                          uint32_t desired) noexcept;
-
-  uint32_t
-  desiredImageCount(const vk::SurfaceCapabilitiesKHR& capabilities) noexcept;
 
   struct SwapchainQueues {
     uint32_t graphicsQueueIndex;

@@ -1,13 +1,16 @@
 #include "keptech/app.hpp"
 
+#include <expected>
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/imgui.h>
 #include <keptech/core/kt-logger.hpp>
+#include <string>
 
 using namespace keptech;
 
 int main() {
-  core::window::init();
+  if (!core::window::init())
+    return -1;
   auto info = configureApp();
 
   core::window::Window window(info.window);
@@ -36,7 +39,7 @@ int main() {
   io.ConfigFlags |=
       ImGuiConfigFlags_NavEnableKeyboard | // Enable Keyboard Controls
       ImGuiConfigFlags_DockingEnable;      // Enable Docking
-                                           //
+
   auto isKeyboardEvent = [](core::window::Event event) {
     switch (event.type) {
     case SDL_EVENT_KEY_DOWN:

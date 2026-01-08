@@ -2,8 +2,9 @@
 
 // Taken from Hazel Engine's event system
 
-#include "SDL3/SDL_events.h"
+#include <SDL3/SDL_events.h>
 #include <concepts>
+#include <cstdint>
 #include <memory>
 
 #define KT_MAKE_EVENT_FNS(EVENT_TYPE)                                          \

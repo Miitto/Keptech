@@ -251,14 +251,11 @@ namespace keptech::vkh::setup {
                                    surfaceCapabilities, true);
     auto minImageCount =
         keptech::vkh::minImageCount(surfaceCapabilities, MAX_FRAMES_IN_FLIGHT);
-    auto desiredImageCount =
-        keptech::vkh::desiredImageCount(surfaceCapabilities);
 
     SwapchainConfig swapchainConfig{.format = format,
                                     .presentMode = presentMode,
                                     .extent = extent,
-                                    .minImageCount = minImageCount,
-                                    .imageCount = desiredImageCount};
+                                    .imageCount = minImageCount};
 
     VKH_MAKE(swapchain,
              Swapchain::create(device, swapchainConfig, physicalDevice, surface,

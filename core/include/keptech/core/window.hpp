@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 
 namespace keptech::core::window {
-  void init();
+  bool init();
   void shutdown();
 
   enum class CreateFlagBits : uint32_t {
