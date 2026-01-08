@@ -1,9 +1,11 @@
 #include <keptech/app.hpp>
 
+#include <expected>
 #include <keptech/components.hpp>
 #include <keptech/core/window.hpp>
 #include <keptech/keptech.hpp>
 #include <keptech/vulkan.hpp>
+#include <utility>
 
 namespace shaders {
 #include "shaders/basic.h"
@@ -68,7 +70,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
               .attachments =
                   {
                       .colorFormats =
-                          {keptech::core::rendering::Format::Default},
+                          {keptech::core::rendering::Texture::Format::Default},
                   },
               .layout =
                   {

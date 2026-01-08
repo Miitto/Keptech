@@ -2,6 +2,7 @@
 
 #include "event.hpp"
 #include "keptech/core/input/keys.hpp"
+#include <glm/glm.hpp>
 
 namespace keptech::core::events {
   struct MouseMovedEvent : public Event {

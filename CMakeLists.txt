@@ -17,6 +17,26 @@ if (BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
+option(KT_USE_PCH OFF)
+
+set(KT_PCH_HEADERS 
+  <algorithm>
+  <expected>
+  <optional>
+  <functional>
+  <memory>
+  <string>
+  <vector>
+  <array>
+  <unordered_map>
+  <spdlog/spdlog.h>
+  <bitset>
+  <string>
+  <string_view>
+  <concepts>
+  <set>
+  <type_traits>
+)
 
 add_subdirectory(logging)
 add_subdirectory(ecs)

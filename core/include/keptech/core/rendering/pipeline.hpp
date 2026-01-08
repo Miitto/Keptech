@@ -3,6 +3,7 @@
 #include "keptech/core/bitflag.hpp"
 #include "keptech/core/macros.hpp"
 #include "texture.hpp"
+#include <string_view>
 #include <vector>
 
 namespace keptech::core::rendering {

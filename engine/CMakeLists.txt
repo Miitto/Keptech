@@ -32,9 +32,11 @@ if(KEPTECH_RENDERER STREQUAL "Vulkan")
   )
 endif()
 
-target_precompile_headers(${PROJECT_NAME}
-  PUBLIC
-    <keptech/components.hpp>
-    <keptech/keptech.hpp>
-    <keptech/vulkan.hpp>
-)
+if (KT_USE_PCH)
+  target_precompile_headers(${PROJECT_NAME}
+    PUBLIC
+      <keptech/components.hpp>
+      <keptech/keptech.hpp>
+      <keptech/vulkan.hpp>
+  )
+endif()

@@ -69,23 +69,13 @@ target_sources(${PROJECT_NAME}
 
 add_subdirectory(src)
 
-target_precompile_headers(${PROJECT_NAME} PUBLIC
-  <string>
-  <string_view>
-  <vector>
-  <array>
-  <unordered_map>
-  <concepts>
-  <set>
-  <type_traits>
-  <spdlog/spdlog.h>
-  <algorithm>
-  <expected>
-  <optional>
-  <functional>
-  <memory>
-  <glm/glm.hpp>
-)
+if (KT_USE_PCH)
+  target_precompile_headers(${PROJECT_NAME}
+    PRIVATE
+      ${KT_PCH_HEADERS}
+      <glm/glm.hpp>
+  )
+endif()
 
 set(KT_CORE_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 

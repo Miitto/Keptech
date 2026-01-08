@@ -1,6 +1,8 @@
 #pragma once
 
 #include <concepts>
+#include <expected>
+#include <string>
 
 namespace keptech::core {
   class Scene;

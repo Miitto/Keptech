@@ -3,6 +3,8 @@
 // Taken from Hazel Engine's event system
 
 #include "SDL3/SDL_events.h"
+#include <concepts>
+#include <memory>
 
 #define KT_MAKE_EVENT_FNS(EVENT_TYPE)                                          \
   [[nodiscard]] EventType getType() const override { return getStaticType(); } \

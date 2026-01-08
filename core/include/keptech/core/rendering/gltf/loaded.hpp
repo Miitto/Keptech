@@ -1,9 +1,11 @@
 #pragma once
 
 #include "keptech/core/rendering/mesh.hpp"
+#include <expected>
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
+#include <string>
 #include <unordered_map>
 
 namespace keptech::core::gltf {

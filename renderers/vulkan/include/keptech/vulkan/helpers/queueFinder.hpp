@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <keptech/core/bitflag.hpp>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace keptech::vkh {
 

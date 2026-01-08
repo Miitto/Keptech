@@ -46,13 +46,8 @@ add_subdirectory(src)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC keptech::core)
 
-target_precompile_headers(${PROJECT_NAME} PUBLIC
-  <string>
-  <vector>
-  <array>
-  <unordered_map>
-  <spdlog/spdlog.h>
-  <optional>
-  <functional>
-  <bitset>
-)
+if (KT_USE_PCH)
+  target_precompile_headers(${PROJECT_NAME} PRIVATE
+    ${KT_PCH_HEADERS}
+  )
+endif()

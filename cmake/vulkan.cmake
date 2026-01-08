@@ -38,9 +38,11 @@ function(link_vulkan target ACCESS)
       "${Vulkan_INCLUDE_DIR}"
   )
 
-  target_precompile_headers(${target} ${ACCESS}
-    <vulkan/vulkan_raii.hpp>
-  )
+  if (KT_USE_PCH)
+    target_precompile_headers(${target} ${ACCESS}
+      <vulkan/vulkan_raii.hpp>
+    )
+  endif()
 endfunction()
 
 function(link_vma target ACCESS)

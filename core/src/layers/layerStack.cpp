@@ -1,4 +1,5 @@
 #include "keptech/core/layers/layerStack.hpp"
+#include <algorithm>
 
 namespace keptech::core::layers {
   void LayerStack::pushLayer(LayerPtr layer) {

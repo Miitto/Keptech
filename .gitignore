@@ -5,6 +5,7 @@
 !.vscode/tasks.json
 
 .cache/
+__cmake_systeminformation
 __output/
 
 imgui.ini

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vulkan/vulkan_raii.hpp>
+
 namespace keptech::vkh {
   struct Device {
     vk::raii::PhysicalDevice physical;

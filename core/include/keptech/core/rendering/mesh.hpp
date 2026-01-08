@@ -1,6 +1,10 @@
 #pragma once
 
 #include "keptech/core/slotmap.hpp"
+#include <cstdint>
+#include <glm/glm.hpp>
+#include <string>
+#include <vector>
 
 namespace keptech::core::rendering {
   struct Mesh {

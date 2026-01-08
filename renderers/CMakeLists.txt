@@ -1,6 +1,6 @@
 set(KT_RENDERERS "Vulkan")
 set(KEPTECH_RENDERER "Vulkan" CACHE STRING "Select the renderer to use")
-set_property(CACHE KT_RENDERER PROPERTY STRINGS ${KT_RENDERERS})
+set_property(CACHE KEPTECH_RENDERER PROPERTY STRINGS ${KT_RENDERERS})
 
 if(NOT KEPTECH_RENDERER IN_LIST KT_RENDERERS)
   message(FATAL_ERROR "Keptech: Invalid renderer selected: ${KT_RENDERER}. Valid options are: ${KT_RENDERERS}")

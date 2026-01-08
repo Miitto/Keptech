@@ -2,6 +2,8 @@
 
 #include "keptech/core/base.hpp"
 #include "keptech/core/events/event.hpp"
+#include <string>
+#include <utility>
 
 namespace keptech::core::layers {
   class Layer {

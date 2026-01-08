@@ -3,11 +3,19 @@
   "configurations": [
     {
       "type": "codelldb",
-      "name": "Launch Materials example (Debug, Clang x64)",
+      "name": "Launch Materials example (Debug, Clang x64, Windows)",
       "request": "launch",
       "program": "${workspaceFolder}/__output/clang-x64/examples/materials/src/Debug/materials.exe",
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "Build Materials example (Clang x64)"
-    }
+    },
+    {
+          "type": "codelldb",
+          "name": "Launch Materials example (Debug, Clang x64, Linux)",
+          "request": "launch",
+          "program": "${workspaceFolder}/__output/clang-x64/examples/materials/src/Debug/materials",
+          "cwd": "${workspaceFolder}",
+          "preLaunchTask": "Build Materials example (Clang x64)"
+        }
   ]
 }

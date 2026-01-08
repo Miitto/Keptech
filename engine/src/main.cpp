@@ -7,6 +7,7 @@
 using namespace keptech;
 
 int main() {
+  core::window::init();
   auto info = configureApp();
 
   core::window::Window window(info.window);
@@ -102,6 +103,7 @@ int main() {
   }
 
   KT_INFO("Starting shutdown");
+  core::window::shutdown();
 
   return exitCleanly;
 }

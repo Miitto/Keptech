@@ -188,6 +188,23 @@
       "cacheVariables": {
         "CMAKE_SYSTEM_PROCESSOR": "x86_64"
       }
+    },
+    {
+      "name": "gcc",
+      "hidden": true,
+      "generator": "Ninja Multi-Config",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "cmake/toolchain/gcc.toolchain.cmake",
+        "CLANG_TIDY_CHECKS": "clang-analyzer-*,cppcoreguidelines-*,bugprone-*,-bugprone-easily-swappable-parameters,-cppcoreguidelines-pro-type-union-access,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-bounds-constant-array-index,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-pro-type-reinterpret-cast,-cppcoreguidelines-pro-bounds-array-to-pointer-decay"
+      }
+    },
+    {
+      "name": "gcc-x64",
+      "inherits": "gcc",
+      "binaryDir": "${sourceDir}/__output/gcc-x64",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_PROCESSOR": "x86_64"
+      }
     }
   ],
   "buildPresets": [
@@ -227,6 +244,16 @@
     {
       "name": "clang-x64-release",
       "configurePreset": "clang-x64",
+      "configuration": "Release"
+    },
+    {
+      "name": "gcc-x64",
+      "configurePreset": "gcc-x64",
+      "configuration": "Debug"
+    },
+    {
+      "name": "gcc-x64-release",
+      "configurePreset": "gcc-x64",
       "configuration": "Release"
     },
     {

@@ -2,6 +2,8 @@
 
 #include "keptech/core/base.hpp"
 #include "keptech/core/layers/layer.hpp"
+#include <memory>
+#include <vector>
 
 namespace keptech::core::layers {
   class LayerStack {

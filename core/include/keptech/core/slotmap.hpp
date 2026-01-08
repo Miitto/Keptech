@@ -1,7 +1,10 @@
 #pragma once
 
 #include <atomic>
+#include <cstddef>
+#include <functional>
 #include <optional>
+#include <stdexcept>
 #include <unordered_map>
 #include <utility>
 #include <vector>
