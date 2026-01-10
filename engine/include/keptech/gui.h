@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <imgui/imgui.h>
 #include <keptech/core/moveGuard.hpp>
+#include <type_traits>
 
 namespace keptech::gui {
   class Frame {
@@ -11,8 +13,12 @@ namespace keptech::gui {
       ImGui::Begin(name, p_open, flags);
     }
 
-    template <typename... Args> const Frame& text(Args... args) const {
-      ImGui::Text(std::forward<Args>(args)...);
+    const Frame& text(const char* fmt, ...) const
+        __attribute__((format(printf, 2, 3))) {
+      va_list args;
+      va_start(args, fmt);
+      ImGui::TextV(fmt, args);
+      va_end(args);
       return *this;
     }
 
@@ -85,13 +91,13 @@ namespace keptech::gui {
                                 flags);
     }
 
-    const Frame& sameLine(float offset_from_start_x = 0.0f,
-                          float spacing = -1.0f) const {
+    [[nodiscard]] const Frame& sameLine(float offset_from_start_x = 0.0f,
+                                        float spacing = -1.0f) const {
       ImGui::SameLine(offset_from_start_x, spacing);
       return *this;
     }
 
-    const Frame& width(float w) const {
+    [[nodiscard]] const Frame& width(float w) const {
       ImGui::SetNextItemWidth(w);
       return *this;
     }

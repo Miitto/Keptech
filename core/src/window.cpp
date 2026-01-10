@@ -4,7 +4,7 @@
 
 namespace keptech::core::window {
   bool init() {
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
       auto msg = SDL_GetError();
       KT_ERROR("Failed to init SDL: {}", msg);
       return false;
@@ -26,6 +26,7 @@ namespace keptech::core::window {
     if (SDL_PollEvent(&event)) {
       switch (event.type) {
       case SDL_EVENT_QUIT: {
+        KT_INFO("Exit requested");
         shouldExit = true;
         break;
       }

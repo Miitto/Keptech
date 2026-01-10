@@ -1,5 +1,6 @@
 #include "keptech/core/layers/layerStack.hpp"
 #include <algorithm>
+#include <ranges>
 
 namespace keptech::core::layers {
   void LayerStack::pushLayer(LayerPtr layer) {
@@ -37,11 +38,11 @@ namespace keptech::core::layers {
     }
   }
 
-  bool LayerStack::onEvent(events::Event& event) {
-    for (auto it = layers.rbegin(); it != layers.rend(); ++it) {
-      if ((*it)->onEvent(event)) {
+  bool LayerStack::onEvent(events::Event& event, Timestep ts) {
+    for (auto& layer : std::ranges::reverse_view(layers)) {
+      layer->onEvent(event, ts);
+      if (event.isHandled())
         return true;
-      }
     }
     return false;
   }

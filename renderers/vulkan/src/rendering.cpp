@@ -11,7 +11,7 @@ namespace keptech::vkh {
   void Renderer::draw(const Frame& info,
                       const vk::raii::CommandBuffer& graphicsCmdBuffer) {
     vk::RenderingAttachmentInfo aInfo{
-        .imageView = vkcore.swapchain.nImageView(info.imageIndex),
+        .imageView = vkcore.swapchain.nView(info.imageIndex),
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -22,13 +22,10 @@ namespace keptech::vkh {
       auto& scene = *scenePtr;
       auto view =
           scene.getEcs().view<components::Transform, components::Camera>();
-      size_t cameraCount = view.size_hint();
-      VK_TRACE("Rendering {} cameras", cameraCount);
-      cameraCount = 0;
       for (auto [entity, transform, camera] : view.each()) {
-        VK_TRACE("Rendering camera entity {}", ++cameraCount);
         transform.recalculateGlobalTransform();
         glm::mat4 invViewMatrix = transform.getGlobal().toMatrix();
+        auto cPos = transform.getGlobal().pos();
         glm::mat4 viewMatrix = glm::inverse(invViewMatrix);
 
         glm::mat4 projectionMatrix = camera.getProjectionMatrix();
@@ -154,11 +151,11 @@ namespace keptech::vkh {
     Frame info = startFrame();
 
     vk::CommandBufferAllocateInfo cmdBufAllocInfo{
-        .commandPool =
-            *vkcore.frameResources[info.index].pools.graphics.get()->pool,
+        .commandPool = *info.perFrame.get().pools.graphics.get()->pool,
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = 1,
     };
+
     auto graphicsCmdBuffers_res =
         vkcore.device->allocateCommandBuffers(cmdBufAllocInfo);
     if (!graphicsCmdBuffers_res.has_value()) {
@@ -166,6 +163,7 @@ namespace keptech::vkh {
                   vk::to_string(graphicsCmdBuffers_res.result));
       abort();
     }
+
     vk::raii::CommandBuffer graphicsCmdBuffer =
         std::move(graphicsCmdBuffers_res.value.front());
 
@@ -230,32 +228,25 @@ namespace keptech::vkh {
 
     graphicsCmdBuffer.end();
 
-    vk::SemaphoreSubmitInfo waitSemaphoreSubmitInfo{
-        .semaphore = *info.syncObjects.get().presentCompleteSemaphore,
-        .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-        .deviceIndex = 0,
+    vk::PipelineStageFlags waitDestinationStageMask(
+        vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    vk::SubmitInfo graphicsSubmitInfo{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &*info.perFrame.get().imageAvailableSemaphore,
+        .pWaitDstStageMask = &waitDestinationStageMask,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &*graphicsCmdBuffer,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores =
+            &*vkcore.swapchain.nPresentSemaphore(info.imageIndex),
     };
 
-    vk::CommandBufferSubmitInfo commandBufferSubmitInfo{
-        .commandBuffer = graphicsCmdBuffer, .deviceMask = 0};
+    auto& inFlightFence = info.perFrame.get().inFlightFence;
 
-    vk::SemaphoreSubmitInfo signalSemaphoreSubmitInfo{
-        .semaphore = *info.syncObjects.get().renderCompleteSemaphore,
-        .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
-        .deviceIndex = 0,
-    };
+    vkcore.device.logical.resetFences({inFlightFence});
 
-    vk::SubmitInfo2 graphicsSubmitInfo{
-        .waitSemaphoreInfoCount = 1,
-        .pWaitSemaphoreInfos = &waitSemaphoreSubmitInfo,
-        .commandBufferInfoCount = 1,
-        .pCommandBufferInfos = &commandBufferSubmitInfo,
-        .signalSemaphoreInfoCount = 1,
-        .pSignalSemaphoreInfos = &signalSemaphoreSubmitInfo,
-    };
-
-    auto result = vkcore.queues.graphics.queue->submit2(
-        graphicsSubmitInfo, *info.syncObjects.get().drawingFence);
+    auto result =
+        vkcore.queues.graphics.queue->submit(graphicsSubmitInfo, inFlightFence);
     if (result != vk::Result::eSuccess) {
       VK_CRITICAL("Failed to submit graphics command buffer: {}",
                   vk::to_string(result));
@@ -274,7 +265,7 @@ namespace keptech::vkh {
     ImGui::Render();
 
     vk::RenderingAttachmentInfo aInfo{
-        .imageView = vkcore.swapchain.nImageView(info.imageIndex),
+        .imageView = vkcore.swapchain.nView(info.imageIndex),
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,

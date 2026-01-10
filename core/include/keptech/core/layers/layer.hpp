@@ -24,9 +24,8 @@ namespace keptech::core::layers {
     virtual void onAttach() {}
     virtual void onDetach() {}
     virtual void onUpdate([[maybe_unused]] Timestep ts) {}
-    virtual bool onEvent([[maybe_unused]] events::Event& event) {
-      return false;
-    }
+    virtual void onEvent([[maybe_unused]] events::Event& event,
+                         [[maybe_unused]] Timestep ts) {}
 
   private:
 #ifndef NDEBUG

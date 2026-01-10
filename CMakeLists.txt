@@ -17,9 +17,9 @@ if (BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
-option(KT_USE_PCH OFF)
+option(KT_USE_PCH ON)
 
-set(KT_PCH_HEADERS 
+set(KT_PCH_HEADERS
   <algorithm>
   <expected>
   <optional>

@@ -15,97 +15,102 @@ int main() {
 
   core::window::Window window(info.window);
 
-  std::expected<KEPTECH_RENDERER, std::string> rendererRes =
-      KEPTECH_RENDERER::create(info.renderer, window);
-  if (!rendererRes) {
-    KT_CRITICAL("Failed to create renderer: {}", rendererRes.error());
-    return -1;
-  }
-
-  KEPTECH_RENDERER& renderer = rendererRes.value();
-
-  KT_INFO("Created renderer: {}", KEPTECH_RENDERER::getName());
-
-  core::layers::LayerStack layerStack;
-
-  auto setupRes = setupAppLayers(layerStack, window, renderer);
-  if (!setupRes) {
-    KT_CRITICAL("Failed to set up application layers: {}", setupRes.error());
-    return -1;
-  }
-
-  auto& io = ImGui::GetIO();
-
-  io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableKeyboard | // Enable Keyboard Controls
-      ImGuiConfigFlags_DockingEnable;      // Enable Docking
-
-  auto isKeyboardEvent = [](core::window::Event event) {
-    switch (event.type) {
-    case SDL_EVENT_KEY_DOWN:
-    case SDL_EVENT_KEY_UP:
-    case SDL_EVENT_TEXT_INPUT:
-      return true;
-    default:
-      return false;
-    }
-  };
-
-  auto isMouseEvent = [](core::window::Event event) {
-    switch (event.type) {
-    case SDL_EVENT_MOUSE_MOTION:
-    case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    case SDL_EVENT_MOUSE_BUTTON_UP:
-    case SDL_EVENT_MOUSE_WHEEL:
-    case SDL_EVENT_FINGER_DOWN:
-    case SDL_EVENT_FINGER_UP:
-    case SDL_EVENT_FINGER_MOTION:
-      return true;
-    default:
-      return false;
-    }
-  };
-
-  auto now = std::chrono::high_resolution_clock::now();
-
   bool exitCleanly = false;
-
-  keptech::core::window::Event event;
-  while (true) {
-    while (window.pollEvent(event)) {
-      ImGui_ImplSDL3_ProcessEvent(&event);
-      if ((io.WantCaptureKeyboard && isKeyboardEvent(event)) ||
-          (io.WantCaptureMouse && isMouseEvent(event))) {
-        continue;
-      }
-      auto eventPtr = keptech::core::events::sdlEventToKeptechEvent(event);
-      if (!eventPtr) {
-        continue;
-      }
-      layerStack.onEvent(*eventPtr);
+  {
+    std::expected<KEPTECH_RENDERER, std::string> rendererRes =
+        KEPTECH_RENDERER::create(info.renderer, window);
+    if (!rendererRes) {
+      KT_CRITICAL("Failed to create renderer: {}", rendererRes.error());
+      return -1;
     }
 
-    if (window.shouldClose()) {
-      exitCleanly = true;
-      break;
+    KEPTECH_RENDERER& renderer = rendererRes.value();
+
+    KT_INFO("Created renderer: {}", KEPTECH_RENDERER::getName());
+
+    core::layers::LayerStack layerStack;
+
+    auto setupRes = setupAppLayers(layerStack, window, renderer);
+    if (!setupRes) {
+      KT_CRITICAL("Failed to set up application layers: {}", setupRes.error());
+      return -1;
     }
 
-    auto newTime = std::chrono::high_resolution_clock::now();
+    auto& io = ImGui::GetIO();
 
-    float dt = std::chrono::duration<float, std::chrono::seconds::period>(
-                   newTime - now)
-                   .count();
+    io.ConfigFlags |=
+        ImGuiConfigFlags_NavEnableKeyboard | // Enable Keyboard Controls
+        ImGuiConfigFlags_DockingEnable;      // Enable Docking
 
-    now = newTime;
+    auto isKeyboardEvent = [](core::window::Event event) {
+      switch (event.type) {
+      case SDL_EVENT_KEY_DOWN:
+      case SDL_EVENT_KEY_UP:
+      case SDL_EVENT_TEXT_INPUT:
+        return true;
+      default:
+        return false;
+      }
+    };
 
-    renderer.newFrame();
+    auto isMouseEvent = [](core::window::Event event) {
+      switch (event.type) {
+      case SDL_EVENT_MOUSE_MOTION:
+      case SDL_EVENT_MOUSE_BUTTON_DOWN:
+      case SDL_EVENT_MOUSE_BUTTON_UP:
+      case SDL_EVENT_MOUSE_WHEEL:
+      case SDL_EVENT_FINGER_DOWN:
+      case SDL_EVENT_FINGER_UP:
+      case SDL_EVENT_FINGER_MOTION:
+        return true;
+      default:
+        return false;
+      }
+    };
 
-    layerStack.onUpdate(dt);
+    auto now = std::chrono::high_resolution_clock::now();
 
-    renderer.render();
+    keptech::core::window::Event event;
+    while (true) {
+      KT_TRACE("Starting frame");
+      auto newTime = std::chrono::high_resolution_clock::now();
+
+      float dt =
+          std::chrono::duration<float, std::chrono::milliseconds::period>(
+              newTime - now)
+              .count();
+
+      now = newTime;
+      while (window.pollEvent(event)) {
+        auto eventPtr = keptech::core::events::sdlEventToKeptechEvent(event);
+        ImGui_ImplSDL3_ProcessEvent(&event);
+        if ((io.WantCaptureKeyboard && isKeyboardEvent(event)) ||
+            (io.WantCaptureMouse && isMouseEvent(event))) {
+          KT_TRACE("Event sent to ImGui");
+          continue;
+        }
+        if (eventPtr.get() == nullptr) {
+          continue;
+        }
+        KT_TRACE("Polled event: {}", eventPtr->getType());
+        layerStack.onEvent(*eventPtr, dt);
+      }
+
+      if (window.shouldClose()) {
+        exitCleanly = true;
+        break;
+      }
+
+      renderer.newFrame();
+
+      layerStack.onUpdate(dt);
+
+      renderer.render();
+      KT_TRACE("Frame complete");
+    }
+
+    KT_INFO("Starting shutdown");
   }
-
-  KT_INFO("Starting shutdown");
   core::window::shutdown();
 
   return exitCleanly;

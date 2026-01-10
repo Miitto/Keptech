@@ -31,7 +31,7 @@ namespace keptech::core::layers {
     }
 
     void onUpdate(Timestep ts);
-    bool onEvent(events::Event& event);
+    bool onEvent(events::Event& event, Timestep ts);
 
   private:
     Vec layers{};

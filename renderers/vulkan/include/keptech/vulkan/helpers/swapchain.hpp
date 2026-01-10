@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <expected>
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
@@ -7,9 +8,9 @@
 namespace keptech::vkh {
 
   struct SwapchainConfig {
-    ::vk::SurfaceFormatKHR format;
-    ::vk::PresentModeKHR presentMode;
-    ::vk::Extent2D extent;
+    vk::SurfaceFormatKHR format;
+    vk::PresentModeKHR presentMode;
+    vk::Extent2D extent;
     uint32_t imageCount;
   };
 
@@ -36,6 +37,11 @@ namespace keptech::vkh {
   class Swapchain {
 
   public:
+    struct Sync {
+      vk::raii::Semaphore imageAvailableSemaphore;
+      vk::raii::Semaphore renderFinishedSemaphore;
+    };
+
     Swapchain() = delete;
 
     static auto create(const vk::raii::Device& device,
@@ -60,19 +66,23 @@ namespace keptech::vkh {
       return _config;
     }
 
-    [[nodiscard]] auto nImageView(const size_t index) const noexcept
-        -> const vk::raii::ImageView& {
-      return imageViews[index];
-    }
-
-    [[nodiscard]] auto nImage(const size_t index) const noexcept
+    [[nodiscard]] auto nImage(const size_t imageIndex) const noexcept
         -> const vk::Image& {
-      return imgs[index];
+      return imgs[imageIndex];
     }
 
-    [[nodiscard]] auto nView(const size_t index) const noexcept
+    [[nodiscard]] auto nView(const size_t imageIndex) const noexcept
         -> const vk::raii::ImageView& {
-      return imageViews[index];
+      return imageViews[imageIndex];
+    }
+
+    [[nodiscard]] auto nPresentSemaphore(const size_t imageIndex) noexcept
+        -> vk::raii::Semaphore& {
+      return presentSemaphores[imageIndex];
+    }
+
+    [[nodiscard]] auto getSwapchain() noexcept -> vk::raii::SwapchainKHR& {
+      return swapchain;
     }
 
     [[nodiscard]] auto getSwapchain() const noexcept
@@ -106,9 +116,8 @@ namespace keptech::vkh {
     };
 
     [[nodiscard]] auto
-    getNextImage(const vk::raii::Device& device,
-                 const vk::raii::Fence& waitFence,
-                 const vk::raii::Semaphore& signalSem) const noexcept
+    getNextImage(const vk::raii::Device& device, vk::raii::Fence& waitFence,
+                 vk::raii::Semaphore& signalSemaphore) const noexcept
         -> std::expected<AcquireResult, std::string>;
 
   private:
@@ -116,11 +125,14 @@ namespace keptech::vkh {
     vk::raii::SwapchainKHR swapchain;
     std::vector<vk::Image> imgs;
     std::vector<vk::raii::ImageView> imageViews;
+    std::vector<vk::raii::Semaphore> presentSemaphores;
 
-    Swapchain(vk::raii::SwapchainKHR& swapchain, SwapchainConfig config,
-              std::vector<vk::Image>& images,
-              std::vector<vk::raii::ImageView>& imageViews) noexcept
+    Swapchain(vk::raii::SwapchainKHR&& swapchain, SwapchainConfig config,
+              std::vector<vk::Image>&& images,
+              std::vector<vk::raii::ImageView>&& imageViews,
+              std::vector<vk::raii::Semaphore>&& sync) noexcept
         : _config(config), swapchain(std::move(swapchain)),
-          imgs(std::move(images)), imageViews(std::move(imageViews)) {}
+          imgs(std::move(images)), imageViews(std::move(imageViews)),
+          presentSemaphores(std::move(sync)) {}
   };
 } // namespace keptech::vkh

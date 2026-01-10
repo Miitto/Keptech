@@ -227,7 +227,7 @@ namespace keptech::vkh {
   Renderer::meshFromData(const core::rendering::MeshData& meshData,
                          bool backgroundLoad) {
     Pools& pools =
-        vkcore.frameResources[nextFrameIndex].pools; // Use current frame pools
+        vkcore.perFrame[thisFrameIndex].pools; // Use current frame pools
 
     auto res = vkh::Mesh::fromData(
         vkcore.device.logical, allocator,
@@ -306,7 +306,7 @@ namespace keptech::vkh {
         vk::PipelineShaderStageCreateInfo stageInfo{
             .stage = from(stage.stage),
             .module = shder.get(),
-            .pName = stage.name.data(),
+            .pName = stage.name.data(), // NOLINT
         };
 
         shaderStages.push_back(stageInfo);

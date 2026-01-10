@@ -52,26 +52,15 @@ namespace keptech::vkh {
 
     struct Pools {
       std::shared_ptr<CommandPool> graphics;
-      std::shared_ptr<CommandPool> present;
       std::shared_ptr<CommandPool> compute;
 
       void resetAll();
     };
 
-    struct SyncObjects {
-      vk::raii::Semaphore presentCompleteSemaphore;
-      vk::raii::Semaphore renderCompleteSemaphore;
-      vk::raii::Fence drawingFence;
-    };
-
-    struct FrameResources {
-      SyncObjects syncObjects;
+    struct PerFrame {
+      vk::raii::Fence inFlightFence;
+      vk::raii::Semaphore imageAvailableSemaphore;
       Pools pools;
-    };
-
-    struct OldSwapchain {
-      vkh::Swapchain swapchain;
-      uint8_t frameIndex;
     };
 
     struct VulkanCore {
@@ -81,10 +70,8 @@ namespace keptech::vkh {
       Device device;
       Queues queues;
       Swapchain swapchain;
-      std::array<FrameResources, MAX_FRAMES_IN_FLIGHT> frameResources;
+      std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame;
       CommandPool transferPool;
-
-      std::optional<OldSwapchain> oldSwapchain = std::nullopt;
     };
 
     struct ImGuiVkObjects {
@@ -103,8 +90,8 @@ namespace keptech::vkh {
 
       uint8_t index = INVALID_INDEX;
       uint8_t imageIndex = INVALID_INDEX;
-      std::reference_wrapper<SyncObjects> syncObjects;
-      std::reference_wrapper<Pools> pools;
+      std::reference_wrapper<PerFrame> perFrame;
+      bool suboptimalSwapchain = false;
     };
 
   private:
@@ -179,7 +166,6 @@ namespace keptech::vkh {
     ObjectLists buildRenderObjectLists(core::Scene& scene,
                                        const maths::Frustum& frustum);
 
-    void checkSwapchain();
     std::expected<void, std::string> recreateSwapchain();
 
     Frame startFrame();
@@ -223,7 +209,7 @@ namespace keptech::vkh {
     std::array<std::vector<vk::raii::CommandBuffer>, MAX_FRAMES_IN_FLIGHT>
         submittedCommandBuffers;
 
-    uint8_t nextFrameIndex = 0;
+    uint8_t thisFrameIndex = 0;
 
     std::vector<OnGoingCmdTransfer> ongoingCommandBuffers = {};
 

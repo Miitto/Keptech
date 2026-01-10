@@ -1,6 +1,5 @@
 #include "keptech/vulkan/renderer.hpp"
-#include "keptech/core/rendering/pipeline.hpp"
-#include "keptech/vulkan/helpers/pipeline.hpp"
+#include "keptech/vulkan/helpers/swapchain.hpp"
 #include "macros.hpp"
 #include "vulkan/vulkan.hpp"
 
@@ -21,7 +20,6 @@ namespace keptech::vkh {
   void Renderer::Pools::resetAll() {
     std::set<vk::raii::CommandPool*> unique{
         &graphics.get()->pool,
-        &present.get()->pool,
         &compute.get()->pool,
     };
     for (auto& pool : unique) {
@@ -89,12 +87,12 @@ namespace keptech::vkh {
   }
 
   Renderer::Frame Renderer::startFrame() {
-    checkSwapchain();
     checkCompletedCommandBuffers();
 
-    auto& sync = vkcore.frameResources[nextFrameIndex].syncObjects;
+    auto& sync = vkcore.perFrame[thisFrameIndex];
+
     auto nextImageRes = vkcore.swapchain.getNextImage(
-        vkcore.device, sync.drawingFence, sync.presentCompleteSemaphore);
+        vkcore.device, sync.inFlightFence, sync.imageAvailableSemaphore);
 
     if (!nextImageRes) {
       VK_CRITICAL("Failed to acquire next swapchain image: {}",
@@ -103,29 +101,29 @@ namespace keptech::vkh {
     }
     auto [imageIndex, swapchainState] = nextImageRes.value();
 
-    if (swapchainState == vkh::Swapchain::State::OutOfDate ||
-        swapchainState == vkh::Swapchain::State::Suboptimal) {
+    if (swapchainState == vkh::Swapchain::State::OutOfDate) {
       auto res = recreateSwapchain();
       if (!res) {
         VK_CRITICAL("Failed to recreate swapchain: {}", res.error());
         abort();
       }
+      VK_DEBUG("Restarting frame after swapchain recreation");
       // Try again
       return startFrame();
     }
 
     Frame frameInfo{
-        .index = nextFrameIndex,
+        .index = thisFrameIndex,
         .imageIndex = static_cast<uint8_t>(imageIndex),
-        .syncObjects =
-            std::ref(vkcore.frameResources[nextFrameIndex].syncObjects),
-        .pools = std::ref(vkcore.frameResources[nextFrameIndex].pools),
+        .perFrame = std::ref(sync),
     };
 
-    frameInfo.pools.get().resetAll();
-    submittedCommandBuffers[nextFrameIndex].clear();
+    if (swapchainState == vkh::Swapchain::State::Suboptimal) {
+      frameInfo.suboptimalSwapchain = true;
+    }
 
-    this->nextFrameIndex = (this->nextFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+    frameInfo.perFrame.get().pools.resetAll();
+    submittedCommandBuffers[thisFrameIndex].clear();
 
     return frameInfo;
   }
@@ -166,21 +164,22 @@ namespace keptech::vkh {
   }
 
   void Renderer::presentFrame(const Frame& info) {
-    auto& sync = info.syncObjects.get();
-
     uint32_t imageIndex = info.imageIndex;
+
+    auto& sem = vkcore.swapchain.nPresentSemaphore(imageIndex);
 
     vk::PresentInfoKHR presentInfo{
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &*sync.renderCompleteSemaphore,
+        .pWaitSemaphores = &*sem,
         .swapchainCount = 1,
         .pSwapchains = &*vkcore.swapchain.getSwapchain(),
         .pImageIndices = &imageIndex,
     };
 
     auto result = vkcore.queues.present.queue->presentKHR(presentInfo);
+    this->thisFrameIndex = (this->thisFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
     if (result == vk::Result::eErrorOutOfDateKHR ||
-        result == vk::Result::eSuboptimalKHR) {
+        result == vk::Result::eSuboptimalKHR || info.suboptimalSwapchain) {
       auto res = recreateSwapchain();
       if (!res) {
         VK_CRITICAL("Failed to recreate swapchain: {}", res.error());
@@ -198,7 +197,12 @@ namespace keptech::vkh {
 
     vkcore.device.logical.waitIdle();
 
-    checkCompletedCommandBuffers();
+    for (auto& ongoing : ongoingCommandBuffers) {
+      ongoing.buffer.destroy(allocator);
+    }
+
+    vkcore.device.logical.waitIdle();
+    ongoingCommandBuffers.clear();
 
     loadedMeshes.reset();
     loadedMaterials.reset();
@@ -217,7 +221,7 @@ namespace keptech::vkh {
   }
 
   std::expected<void, std::string> Renderer::recreateSwapchain() {
-
+    VK_DEBUG("Recreating swapchain");
     VKH_MAKE(newSwapchain,
              setup::createSwapchain(vkcore.device.physical,
                                     window->getRenderSize(),
@@ -225,29 +229,16 @@ namespace keptech::vkh {
                                     vkcore.queues, &*vkcore.swapchain),
              "Failed to recreate swapchain");
 
-    std::optional<OldSwapchain> oldSwapchain = OldSwapchain{
-        .swapchain = std::move(vkcore.swapchain),
-        .frameIndex = nextFrameIndex,
-    };
+    {
+      [[maybe_unused]]
+      auto oldSwapchain = std::move(vkcore.swapchain);
 
-    vkcore.swapchain = std::move(newSwapchain);
+      vkcore.swapchain = std::move(newSwapchain);
 
+      vkcore.queues.graphics->waitIdle();
+    }
+
+    VK_INFO("Swapchain recreated");
     return {};
   }
-
-  void Renderer::checkSwapchain() {
-    if (!vkcore.oldSwapchain.has_value()) {
-      return;
-    }
-
-    auto& oldSwapchain = vkcore.oldSwapchain.value();
-
-    if (vkcore.device.logical.waitForFences(
-            {vkcore.frameResources[oldSwapchain.frameIndex]
-                 .syncObjects.drawingFence},
-            VK_TRUE, UINT64_MAX) == vk::Result::eSuccess) {
-      vkcore.oldSwapchain.reset();
-    }
-  }
-
 } // namespace keptech::vkh

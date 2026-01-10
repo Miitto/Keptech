@@ -67,6 +67,8 @@ namespace keptech::vkh {
             physicalDevice.getSurfaceCapabilitiesKHR(surface),
             "Failed to get surface capabilities");
 
+    VK_DEBUG("Requested {} swapchain images", swapchainConfig.imageCount);
+
     vk::SwapchainCreateInfoKHR swapchainCreateInfo{
         .surface = *surface,
         .minImageCount = swapchainConfig.imageCount,
@@ -88,8 +90,8 @@ namespace keptech::vkh {
       swapchainCreateInfo.pQueueFamilyIndices = &queues.graphicsQueueIndex;
     } else {
       swapchainCreateInfo.imageSharingMode = vk::SharingMode::eExclusive;
-      swapchainCreateInfo.queueFamilyIndexCount = 0;
-      swapchainCreateInfo.pQueueFamilyIndices = nullptr;
+      swapchainCreateInfo.queueFamilyIndexCount = 1;
+      swapchainCreateInfo.pQueueFamilyIndices = &queues.graphicsQueueIndex;
     }
 
     if (oldSwapchain) {
@@ -103,6 +105,8 @@ namespace keptech::vkh {
 
     VK_MAKE(images, swapchain.getImages(), "Failed to get swapchain images");
 
+    VK_INFO("Swapchain created with {} images", images.size());
+
     vk::ImageViewCreateInfo imageViewCreateInfo{
         .viewType = vk::ImageViewType::e2D,
         .format = swapchainConfig.format.format,
@@ -113,32 +117,36 @@ namespace keptech::vkh {
                              .layerCount = 1}};
 
     std::vector<vk::raii::ImageView> imageViews;
+    std::vector<vk::raii::Semaphore> syncObjects;
 
     for (const auto& image : images) {
       imageViewCreateInfo.image = image;
       VK_MAKE(imageView, device.createImageView(imageViewCreateInfo),
               "Failed to create image view");
       imageViews.push_back(std::move(imageView));
+
+      VK_MAKE(renderFinishedSemaphore, device.createSemaphore({}),
+              "Failed to create semaphore");
+      syncObjects.emplace_back(std::move(renderFinishedSemaphore));
     }
 
-    Swapchain s(swapchain, swapchainConfig, images, imageViews);
+    Swapchain s(std::move(swapchain), swapchainConfig, std::move(images),
+                std::move(imageViews), std::move(syncObjects));
 
     return s;
   }
 
   auto
   Swapchain::getNextImage(const vk::raii::Device& device,
-                          const vk::raii::Fence& waitFence,
-                          const vk::raii::Semaphore& signalSem) const noexcept
+                          vk::raii::Fence& waitFence,
+                          vk::raii::Semaphore& signalSemaphore) const noexcept
       -> std::expected<AcquireResult, std::string> {
     while (vk::Result::eTimeout ==
            device.waitForFences({waitFence}, VK_TRUE, UINT64_MAX)) {
       // Wait for the queue to become idle
     }
     auto [result, index] = swapchain.acquireNextImage(
-        std::numeric_limits<uint64_t>::max(), signalSem, nullptr);
-
-    device.resetFences({waitFence});
+        std::numeric_limits<uint64_t>::max(), signalSemaphore, nullptr);
 
     if (result != vk::Result::eSuccess &&
         result != vk::Result::eSuboptimalKHR) {

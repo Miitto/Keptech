@@ -252,6 +252,8 @@ namespace keptech::vkh::setup {
     auto minImageCount =
         keptech::vkh::minImageCount(surfaceCapabilities, MAX_FRAMES_IN_FLIGHT);
 
+    VK_DEBUG("Min image count for swapchain: {}", minImageCount);
+
     SwapchainConfig swapchainConfig{.format = format,
                                     .presentMode = presentMode,
                                     .extent = extent,
@@ -265,29 +267,6 @@ namespace keptech::vkh::setup {
              "Failed to create swapchain");
 
     return std::move(swapchain);
-  }
-
-  auto createSyncObjects(const vk::raii::Device& device)
-      -> std::expected<Renderer::SyncObjects, std::string> {
-    VK_MAKE(presentCompleteSemaphore,
-            device.createSemaphore(vk::SemaphoreCreateInfo{}),
-            "Failed to create present complete semaphore");
-
-    VK_MAKE(renderCompleteSemaphore,
-            device.createSemaphore(vk::SemaphoreCreateInfo{}),
-            "Failed to create render complete semaphore");
-
-    VK_MAKE(drawingFence,
-            device.createFence(vk::FenceCreateInfo{
-                .flags = vk::FenceCreateFlagBits::eSignaled}),
-            "Failed to create drawing fence");
-
-    Renderer::SyncObjects syncObjects{
-        .presentCompleteSemaphore = std::move(presentCompleteSemaphore),
-        .renderCompleteSemaphore = std::move(renderCompleteSemaphore),
-        .drawingFence = std::move(drawingFence)};
-
-    return std::move(syncObjects);
   }
 
   std::expected<Renderer::CameraObjects, std::string>
@@ -437,9 +416,6 @@ namespace keptech::vkh {
         if (familyIndex == queueIndices.graphics) {
           pools.graphics = pool;
         }
-        if (familyIndex == queueIndices.present) {
-          pools.present = pool;
-        }
         if (familyIndex == queueIndices.compute) {
           pools.compute = pool;
         }
@@ -462,23 +438,20 @@ namespace keptech::vkh {
              }),
              "Failed to create VMA allocator.");
 
-    VKH_MAKE(sync1, createSyncObjects(device),
-             "Failed to create synchronization objects.");
-    VKH_MAKE(sync2, createSyncObjects(device),
-             "Failed to create synchronization objects.");
-
-    FrameResources frameResource1{.syncObjects = std::move(sync1),
-                                  .pools = std::move(pools1)};
-    FrameResources frameResource2{.syncObjects = std::move(sync2),
-                                  .pools = std::move(pools2)};
-
-    std::array<FrameResources, MAX_FRAMES_IN_FLIGHT> frameResources = {
-        std::move(frameResource1), std::move(frameResource2)};
-
     CommandPool transferPoolStruct{
         .pool = std::move(transferPool),
         .queue = queues.transfer,
     };
+
+    VK_MAKE(fence1,
+            device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled}),
+            "Failed to create fence1.");
+    VK_MAKE(fence2,
+            device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled}),
+            "Failed to create fence2.")
+
+    VK_MAKE(sem1, device.createSemaphore({}), "Failed to create sem1");
+    VK_MAKE(sem2, device.createSemaphore({}), "Failed to create sem2");
 
     Renderer::VulkanCore vkcore{
         .context = std::move(context),
@@ -488,7 +461,16 @@ namespace keptech::vkh {
                          .logical = std::move(device)},
         .queues = std::move(queues),
         .swapchain = std::move(swapchain),
-        .frameResources = std::move(frameResources),
+        .perFrame = {Renderer::PerFrame{
+                         .inFlightFence = std::move(fence1),
+                         .imageAvailableSemaphore = std::move(sem1),
+                         .pools = std::move(pools1),
+                     },
+                     Renderer::PerFrame{
+                         .inFlightFence = std::move(fence2),
+                         .imageAvailableSemaphore = std::move(sem2),
+                         .pools = std::move(pools2),
+                     }},
         .transferPool = std::move(transferPoolStruct),
     };
 
