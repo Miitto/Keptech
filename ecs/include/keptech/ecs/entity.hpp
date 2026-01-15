@@ -12,8 +12,8 @@ namespace keptech::ecs {
   class Entity {
   public:
     Entity() = default;
-    Entity(EntityHandle handle, entt::registry* ecs)
-        : handle(handle), ecs(ecs) {}
+    Entity(EntityHandle handle, entt::registry& ecs)
+        : handle(handle), ecs(&ecs) {}
 
     operator EntityHandle() const { return handle; }
     [[nodiscard]] EntityHandle getHandle() const { return handle; }

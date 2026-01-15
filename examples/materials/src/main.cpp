@@ -1,13 +1,15 @@
 #include "imgui.h"
 #include "keptech/cameras/orbitCamera.hpp"
+#include "keptech/core/components/transform.hpp"
 #include "keptech/core/events/event.hpp"
 #include <keptech/app.hpp>
 
 #include "imgui_internal.h"
+#include "keptech/ecs/entity.hpp"
 #include <expected>
 #include <keptech/components.hpp>
+#include <keptech/core/gui.h>
 #include <keptech/core/window.hpp>
-#include <keptech/gui.h>
 #include <keptech/keptech.hpp>
 #include <keptech/vulkan.hpp>
 #include <utility>
@@ -74,7 +76,7 @@ public:
                                   &dock_id_left_top, &dock_id_left_bottom);
       ImGui::DockBuilderDockWindow("Game", dock_id_main);
       ImGui::DockBuilderDockWindow("Scene Tree", dock_id_left_top);
-      ImGui::DockBuilderDockWindow("Scene", dock_id_left_bottom);
+      ImGui::DockBuilderDockWindow("Properties", dock_id_left_bottom);
       ImGui::DockBuilderFinish(dockspace_id);
     }
 
@@ -82,9 +84,34 @@ public:
     ImGui::DockSpaceOverViewport(dockspace_id, viewport,
                                  ImGuiDockNodeFlags_PassthruCentralNode);
     {
-      auto panel = keptech::gui::Frame("Scene Tree", nullptr,
-                                       ImGuiWindowFlags_NoDecoration |
-                                           ImGuiWindowFlags_NoMove);
+      auto scenePanel = keptech::gui::Frame("Scene Tree", nullptr,
+                                            ImGuiWindowFlags_NoDecoration |
+                                                ImGuiWindowFlags_NoMove);
+      {
+        auto child = scenePanel.child("Entities");
+        auto view = scene.getEcs().view<keptech::components::Name>();
+        for (auto [entity, name] : view.each()) {
+          if (child.selectable(name->c_str(), entity == selectedEntity))
+            selectedEntity = entity;
+        }
+      }
+    }
+
+    if (selectedEntity != keptech::ecs::INVALID_ENTITY_HANDLE) {
+      auto propertiesPanel = keptech::gui::Frame("Properties", nullptr,
+                                                 ImGuiWindowFlags_NoDecoration |
+                                                     ImGuiWindowFlags_NoMove);
+
+      auto& ecs = scene.getEcs();
+      auto entity = keptech::ecs::Entity(selectedEntity, ecs);
+
+      if (entity.hasAllComponents<keptech::components::Transform>()) {
+        static keptech::core::Bitflag<
+            keptech::components::Transform::TransformGuiFlags>
+            flags = keptech::components::Transform::TransformGuiFlags::Editable;
+        entity.getComponents<keptech::components::Transform>().guiPane(
+            propertiesPanel, flags);
+      }
     }
 
     renderer.submitScene(scene);
@@ -101,6 +128,8 @@ private:
   keptech::core::Scene scene;
   Resources resources;
   keptech::cameras::OrbitCameraController orbitController;
+  keptech::ecs::EntityHandle selectedEntity =
+      keptech::ecs::INVALID_ENTITY_HANDLE;
 };
 
 std::expected<void, std::string>

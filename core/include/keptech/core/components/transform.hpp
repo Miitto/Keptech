@@ -1,7 +1,13 @@
 #pragma once
 
+#include "keptech/core/bitflag.hpp"
+#include "keptech/core/macros.hpp"
 #include "keptech/core/maths/transform.hpp"
 #include "keptech/ecs/entity.hpp"
+
+namespace keptech::gui {
+  class Frame;
+}
 
 namespace keptech::components {
   class Transform {
@@ -24,6 +30,13 @@ namespace keptech::components {
       dirty = true;
       return local;
     }
+
+    enum class TransformGuiFlags : uint8_t {
+      Editable = BIT(0),
+      GlobalCoords = BIT(1),
+    };
+    void guiPane(keptech::gui::Frame& frame,
+                 core::Bitflag<TransformGuiFlags>& flags);
 
   private:
     maths::Transform local;

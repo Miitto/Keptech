@@ -28,6 +28,7 @@ target_link_libraries(${PROJECT_NAME}
     keptech::logging
     keptech::ecs
     stb::stb
+    imgui::imgui
 )
 
 FetchContent_Declare(

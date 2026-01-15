@@ -10,7 +10,7 @@ namespace keptech::core {
     [[nodiscard]] const ecs::Ecs& getEcs() const { return ecs; }
 
     ecs::Entity createEntity(const std::string& name = "") {
-      ecs::Entity entity = {ecs.create(), &ecs};
+      ecs::Entity entity = {ecs.create(), ecs};
       if (!name.empty()) {
         entity.addComponent<components::Name>(name);
       }
@@ -21,7 +21,7 @@ namespace keptech::core {
       activeCamera = cameraEntity;
     }
 
-    [[nodiscard]] ecs::Entity getActiveCamera() { return {activeCamera, &ecs}; }
+    [[nodiscard]] ecs::Entity getActiveCamera() { return {activeCamera, ecs}; }
 
   private:
     ecs::Ecs ecs{};
