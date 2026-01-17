@@ -11,6 +11,7 @@ target_sources(materials
      FILE_SET HEADERS
   PRIVATE
     main.cpp
+    editorLayer.cpp
 )
 
 target_compile_definitions(materials PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG ASSET_DIR="${EXAMPLE_ASSET_DIR}")

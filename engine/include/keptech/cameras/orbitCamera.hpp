@@ -80,7 +80,7 @@ namespace keptech::cameras {
     int panButton = 2;
     bool panning = false;
     float sens = 1.f;
-    float zoom = 1;
+    float zoom = 5;
     float yaw = 0;
     float pitch = 0;
   };

@@ -31,6 +31,8 @@ namespace keptech::components {
       return local;
     }
 
+    [[nodiscard]] ecs::Entity getParent() const { return parent; }
+
     enum class TransformGuiFlags : uint8_t {
       Editable = BIT(0),
       GlobalCoords = BIT(1),
