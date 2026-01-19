@@ -3,7 +3,7 @@ target_sources(${PROJECT_NAME}
     FILE_SET internalHeaders
     TYPE HEADERS
   PRIVATE
-    setup/core.cpp
+    setup/setup.cpp
     helpers/descriptors.cpp
     helpers/dynLoader.cpp
     helpers/instance.cpp

@@ -24,7 +24,7 @@ namespace keptech::core::renderer {
                core::Scene& scene) {
         { T::create(ci, w) } -> std::same_as<std::expected<T, std::string>>;
         { a.newFrame() } -> std::same_as<void>;
-        { a.submitScene(scene) } -> std::same_as<void>;
+        { a.setScene(scene) } -> std::same_as<void>;
         { a.render() } -> std::same_as<void>;
         { T::getName() } -> std::same_as<const char*>;
       };

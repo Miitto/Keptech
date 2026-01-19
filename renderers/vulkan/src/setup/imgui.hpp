@@ -14,9 +14,7 @@ namespace keptech::vkh::setup {
 
   std::expected<Renderer::ImGuiVkObjects, std::string>
   setupImGui(const keptech::core::window::Window& window,
-             const vk::raii::Instance& instance, const vk::raii::Device& device,
-             const vk::raii::PhysicalDevice& physicalDevice,
-             const Queue& graphicsQueue, const vk::Format swapchainFormat) {
+             const Renderer::VulkanCore& vkcore) {
     std::array<vk::DescriptorPoolSize, 11> pool_sizes = {
         {{
              .type = vk::DescriptorType::eSampler,
@@ -70,7 +68,7 @@ namespace keptech::vkh::setup {
         .pPoolSizes = pool_sizes.data(),
     };
 
-    VK_MAKE(imguiPool, device.createDescriptorPool(pool_info),
+    VK_MAKE(imguiPool, vkcore.device.logical.createDescriptorPool(pool_info),
             "Failed to create ImGui descriptor pool");
 
     // 2: initialize imgui library
@@ -87,11 +85,11 @@ namespace keptech::vkh::setup {
     // this initializes imgui for Vulkan
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.ApiVersion = VK_API_VERSION_1_4;
-    init_info.Instance = *instance;
-    init_info.PhysicalDevice = *physicalDevice;
-    init_info.Device = *device;
-    init_info.QueueFamily = graphicsQueue.index;
-    init_info.Queue = **graphicsQueue.queue;
+    init_info.Instance = *vkcore.instance;
+    init_info.PhysicalDevice = *vkcore.device.physical,
+    init_info.Device = *vkcore.device.logical;
+    init_info.QueueFamily = vkcore.queues.graphics.index;
+    init_info.Queue = **vkcore.queues.graphics.queue;
     init_info.DescriptorPool = *imguiPool;
     init_info.MinImageCount = 3;
     init_info.ImageCount = 3;
@@ -101,7 +99,8 @@ namespace keptech::vkh::setup {
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     info.colorAttachmentCount = 1;
 
-    auto swapchainFormatC = static_cast<VkFormat>(swapchainFormat);
+    auto swapchainFormatC =
+        static_cast<VkFormat>(vkcore.swapchain.config().format.format);
 
     info.pColorAttachmentFormats = &swapchainFormatC;
 
@@ -110,6 +109,38 @@ namespace keptech::vkh::setup {
 
     ImGui_ImplVulkan_Init(&init_info);
 
-    return Renderer::ImGuiVkObjects{.descriptorPool = std::move(imguiPool)};
+    VK_MAKE(linearSampler,
+            vkcore.device.logical.createSampler(vk::SamplerCreateInfo{
+                .magFilter = vk::Filter::eLinear,
+                .minFilter = vk::Filter::eLinear,
+                .mipmapMode = vk::SamplerMipmapMode::eLinear,
+                .addressModeU = vk::SamplerAddressMode::eRepeat,
+                .addressModeV = vk::SamplerAddressMode::eRepeat,
+                .addressModeW = vk::SamplerAddressMode::eRepeat,
+                .maxAnisotropy = 1.0f,
+            }),
+            "Failed to create ImGui linear sampler");
+
+    VkSampler samplerC = static_cast<VkSampler>(*linearSampler);
+
+    auto albedoHandle = ImGui_ImplVulkan_AddTexture(
+        samplerC, static_cast<VkImageView>(vkcore.gBuffer.color.view),
+        static_cast<VkImageLayout>(vk::ImageLayout::eShaderReadOnlyOptimal));
+    auto normalHandle = ImGui_ImplVulkan_AddTexture(
+        samplerC, static_cast<VkImageView>(vkcore.gBuffer.normal.view),
+        static_cast<VkImageLayout>(vk::ImageLayout::eShaderReadOnlyOptimal));
+    auto depthHandle = ImGui_ImplVulkan_AddTexture(
+        samplerC, static_cast<VkImageView>(vkcore.gBuffer.depth.view),
+        static_cast<VkImageLayout>(vk::ImageLayout::eShaderReadOnlyOptimal));
+
+    Renderer::ImGuiGBufferHandles gBufferHandles{
+        .albedo = albedoHandle,
+        .normal = normalHandle,
+        .depth = depthHandle,
+    };
+
+    return Renderer::ImGuiVkObjects{.descriptorPool = std::move(imguiPool),
+                                    .gBufferSampler = std::move(linearSampler),
+                                    .gBufferHandles = gBufferHandles};
   }
 } // namespace keptech::vkh::setup

@@ -37,6 +37,12 @@ namespace keptech::vkh {
     vk::Extent3D extent;
     vk::Format format;
 
+    static std::expected<AllocatedImage, std::string>
+    create(vma::Allocator& allocator, const vk::raii::Device& device,
+           const vk::ImageCreateInfo& imgInfo,
+           const vma::AllocationCreateInfo& allocInfo,
+           vk::ImageViewCreateInfo viewInfo, bool useSameFormat = false);
+
     void destroy(vma::Allocator& allocator, const vk::raii::Device& d) {
       if (image) {
         allocator.destroyImage(image, alloc);

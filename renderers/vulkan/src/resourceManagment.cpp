@@ -5,6 +5,7 @@
 #include "vulkan/vulkan.hpp"
 
 #include "vk-logger.hpp"
+#include <algorithm>
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
@@ -15,6 +16,112 @@
 #include <vk_mem_alloc_structs.hpp>
 
 namespace keptech::vkh {
+
+  std::expected<Renderer::InstanceBuffers, std::string>
+  Renderer::InstanceBuffers::create(vma::Allocator& allocator,
+                                    vk::raii::Device& device,
+                                    size_t maxInstances) {
+    VKH_MAKE(instanceStagingBuffer,
+             AllocatedBuffer::create(
+                 allocator,
+                 vk::BufferCreateInfo{
+                     .size = static_cast<vk::DeviceSize>(
+                         sizeof(Renderer::InstanceData)),
+                     .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                     .sharingMode = vk::SharingMode::eExclusive,
+                 },
+                 vma::AllocationCreateInfo{
+                     .flags = vma::AllocationCreateFlagBits::eMapped,
+                     .usage = vma::MemoryUsage::eCpuToGpu,
+                 }),
+             "Failed to create instance staging buffer.");
+
+    VKH_MAKE(instanceDeviceBuffer,
+             AddressedAllocatedBuffer::create(
+                 device, allocator,
+                 vk::BufferCreateInfo{
+                     .size = static_cast<vk::DeviceSize>(
+                         sizeof(Renderer::InstanceData)),
+                     .usage = vk::BufferUsageFlagBits::eUniformBuffer |
+                              vk::BufferUsageFlagBits::eTransferDst |
+                              vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                     .sharingMode = vk::SharingMode::eExclusive,
+                 },
+                 vma::AllocationCreateInfo{
+                     .usage = vma::MemoryUsage::eGpuOnly,
+                 }),
+             "Failed to create instance device buffer.");
+
+    return Renderer::InstanceBuffers{
+        .staging = instanceStagingBuffer,
+        .device = instanceDeviceBuffer,
+    };
+  }
+
+  void Renderer::InstanceBuffers::destroy(vma::Allocator& allocator) {
+    staging.destroy(allocator);
+    device.destroy(allocator);
+  }
+
+  std::expected<void, std::string>
+  Renderer::InstanceBuffers::resize(vma::Allocator& allocator,
+                                    vk::raii::Device& device,
+                                    size_t newMaxInstances) {
+    size_t currInstances = maxInstances();
+
+    staging.destroy(allocator);
+    this->device.destroy(allocator);
+
+    VKH_MAKE(instanceStagingBuffer,
+             AllocatedBuffer::create(
+                 allocator,
+                 vk::BufferCreateInfo{
+                     .size = static_cast<vk::DeviceSize>(
+                         sizeof(Renderer::InstanceData) * newMaxInstances),
+                     .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                     .sharingMode = vk::SharingMode::eExclusive,
+                 },
+                 vma::AllocationCreateInfo{
+                     .flags = vma::AllocationCreateFlagBits::eMapped,
+                     .usage = vma::MemoryUsage::eCpuToGpu,
+                 }),
+             "Failed to create instance staging buffer.");
+    staging = instanceStagingBuffer;
+
+    VKH_MAKE(instanceDeviceBuffer,
+             AddressedAllocatedBuffer::create(
+                 device, allocator,
+                 vk::BufferCreateInfo{
+                     .size = static_cast<vk::DeviceSize>(
+                         sizeof(Renderer::InstanceData) * newMaxInstances),
+                     .usage = vk::BufferUsageFlagBits::eUniformBuffer |
+                              vk::BufferUsageFlagBits::eTransferDst |
+                              vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                     .sharingMode = vk::SharingMode::eExclusive,
+                 },
+                 vma::AllocationCreateInfo{
+                     .usage = vma::MemoryUsage::eGpuOnly,
+                 }),
+             "Failed to create instance device buffer.");
+    this->device = instanceDeviceBuffer;
+
+    return {};
+  }
+
+  std::expected<void, std::string> Renderer::InstanceBuffers::copyToDevice(
+      vk::raii::Device& device, const vk::raii::CommandBuffer& cmdBuffer,
+      size_t instanceCount) {
+
+    cmdBuffer.copyBuffer(
+        staging.buffer, this->device.buffer,
+        vk::BufferCopy{
+            .size = static_cast<vk::DeviceSize>(instanceCount *
+                                                sizeof(Renderer::InstanceData)),
+        });
+
+    return {};
+  }
+
   namespace {
     vk::ShaderStageFlagBits from(core::rendering::ShaderStages stages) {
       switch (stages) {
@@ -180,6 +287,29 @@ namespace keptech::vkh {
         return vk::BlendFactor::eOne;
       }
     }
+
+    vk::CompareOp from(core::rendering::DepthCompareOp op) {
+      switch (op) {
+      case core::rendering::DepthCompareOp::Never:
+        return vk::CompareOp::eNever;
+      case core::rendering::DepthCompareOp::Less:
+        return vk::CompareOp::eLess;
+      case core::rendering::DepthCompareOp::Equal:
+        return vk::CompareOp::eEqual;
+      case core::rendering::DepthCompareOp::LessEqual:
+        return vk::CompareOp::eLessOrEqual;
+      case core::rendering::DepthCompareOp::Greater:
+        return vk::CompareOp::eGreater;
+      case core::rendering::DepthCompareOp::NotEqual:
+        return vk::CompareOp::eNotEqual;
+      case core::rendering::DepthCompareOp::GreaterEqual:
+        return vk::CompareOp::eGreaterOrEqual;
+      case core::rendering::DepthCompareOp::Always:
+        return vk::CompareOp::eAlways;
+      default:
+        return vk::CompareOp::eLess;
+      }
+    }
   } // namespace
 
   std::expected<std::vector<core::rendering::Mesh::Handle>, std::string>
@@ -230,7 +360,7 @@ namespace keptech::vkh {
         vkcore.perFrame[thisFrameIndex].pools; // Use current frame pools
 
     auto res = vkh::Mesh::fromData(
-        vkcore.device.logical, allocator,
+        vkcore.device.logical, vkcore.allocator,
         backgroundLoad ? vkcore.transferPool : *pools.graphics, meshData);
 
     if (!res) {
@@ -242,7 +372,7 @@ namespace keptech::vkh {
     else {
       auto waitRes = vkcore.device.logical.waitForFences(
           *res.value().second.fence, VK_TRUE, UINT64_MAX);
-      res.value().second.buffer.destroy(allocator);
+      res.value().second.buffer.destroy(vkcore.allocator);
       if (waitRes != vk::Result::eSuccess) {
         return std::unexpected("Failed to wait for mesh upload fence");
       }
@@ -347,6 +477,15 @@ namespace keptech::vkh {
     config.rasterizer.frontFace =
         from(createInfo.pipelineConfig.rasterizer.frontFace);
 
+    config.depthStencilState.depthTestEnable =
+        createInfo.pipelineConfig.depth.depthCompareOp.has_value();
+    config.depthStencilState.depthWriteEnable =
+        createInfo.pipelineConfig.depth.depthWrite;
+    if (createInfo.pipelineConfig.depth.depthCompareOp.has_value()) {
+      config.depthStencilState.depthCompareOp =
+          from(createInfo.pipelineConfig.depth.depthCompareOp.value());
+    }
+
     // Layout
     for (auto& pushConstant :
          createInfo.pipelineConfig.layout.pushConstantRanges) {
@@ -358,8 +497,41 @@ namespace keptech::vkh {
       config.layout.pushConstantRanges.push_back(range);
     }
 
-    config.layout.setLayouts.insert(config.layout.setLayouts.begin(),
-                                    cameraObjects.layout);
+    vk::DeviceSize offset = 0;
+    if (createInfo.pipelineConfig.layout.useVertexBuffer) {
+      offset += sizeof(vk::DeviceAddress);
+    }
+    if (createInfo.pipelineConfig.layout.useModelMatrix) {
+      offset += sizeof(vk::DeviceAddress) * 2;
+    }
+    if (offset != 0) {
+      auto pcSet = std::ranges::find_if(
+          config.layout.pushConstantRanges,
+          [](const vk::PushConstantRange& range) {
+            return (range.stageFlags | vk::ShaderStageFlagBits::eVertex) !=
+                   vk::ShaderStageFlags{};
+          });
+
+      if (pcSet == config.layout.pushConstantRanges.end()) {
+        vk::PushConstantRange range{
+            .stageFlags = vk::ShaderStageFlagBits::eVertex,
+            .offset = 0,
+            .size = static_cast<uint32_t>(offset),
+        };
+        config.layout.pushConstantRanges.push_back(range);
+      } else {
+        pcSet->size += static_cast<uint32_t>(offset);
+        ++pcSet;
+        for (; pcSet != config.layout.pushConstantRanges.end(); ++pcSet) {
+          pcSet->offset += static_cast<uint32_t>(offset);
+        }
+      }
+    }
+
+    if (createInfo.pipelineConfig.layout.useCamera)
+      config.layout.setLayouts.push_back(cameraObjects.layout);
+
+    // TODO: User Descriptor sets
 
     auto vkLayoutInfo = config.layout.build();
 
@@ -414,10 +586,10 @@ namespace keptech::vkh {
                   .requiredFlags = vk::MemoryPropertyFlagBits::eDeviceLocal};
     vma::AllocationInfo allocInfo = {};
 
-    VMA_MAKE(
-        vkImg,
-        allocator.createImage(imageCreateInfo, allocCreateInfo, &allocInfo),
-        "Failed to allocate image.");
+    VMA_MAKE(vkImg,
+             vkcore.allocator.createImage(imageCreateInfo, allocCreateInfo,
+                                          &allocInfo),
+             "Failed to allocate image.");
 
     auto imageViewCreateInfo = vk::ImageViewCreateInfo{
         .image = vkImg.first,

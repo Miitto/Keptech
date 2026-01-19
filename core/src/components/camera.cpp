@@ -23,14 +23,14 @@ namespace keptech::components {
       float aspect = params.common.aspectRatio;
       float near = params.common.planes.near;
       float far = params.common.planes.far;
-      projectionMatrix = glm::perspectiveRH_ZO(fovY, aspect, near, far);
+      projectionMatrix = glm::perspectiveLH_ZO(fovY, aspect, near, far);
       return;
     }
     case ProjectionType::PerspectiveInfinite: {
       float fovY = params.perspective.fovY;
       float aspect = params.common.aspectRatio;
       float near = params.common.planes.near;
-      projectionMatrix = glm::infinitePerspectiveRH_ZO(fovY, aspect, near);
+      projectionMatrix = glm::infinitePerspectiveLH_ZO(fovY, aspect, near);
       return;
     }
     }

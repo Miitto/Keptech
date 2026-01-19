@@ -1,4 +1,5 @@
 #include "keptech/app.hpp"
+#include "keptech/core/gui.h"
 
 #include <expected>
 #include <imgui/backends/imgui_impl_sdl3.h>
@@ -42,10 +43,11 @@ int main() {
         ImGuiConfigFlags_NavEnableKeyboard | // Enable Keyboard Controls
         ImGuiConfigFlags_DockingEnable;      // Enable Docking
 
+    // Any UP event is not included, as it's preferable to handle them
+    // regardless of if ImGui wants input.
     auto isKeyboardEvent = [](core::window::Event event) {
       switch (event.type) {
       case SDL_EVENT_KEY_DOWN:
-      case SDL_EVENT_KEY_UP:
       case SDL_EVENT_TEXT_INPUT:
         return true;
       default:
@@ -57,10 +59,8 @@ int main() {
       switch (event.type) {
       case SDL_EVENT_MOUSE_MOTION:
       case SDL_EVENT_MOUSE_BUTTON_DOWN:
-      case SDL_EVENT_MOUSE_BUTTON_UP:
       case SDL_EVENT_MOUSE_WHEEL:
       case SDL_EVENT_FINGER_DOWN:
-      case SDL_EVENT_FINGER_UP:
       case SDL_EVENT_FINGER_MOTION:
         return true;
       default:
@@ -105,7 +105,10 @@ int main() {
 
       layerStack.onUpdate(dt);
 
+      keptech::gui::Frame::processInputPassthrough();
+
       renderer.render();
+
       KT_TRACE("Frame complete");
     }
 

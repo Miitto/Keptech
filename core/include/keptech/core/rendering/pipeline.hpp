@@ -81,6 +81,22 @@ namespace keptech::core::rendering {
     BlendFactor dst = BlendFactor::OneMinusSrcAlpha;
   };
 
+  enum class DepthCompareOp : uint8_t {
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    Equal,
+    NotEqual,
+    Always,
+    Never,
+  };
+
+  struct DepthConfig {
+    std::optional<DepthCompareOp> depthCompareOp = DepthCompareOp::Less;
+    bool depthWrite = true;
+  };
+
   struct PushConstantRange {
     uint32_t offset = 0;
     uint32_t size = 0;
@@ -88,7 +104,32 @@ namespace keptech::core::rendering {
         ShaderStages::Vertex | ShaderStages::Fragment;
   };
 
+  enum class DescriptorType : uint8_t {
+    Sampler,
+    CombinedImageSampler,
+    SampledImage,
+    StorageImage,
+    UniformTexelBuffer,
+    StorageTexelBuffer,
+    UniformBuffer,
+    StorageBuffer,
+    UniformBufferDynamic,
+    StorageBufferDynamic,
+    InputAttachment,
+  };
+
+  struct SetLayout {
+    uint32_t binding;
+    DescriptorType type;
+    Bitflag<ShaderStages> stages =
+        ShaderStages::Vertex | ShaderStages::Fragment;
+  };
+
   struct LayoutConfig {
+    bool useCamera = true;
+    bool useVertexBuffer = true;
+    bool useModelMatrix = true;
+    std::vector<SetLayout> setLayouts = {};
     std::vector<PushConstantRange> pushConstantRanges = {};
   };
 
@@ -98,6 +139,7 @@ namespace keptech::core::rendering {
     Topology topology = Topology::TriangleList;
     RasterizerConfig rasterizer = {};
     BlendConfig blend = {};
+    DepthConfig depth{};
     LayoutConfig layout = {};
   };
 } // namespace keptech::core::rendering

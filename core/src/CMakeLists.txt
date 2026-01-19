@@ -8,6 +8,7 @@ target_sources(${PROJECT_NAME}
     gltf/loaded.cpp
     layers/layerStack.cpp
     events.cpp
+    gui.cpp
     kt-logger.cpp
     window.cpp
 )

@@ -1,9 +1,11 @@
 #pragma once
 
+#include "imgui_internal.h"
 #include <cstdint>
 #include <imgui/imgui.h>
 #include <keptech/core/moveGuard.hpp>
 #include <type_traits>
+#include <vector>
 
 namespace keptech::gui {
   class GuiCore;
@@ -187,6 +189,17 @@ namespace keptech::gui {
                      ImGuiChildFlags flags = 0, ImGuiWindowFlags winFlags = 0) {
       return {id, size, flags, winFlags};
     }
+
+    Frame& voidInputs() {
+      framesToVoid.push_back(ImGui::GetCurrentWindow()->Name);
+      return *this;
+    }
+
+    /// TO BE CALLED BY THE ENGINE ONLY
+    void static processInputPassthrough();
+
+  private:
+    static std::vector<const char*> framesToVoid;
   };
 
 } // namespace keptech::gui

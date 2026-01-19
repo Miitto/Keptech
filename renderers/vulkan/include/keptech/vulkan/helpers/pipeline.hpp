@@ -94,12 +94,22 @@ namespace keptech::vkh {
         .rasterizationSamples = vk::SampleCountFlagBits::e1,
         .sampleShadingEnable = VK_FALSE,
         .minSampleShading = 1.0f};
+    vk::PipelineDepthStencilStateCreateInfo depthStencilState = {
+        .depthTestEnable = VK_FALSE,
+        .depthWriteEnable = VK_TRUE,
+        .depthCompareOp = vk::CompareOp::eLess,
+        .depthBoundsTestEnable = VK_FALSE,
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f,
+        .stencilTestEnable = VK_FALSE,
+    };
     std::vector<vk::PipelineColorBlendAttachmentState> blendAttachments = {};
     vk::PipelineColorBlendStateCreateInfo blending = {.logicOpEnable =
                                                           VK_FALSE};
     DynamicStateInfo dynamicState = {vk::DynamicState::eViewport,
                                      vk::DynamicState::eScissor};
     PipelineLayoutConfig layout = {};
+
 
     std::optional<vk::PipelineVertexInputStateCreateInfo>
         _internalVertexInputInfo = std::nullopt;
@@ -131,6 +141,7 @@ namespace keptech::vkh {
           .pViewportState = &viewport,
           .pRasterizationState = &rasterizer,
           .pMultisampleState = &multisampling,
+          .pDepthStencilState = &depthStencilState,
           .pColorBlendState = &blending,
           .pDynamicState = dynamicState,
       };

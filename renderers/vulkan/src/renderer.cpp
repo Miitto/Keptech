@@ -78,8 +78,6 @@ namespace keptech::vkh {
   }
 
   void Renderer::newFrame() {
-    frameScenes.clear();
-
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplSDL3_NewFrame();
 
@@ -198,23 +196,29 @@ namespace keptech::vkh {
     vkcore.device.logical.waitIdle();
 
     for (auto& ongoing : ongoingCommandBuffers) {
-      ongoing.buffer.destroy(allocator);
+      ongoing.buffer.destroy(vkcore.allocator);
     }
 
     vkcore.device.logical.waitIdle();
     ongoingCommandBuffers.clear();
 
+    vkcore.gBuffer.color.destroy(vkcore.allocator, vkcore.device.logical);
+    vkcore.gBuffer.normal.destroy(vkcore.allocator, vkcore.device.logical);
+    vkcore.gBuffer.depth.destroy(vkcore.allocator, vkcore.device.logical);
+
+    instanceBuffers.destroy(vkcore.allocator);
+
     loadedMeshes.reset();
     loadedMaterials.reset();
 
     cameraObjects.descriptorSet.release(); // The pool destructor will free this
-    cameraObjects.uniformBuffer.destroy(allocator);
+    cameraObjects.uniformBuffer.destroy(vkcore.allocator);
 
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 
-    allocator.destroy();
+    vkcore.allocator.destroy();
     vkcore.device.logical.waitIdle();
 
     VK_INFO("Vulkan renderer shut down cleanly");

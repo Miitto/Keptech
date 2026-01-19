@@ -46,7 +46,7 @@ namespace keptech::core::gltf {
                 asset, posAccessor, [&](glm::vec3 position, size_t index) {
                   rendering::Mesh::Vertex vertex{};
                   vertex.position = position;
-                  vertex.position.y *= -1;
+                  // Can flip Y here if needed in future
                   vertices[startIndex + index] = vertex;
                 });
           }

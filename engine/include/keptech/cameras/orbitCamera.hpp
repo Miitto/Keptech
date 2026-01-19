@@ -42,8 +42,8 @@ namespace keptech::cameras {
             if (!panning)
               return false;
 
-            yaw -= e.movement.x * ts * sens;
-            pitch -= e.movement.y * ts * sens;
+            yaw += e.movement.x * ts * sens;
+            pitch += e.movement.y * ts * sens;
 
             if (yaw < 360)
               yaw += 360;
@@ -81,7 +81,7 @@ namespace keptech::cameras {
     bool panning = false;
     float sens = 1.f;
     float zoom = 5;
-    float yaw = 0;
+    float yaw = 180; // Start looking down -Z, so camera is +Z from target
     float pitch = 0;
   };
 } // namespace keptech::cameras

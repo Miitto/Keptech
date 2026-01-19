@@ -2,6 +2,7 @@
 #include <keptech/app.hpp>
 
 #include "editorLayer.hpp"
+#include "keptech/core/rendering/pipeline.hpp"
 #include "keptech/ecs/entity.hpp"
 #include <expected>
 #include <keptech/components.hpp>
@@ -13,7 +14,9 @@
 
 namespace shaders {
 #include "shaders/basic.h"
-}
+
+#include "shaders/deferred.h"
+} // namespace shaders
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
@@ -31,7 +34,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
                         keptech::vkh::Renderer& renderer) {
   using Material = keptech::vkh::Material;
 
-  auto materialRes = renderer.createMaterial({
+  auto basicMaterialRes = renderer.createMaterial({
       .stage = Material::Stage::Forward,
       .pipelineConfig =
           {
@@ -57,12 +60,28 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
                   },
           },
   });
-  if (!materialRes) {
+  if (!basicMaterialRes) {
     return std::unexpected(fmt::format("Failed to create basic material: {}",
-                                       materialRes.error()));
+                                       basicMaterialRes.error()));
+  }
+  auto deferredMaterialRes = renderer.createMaterial({
+      .stage = Material::Stage::Deferred,
+      .pipelineConfig =
+          {
+              .shaders = {{
+                  .code = shaders::deferred,
+                  .size = shaders::deferred_size,
+              }},
+              .attachments = renderer.deferredPipelineAttachmentConfig(),
+          },
+  });
+  if (!deferredMaterialRes) {
+    return std::unexpected(fmt::format("Failed to create basic material: {}",
+                                       deferredMaterialRes.error()));
   }
   auto materials = Materials{
-      .basic = materialRes.value(),
+      .basic = basicMaterialRes.value(),
+      .deferred = deferredMaterialRes.value(),
   };
   SPDLOG_INFO("Created materials");
 
@@ -115,19 +134,20 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
   auto triangle = scene.createEntity("Triangle");
   triangle.addComponent<keptech::components::RenderObject>(
       keptech::components::RenderObject{.mesh = meshes.triangle,
-                                        .material = materials.basic});
-  triangle.addComponent<keptech::components::Transform>();
+                                        .material = materials.deferred});
+  auto& triTrans = triangle.addComponent<keptech::components::Transform>();
+  triTrans.getLocalMut().translate({0.f, 2.f, 0.f});
 
   auto monkey = scene.createEntity("Monkey");
   monkey.addComponent<keptech::components::RenderObject>(
       keptech::components::RenderObject{.mesh = meshes.monkey,
-                                        .material = materials.basic});
+                                        .material = materials.deferred});
   monkey.addComponent<keptech::components::Transform>();
 
   auto camera = scene.createEntity("Camera");
   auto& camTransform = camera.addComponent<keptech::components::Transform>();
   auto& localTransform = camTransform.getLocalMut();
-  localTransform.translate(glm::vec3(2.0f, 2.0f, 5.0f))
+  localTransform.translate(glm::vec3(0.0f, 0.0f, 5.0f))
       .lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
   auto& camComp = camera.addComponent<keptech::components::Camera>(

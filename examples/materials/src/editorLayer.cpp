@@ -2,6 +2,33 @@
 #include "keptech/core/components/transform.hpp"
 #include "keptech/ecs/entity.hpp"
 
+#include <spdlog/fmt/bundled/format.h>
+
+template <>
+struct fmt::formatter<MaterialEditorLayer::ActiveDebugView>
+    : fmt::formatter<std::string_view> {
+  template <typename FormatContext>
+  auto format(const MaterialEditorLayer::ActiveDebugView& view,
+              FormatContext& ctx) const {
+    std::string_view name = "";
+    switch (view) {
+    case MaterialEditorLayer::ActiveDebugView::Albedo:
+      name = "Albedo";
+      break;
+    case MaterialEditorLayer::ActiveDebugView::Normals:
+      name = "Normals";
+      break;
+    case MaterialEditorLayer::ActiveDebugView::Depth:
+      name = "Depth";
+      break;
+    case MaterialEditorLayer::ActiveDebugView::Final:
+      name = "Final";
+      break;
+    }
+    return formatter<std::string_view>::format(name, ctx);
+  }
+};
+
 void MaterialEditorLayer::onUpdate(keptech::core::Timestep ts) {
   {
     auto frame = keptech::gui::Frame("Stats");
@@ -12,8 +39,6 @@ void MaterialEditorLayer::onUpdate(keptech::core::Timestep ts) {
   }
 
   drawGui();
-
-  renderer.submitScene(scene);
 }
 
 void MaterialEditorLayer::drawGui() {
@@ -27,6 +52,7 @@ void MaterialEditorLayer::drawGui() {
     ImGuiID dock_id_left = 0;
     ImGuiID dock_id_right = 0;
     ImGuiID dock_id_bottom = 0;
+    ImGuiID dock_id_toolbar = 0;
     ImGuiID dock_id_main = dockspace_id;
     ImGui::DockBuilderSplitNode(dock_id_main, ImGuiDir_Right, 0.20f,
                                 &dock_id_right, &dock_id_main);
@@ -34,6 +60,12 @@ void MaterialEditorLayer::drawGui() {
                                 &dock_id_bottom, &dock_id_main);
     ImGui::DockBuilderSplitNode(dock_id_main, ImGuiDir_Left, 0.20f,
                                 &dock_id_left, &dock_id_main);
+    ImGui::DockBuilderSplitNode(dock_id_main, ImGuiDir_Up, 0.05f,
+                                &dock_id_toolbar, &dock_id_main);
+    ImGui::DockBuilderSetNodeSize(
+        dock_id_toolbar, ImVec2(viewport->Size.x, ImGui::GetFontSize() * 2.5f));
+
+    ImGui::DockBuilderDockWindow("Toolbar", dock_id_toolbar);
     ImGui::DockBuilderDockWindow("Game", dock_id_main);
     ImGui::DockBuilderDockWindow("Scene Tree", dock_id_left);
     ImGui::DockBuilderDockWindow("Properties", dock_id_right);
@@ -41,13 +73,78 @@ void MaterialEditorLayer::drawGui() {
     ImGui::DockBuilderFinish(dockspace_id);
   }
 
-  // Submit dockspace
   ImGui::DockSpaceOverViewport(dockspace_id, viewport,
                                ImGuiDockNodeFlags_PassthruCentralNode);
 
+  {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    auto gamePanel = keptech::gui::Frame("Game", nullptr,
+                                         ImGuiWindowFlags_NoDecoration |
+                                             ImGuiWindowFlags_NoMove |
+                                             ImGuiWindowFlags_NoScrollbar);
+    ImGui::PopStyleVar(1);
+
+    if (ImGui::IsWindowHovered()) {
+      auto& io = ImGui::GetIO();
+      io.WantCaptureMouse = false;
+      ImGui::SetNextFrameWantCaptureMouse(false);
+    }
+
+    auto& gbuffer = renderer.getImGuiGBufferHandles();
+
+    ImVec2 size = ImGui::GetContentRegionAvail();
+
+    switch (activeDebugView) {
+    case ActiveDebugView::Final:
+    case ActiveDebugView::Albedo:
+      ImGui::Image(gbuffer.albedo, size);
+      break;
+    case ActiveDebugView::Normals:
+      ImGui::Image(gbuffer.normal, size);
+      break;
+    case ActiveDebugView::Depth:
+      ImGui::Image(gbuffer.depth, size);
+      break;
+    }
+  }
+
+  drawToolbar();
   drawSceneTree();
   drawEntityProperties();
   drawAssetsPanel();
+}
+
+void MaterialEditorLayer::drawToolbar() {
+  ImGuiWindowClass window_class;
+  window_class.DockingAllowUnclassed = true;
+  window_class.DockNodeFlagsOverrideSet |=
+      ImGuiDockNodeFlags_NoCloseButton | ImGuiDockNodeFlags_HiddenTabBar |
+      ImGuiDockNodeFlags_NoDockingOverMe |
+      ImGuiDockNodeFlags_NoDockingOverOther | ImGuiDockNodeFlags_NoResizeY |
+      ImGuiDockNodeFlags_NoResizeX;
+  ImGui::SetNextWindowClass(&window_class);
+  auto toolbarPanel = keptech::gui::Frame(
+      "Toolbar", nullptr,
+      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+          ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar |
+          ImGuiWindowFlags_NoScrollbar);
+
+  {
+    std::string debugViewStr = fmt::format("{}", activeDebugView);
+    auto combo = toolbarPanel.combo("Debug View", debugViewStr.c_str());
+    if (combo.item("Final", activeDebugView == ActiveDebugView::Final)) {
+      activeDebugView = ActiveDebugView::Final;
+    }
+    if (combo.item("Albedo", activeDebugView == ActiveDebugView::Albedo)) {
+      activeDebugView = ActiveDebugView::Albedo;
+    }
+    if (combo.item("Normals", activeDebugView == ActiveDebugView::Normals)) {
+      activeDebugView = ActiveDebugView::Normals;
+    }
+    if (combo.item("Depth", activeDebugView == ActiveDebugView::Depth)) {
+      activeDebugView = ActiveDebugView::Depth;
+    }
+  }
 }
 
 namespace {

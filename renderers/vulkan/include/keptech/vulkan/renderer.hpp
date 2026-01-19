@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <expected>
 #include <functional>
+#include <imgui/backends/imgui_impl_vulkan.h>
 #include <keptech/core/components/renderObject.hpp>
 #include <keptech/core/components/transform.hpp>
 #include <keptech/core/image.hpp>
@@ -63,19 +64,37 @@ namespace keptech::vkh {
       Pools pools;
     };
 
+    struct GBuffers {
+      /// RGB8Unorm albedo, SV_Target0
+      AllocatedImage color;
+      /// RGB8Unorm normal, SV_Target1
+      AllocatedImage normal;
+      AllocatedImage depth;
+    };
+
     struct VulkanCore {
       vk::raii::Context context;
       vk::raii::Instance instance;
       vk::raii::SurfaceKHR surface;
       Device device;
+      vma::Allocator allocator;
       Queues queues;
       Swapchain swapchain;
+      GBuffers gBuffer;
       std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame;
       CommandPool transferPool;
     };
 
+    struct ImGuiGBufferHandles {
+      VkDescriptorSet albedo;
+      VkDescriptorSet normal;
+      VkDescriptorSet depth;
+    };
+
     struct ImGuiVkObjects {
       vk::raii::DescriptorPool descriptorPool;
+      vk::raii::Sampler gBufferSampler;
+      ImGuiGBufferHandles gBufferHandles;
     };
 
     struct CameraObjects {
@@ -94,13 +113,41 @@ namespace keptech::vkh {
       bool suboptimalSwapchain = false;
     };
 
+    struct InstanceData {
+      glm::mat4 modelMatrix;
+    };
+
+    struct InstanceBuffers {
+      AllocatedBuffer staging;
+      AddressedAllocatedBuffer device;
+
+      [[nodiscard]] size_t maxInstances() const {
+        return staging.allocInfo.size / sizeof(InstanceData);
+      }
+
+      std::expected<InstanceBuffers, std::string> static create(
+          vma::Allocator& allocator, vk::raii::Device& device,
+          size_t maxInstances);
+
+      void destroy(vma::Allocator& allocator);
+      std::expected<void, std::string> resize(vma::Allocator& allocator,
+                                              vk::raii::Device& device,
+                                              size_t newMaxInstances);
+
+      std::expected<void, std::string>
+      copyToDevice(vk::raii::Device& device,
+                   const vk::raii::CommandBuffer& cmdBuf,
+                   size_t instanceCount = 0);
+    };
+
   private:
     Renderer(const core::window::Window& window, VulkanCore&& vkcore,
-             vma::Allocator& allocator, ImGuiVkObjects&& imGuiObjects,
-             CameraObjects&& cameraObjects)
-        : window(&window), vkcore(std::move(vkcore)), allocator(allocator),
+             ImGuiVkObjects&& imGuiObjects, CameraObjects&& cameraObjects,
+             InstanceBuffers instanceBuffers)
+        : window(&window), vkcore(std::move(vkcore)),
           imGuiObjects(std::move(imGuiObjects)),
-          cameraObjects(std::move(cameraObjects)) {}
+          cameraObjects(std::move(cameraObjects)),
+          instanceBuffers(instanceBuffers) {}
 
   public:
     std::expected<Renderer, std::string> static create(
@@ -112,6 +159,23 @@ namespace keptech::vkh {
     Renderer& operator=(const Renderer&) = delete;
     Renderer(Renderer&&) noexcept = default;
     Renderer& operator=(Renderer&&) noexcept = default;
+
+    inline core::rendering::AttachmentConfig
+    deferredPipelineAttachmentConfig() const {
+      using ac = core::rendering::AttachmentConfig;
+      using F = core::rendering::Texture::Format;
+      return ac{.colorFormats = {F::RGBA8, F::RGBA8},
+                .depthFormat = F::Depth16};
+    }
+
+    inline const glm::vec2 getGBufferSize() const {
+      return glm::vec2{vkcore.gBuffer.color.extent.width,
+                       vkcore.gBuffer.color.extent.height};
+    }
+
+    inline const ImGuiGBufferHandles& getImGuiGBufferHandles() const {
+      return imGuiObjects.gBufferHandles;
+    }
 
     std::expected<std::vector<core::rendering::Mesh::Handle>, std::string>
     loadMesh(const std::string_view path, bool backgroundLoad = false);
@@ -140,7 +204,7 @@ namespace keptech::vkh {
 
     void newFrame();
 
-    void submitScene(core::Scene& scene) { frameScenes.emplace_back(&scene); }
+    void setScene(core::Scene& scene) { frameScene = &scene; }
 
     void render();
 
@@ -173,8 +237,12 @@ namespace keptech::vkh {
     setupGraphicsCommandBuffer(const Frame& info,
                                const vk::raii::CommandBuffer& graphicsCmdBuffer,
                                const components::Camera& camera);
-    void draw(const Frame& info,
-              const vk::raii::CommandBuffer& graphicsCmdBuffer);
+    void imagesToRenderable(const Frame& info,
+                            const vk::raii::CommandBuffer& graphicsCmdBuffer);
+    void drawDeferred(const Frame& info,
+                      const vk::raii::CommandBuffer& graphicsCmdBuffer);
+    void gBufferToAttachments(const Frame& info,
+                              const vk::raii::CommandBuffer& graphicsCmdBuffer);
     void drawImGui(const Frame& info,
                    const vk::raii::CommandBuffer& graphicsCmdBuffer);
     void presentFrame(const Frame& info);
@@ -192,7 +260,7 @@ namespace keptech::vkh {
           [](const OnGoingCmdTransfer& ongoing) { return ongoing.finished(); });
 
       for (auto it = first; it != last; ++it) {
-        it->buffer.destroy(allocator);
+        it->buffer.destroy(vkcore.allocator);
       }
       ongoingCommandBuffers.erase(first, last);
     }
@@ -202,9 +270,10 @@ namespace keptech::vkh {
 
     const core::window::Window* window;
     VulkanCore vkcore;
-    vma::Allocator allocator;
     ImGuiVkObjects imGuiObjects;
     CameraObjects cameraObjects;
+
+    InstanceBuffers instanceBuffers;
 
     std::array<std::vector<vk::raii::CommandBuffer>, MAX_FRAMES_IN_FLIGHT>
         submittedCommandBuffers;
@@ -222,7 +291,7 @@ namespace keptech::vkh {
     std::unordered_map<std::string, core::SlotMapWeakHandle> textureNameMap =
         {};
 
-    std::vector<core::Scene*> frameScenes = {};
+    core::Scene* frameScene;
   };
 
   namespace setup {

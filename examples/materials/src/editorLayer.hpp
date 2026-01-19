@@ -16,6 +16,7 @@
 
 struct Materials {
   keptech::MaterialHandle basic;
+  keptech::MaterialHandle deferred;
 };
 
 struct Meshes {
@@ -25,6 +26,7 @@ struct Meshes {
 
 class MaterialEditorLayer : public keptech::core::layers::Layer {
 public:
+  enum class ActiveDebugView : uint8_t { Albedo, Normals, Depth, Final };
   struct Resources {
     Meshes meshes;
     Materials materials;
@@ -34,7 +36,9 @@ public:
                       Resources&& resources)
       : keptech::core::layers::Layer("MaterialEditorLayer"), renderer(renderer),
         scene(std::move(scene)), resources(std::move(resources)),
-        orbitController(this->scene.getActiveCamera()) {}
+        orbitController(this->scene.getActiveCamera()) {
+    renderer.setScene(this->scene);
+  }
 
   void onUpdate(keptech::core::Timestep ts) override;
 
@@ -46,6 +50,7 @@ public:
 
 private:
   void drawGui();
+  void drawToolbar();
   void drawSceneTree();
   void drawEntityProperties();
   void drawAssetsPanel();
@@ -56,4 +61,6 @@ private:
   keptech::cameras::OrbitCameraController orbitController;
   keptech::ecs::EntityHandle selectedEntity =
       keptech::ecs::INVALID_ENTITY_HANDLE;
+
+  ActiveDebugView activeDebugView = ActiveDebugView::Final;
 };

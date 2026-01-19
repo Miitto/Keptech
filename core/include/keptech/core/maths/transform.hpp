@@ -24,7 +24,7 @@ namespace keptech::maths {
     }
 
     Transform& lookAt(const glm::vec3& target, const glm::vec3& up) {
-      rotation = glm::quatLookAtRH(glm::normalize(target - position), up);
+      rotation = glm::quatLookAt(glm::normalize(target - position), up);
       return *this;
     }
 
@@ -53,11 +53,13 @@ namespace keptech::maths {
       return *this;
     }
 
-    [[nodiscard]] glm::mat4 toMatrix() const {
-      glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), position);
-      glm::mat4 rotationMat = glm::mat4(rotation);
-      glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), _scale);
-      return translationMat * rotationMat * scaleMat;
+    [[nodiscard]] glm::mat4 toMatrix(bool viewMatrix = false) const {
+      glm::mat4 t = glm::translate(glm::mat4(1.0f), position);
+      glm::mat4 r = glm::mat4(rotation);
+      // Adjust for LH-Y up
+      glm::mat4 s = glm::scale(glm::mat4(1.0f),
+                               _scale * glm::vec3(1, viewMatrix ? -1 : 1, 1));
+      return t * r * s;
     }
 
     explicit operator glm::mat4() const { return toMatrix(); }
