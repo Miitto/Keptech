@@ -9,6 +9,8 @@ namespace keptech::ecs {
 
   using Ecs = entt::registry;
 
+  template <typename T> using MetaFactory = entt::meta_factory<T>;
+
   class Entity {
   public:
     Entity() = default;

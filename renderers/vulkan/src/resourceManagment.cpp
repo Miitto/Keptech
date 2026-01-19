@@ -1,5 +1,6 @@
 #include "keptech/core/rendering/pipeline.hpp"
 #include "keptech/vulkan/helpers/pipeline.hpp"
+#include "keptech/vulkan/material.hpp"
 #include "keptech/vulkan/renderer.hpp"
 #include "macros.hpp"
 #include "vulkan/vulkan.hpp"
@@ -414,8 +415,14 @@ namespace keptech::vkh {
     return std::nullopt;
   }
 
+  vkh::Mesh*
+  Renderer::getMeshData(const core::rendering::Mesh::Handle& handle) {
+    return loadedMeshes.get(handle.handle);
+  }
+
   std::expected<Renderer::MaterialHandle, std::string>
-  Renderer::createMaterial(const Material::CreateInfo& createInfo) {
+  Renderer::createMaterial(std::string name,
+                           const Material::CreateInfo& createInfo) {
     GraphicsPipelineConfig config;
 
     std::vector<Shader> shaderModules;
@@ -551,9 +558,15 @@ namespace keptech::vkh {
         .pipelineLayout = std::move(pipelineLayout),
     };
     mat.stage = createInfo.stage;
+    mat.name = std::move(name);
 
     auto handle = loadedMaterials.emplace(std::move(mat));
     return MaterialHandle(core::SlotMapSmartHandle(handle, loadedMaterials));
+  }
+
+  vkh::Material*
+  Renderer::getMaterialData(const Renderer::MaterialHandle& handle) {
+    return loadedMaterials.get(handle.handle);
   }
 
   std::expected<Shader, std::string>

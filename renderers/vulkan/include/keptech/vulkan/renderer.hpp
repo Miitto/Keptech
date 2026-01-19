@@ -186,8 +186,13 @@ namespace keptech::vkh {
     std::optional<core::rendering::Mesh::Handle>
     getMesh(const std::string& name);
 
+    vkh::Mesh* getMeshData(const core::rendering::Mesh::Handle& handle);
+
     std::expected<core::rendering::Material::Handle, std::string>
-    createMaterial(const Material::CreateInfo& createInfo);
+    createMaterial(std::string name, const Material::CreateInfo& createInfo);
+
+    vkh::Material*
+    getMaterialData(const core::rendering::Material::Handle& handle);
 
     std::expected<Shader, std::string>
     createShader(const unsigned char* const code, size_t size);
@@ -286,10 +291,6 @@ namespace keptech::vkh {
     core::SlotMap<vkh::Material> loadedMaterials = {};
     core::SlotMap<AllocatedImage> loadedTextures = {};
     std::unordered_map<std::string, core::SlotMapWeakHandle> meshNameMap = {};
-    std::unordered_map<std::string, core::SlotMapWeakHandle> materialNameMap =
-        {};
-    std::unordered_map<std::string, core::SlotMapWeakHandle> textureNameMap =
-        {};
 
     core::Scene* frameScene;
   };

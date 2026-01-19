@@ -23,6 +23,12 @@ namespace keptech::core {
 
     [[nodiscard]] ecs::Entity getActiveCamera() { return {activeCamera, ecs}; }
 
+    template <typename Component, typename FRef>
+    static void registerComponentFunctions(const char* functionName) {
+      entt::meta_factory<Component>().template func<FRef>(
+          entt::hashed_string(functionName));
+    }
+
   private:
     ecs::Ecs ecs{};
     ecs::EntityHandle activeCamera;

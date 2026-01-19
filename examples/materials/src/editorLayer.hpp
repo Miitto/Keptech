@@ -1,5 +1,6 @@
 #include "imgui.h"
 #include "keptech/cameras/orbitCamera.hpp"
+#include "keptech/core/components/renderObject.hpp"
 #include "keptech/core/components/transform.hpp"
 #include "keptech/core/events/event.hpp"
 #include <keptech/app.hpp>
@@ -24,6 +25,12 @@ struct Meshes {
   keptech::MeshHandle monkey;
 };
 
+class MaterialEditorLayer;
+
+template <typename Comp>
+void forwardCompInspectorUi(MaterialEditorLayer* layer,
+                            keptech::gui::Frame* frame, Comp& comp);
+
 class MaterialEditorLayer : public keptech::core::layers::Layer {
 public:
   enum class ActiveDebugView : uint8_t { Albedo, Normals, Depth, Final };
@@ -33,12 +40,9 @@ public:
   };
 
   MaterialEditorLayer(KEPTECH_RENDERER& renderer, keptech::core::Scene&& scene,
-                      Resources&& resources)
-      : keptech::core::layers::Layer("MaterialEditorLayer"), renderer(renderer),
-        scene(std::move(scene)), resources(std::move(resources)),
-        orbitController(this->scene.getActiveCamera()) {
-    renderer.setScene(this->scene);
-  }
+                      Resources&& resources);
+
+  static void initMeta();
 
   void onUpdate(keptech::core::Timestep ts) override;
 
@@ -47,6 +51,12 @@ public:
     if (orbitController.handleEvent(event, ts))
       return;
   }
+
+  void meshInspectorUi(keptech::gui::Frame& frame,
+                       keptech::components::Mesh& ro);
+
+  void materialInspectorUi(keptech::gui::Frame& frame,
+                           keptech::components::Material& ro);
 
 private:
   void drawGui();

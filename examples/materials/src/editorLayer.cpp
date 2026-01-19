@@ -5,6 +5,20 @@
 #include <spdlog/fmt/bundled/format.h>
 
 template <>
+void forwardCompInspectorUi(MaterialEditorLayer* layer,
+                            keptech::gui::Frame* frame,
+                            keptech::components::Mesh& comp) {
+  layer->meshInspectorUi(*frame, comp);
+}
+
+template <>
+void forwardCompInspectorUi(MaterialEditorLayer* layer,
+                            keptech::gui::Frame* frame,
+                            keptech::components::Material& comp) {
+  layer->materialInspectorUi(*frame, comp);
+}
+
+template <>
 struct fmt::formatter<MaterialEditorLayer::ActiveDebugView>
     : fmt::formatter<std::string_view> {
   template <typename FormatContext>
@@ -28,6 +42,28 @@ struct fmt::formatter<MaterialEditorLayer::ActiveDebugView>
     return formatter<std::string_view>::format(name, ctx);
   }
 };
+
+namespace {
+  template <typename Comp> void metaFunc() {
+    keptech::ecs::MetaFactory<Comp>() // NOLINT
+        .template func<&forwardCompInspectorUi<Comp>>(
+            entt::hashed_string("inspectorUi"));
+  }
+} // namespace
+
+void MaterialEditorLayer::initMeta() {
+  metaFunc<keptech::components::Mesh>();
+  metaFunc<keptech::components::Material>();
+}
+
+MaterialEditorLayer::MaterialEditorLayer(KEPTECH_RENDERER& renderer,
+                                         keptech::core::Scene&& scene,
+                                         Resources&& resources)
+    : keptech::core::layers::Layer("MaterialEditorLayer"), renderer(renderer),
+      scene(std::move(scene)), resources(std::move(resources)),
+      orbitController(this->scene.getActiveCamera()) {
+  renderer.setScene(this->scene);
+}
 
 void MaterialEditorLayer::onUpdate(keptech::core::Timestep ts) {
   {
@@ -151,24 +187,19 @@ namespace {
   struct SceneNode {
     keptech::ecs::EntityHandle id;
     const std::string* name;
-    std::vector<SceneNode*> children{};
-
-    ~SceneNode() {
-      for (auto& child : children) {
-        delete child;
-      }
-    }
+    std::vector<std::unique_ptr<SceneNode>> children{};
   };
   void addNodeToList(
       keptech::ecs::EntityHandle entity, const keptech::components::Name& name,
-      std::vector<SceneNode*>& roots,
+      std::vector<std::unique_ptr<SceneNode>>& roots,
       std::unordered_map<keptech::ecs::EntityHandle, SceneNode*>& nodeMap,
       keptech::core::Scene& scene) {
     if (nodeMap.find(entity) != nodeMap.end())
       return;
 
-    SceneNode* node = new SceneNode{.id = entity, .name = &name.name};
-    nodeMap.emplace(entity, node);
+    std::unique_ptr node = std::make_unique<SceneNode>(
+        SceneNode{.id = entity, .name = &name.name});
+    nodeMap.emplace(entity, node.get());
 
     auto transform =
         scene.getEcs().try_get<keptech::components::Transform>(entity);
@@ -181,9 +212,9 @@ namespace {
         addNodeToList(parentId, nameComp, roots, nodeMap, scene);
       }
 
-      nodeMap[parentId]->children.push_back(node);
+      nodeMap[parentId]->children.push_back(std::move(node));
     } else {
-      roots.push_back(node);
+      roots.push_back(std::move(node));
     }
   }
 
@@ -222,7 +253,7 @@ void MaterialEditorLayer::drawSceneTree() {
                                         ImGuiWindowFlags_NoDecoration |
                                             ImGuiWindowFlags_NoMove);
 
-  std::vector<SceneNode*> roots;
+  std::vector<std::unique_ptr<SceneNode>> roots;
   {
     std::unordered_map<keptech::ecs::EntityHandle, SceneNode*> nodeMap;
 
@@ -234,9 +265,6 @@ void MaterialEditorLayer::drawSceneTree() {
 
   for (auto& root : roots) {
     displaySceneNodeInTree(*root, selectedEntity);
-  }
-  for (auto& root : roots) {
-    delete root;
   }
 }
 
@@ -251,12 +279,22 @@ void MaterialEditorLayer::drawEntityProperties() {
   auto& ecs = scene.getEcs();
   auto entity = keptech::ecs::Entity(selectedEntity, ecs);
 
-  if (entity.hasAllComponents<keptech::components::Transform>()) {
-    static keptech::core::Bitflag<
-        keptech::components::Transform::TransformGuiFlags>
-        flags = keptech::components::Transform::TransformGuiFlags::Editable;
-    entity.getComponents<keptech::components::Transform>().guiPane(
-        propertiesPanel, flags);
+  auto transform =
+      entity.getEcs().try_get<keptech::components::Transform>(entity);
+  if (transform != nullptr) {
+    transform->inspectorUi(propertiesPanel, false);
+  }
+
+  for (auto [id, storage] : ecs.storage()) {
+    auto type = entt::resolve(storage.info());
+
+    auto func = type.func(entt::hashed_string("inspectorUi"));
+    if (func) {
+      if (storage.contains(entity.getHandle())) {
+        auto comp = type.from_void(storage.value(entity));
+        func.invoke({}, this, &propertiesPanel, comp);
+      }
+    }
   }
 }
 
@@ -264,4 +302,28 @@ void MaterialEditorLayer::drawAssetsPanel() {
   auto assetsPanel = keptech::gui::Frame("Assets", nullptr,
                                          ImGuiWindowFlags_NoDecoration |
                                              ImGuiWindowFlags_NoMove);
+}
+
+void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
+                                          keptech::components::Mesh& mesh) {
+  frame.separatorText("Mesh");
+  auto meshPtr = renderer.getMeshData(mesh.mesh);
+  if (meshPtr != nullptr) {
+    frame.text("%s", meshPtr->name.c_str());
+  } else {
+    frame.text("Invalid");
+  }
+
+  frame.separator();
+}
+void MaterialEditorLayer::materialInspectorUi(
+    keptech::gui::Frame& frame, keptech::components::Material& material) {
+  frame.separatorText("Material");
+
+  auto materialPtr = renderer.getMaterialData(material.material);
+  if (materialPtr != nullptr) {
+    frame.text("%s", materialPtr->name.c_str());
+  } else {
+    frame.text("Invalid");
+  }
 }

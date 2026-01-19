@@ -32,18 +32,19 @@ namespace keptech::vkh {
                                    const maths::Frustum& frustum) {
     ObjectLists lists;
 
-    auto view =
-        scene.getEcs().view<components::Transform, components::RenderObject>();
+    auto view = scene.getEcs()
+                    .view<components::Transform, components::Mesh,
+                          components::Material>();
 
-    for (auto [entity, transform, renderObj] : view.each()) {
+    for (auto [entity, transform, meshHandle, materialHandle] : view.each()) {
 
-      auto materialP = loadedMaterials.get(renderObj.material.handle);
+      auto materialP = loadedMaterials.get(materialHandle.material.handle);
       if (!materialP) {
         VK_WARN("RenderObject has invalid material handle, skipping");
         continue;
       }
 
-      auto meshP = loadedMeshes.get(renderObj.mesh.handle);
+      auto meshP = loadedMeshes.get(meshHandle.mesh.handle);
       if (!meshP) {
         VK_WARN("RenderObject has invalid mesh handle, skipping");
         continue;

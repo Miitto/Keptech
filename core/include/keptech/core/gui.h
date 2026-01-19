@@ -43,6 +43,16 @@ namespace keptech::gui {
 
   class GuiCore {
   public:
+    GuiCore& separator() {
+      ImGui::Separator();
+      return *this;
+    }
+
+    GuiCore& separatorText(const char* label) {
+      ImGui::SeparatorText(label);
+      return *this;
+    }
+
     Combo combo(const char* label, const char* preview,
                 ImGuiComboFlags flags = 0) {
       return {label, preview, flags};

@@ -14,12 +14,12 @@ namespace keptech::components {
   public:
     void recalculateGlobalTransform();
 
-    [[nodiscard]] bool isDirty() const { return dirty; }
+    [[nodiscard]] bool isDirty() const { return flags.has(Flags::Dirty); }
 
     void setParent(const ecs::Entity newParent) {
       if (parent != newParent) {
         parent = newParent;
-        dirty = true;
+        flags.set(Flags::Dirty);
       }
     }
 
@@ -27,23 +27,23 @@ namespace keptech::components {
     [[nodiscard]] const maths::Transform& getGlobal() const { return global; }
 
     maths::Transform& getLocalMut() {
-      dirty = true;
+      flags.set(Flags::Dirty);
       return local;
     }
 
     [[nodiscard]] ecs::Entity getParent() const { return parent; }
 
-    enum class TransformGuiFlags : uint8_t {
-      Editable = BIT(0),
-      GlobalCoords = BIT(1),
-    };
-    void guiPane(keptech::gui::Frame& frame,
-                 core::Bitflag<TransformGuiFlags>& flags);
+    void inspectorUi(keptech::gui::Frame& frame, bool readOnly = false);
 
   private:
+    enum class Flags : uint8_t {
+      Dirty = BIT(0),
+      GlobalCoords = BIT(1),
+    };
+
     maths::Transform local;
     maths::Transform global;
-    bool dirty = false;
     ecs::Entity parent = ecs::Entity{};
+    core::Bitflag<Flags> flags = Flags::Dirty;
   };
 } // namespace keptech::components

@@ -4,7 +4,7 @@
 
 namespace keptech::components {
   void Transform::recalculateGlobalTransform() {
-    if (!dirty) {
+    if (!flags.has(Flags::Dirty)) {
       return;
     }
 
@@ -22,32 +22,29 @@ namespace keptech::components {
       global.apply(parentTransform->global);
   }
 
-  void Transform::guiPane(keptech::gui::Frame& frame,
-                          core::Bitflag<TransformGuiFlags>& flags) {
-    auto child = frame.child("##transform");
+  void Transform::inspectorUi(keptech::gui::Frame& frame, bool readOnly) {
+    frame.separatorText("Transform");
 
-    bool isLocal = !flags.has(TransformGuiFlags::GlobalCoords);
+    bool isLocal = !flags.has(Flags::GlobalCoords);
 
     auto& t = isLocal ? local : global;
 
-    ImGuiInputTextFlags iflags = flags.has(TransformGuiFlags::Editable)
-                                     ? 0
-                                     : ImGuiInputTextFlags_ReadOnly;
+    ImGuiInputTextFlags iflags = !readOnly ? 0 : ImGuiInputTextFlags_ReadOnly;
 
     glm::vec3 pos = t.pos();
     glm::vec3 rot = glm::degrees(glm::eulerAngles(t.rot()));
     glm::vec3 scale = t.scale();
 
-    if (child.inputFloat3("Pos:", &pos.x, "%.3f", iflags)) {
+    if (frame.inputFloat3("Pos:", &pos.x, "%.3f", iflags)) {
       if (isLocal) {
         local.setPosition(pos);
       } else {
         glm::vec3 diff = pos - t.pos();
         local.setPosition(local.pos() + diff);
       }
-      dirty = true;
+      flags.set(Flags::Dirty);
     }
-    if (child.inputFloat3("Rot:", &rot.x, "%.3f", iflags)) {
+    if (frame.inputFloat3("Rot:", &rot.x, "%.3f", iflags)) {
       if (isLocal) {
         local.setRotation(glm::radians(rot));
       } else {
@@ -55,25 +52,25 @@ namespace keptech::components {
         glm::vec3 diff = glm::radians(rot) - curr;
         local.setRotation(curr + diff);
       }
-      dirty = true;
+      flags.set(Flags::Dirty);
     }
-    if (child.inputFloat3("Scl:", &scale.x, "%.3f", iflags)) {
+    if (frame.inputFloat3("Scl:", &scale.x, "%.3f", iflags)) {
       if (isLocal) {
         local.setScale(scale);
       } else {
         glm::vec3 diff = scale - t.scale();
         local.setScale(local.scale() + diff);
       }
-      dirty = true;
+      flags.set(Flags::Dirty);
     }
 
     ImGui::Columns(2);
-    if (child.selectable("Local", isLocal)) {
-      flags.clear(TransformGuiFlags::GlobalCoords);
+    if (frame.selectable("Local", isLocal)) {
+      flags.clear(Flags::GlobalCoords);
     }
     ImGui::NextColumn();
-    if (child.selectable("Global", !isLocal)) {
-      flags.set(TransformGuiFlags::GlobalCoords);
+    if (frame.selectable("Global", !isLocal)) {
+      flags.set(Flags::GlobalCoords);
     }
     ImGui::Columns(1);
   }

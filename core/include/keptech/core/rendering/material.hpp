@@ -19,6 +19,7 @@ namespace keptech::core::rendering {
       PipelineCreateInfo pipelineConfig;
     };
 
+    std::string name;
     Stage stage;
   };
 } // namespace keptech::core::rendering

@@ -34,47 +34,53 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
                         keptech::vkh::Renderer& renderer) {
   using Material = keptech::vkh::Material;
 
-  auto basicMaterialRes = renderer.createMaterial({
-      .stage = Material::Stage::Forward,
-      .pipelineConfig =
-          {
-              .shaders = {{
-                  .code = shaders::basic,
-                  .size = shaders::basic_size,
-              }},
-              .attachments =
-                  {
-                      .colorFormats =
-                          {keptech::core::rendering::Texture::Format::Default},
-                  },
-              .layout =
-                  {
-                      .pushConstantRanges =
-                          {
+  MaterialEditorLayer::initMeta();
+
+  auto basicMaterialRes = renderer.createMaterial(
+      "Basic",
+      {
+          .stage = Material::Stage::Forward,
+          .pipelineConfig =
+              {
+                  .shaders = {{
+                      .code = shaders::basic,
+                      .size = shaders::basic_size,
+                  }},
+                  .attachments =
+                      {
+                          .colorFormats = {keptech::core::rendering::Texture::
+                                               Format::Default},
+                      },
+                  .layout =
+                      {
+                          .pushConstantRanges =
                               {
-                                  .size = sizeof(vk::DeviceAddress),
-                                  .stages = keptech::core::rendering::
-                                      ShaderStages::Vertex,
+                                  {
+                                      .size = sizeof(vk::DeviceAddress),
+                                      .stages = keptech::core::rendering::
+                                          ShaderStages::Vertex,
+                                  },
                               },
-                          },
-                  },
-          },
-  });
+                      },
+              },
+      });
   if (!basicMaterialRes) {
     return std::unexpected(fmt::format("Failed to create basic material: {}",
                                        basicMaterialRes.error()));
   }
-  auto deferredMaterialRes = renderer.createMaterial({
-      .stage = Material::Stage::Deferred,
-      .pipelineConfig =
-          {
-              .shaders = {{
-                  .code = shaders::deferred,
-                  .size = shaders::deferred_size,
-              }},
-              .attachments = renderer.deferredPipelineAttachmentConfig(),
-          },
-  });
+  auto deferredMaterialRes = renderer.createMaterial(
+      "Deferred",
+      {
+          .stage = Material::Stage::Deferred,
+          .pipelineConfig =
+              {
+                  .shaders = {{
+                      .code = shaders::deferred,
+                      .size = shaders::deferred_size,
+                  }},
+                  .attachments = renderer.deferredPipelineAttachmentConfig(),
+              },
+      });
   if (!deferredMaterialRes) {
     return std::unexpected(fmt::format("Failed to create basic material: {}",
                                        deferredMaterialRes.error()));
@@ -132,16 +138,14 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
   keptech::core::Scene scene;
 
   auto triangle = scene.createEntity("Triangle");
-  triangle.addComponent<keptech::components::RenderObject>(
-      keptech::components::RenderObject{.mesh = meshes.triangle,
-                                        .material = materials.deferred});
+  triangle.addComponent<keptech::components::Mesh>(meshes.triangle);
+  triangle.addComponent<keptech::components::Material>(materials.deferred);
   auto& triTrans = triangle.addComponent<keptech::components::Transform>();
   triTrans.getLocalMut().translate({0.f, 2.f, 0.f});
 
   auto monkey = scene.createEntity("Monkey");
-  monkey.addComponent<keptech::components::RenderObject>(
-      keptech::components::RenderObject{.mesh = meshes.monkey,
-                                        .material = materials.deferred});
+  monkey.addComponent<keptech::components::Mesh>(meshes.monkey);
+  monkey.addComponent<keptech::components::Material>(materials.deferred);
   monkey.addComponent<keptech::components::Transform>();
 
   auto camera = scene.createEntity("Camera");
