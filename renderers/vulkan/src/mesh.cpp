@@ -135,8 +135,10 @@ namespace keptech::vkh {
       });
     }
 
-    return std::make_pair(Mesh(meshData.name, vertexBuffer, indexBuffer,
-                               std::move(submeshes), allocator),
+    Mesh m = Mesh(meshData.name, vertexBuffer, vertices.size(), indexBuffer,
+                  indices.size(), std::move(submeshes), allocator);
+
+    return std::make_pair(std::move(m),
                           OnGoingCmdTransfer{.cmdBuffer = std::move(cmdBuffer),
                                              .buffer = stagingBuf,
                                              .fence = std::move(fence)});

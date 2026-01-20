@@ -414,6 +414,7 @@ namespace keptech::core {
         throw std::runtime_error(
             "Cannot promote weak handle to strong handle: no strong refs");
       }
+      refCount->weakToStrong();
     }
 
     operator SlotMapHandle() const { return handle; }

@@ -39,6 +39,9 @@ namespace keptech::vkh {
   class Renderer {
   public:
     using Shader = keptech::vkh::Shader;
+    using Mesh = vkh::Mesh;
+    using Material = vkh::Material;
+
     using MaterialHandle = core::rendering::Material::Handle;
     using MeshHandle = core::rendering::Mesh::Handle;
 
@@ -187,12 +190,39 @@ namespace keptech::vkh {
     getMesh(const std::string& name);
 
     vkh::Mesh* getMeshData(const core::rendering::Mesh::Handle& handle);
+    vkh::Mesh* getMeshData(const core::SlotMapHandle handle);
+
+    template <typename Func>
+    void operateOnAllMeshes(Func func)
+      requires(std::is_invocable_v<Func, core::SlotMapHandle, vkh::Mesh&>)
+    {
+      for (auto handle : loadedMeshes.handles()) {
+        auto mesh = loadedMeshes.get(handle);
+        func(handle, *mesh);
+      }
+    }
 
     std::expected<core::rendering::Material::Handle, std::string>
     createMaterial(std::string name, const Material::CreateInfo& createInfo);
 
+    std::optional<core::rendering::Material::Handle>
+    getMaterial(const std::string& name);
+
+    void unloadMaterial(const std::string& name);
+
     vkh::Material*
     getMaterialData(const core::rendering::Material::Handle& handle);
+    vkh::Material* getMaterialData(const core::SlotMapHandle handle);
+
+    template <typename Func>
+    void operateOnAllMaterials(Func func)
+      requires(std::is_invocable_v<Func, core::SlotMapHandle, vkh::Material&>)
+    {
+      for (auto handle : loadedMaterials.handles()) {
+        auto material = loadedMaterials.get(handle);
+        func(handle, *material);
+      }
+    }
 
     std::expected<Shader, std::string>
     createShader(const unsigned char* const code, size_t size);
@@ -291,6 +321,8 @@ namespace keptech::vkh {
     core::SlotMap<vkh::Material> loadedMaterials = {};
     core::SlotMap<AllocatedImage> loadedTextures = {};
     std::unordered_map<std::string, core::SlotMapWeakHandle> meshNameMap = {};
+    std::unordered_map<std::string, core::SlotMapWeakHandle> materialNameMap =
+        {};
 
     core::Scene* frameScene = nullptr;
   };

@@ -68,8 +68,6 @@ namespace keptech::vkh {
   Renderer::InstanceBuffers::resize(vma::Allocator& allocator,
                                     vk::raii::Device& device,
                                     size_t newMaxInstances) {
-    size_t currInstances = maxInstances();
-
     staging.destroy(allocator);
     this->device.destroy(allocator);
 
@@ -387,6 +385,8 @@ namespace keptech::vkh {
         core::SlotMapSmartHandle(handle, [this, name]() { unloadMesh(name); }));
     meshNameMap.emplace(meshData.name, meshHandle.handle.toWeak());
 
+    VK_INFO("Created mesh '{}'", meshData.name);
+
     return std::move(meshHandle);
   }
 
@@ -418,6 +418,9 @@ namespace keptech::vkh {
   vkh::Mesh*
   Renderer::getMeshData(const core::rendering::Mesh::Handle& handle) {
     return loadedMeshes.get(handle.handle);
+  }
+  vkh::Mesh* Renderer::getMeshData(const core::SlotMapHandle handle) {
+    return loadedMeshes.get(handle);
   }
 
   std::expected<Renderer::MaterialHandle, std::string>
@@ -558,15 +561,50 @@ namespace keptech::vkh {
         .pipelineLayout = std::move(pipelineLayout),
     };
     mat.stage = createInfo.stage;
-    mat.name = std::move(name);
+    mat.name = name;
 
     auto handle = loadedMaterials.emplace(std::move(mat));
-    return MaterialHandle(core::SlotMapSmartHandle(handle, loadedMaterials));
+    core::rendering::Material::Handle materialHandle(core::SlotMapSmartHandle(
+        handle, [this, name]() { unloadMaterial(name); }));
+    materialNameMap.emplace(name, materialHandle.handle.toWeak());
+
+    VK_INFO("Created material '{}'", name);
+
+    return std::move(materialHandle);
+  }
+
+  std::optional<Renderer::MaterialHandle>
+  Renderer::getMaterial(const std::string& name) {
+    auto found = materialNameMap.find(name);
+    if (found != materialNameMap.end()) {
+      core::SlotMapWeakHandle weakHandle = found->second;
+      if (!weakHandle.valid()) {
+        materialNameMap.erase(found);
+        return std::nullopt;
+      }
+      auto handle = MaterialHandle(core::SlotMapSmartHandle(
+          weakHandle, [this, name]() { unloadMaterial(name); }));
+      return std::move(handle);
+    }
+    return std::nullopt;
+  }
+
+  void Renderer::unloadMaterial(const std::string& name) {
+    auto found = materialNameMap.find(name);
+    if (found != materialNameMap.end()) {
+      loadedMaterials.erase(found->second.get());
+      materialNameMap.erase(found);
+      VK_DEBUG("Unloaded material '{}'", name);
+    }
   }
 
   vkh::Material*
   Renderer::getMaterialData(const Renderer::MaterialHandle& handle) {
     return loadedMaterials.get(handle.handle);
+  }
+
+  vkh::Material* Renderer::getMaterialData(const core::SlotMapHandle handle) {
+    return loadedMaterials.get(handle);
   }
 
   std::expected<Shader, std::string>

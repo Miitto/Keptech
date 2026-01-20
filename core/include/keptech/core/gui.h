@@ -141,13 +141,12 @@ namespace keptech::gui {
                                 flags);
     }
 
-    [[nodiscard]] GuiCore& sameLine(float offset_from_start_x = 0.0f,
-                                    float spacing = -1.0f) {
+    GuiCore& sameLine(float offset_from_start_x = 0.0f, float spacing = -1.0f) {
       ImGui::SameLine(offset_from_start_x, spacing);
       return *this;
     }
 
-    [[nodiscard]] auto& width(float w) {
+    auto& width(float w) {
       ImGui::SetNextItemWidth(w);
       return *this;
     }
@@ -183,9 +182,9 @@ namespace keptech::gui {
   class Frame : public GuiCore {
   public:
     Frame(const char* const name, bool* p_open = nullptr,
-          ImGuiWindowFlags flags = 0) {
-      ImGui::Begin(name, p_open, flags);
-    }
+          ImGuiWindowFlags flags = 0)
+        : open(ImGui::Begin(name, p_open, flags)) {}
+
     Frame(const Frame&) = delete;
     Frame& operator=(const Frame&) = delete;
     Frame(Frame&&) = default;
@@ -194,6 +193,8 @@ namespace keptech::gui {
       if (!moveGuard.moved())
         ImGui::End();
     }
+
+    [[nodiscard]] bool isOpen() const { return open; }
 
     ChildFrame child(const char* id, const ImVec2& size = ImVec2(0, 0),
                      ImGuiChildFlags flags = 0, ImGuiWindowFlags winFlags = 0) {
@@ -210,6 +211,7 @@ namespace keptech::gui {
 
   private:
     static std::vector<const char*> framesToVoid;
+    bool open;
   };
 
 } // namespace keptech::gui

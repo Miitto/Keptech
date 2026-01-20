@@ -10,12 +10,12 @@
 
 namespace keptech::vkh {
   struct Mesh : public core::rendering::Mesh {
-    Mesh(std::string name, AddressedAllocatedBuffer vBuffer,
-         std::optional<AllocatedBuffer> iBuffer,
-         std::vector<core::rendering::Mesh::Submesh> submeshes,
+    Mesh(std::string name, AddressedAllocatedBuffer vBuffer, size_t vertexCount,
+         std::optional<AllocatedBuffer> iBuffer, size_t indexCount,
+         std::vector<core::rendering::Mesh::Submesh>&& submeshes,
          vma::Allocator& allocator)
-        : core::rendering::Mesh{.name = std::move(name),
-                                .submeshes = std::move(submeshes)},
+        : core::rendering::Mesh(std::move(name), std::move(submeshes),
+                                vertexCount, indexCount),
           vertexBuffer(vBuffer), indexBuffer(iBuffer), allocator(&allocator) {}
 
     Mesh() = delete;

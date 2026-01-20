@@ -1,22 +1,30 @@
 #include "editorLayer.hpp"
+
 #include "imgui.h"
 #include "keptech/core/components/transform.hpp"
+#include "keptech/core/slotmap.hpp"
 #include "keptech/ecs/entity.hpp"
 #include <imgui/misc/cpp/imgui_stdlib.h>
+#include <keptech/core/rendering/material.hpp>
 
 #include <spdlog/fmt/bundled/format.h>
 
 template <>
-void forwardCompInspectorUi(MaterialEditorLayer* layer,
-                            keptech::gui::Frame* frame,
-                            keptech::components::Mesh& comp) {
+void forwardCompInspectorUi<keptech::components::Mesh>(
+    MaterialEditorLayer* layer, keptech::gui::Frame* frame,
+    keptech::ecs::EntityHandle entity) {
+  auto& comp =
+      layer->getScene().getEcs().get<keptech::components::Mesh>(entity);
   layer->meshInspectorUi(*frame, comp);
 }
 
 template <>
-void forwardCompInspectorUi(MaterialEditorLayer* layer,
-                            keptech::gui::Frame* frame,
-                            keptech::components::Material& comp) {
+void forwardCompInspectorUi<keptech::components::Material>(
+    MaterialEditorLayer* layer, keptech::gui::Frame* frame,
+    keptech::ecs::EntityHandle entity) {
+
+  auto& comp =
+      layer->getScene().getEcs().get<keptech::components::Material>(entity);
   layer->materialInspectorUi(*frame, comp);
 }
 
@@ -68,8 +76,7 @@ MaterialEditorLayer::MaterialEditorLayer(KEPTECH_RENDERER& renderer,
 }
 
 void MaterialEditorLayer::onUpdate(keptech::core::Timestep ts) {
-  {
-    auto frame = keptech::gui::Frame("Stats");
+  if (auto frame = keptech::gui::Frame("Stats"); frame.isOpen()) {
     double fps = static_cast<double>(1000.f / ts);
     frame.text("FPS: %.1f", fps);
 
@@ -79,7 +86,7 @@ void MaterialEditorLayer::onUpdate(keptech::core::Timestep ts) {
   drawGui();
 }
 
-void MaterialEditorLayer::drawGui() {
+void MaterialEditorLayer::initDocks() {
   ImGuiID dockspace_id = ImGui::GetID("Editor Dock");
   ImGuiViewport* viewport = ImGui::GetMainViewport();
 
@@ -108,48 +115,60 @@ void MaterialEditorLayer::drawGui() {
     ImGui::DockBuilderDockWindow("Scene Tree", dock_id_left);
     ImGui::DockBuilderDockWindow("Properties", dock_id_right);
     ImGui::DockBuilderDockWindow("Assets", dock_id_bottom);
+    ImGui::DockBuilderDockWindow("Loaded Assets", dock_id_bottom);
     ImGui::DockBuilderFinish(dockspace_id);
   }
 
   ImGui::DockSpaceOverViewport(dockspace_id, viewport,
                                ImGuiDockNodeFlags_PassthruCentralNode);
+}
 
-  {
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    auto gamePanel = keptech::gui::Frame("Game", nullptr,
-                                         ImGuiWindowFlags_NoDecoration |
-                                             ImGuiWindowFlags_NoMove |
-                                             ImGuiWindowFlags_NoScrollbar);
-    ImGui::PopStyleVar(1);
+void MaterialEditorLayer::drawGui() {
+  initDocks();
 
-    if (ImGui::IsWindowHovered()) {
-      auto& io = ImGui::GetIO();
-      io.WantCaptureMouse = false;
-      ImGui::SetNextFrameWantCaptureMouse(false);
-    }
-
-    auto& gbuffer = renderer.getImGuiGBufferHandles();
-
-    ImVec2 size = ImGui::GetContentRegionAvail();
-
-    switch (activeDebugView) {
-    case ActiveDebugView::Final:
-    case ActiveDebugView::Albedo:
-      ImGui::Image(gbuffer.albedo, size);
-      break;
-    case ActiveDebugView::Normals:
-      ImGui::Image(gbuffer.normal, size);
-      break;
-    case ActiveDebugView::Depth:
-      ImGui::Image(gbuffer.depth, size);
-      break;
-    }
-  }
-
+  drawViewport();
   drawToolbar();
   drawSceneTree();
-  drawEntityProperties();
+  drawSelectedProperties();
   drawAssetsPanel();
+  drawLoadedAssetsPanel();
+}
+
+void MaterialEditorLayer::drawViewport() {
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+  auto gamePanel = keptech::gui::Frame("Game", nullptr,
+                                       ImGuiWindowFlags_NoDecoration |
+                                           ImGuiWindowFlags_NoMove |
+                                           ImGuiWindowFlags_NoScrollbar);
+
+  if (!gamePanel.isOpen()) {
+    ImGui::PopStyleVar(1);
+    return;
+  }
+
+  if (ImGui::IsWindowHovered()) {
+    auto& io = ImGui::GetIO();
+    io.WantCaptureMouse = false;
+    ImGui::SetNextFrameWantCaptureMouse(false);
+  }
+
+  auto& gbuffer = renderer.getImGuiGBufferHandles();
+
+  ImVec2 size = ImGui::GetContentRegionAvail();
+
+  switch (activeDebugView) {
+  case ActiveDebugView::Final:
+  case ActiveDebugView::Albedo:
+    ImGui::Image(gbuffer.albedo, size);
+    break;
+  case ActiveDebugView::Normals:
+    ImGui::Image(gbuffer.normal, size);
+    break;
+  case ActiveDebugView::Depth:
+    ImGui::Image(gbuffer.depth, size);
+    break;
+  }
+  ImGui::PopStyleVar(1);
 }
 
 void MaterialEditorLayer::drawToolbar() {
@@ -167,21 +186,22 @@ void MaterialEditorLayer::drawToolbar() {
           ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar |
           ImGuiWindowFlags_NoScrollbar);
 
-  {
-    std::string debugViewStr = fmt::format("{}", activeDebugView);
-    auto combo = toolbarPanel.combo("Debug View", debugViewStr.c_str());
-    if (combo.item("Final", activeDebugView == ActiveDebugView::Final)) {
-      activeDebugView = ActiveDebugView::Final;
-    }
-    if (combo.item("Albedo", activeDebugView == ActiveDebugView::Albedo)) {
-      activeDebugView = ActiveDebugView::Albedo;
-    }
-    if (combo.item("Normals", activeDebugView == ActiveDebugView::Normals)) {
-      activeDebugView = ActiveDebugView::Normals;
-    }
-    if (combo.item("Depth", activeDebugView == ActiveDebugView::Depth)) {
-      activeDebugView = ActiveDebugView::Depth;
-    }
+  if (!toolbarPanel.isOpen())
+    return;
+
+  std::string debugViewStr = fmt::format("{}", activeDebugView);
+  auto combo = toolbarPanel.combo("Debug View", debugViewStr.c_str());
+  if (combo.item("Final", activeDebugView == ActiveDebugView::Final)) {
+    activeDebugView = ActiveDebugView::Final;
+  }
+  if (combo.item("Albedo", activeDebugView == ActiveDebugView::Albedo)) {
+    activeDebugView = ActiveDebugView::Albedo;
+  }
+  if (combo.item("Normals", activeDebugView == ActiveDebugView::Normals)) {
+    activeDebugView = ActiveDebugView::Normals;
+  }
+  if (combo.item("Depth", activeDebugView == ActiveDebugView::Depth)) {
+    activeDebugView = ActiveDebugView::Depth;
   }
 }
 
@@ -221,7 +241,7 @@ namespace {
   }
 
   void displaySceneNodeInTree(SceneNode& node,
-                              keptech::ecs::EntityHandle& selectedEntity) {
+                              MaterialEditorLayer::SelectedItem& selectedItem) {
     ImGui::PushID(node.name);
     bool hasChildren = !node.children.empty();
 
@@ -230,8 +250,11 @@ namespace {
     if (!hasChildren)
       flags |= ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_Leaf;
 
-    if (selectedEntity == node.id) {
-      flags |= ImGuiTreeNodeFlags_Selected;
+    if (selectedItem.index() == 1) {
+      keptech::ecs::EntityHandle selectedEntity =
+          std::get<keptech::ecs::EntityHandle>(selectedItem);
+      if (selectedEntity == node.id)
+        flags |= ImGuiTreeNodeFlags_Selected;
     }
 
     if (ImGui::TreeNodeEx(node.name->c_str(), flags)) {
@@ -267,13 +290,13 @@ namespace {
 
       if (hasChildren) {
         for (auto& child : node.children) {
-          displaySceneNodeInTree(*child, selectedEntity);
+          displaySceneNodeInTree(*child, selectedItem);
         }
         ImGui::TreePop();
       }
     }
     if (ImGui::IsItemClicked()) {
-      selectedEntity = node.id;
+      selectedItem = node.id;
     }
 
     ImGui::PopID();
@@ -284,6 +307,8 @@ void MaterialEditorLayer::drawSceneTree() {
   auto scenePanel = keptech::gui::Frame("Scene Tree", nullptr,
                                         ImGuiWindowFlags_NoDecoration |
                                             ImGuiWindowFlags_NoMove);
+  if (!scenePanel.isOpen())
+    return;
 
   std::vector<std::unique_ptr<SceneNode>> roots;
   {
@@ -296,18 +321,50 @@ void MaterialEditorLayer::drawSceneTree() {
   }
 
   for (auto& root : roots) {
-    displaySceneNodeInTree(*root, selectedEntity);
+    displaySceneNodeInTree(*root, selectedItem);
   }
 }
 
-void MaterialEditorLayer::drawEntityProperties() {
+void MaterialEditorLayer::drawSelectedProperties() {
   auto propertiesPanel = keptech::gui::Frame("Properties", nullptr,
                                              ImGuiWindowFlags_NoDecoration |
                                                  ImGuiWindowFlags_NoMove);
-
-  if (selectedEntity == keptech::ecs::INVALID_ENTITY_HANDLE)
+  if (!propertiesPanel.isOpen())
     return;
 
+  std::visit(keptech::core::overloaded{
+                 [&](std::monostate) {},
+                 [&](keptech::ecs::EntityHandle entity) {
+                   drawEntityProperties(propertiesPanel, entity);
+                 },
+                 [&](RawMeshHandle meshHandle) {
+                   auto meshPtr = renderer.getMeshData(meshHandle);
+                   if (meshPtr == nullptr) {
+                     propertiesPanel.separatorText("Invalid Mesh");
+                     return;
+                   }
+                   auto label = fmt::format("Mesh: {}", meshPtr->getName());
+                   propertiesPanel.separatorText(label.c_str());
+                   meshInspectorUi(propertiesPanel, *meshPtr);
+                 },
+                 [&](RawMaterialHandle materialHandle) {
+                   auto materialPtr = renderer.getMaterialData(materialHandle);
+                   if (materialPtr == nullptr) {
+                     propertiesPanel.separatorText("Invalid Material");
+                     return;
+                   }
+
+                   auto label = fmt::format("Material: {}", materialPtr->name);
+                   propertiesPanel.separatorText(label.c_str());
+                   materialInspectorUi(propertiesPanel, *materialPtr);
+                 },
+             },
+             selectedItem);
+}
+
+void MaterialEditorLayer::drawEntityProperties(
+    keptech::gui::Frame& propertiesPanel,
+    keptech::ecs::EntityHandle selectedEntity) {
   auto& ecs = scene.getEcs();
   auto entity = keptech::ecs::Entity(selectedEntity, ecs);
 
@@ -323,8 +380,7 @@ void MaterialEditorLayer::drawEntityProperties() {
     auto func = type.func(entt::hashed_string("inspectorUi"));
     if (func) {
       if (storage.contains(entity.getHandle())) {
-        auto comp = type.from_void(storage.value(entity));
-        func.invoke({}, this, &propertiesPanel, comp);
+        func.invoke({}, this, &propertiesPanel, entity.getHandle());
       }
     }
   }
@@ -334,28 +390,172 @@ void MaterialEditorLayer::drawAssetsPanel() {
   auto assetsPanel = keptech::gui::Frame("Assets", nullptr,
                                          ImGuiWindowFlags_NoDecoration |
                                              ImGuiWindowFlags_NoMove);
+  if (!assetsPanel.isOpen())
+    return;
+}
+
+void MaterialEditorLayer::drawLoadedAssetsPanel() {
+  auto loadedAssetsPanel = keptech::gui::Frame("Loaded Assets", nullptr,
+                                               ImGuiWindowFlags_NoDecoration |
+                                                   ImGuiWindowFlags_NoMove);
+  if (!loadedAssetsPanel.isOpen())
+    return;
+
+  enum class AssetType : uint8_t { Mesh, Material, Texture };
+  static AssetType activeAssetType = AssetType::Mesh;
+
+  ImVec2 textSize = ImGui::CalcTextSize("Materials");
+
+  {
+    auto child = loadedAssetsPanel.child("Asset Type Selector",
+                                         ImVec2(textSize.x + 10.f, 0));
+    if (child.selectable("Meshes", activeAssetType == AssetType::Mesh)) {
+      activeAssetType = AssetType::Mesh;
+    }
+    if (child.selectable("Materials", activeAssetType == AssetType::Material)) {
+      activeAssetType = AssetType::Material;
+    }
+    if (child.selectable("Textures", activeAssetType == AssetType::Texture)) {
+      activeAssetType = AssetType::Texture;
+    }
+  }
+  {
+    loadedAssetsPanel.sameLine();
+    auto child = loadedAssetsPanel.child("Asset List");
+
+    auto winSize = ImGui::GetContentRegionAvail();
+
+    int cols = std::clamp(static_cast<int>(winSize.x / 80.f), 1, 511);
+
+    if (ImGui::BeginTable("Assets Table", cols, 0, {0, 0}, 5.f)) {
+      switch (activeAssetType) {
+      case AssetType::Mesh: {
+        renderer.operateOnAllMeshes([&](keptech::core::SlotMapHandle handle,
+                                        KEPTECH_RENDERER::Mesh& mesh) {
+          ImGui::TableNextColumn();
+
+          bool selected = false;
+          if (selectedItem.index() == 2) {
+            selected = std::get<RawMeshHandle>(selectedItem) == handle;
+          }
+
+          if (child.selectable(mesh.getName().c_str(), selected)) {
+            selectedItem = RawMeshHandle{handle};
+          }
+        });
+      } break;
+      case AssetType::Material: {
+        renderer.operateOnAllMaterials(
+            [&](keptech::core::SlotMapHandle handle,
+                KEPTECH_RENDERER::Material& material) {
+              ImGui::TableNextColumn();
+
+              bool selected = false;
+              if (selectedItem.index() == 3) {
+                selected = std::get<RawMaterialHandle>(selectedItem) == handle;
+              }
+
+              if (child.selectable(material.name.c_str(), selected)) {
+                selectedItem = RawMaterialHandle{handle};
+              }
+            });
+
+      } break;
+      case AssetType::Texture:
+        break;
+      }
+      ImGui::EndTable();
+    }
+  }
 }
 
 void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
                                           keptech::components::Mesh& mesh) {
   frame.separatorText("Mesh");
-  auto meshPtr = renderer.getMeshData(mesh.mesh);
-  if (meshPtr != nullptr) {
-    frame.text("%s", meshPtr->name.c_str());
-  } else {
-    frame.text("Invalid");
+
+  auto meshPtr = renderer.getMeshData(mesh.mesh.handle.get());
+
+  const char* meshName = (meshPtr != nullptr) ? meshPtr->getName().c_str() : "";
+
+  {
+    auto combo = frame.combo("Mesh", meshName);
+    renderer.operateOnAllMeshes([&](keptech::core::SlotMapHandle handle,
+                                    KEPTECH_RENDERER::Mesh& m) {
+      if (combo.item(m.getName().c_str(), mesh.mesh.handle.get() == handle)) {
+        auto newMesh = renderer.getMesh(m.getName());
+        if (newMesh.has_value()) {
+          mesh.mesh = *newMesh;
+        } else {
+          SPDLOG_ERROR("Failed to get mesh '{}'", m.getName());
+        }
+      }
+    });
   }
 
-  frame.separator();
+  if (meshPtr != nullptr)
+    meshInspectorUi(frame, *meshPtr);
 }
+
+void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
+                                          KEPTECH_RENDERER::Mesh& mesh) {
+
+  frame.text("Vertices: %zu", mesh.getVertexCount());
+  frame.text("Indices: %zu", mesh.getIndexCount());
+  frame.text("Triangles: %zu",
+             (mesh.getIndexCount() == 0 ? mesh.getVertexCount()
+                                        : mesh.getIndexCount()) /
+                 3);
+  frame.text("Submeshes: %zu", mesh.getSubmeshes().size());
+}
+
 void MaterialEditorLayer::materialInspectorUi(
     keptech::gui::Frame& frame, keptech::components::Material& material) {
+
   frame.separatorText("Material");
 
-  auto materialPtr = renderer.getMaterialData(material.material);
-  if (materialPtr != nullptr) {
-    frame.text("%s", materialPtr->name.c_str());
-  } else {
-    frame.text("Invalid");
+  auto materialPtr = renderer.getMaterialData(material.material.handle.get());
+
+  const char* materialName =
+      (materialPtr != nullptr) ? materialPtr->name.c_str() : "";
+
+  {
+    auto combo = frame.combo("Material", materialName);
+    renderer.operateOnAllMaterials([&](keptech::core::SlotMapHandle handle,
+                                       KEPTECH_RENDERER::Material& m) {
+      if (combo.item(m.name.c_str(),
+                     material.material.handle.get() == handle)) {
+        auto newMat = renderer.getMaterial(m.name);
+        if (newMat.has_value()) {
+          material.material = *newMat;
+        } else {
+          SPDLOG_ERROR("Failed to get material '{}'", m.name);
+        }
+      }
+    });
+  }
+
+  if (materialPtr != nullptr)
+    materialInspectorUi(frame, *materialPtr);
+}
+
+void MaterialEditorLayer::materialInspectorUi(
+    keptech::gui::Frame& frame, KEPTECH_RENDERER::Material& material) {
+
+  {
+    using S = keptech::core::rendering::Material::Stage;
+    auto combo =
+        frame.combo("Stage", fmt::format("{}", material.stage).c_str());
+    if (combo.item(fmt::format("{}", S::Deferred).c_str(),
+                   material.stage == S::Deferred)) {
+      material.stage = S::Deferred;
+    }
+    if (combo.item(fmt::format("{}", S::Forward).c_str(),
+                   material.stage == S::Forward)) {
+      material.stage = S::Forward;
+    }
+    if (combo.item(fmt::format("{}", S::Transparent).c_str(),
+                   material.stage == S::Transparent)) {
+      material.stage = S::Transparent;
+    }
   }
 }

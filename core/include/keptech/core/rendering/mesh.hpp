@@ -7,9 +7,18 @@
 #include <vector>
 
 namespace keptech::core::rendering {
-  struct Mesh {
+  class Mesh {
+  public:
     struct Handle {
       SlotMapSmartHandle handle;
+
+      bool operator==(const Handle& other) const {
+        return handle == other.handle;
+      }
+
+      bool operator==(const SlotMapHandle other) const {
+        return handle == other;
+      }
     };
     struct WeakHandle {
       SlotMapWeakHandle handle;
@@ -51,8 +60,24 @@ namespace keptech::core::rendering {
       uint32_t indexOffset;
     };
 
+    std::string& getName() { return name; }
+    [[nodiscard]] const std::vector<Submesh>& getSubmeshes() const {
+      return submeshes;
+    }
+    [[nodiscard]] size_t getVertexCount() const { return vertexCount; }
+    [[nodiscard]] size_t getIndexCount() const { return indexCount; }
+
+    Mesh(std::string name, std::vector<Submesh>&& submeshes,
+         size_t vertexCount, // NOLINT
+         size_t indexCount)
+        : name(std::move(name)), submeshes(std::move(submeshes)),
+          vertexCount(vertexCount), indexCount(indexCount) {}
+
+  protected:
     std::string name;
     std::vector<Submesh> submeshes;
+    size_t vertexCount;
+    size_t indexCount;
   };
 
   struct MeshData {

@@ -271,7 +271,7 @@ namespace keptech::vkh {
             material.pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0,
             pushConstantData);
 
-        for (const auto& submesh : mesh.submeshes) {
+        for (const auto& submesh : mesh.getSubmeshes()) {
           if (mesh.indexBuffer.has_value()) {
             graphicsCmdBuffer.bindIndexBuffer(mesh.indexBuffer->buffer, 0,
                                               vk::IndexType::eUint32);
