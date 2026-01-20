@@ -292,7 +292,7 @@ namespace keptech::vkh {
     core::SlotMap<AllocatedImage> loadedTextures = {};
     std::unordered_map<std::string, core::SlotMapWeakHandle> meshNameMap = {};
 
-    core::Scene* frameScene;
+    core::Scene* frameScene = nullptr;
   };
 
   namespace setup {

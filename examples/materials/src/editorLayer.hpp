@@ -1,19 +1,17 @@
-#include "imgui.h"
+#pragma once
+
 #include "keptech/cameras/orbitCamera.hpp"
 #include "keptech/core/components/renderObject.hpp"
 #include "keptech/core/components/transform.hpp"
 #include "keptech/core/events/event.hpp"
 #include <keptech/app.hpp>
 
-#include "imgui_internal.h"
 #include "keptech/ecs/entity.hpp"
-#include <expected>
 #include <keptech/components.hpp>
 #include <keptech/core/gui.h>
 #include <keptech/core/window.hpp>
 #include <keptech/keptech.hpp>
 #include <keptech/vulkan.hpp>
-#include <utility>
 
 struct Materials {
   keptech::MaterialHandle basic;

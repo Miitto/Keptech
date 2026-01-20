@@ -14,7 +14,8 @@ namespace keptech::vkh {
          std::optional<AllocatedBuffer> iBuffer,
          std::vector<core::rendering::Mesh::Submesh> submeshes,
          vma::Allocator& allocator)
-        : core::rendering::Mesh{std::move(name), std::move(submeshes)},
+        : core::rendering::Mesh{.name = std::move(name),
+                                .submeshes = std::move(submeshes)},
           vertexBuffer(vBuffer), indexBuffer(iBuffer), allocator(&allocator) {}
 
     Mesh() = delete;
