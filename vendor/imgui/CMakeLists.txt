@@ -13,6 +13,7 @@ target_sources(imgui PRIVATE
   imgui/imgui_widgets.cpp
   imgui/backends/imgui_impl_vulkan.cpp
   imgui/backends/imgui_impl_sdl3.cpp
+  imgui/misc/cpp/imgui_stdlib.cpp
   PUBLIC
   FILE_SET HEADERS
   PUBLIC

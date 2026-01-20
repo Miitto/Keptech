@@ -1,6 +1,8 @@
 #include "editorLayer.hpp"
+#include "imgui.h"
 #include "keptech/core/components/transform.hpp"
 #include "keptech/ecs/entity.hpp"
+#include <imgui/misc/cpp/imgui_stdlib.h>
 
 #include <spdlog/fmt/bundled/format.h>
 
@@ -186,11 +188,11 @@ void MaterialEditorLayer::drawToolbar() {
 namespace {
   struct SceneNode {
     keptech::ecs::EntityHandle id;
-    const std::string* name;
+    std::string* name;
     std::vector<std::unique_ptr<SceneNode>> children{};
   };
   void addNodeToList(
-      keptech::ecs::EntityHandle entity, const keptech::components::Name& name,
+      keptech::ecs::EntityHandle entity, keptech::components::Name& name,
       std::vector<std::unique_ptr<SceneNode>>& roots,
       std::unordered_map<keptech::ecs::EntityHandle, SceneNode*>& nodeMap,
       keptech::core::Scene& scene) {
@@ -233,6 +235,36 @@ namespace {
     }
 
     if (ImGui::TreeNodeEx(node.name->c_str(), flags)) {
+
+      // Need to double buffer the string, since ImGui uses the name as the
+      // widget ID. If the label changes, the ID changes, and the popup closes
+      // immediately - i.e. whenever you'd type.
+      struct RenameBuffer {
+        keptech::ecs::EntityHandle entity;
+        std::string newName;
+      };
+
+      static std::optional<RenameBuffer> renameBuffer;
+
+      if (ImGui::BeginPopupContextItem(nullptr,
+                                       ImGuiPopupFlags_MouseButtonRight |
+                                           ImGuiPopupFlags_NoReopen)) {
+        if (!renameBuffer.has_value() || renameBuffer->entity != node.id) {
+          renameBuffer = RenameBuffer{
+              .entity = node.id,
+              .newName = *node.name,
+          };
+        }
+        if (ImGui::InputText("Rename", &renameBuffer->newName,
+                             ImGuiInputTextFlags_EnterReturnsTrue)) {
+          node.name->assign(renameBuffer->newName);
+        }
+
+        ImGui::EndPopup();
+      } else if (renameBuffer.has_value() && renameBuffer->entity == node.id) {
+        renameBuffer.reset();
+      }
+
       if (hasChildren) {
         for (auto& child : node.children) {
           displaySceneNodeInTree(*child, selectedEntity);
