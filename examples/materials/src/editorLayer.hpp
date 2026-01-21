@@ -13,16 +13,6 @@
 #include <keptech/keptech.hpp>
 #include <keptech/vulkan.hpp>
 
-struct Materials {
-  keptech::MaterialHandle basic;
-  keptech::MaterialHandle deferred;
-};
-
-struct Meshes {
-  keptech::MeshHandle triangle;
-  keptech::MeshHandle monkey;
-};
-
 class MaterialEditorLayer;
 
 template <typename Comp>
@@ -32,35 +22,13 @@ void forwardCompInspectorUi(MaterialEditorLayer* layer,
 
 class MaterialEditorLayer : public keptech::core::layers::Layer {
 public:
-  struct RawMeshHandle {
-    keptech::core::SlotMapHandle handle;
-
-    RawMeshHandle(keptech::core::SlotMapHandle h) : handle(h) {}
-    bool operator==(const keptech::core::SlotMapHandle& other) const {
-      return handle == other;
-    }
-    operator keptech::core::SlotMapHandle() const { return handle; }
-  };
-  struct RawMaterialHandle {
-    keptech::core::SlotMapHandle handle;
-    RawMaterialHandle(keptech::core::SlotMapHandle h) : handle(h) {}
-    bool operator==(const keptech::core::SlotMapHandle& other) const {
-      return handle == other;
-    }
-    operator keptech::core::SlotMapHandle() const { return handle; }
-  };
-
   using SelectedItem = std::variant<std::monostate, keptech::ecs::EntityHandle,
-                                    RawMeshHandle, RawMaterialHandle>;
+                                    keptech::core::rendering::Mesh::Handle,
+                                    keptech::core::rendering::Material::Handle>;
 
   enum class ActiveDebugView : uint8_t { Albedo, Normals, Depth, Final };
-  struct Resources {
-    Meshes meshes;
-    Materials materials;
-  };
 
-  MaterialEditorLayer(KEPTECH_RENDERER& renderer, keptech::core::Scene&& scene,
-                      Resources&& resources);
+  MaterialEditorLayer(KEPTECH_RENDERER& renderer, keptech::core::Scene&& scene);
 
   static void initMeta();
 
@@ -99,7 +67,6 @@ private:
 
   KEPTECH_RENDERER& renderer;
   keptech::core::Scene scene;
-  Resources resources;
   keptech::cameras::OrbitCameraController orbitController;
 
   SelectedItem selectedItem = std::monostate{};

@@ -36,92 +36,24 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   MaterialEditorLayer::initMeta();
 
-  auto basicMaterialRes = renderer.createMaterial(
-      "Basic",
-      {
-          .stage = Material::Stage::Forward,
-          .pipelineConfig =
-              {
-                  .shaders = {{
-                      .code = shaders::basic,
-                      .size = shaders::basic_size,
-                  }},
-                  .attachments =
-                      {
-                          .colorFormats = {keptech::core::rendering::Texture::
-                                               Format::Default},
-                      },
-                  .layout =
-                      {
-                          .pushConstantRanges =
-                              {
-                                  {
-                                      .size = sizeof(vk::DeviceAddress),
-                                      .stages = keptech::core::rendering::
-                                          ShaderStages::Vertex,
-                                  },
-                              },
-                      },
-              },
-      });
-  if (!basicMaterialRes) {
-    return std::unexpected(fmt::format("Failed to create basic material: {}",
-                                       basicMaterialRes.error()));
-  }
   auto deferredMaterialRes = renderer.createMaterial(
-      "Deferred",
-      {
-          .stage = Material::Stage::Deferred,
-          .pipelineConfig =
-              {
-                  .shaders = {{
-                      .code = shaders::deferred,
-                      .size = shaders::deferred_size,
-                  }},
-                  .attachments = renderer.deferredPipelineAttachmentConfig(),
-              },
-      });
+      "Deferred", {
+                      .stage = Material::Stage::Deferred,
+                      .pipelineConfig =
+                          {
+                              .shaders = {{
+                                  .code = shaders::deferred,
+                                  .size = shaders::deferred_size,
+                              }},
+                          },
+                  });
   if (!deferredMaterialRes) {
     return std::unexpected(fmt::format("Failed to create basic material: {}",
                                        deferredMaterialRes.error()));
   }
-  auto materials = Materials{
-      .basic = basicMaterialRes.value(),
-      .deferred = deferredMaterialRes.value(),
-  };
+  auto& deferred = deferredMaterialRes.value();
+
   SPDLOG_INFO("Created materials");
-
-  using Vertex = keptech::core::rendering::Mesh::Vertex;
-  using UnpackedVertex = keptech::core::rendering::Mesh::UnpackedVertex;
-
-  std::vector<Vertex> triangleVertices = {
-      UnpackedVertex{
-          .position = {-0.5f, -0.5f, 0.0f},
-          .uv = {0.0f, 0.0f},
-          .normal = {0.0f, 0.0f, 1.0f},
-          .color = {1.0f, 0.0f, 0.0f, 1.0f},
-      },
-      UnpackedVertex{
-          .position = {0.5f, -0.5f, 0.0f},
-          .uv = {1.0f, 0.0f},
-          .normal = {0.0f, 0.0f, 1.0f},
-          .color = {0.0f, 1.0f, 0.0f, 1.0f},
-      },
-      UnpackedVertex{
-          .position = {0.0f, 0.5f, 0.0f},
-          .uv = {0.5f, 1.0f},
-          .normal = {0.0f, 0.0f, 1.0f},
-          .color = {0.0f, 0.0f, 1.0f, 1.0f},
-      },
-  };
-
-  auto triangleMeshRes =
-      renderer.meshFromData({.name = "Triangle", .vertices = triangleVertices});
-  if (!triangleMeshRes) {
-    return std::unexpected(fmt::format("Failed to create triangle mesh: {}",
-                                       triangleMeshRes.error()));
-  }
-  SPDLOG_INFO("Created triangle mesh");
 
   auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
   if (!monkeyMeshRes) {
@@ -130,22 +62,11 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
   }
   SPDLOG_INFO("Loaded monkey mesh: {}", monkeyMeshRes.value().size());
 
-  Meshes meshes{
-      .triangle = triangleMeshRes.value(),
-      .monkey = std::move(monkeyMeshRes.value().front()),
-  };
-
   keptech::core::Scene scene;
 
-  auto triangle = scene.createEntity("Triangle");
-  triangle.addComponent<keptech::components::Mesh>(meshes.triangle);
-  triangle.addComponent<keptech::components::Material>(materials.deferred);
-  auto& triTrans = triangle.addComponent<keptech::components::Transform>();
-  triTrans.getLocalMut().translate({0.f, 2.f, 0.f});
-
   auto monkey = scene.createEntity("Monkey");
-  monkey.addComponent<keptech::components::Mesh>(meshes.monkey);
-  monkey.addComponent<keptech::components::Material>(materials.deferred);
+  monkey.addComponent<keptech::components::Mesh>(monkeyMeshRes.value()[0]);
+  monkey.addComponent<keptech::components::Material>(deferred);
   monkey.addComponent<keptech::components::Transform>();
 
   auto camera = scene.createEntity("Camera");
@@ -163,11 +84,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   scene.useCamera(camera);
 
-  MaterialEditorLayer::Resources resources{.meshes = meshes,
-                                           .materials = materials};
-
-  layerStack.emplaceLayer<MaterialEditorLayer>(renderer, std::move(scene),
-                                               std::move(resources));
+  layerStack.emplaceLayer<MaterialEditorLayer>(renderer, std::move(scene));
 
   return {};
 }

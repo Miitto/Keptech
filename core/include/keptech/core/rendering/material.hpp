@@ -5,13 +5,14 @@
 #include <spdlog/fmt/bundled/format.h>
 
 namespace keptech::core::rendering {
+  namespace _priv {
+    struct MaterialHandleDifferentiator {};
+  } // namespace _priv
+
   struct Material {
-    struct Handle {
-      SlotMapSmartHandle handle;
-    };
-    struct WeakHandle {
-      SlotMapWeakHandle handle;
-    };
+    using Handle = core::SlotMapHandle<_priv::MaterialHandleDifferentiator>;
+    using SmartHandle =
+        core::SlotMapSmartHandle<_priv::MaterialHandleDifferentiator>;
 
     enum class Stage : uint8_t { Deferred, Forward, Transparent };
 

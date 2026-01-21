@@ -5,12 +5,15 @@
 #include <keptech/core/slotmap.hpp>
 
 namespace keptech::core::rendering {
+  namespace _internal {
+    struct TextureHandleDifferentiator {};
+  } // namespace _internal
+
+  using TextureHandle =
+      core::SlotMapHandle<_internal::TextureHandleDifferentiator>;
+
   class Texture {
   public:
-    struct Handle {
-      core::SlotMapSmartHandle handle;
-    };
-
     enum class Usage : uint8_t {
       Sampled = BIT(0),
       RenderTarget = BIT(1),

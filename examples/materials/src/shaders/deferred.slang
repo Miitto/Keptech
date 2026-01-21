@@ -58,12 +58,6 @@ VertexOutput vert(uint vid: SV_VertexID, uint iid: SV_InstanceID) {
   return output;
 }
 
-struct FragmentOutput
-{
-    float4 albedo   : SV_Target0;
-    float4 normal   : SV_Target1;
-};
-
 static const float SRGB_TO_LINEAR_FACTOR = 2.2;
 static const float LINEAR_TO_SRGB_FACTOR = 1.0 / SRGB_TO_LINEAR_FACTOR;
 
@@ -76,8 +70,8 @@ float4 linearToSrgb(float4 color) {
 }
 
 [shader("pixel")]
-FragmentOutput frag(VertexOutput input) {
-  FragmentOutput output;
+keptech::DeferredOutput frag(VertexOutput input) {
+  keptech::DeferredOutput output;
 
   output.albedo = input.color;
   output.normal = float4(input.normal, 1.f);

@@ -10,10 +10,10 @@
 #include <vector>
 
 namespace keptech::core {
-  using SlotMapHandle = size_t;
+  using SlotMapRawHandle = size_t;
   template <typename T> class SlotMap {
   public:
-    using Handle = SlotMapHandle;
+    using Handle = SlotMapRawHandle;
 
     SlotMap() = default;
     SlotMap(const SlotMap&) = default;
@@ -164,8 +164,8 @@ namespace keptech::core {
       indexMap.clear();
     }
 
-    [[nodiscard]] std::vector<SlotMapHandle> handles() const {
-      std::vector<SlotMapHandle> handles;
+    [[nodiscard]] std::vector<SlotMapRawHandle> handles() const {
+      std::vector<SlotMapRawHandle> handles;
       handles.reserve(indexMap.size());
       for (const auto& [handle, index] : indexMap) {
         handles.push_back(handle);
@@ -246,6 +246,10 @@ namespace keptech::core {
   struct SlotMapRefs {
     std::atomic<size_t> strongRefs = 1;
     std::atomic<size_t> weakRefs = 0;
+    std::function<void()> deleter;
+
+    SlotMapRefs(std::function<void()> deleter)
+        : strongRefs(1), weakRefs(0), deleter(std::move(deleter)) {}
 
     void newStrongRef() { strongRefs.fetch_add(1, std::memory_order_seq_cst); }
 
@@ -265,31 +269,33 @@ namespace keptech::core {
       strongRefs.fetch_add(1, std::memory_order_seq_cst);
     }
 
-    bool hasStrongRefs() const {
+    [[nodiscard]] bool hasStrongRefs() const {
       return strongRefs.load(std::memory_order_relaxed) > 0;
     }
 
-    bool hasWeakRefs() const {
+    [[nodiscard]] bool hasWeakRefs() const {
       return weakRefs.load(std::memory_order_relaxed) > 0;
     }
 
-    bool hasAnyRefs() const { return hasStrongRefs() || hasWeakRefs(); }
+    [[nodiscard]] bool hasAnyRefs() const {
+      return hasStrongRefs() || hasWeakRefs();
+    }
   };
 
-  class SlotMapSmartHandle;
+  class SlotMapRawSmartHandle;
 
-  class SlotMapWeakHandle {
+  class SlotMapRawWeakHandle {
   public:
-    friend class SlotMapSmartHandle;
-    SlotMapWeakHandle() = delete;
+    friend class SlotMapRawSmartHandle;
+    SlotMapRawWeakHandle() = delete;
 
-    SlotMapWeakHandle(const SlotMapWeakHandle& o)
+    SlotMapRawWeakHandle(const SlotMapRawWeakHandle& o)
         : handle(o.handle), refCount(o.refCount) {
       if (!refCount)
         return;
       refCount->newWeakRef();
     }
-    SlotMapWeakHandle& operator=(const SlotMapWeakHandle& o) {
+    SlotMapRawWeakHandle& operator=(const SlotMapRawWeakHandle& o) {
       if (this != &o) {
         handle = o.handle;
         refCount = o.refCount;
@@ -299,12 +305,12 @@ namespace keptech::core {
       }
       return *this;
     }
-    SlotMapWeakHandle(SlotMapWeakHandle&& o) noexcept
+    SlotMapRawWeakHandle(SlotMapRawWeakHandle&& o) noexcept
         : handle(o.handle), refCount(o.refCount) {
       o.refCount = nullptr;
     }
 
-    SlotMapWeakHandle& operator=(SlotMapWeakHandle&& o) noexcept {
+    SlotMapRawWeakHandle& operator=(SlotMapRawWeakHandle&& o) noexcept {
       if (this != &o) {
         handle = o.handle;
         refCount = o.refCount;
@@ -313,12 +319,12 @@ namespace keptech::core {
       return *this;
     }
 
-    SlotMapWeakHandle(SlotMapHandle handle, SlotMapRefs& refCount)
+    SlotMapRawWeakHandle(SlotMapRawHandle handle, SlotMapRefs& refCount)
         : handle(handle), refCount(&refCount) {
       this->refCount->newWeakRef();
     }
 
-    ~SlotMapWeakHandle() {
+    ~SlotMapRawWeakHandle() {
       if (refCount == nullptr)
         return;
       refCount->delWeakRef();
@@ -334,27 +340,26 @@ namespace keptech::core {
       return refCount != nullptr && refCount->hasStrongRefs();
     }
 
-    operator SlotMapHandle() const { return handle; }
-    [[nodiscard]] SlotMapHandle get() const { return handle; }
+    operator SlotMapRawHandle() const { return handle; }
+    [[nodiscard]] SlotMapRawHandle get() const { return handle; }
 
   private:
-    SlotMapHandle handle;
+    SlotMapRawHandle handle;
     SlotMapRefs* refCount;
   };
 
-  class SlotMapSmartHandle {
+  class SlotMapRawSmartHandle {
   public:
-    SlotMapSmartHandle() = delete;
-    SlotMapSmartHandle(const SlotMapSmartHandle& o)
-        : handle(o.handle), refCount(o.refCount), deleter(o.deleter) {
+    SlotMapRawSmartHandle() = delete;
+    SlotMapRawSmartHandle(const SlotMapRawSmartHandle& o)
+        : handle(o.handle), refCount(o.refCount) {
       if (!refCount)
         return;
       refCount->newStrongRef();
     }
-    SlotMapSmartHandle& operator=(const SlotMapSmartHandle& o) {
+    SlotMapRawSmartHandle& operator=(const SlotMapRawSmartHandle& o) {
       if (this != &o) {
         handle = o.handle;
-        deleter = o.deleter;
         refCount = o.refCount;
         if (!refCount)
           return *this;
@@ -362,28 +367,26 @@ namespace keptech::core {
       }
       return *this;
     }
-    SlotMapSmartHandle(SlotMapSmartHandle&& o) noexcept
-        : handle(o.handle), refCount(o.refCount),
-          deleter(std::move(o.deleter)) {
+    SlotMapRawSmartHandle(SlotMapRawSmartHandle&& o) noexcept
+        : handle(o.handle), refCount(o.refCount) {
       o.refCount = nullptr;
     }
-    SlotMapSmartHandle& operator=(SlotMapSmartHandle&& o) noexcept {
+    SlotMapRawSmartHandle& operator=(SlotMapRawSmartHandle&& o) noexcept {
       if (this != &o) {
         handle = o.handle;
-        deleter = std::move(o.deleter);
         refCount = o.refCount;
         o.refCount = nullptr;
       }
       return *this;
     }
-    ~SlotMapSmartHandle() {
+    ~SlotMapRawSmartHandle() {
       if (refCount == nullptr)
         return;
 
       refCount->delStrongRef();
 
       if (!refCount->hasStrongRefs()) {
-        deleter();
+        refCount->deleter();
       }
 
       if (!refCount->hasAnyRefs()) {
@@ -394,22 +397,19 @@ namespace keptech::core {
     }
 
     template <typename T>
-    SlotMapSmartHandle(SlotMapHandle handle, SlotMap<T>& map)
-        : handle(handle), refCount(new SlotMapRefs()),
-          deleter([this, &map]() { map.erase(this->handle); }) {}
+    SlotMapRawSmartHandle(SlotMapRawHandle handle, SlotMap<T>& map)
+        : handle(handle), refCount(new SlotMapRefs(
+                              [this, &map]() { map.erase(this->handle); })) {}
 
-    SlotMapSmartHandle(SlotMapHandle handle, std::function<void()> deleter)
-        : handle(handle), refCount(new SlotMapRefs()),
-          deleter(std::move(deleter)) {}
+    SlotMapRawSmartHandle(SlotMapRawHandle handle,
+                          std::function<void()> deleter)
+        : handle(handle), refCount(new SlotMapRefs(std::move(deleter))) {}
 
-    SlotMapSmartHandle(SlotMapHandle handle, SlotMapRefs& refCount,
-                       std::function<void()> deleter)
-        : handle(handle), refCount(&refCount), deleter(std::move(deleter)) {}
+    SlotMapRawSmartHandle(SlotMapRawHandle handle, SlotMapRefs& refCount)
+        : handle(handle), refCount(&refCount) {}
 
-    SlotMapSmartHandle(const SlotMapWeakHandle& weakHandle,
-                       std::function<void()> deleter)
-        : handle(weakHandle.get()), refCount(weakHandle.refCount),
-          deleter(std::move(deleter)) {
+    SlotMapRawSmartHandle(const SlotMapRawWeakHandle& weakHandle)
+        : handle(weakHandle.get()), refCount(weakHandle.refCount) {
       if (refCount == nullptr || !refCount->hasStrongRefs()) {
         throw std::runtime_error(
             "Cannot promote weak handle to strong handle: no strong refs");
@@ -417,22 +417,64 @@ namespace keptech::core {
       refCount->weakToStrong();
     }
 
-    operator SlotMapHandle() const { return handle; }
+    operator SlotMapRawHandle() const { return handle; }
 
-    [[nodiscard]] SlotMapHandle get() const { return handle; }
+    [[nodiscard]] SlotMapRawHandle get() const { return handle; }
 
     [[nodiscard]] bool valid() const {
       return refCount != nullptr && refCount->hasStrongRefs();
     }
 
-    [[nodiscard]] SlotMapWeakHandle toWeak() const {
+    [[nodiscard]] SlotMapRawWeakHandle toWeak() const {
       return {handle, *refCount};
     }
 
   private:
-    SlotMapHandle handle;
+    SlotMapRawHandle handle;
     SlotMapRefs* refCount;
-    std::function<void()> deleter;
   };
 
+  template <typename T> class SlotMapSmartHandle;
+
+  template <typename T> class SlotMapHandle {
+  public:
+    SlotMapHandle() : handle(0) {}
+    SlotMapHandle(SlotMapRawHandle handle) : handle(handle) {}
+
+    operator SlotMapRawHandle() const { return handle; }
+
+    bool operator==(const SlotMapHandle& other) const {
+      return handle == other.handle;
+    }
+    bool operator==(const SlotMapRawHandle other) const {
+      return handle == other;
+    }
+    bool operator==(const SlotMapSmartHandle<T>& other) const {
+      return handle == other;
+    }
+
+  private:
+    SlotMapRawHandle handle;
+  };
+
+  template <typename T> class SlotMapSmartHandle {
+  public:
+    SlotMapSmartHandle(SlotMapRawSmartHandle handle)
+        : handle(std::move(handle)) {}
+
+    operator SlotMapRawSmartHandle() const { return handle; }
+
+    bool operator==(const SlotMapSmartHandle& other) const {
+      return handle == other.handle;
+    }
+    bool operator==(const SlotMapRawHandle other) const {
+      return handle == other;
+    }
+    bool operator==(const SlotMapHandle<T>& other) const {
+      return handle == other;
+    }
+
+  private:
+    SlotMapRawSmartHandle handle;
+  };
 } // namespace keptech::core

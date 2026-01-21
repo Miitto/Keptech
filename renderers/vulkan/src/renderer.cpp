@@ -38,13 +38,13 @@ namespace keptech::vkh {
 
     for (auto [entity, transform, meshHandle, materialHandle] : view.each()) {
 
-      auto materialP = loadedMaterials.get(materialHandle.material.handle);
+      auto materialP = loadedMaterials.get(materialHandle);
       if (!materialP) {
         VK_WARN("RenderObject has invalid material handle, skipping");
         continue;
       }
 
-      auto meshP = loadedMeshes.get(meshHandle.mesh.handle);
+      auto meshP = loadedMeshes.get(meshHandle);
       if (!meshP) {
         VK_WARN("RenderObject has invalid mesh handle, skipping");
         continue;

@@ -42,9 +42,6 @@ namespace keptech::vkh {
     using Mesh = vkh::Mesh;
     using Material = vkh::Material;
 
-    using MaterialHandle = core::rendering::Material::Handle;
-    using MeshHandle = core::rendering::Mesh::Handle;
-
     static inline constexpr const char* getName() { return "VulkanRenderer"; }
 
     struct Queues {
@@ -185,16 +182,20 @@ namespace keptech::vkh {
     std::expected<core::rendering::Mesh::Handle, std::string>
     meshFromData(const core::rendering::MeshData& meshData,
                  bool backgroundLoad = false);
-    void unloadMesh(const std::string& name);
-    std::optional<core::rendering::Mesh::Handle>
-    getMesh(const std::string& name);
+    void unloadMesh(const core::rendering::Mesh::Handle mesh);
 
-    vkh::Mesh* getMeshData(const core::rendering::Mesh::Handle& handle);
-    vkh::Mesh* getMeshData(const core::SlotMapHandle handle);
+    vkh::Mesh* getMeshData(const core::rendering::Mesh::Handle mesh);
+
+    core::rendering::Mesh::SmartHandle
+    toSmartHandle(const core::rendering::Mesh::Handle handle) {
+      return {core::SlotMapRawSmartHandle(
+          handle, [this, handle]() { unloadMesh(handle); })};
+    }
 
     template <typename Func>
     void operateOnAllMeshes(Func func)
-      requires(std::is_invocable_v<Func, core::SlotMapHandle, vkh::Mesh&>)
+      requires(
+          std::is_invocable_v<Func, core::rendering::Mesh::Handle, vkh::Mesh&>)
     {
       for (auto handle : loadedMeshes.handles()) {
         auto mesh = loadedMeshes.get(handle);
@@ -203,20 +204,23 @@ namespace keptech::vkh {
     }
 
     std::expected<core::rendering::Material::Handle, std::string>
-    createMaterial(std::string name, const Material::CreateInfo& createInfo);
+    createMaterial(std::string name, Material::CreateInfo createInfo);
 
-    std::optional<core::rendering::Material::Handle>
-    getMaterial(const std::string& name);
-
-    void unloadMaterial(const std::string& name);
+    void unloadMaterial(const core::rendering::Material::Handle handle);
 
     vkh::Material*
-    getMaterialData(const core::rendering::Material::Handle& handle);
-    vkh::Material* getMaterialData(const core::SlotMapHandle handle);
+    getMaterialData(const core::rendering::Material::Handle handle);
+
+    core::rendering::Material::SmartHandle
+    toSmartHandle(const core::rendering::Material::Handle handle) {
+      return {core::SlotMapRawSmartHandle(
+          handle, [this, handle]() { unloadMaterial(handle); })};
+    }
 
     template <typename Func>
     void operateOnAllMaterials(Func func)
-      requires(std::is_invocable_v<Func, core::SlotMapHandle, vkh::Material&>)
+      requires(std::is_invocable_v<Func, core::rendering::Material::Handle,
+                                   vkh::Material&>)
     {
       for (auto handle : loadedMaterials.handles()) {
         auto material = loadedMaterials.get(handle);
@@ -227,12 +231,12 @@ namespace keptech::vkh {
     std::expected<Shader, std::string>
     createShader(const unsigned char* const code, size_t size);
 
-    std::expected<core::rendering::Texture::Handle, std::string>
+    std::expected<core::rendering::TextureHandle, std::string>
     createTexture(glm::uvec3 size, core::rendering::Texture::Format format,
                   core::Bitflag<core::rendering::Texture::Usage> usage,
                   uint32_t mipLevels, bool cpuAccess = false,
                   const void* data = nullptr);
-    std::expected<core::rendering::Texture::Handle, std::string>
+    std::expected<core::rendering::TextureHandle, std::string>
     createTexture(const core::Image& image,
                   core::rendering::Texture::Usage usage,
                   bool cpuAccess = false);
@@ -320,9 +324,6 @@ namespace keptech::vkh {
     core::SlotMap<vkh::Mesh> loadedMeshes = {};
     core::SlotMap<vkh::Material> loadedMaterials = {};
     core::SlotMap<AllocatedImage> loadedTextures = {};
-    std::unordered_map<std::string, core::SlotMapWeakHandle> meshNameMap = {};
-    std::unordered_map<std::string, core::SlotMapWeakHandle> materialNameMap =
-        {};
 
     core::Scene* frameScene = nullptr;
   };

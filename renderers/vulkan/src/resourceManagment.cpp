@@ -1,3 +1,4 @@
+#include "keptech/core/components/renderObject.hpp"
 #include "keptech/core/rendering/pipeline.hpp"
 #include "keptech/vulkan/helpers/pipeline.hpp"
 #include "keptech/vulkan/material.hpp"
@@ -378,54 +379,23 @@ namespace keptech::vkh {
     }
 
     auto handle = loadedMeshes.emplace(std::move(res.value().first));
-
-    std::string name = meshData.name;
-
-    core::rendering::Mesh::Handle meshHandle(
-        core::SlotMapSmartHandle(handle, [this, name]() { unloadMesh(name); }));
-    meshNameMap.emplace(meshData.name, meshHandle.handle.toWeak());
+    core::rendering::Mesh::Handle meshHandle{handle};
 
     VK_INFO("Created mesh '{}'", meshData.name);
 
-    return std::move(meshHandle);
+    return meshHandle;
   }
 
-  void Renderer::unloadMesh(const std::string& name) {
-    auto found = meshNameMap.find(name);
-    if (found != meshNameMap.end()) {
-      loadedMeshes.erase(found->second.get());
-      meshNameMap.erase(found);
-      VK_DEBUG("Unloaded mesh '{}'", name);
-    }
+  void Renderer::unloadMesh(const core::rendering::Mesh::Handle mesh) {
+    loadedMeshes.erase(mesh);
   }
 
-  std::optional<core::rendering::Mesh::Handle>
-  Renderer::getMesh(const std::string& name) {
-    auto found = meshNameMap.find(name);
-    if (found != meshNameMap.end()) {
-      core::SlotMapWeakHandle weakHandle = found->second;
-      if (!weakHandle.valid()) {
-        meshNameMap.erase(found);
-        return std::nullopt;
-      }
-      auto handle = core::rendering::Mesh::Handle(core::SlotMapSmartHandle(
-          weakHandle, [this, name]() { unloadMesh(name); }));
-      return handle;
-    }
-    return std::nullopt;
-  }
-
-  vkh::Mesh*
-  Renderer::getMeshData(const core::rendering::Mesh::Handle& handle) {
-    return loadedMeshes.get(handle.handle);
-  }
-  vkh::Mesh* Renderer::getMeshData(const core::SlotMapHandle handle) {
+  vkh::Mesh* Renderer::getMeshData(const core::rendering::Mesh::Handle handle) {
     return loadedMeshes.get(handle);
   }
 
-  std::expected<Renderer::MaterialHandle, std::string>
-  Renderer::createMaterial(std::string name,
-                           const Material::CreateInfo& createInfo) {
+  std::expected<core::rendering::Material::Handle, std::string>
+  Renderer::createMaterial(std::string name, Material::CreateInfo createInfo) {
     GraphicsPipelineConfig config;
 
     std::vector<Shader> shaderModules;
@@ -454,6 +424,18 @@ namespace keptech::vkh {
     }
 
     config.shaders = shaderStages;
+
+    switch (createInfo.stage) {
+    case Material::Stage::Deferred: {
+      createInfo.pipelineConfig.attachments =
+          deferredPipelineAttachmentConfig();
+      break;
+    }
+    case core::rendering::Material::Stage::Forward:
+    case core::rendering::Material::Stage::Transparent:
+      // TODO: Set renderer attachment config
+      break;
+    }
 
     for (auto& colorFormat :
          createInfo.pipelineConfig.attachments.colorFormats) {
@@ -564,46 +546,19 @@ namespace keptech::vkh {
     mat.name = name;
 
     auto handle = loadedMaterials.emplace(std::move(mat));
-    core::rendering::Material::Handle materialHandle(core::SlotMapSmartHandle(
-        handle, [this, name]() { unloadMaterial(name); }));
-    materialNameMap.emplace(name, materialHandle.handle.toWeak());
+    core::rendering::Material::Handle materialHandle{handle};
 
     VK_INFO("Created material '{}'", name);
 
-    return std::move(materialHandle);
+    return materialHandle;
   }
 
-  std::optional<Renderer::MaterialHandle>
-  Renderer::getMaterial(const std::string& name) {
-    auto found = materialNameMap.find(name);
-    if (found != materialNameMap.end()) {
-      core::SlotMapWeakHandle weakHandle = found->second;
-      if (!weakHandle.valid()) {
-        materialNameMap.erase(found);
-        return std::nullopt;
-      }
-      auto handle = MaterialHandle(core::SlotMapSmartHandle(
-          weakHandle, [this, name]() { unloadMaterial(name); }));
-      return std::move(handle);
-    }
-    return std::nullopt;
-  }
-
-  void Renderer::unloadMaterial(const std::string& name) {
-    auto found = materialNameMap.find(name);
-    if (found != materialNameMap.end()) {
-      loadedMaterials.erase(found->second.get());
-      materialNameMap.erase(found);
-      VK_DEBUG("Unloaded material '{}'", name);
-    }
+  void Renderer::unloadMaterial(const core::rendering::Material::Handle name) {
+    loadedMaterials.erase(name);
   }
 
   vkh::Material*
-  Renderer::getMaterialData(const Renderer::MaterialHandle& handle) {
-    return loadedMaterials.get(handle.handle);
-  }
-
-  vkh::Material* Renderer::getMaterialData(const core::SlotMapHandle handle) {
+  Renderer::getMaterialData(const core::rendering::Material::Handle handle) {
     return loadedMaterials.get(handle);
   }
 
@@ -612,7 +567,7 @@ namespace keptech::vkh {
     return Shader::create(vkcore.device.logical, code, size);
   }
 
-  std::expected<core::rendering::Texture::Handle, std::string>
+  std::expected<core::rendering::TextureHandle, std::string>
   Renderer::createTexture(glm::uvec3 size,
                           core::rendering::Texture::Format format,
                           core::Bitflag<core::rendering::Texture::Usage> usage,
@@ -669,8 +624,7 @@ namespace keptech::vkh {
     };
 
     auto handle = loadedTextures.emplace(allocatedImage);
-    core::SlotMapSmartHandle smHandle{handle, loadedTextures};
 
-    return core::rendering::Texture::Handle(std::move(smHandle));
+    return core::rendering::TextureHandle(handle);
   }
 } // namespace keptech::vkh

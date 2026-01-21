@@ -67,11 +67,9 @@ void MaterialEditorLayer::initMeta() {
 }
 
 MaterialEditorLayer::MaterialEditorLayer(KEPTECH_RENDERER& renderer,
-                                         keptech::core::Scene&& scene,
-                                         Resources&& resources)
+                                         keptech::core::Scene&& scene)
     : keptech::core::layers::Layer("MaterialEditorLayer"), renderer(renderer),
-      scene(std::move(scene)), resources(std::move(resources)),
-      orbitController(this->scene.getActiveCamera()) {
+      scene(std::move(scene)), orbitController(this->scene.getActiveCamera()) {
   renderer.setScene(this->scene);
 }
 
@@ -332,34 +330,35 @@ void MaterialEditorLayer::drawSelectedProperties() {
   if (!propertiesPanel.isOpen())
     return;
 
-  std::visit(keptech::core::overloaded{
-                 [&](std::monostate) {},
-                 [&](keptech::ecs::EntityHandle entity) {
-                   drawEntityProperties(propertiesPanel, entity);
-                 },
-                 [&](RawMeshHandle meshHandle) {
-                   auto meshPtr = renderer.getMeshData(meshHandle);
-                   if (meshPtr == nullptr) {
-                     propertiesPanel.separatorText("Invalid Mesh");
-                     return;
-                   }
-                   auto label = fmt::format("Mesh: {}", meshPtr->getName());
-                   propertiesPanel.separatorText(label.c_str());
-                   meshInspectorUi(propertiesPanel, *meshPtr);
-                 },
-                 [&](RawMaterialHandle materialHandle) {
-                   auto materialPtr = renderer.getMaterialData(materialHandle);
-                   if (materialPtr == nullptr) {
-                     propertiesPanel.separatorText("Invalid Material");
-                     return;
-                   }
+  std::visit(
+      keptech::core::overloaded{
+          [&](std::monostate) {},
+          [&](keptech::ecs::EntityHandle entity) {
+            drawEntityProperties(propertiesPanel, entity);
+          },
+          [&](keptech::core::rendering::Mesh::Handle meshHandle) {
+            auto meshPtr = renderer.getMeshData(meshHandle);
+            if (meshPtr == nullptr) {
+              propertiesPanel.separatorText("Invalid Mesh");
+              return;
+            }
+            auto label = fmt::format("Mesh: {}", meshPtr->getName());
+            propertiesPanel.separatorText(label.c_str());
+            meshInspectorUi(propertiesPanel, *meshPtr);
+          },
+          [&](keptech::core::rendering::Material::Handle materialHandle) {
+            auto materialPtr = renderer.getMaterialData(materialHandle);
+            if (materialPtr == nullptr) {
+              propertiesPanel.separatorText("Invalid Material");
+              return;
+            }
 
-                   auto label = fmt::format("Material: {}", materialPtr->name);
-                   propertiesPanel.separatorText(label.c_str());
-                   materialInspectorUi(propertiesPanel, *materialPtr);
-                 },
-             },
-             selectedItem);
+            auto label = fmt::format("Material: {}", materialPtr->name);
+            propertiesPanel.separatorText(label.c_str());
+            materialInspectorUi(propertiesPanel, *materialPtr);
+          },
+      },
+      selectedItem);
 }
 
 void MaterialEditorLayer::drawEntityProperties(
@@ -430,33 +429,36 @@ void MaterialEditorLayer::drawLoadedAssetsPanel() {
     if (ImGui::BeginTable("Assets Table", cols, 0, {0, 0}, 5.f)) {
       switch (activeAssetType) {
       case AssetType::Mesh: {
-        renderer.operateOnAllMeshes([&](keptech::core::SlotMapHandle handle,
-                                        KEPTECH_RENDERER::Mesh& mesh) {
-          ImGui::TableNextColumn();
+        renderer.operateOnAllMeshes(
+            [&](keptech::core::rendering::Mesh::Handle handle,
+                KEPTECH_RENDERER::Mesh& mesh) {
+              ImGui::TableNextColumn();
 
-          bool selected = false;
-          if (selectedItem.index() == 2) {
-            selected = std::get<RawMeshHandle>(selectedItem) == handle;
-          }
+              bool selected = false;
+              if (selectedItem.index() == 2) {
+                selected = std::get<keptech::core::rendering::Mesh::Handle>(
+                               selectedItem) == handle;
+              }
 
-          if (child.selectable(mesh.getName().c_str(), selected)) {
-            selectedItem = RawMeshHandle{handle};
-          }
-        });
+              if (child.selectable(mesh.getName().c_str(), selected)) {
+                selectedItem = handle;
+              }
+            });
       } break;
       case AssetType::Material: {
         renderer.operateOnAllMaterials(
-            [&](keptech::core::SlotMapHandle handle,
+            [&](keptech::core::rendering::Material::Handle handle,
                 KEPTECH_RENDERER::Material& material) {
               ImGui::TableNextColumn();
 
               bool selected = false;
               if (selectedItem.index() == 3) {
-                selected = std::get<RawMaterialHandle>(selectedItem) == handle;
+                selected = std::get<keptech::core::rendering::Material::Handle>(
+                               selectedItem) == handle;
               }
 
               if (child.selectable(material.name.c_str(), selected)) {
-                selectedItem = RawMaterialHandle{handle};
+                selectedItem = handle;
               }
             });
 
@@ -473,23 +475,19 @@ void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
                                           keptech::components::Mesh& mesh) {
   frame.separatorText("Mesh");
 
-  auto meshPtr = renderer.getMeshData(mesh.mesh.handle.get());
+  auto meshPtr = renderer.getMeshData(mesh);
 
   const char* meshName = (meshPtr != nullptr) ? meshPtr->getName().c_str() : "";
 
   {
     auto combo = frame.combo("Mesh", meshName);
-    renderer.operateOnAllMeshes([&](keptech::core::SlotMapHandle handle,
-                                    KEPTECH_RENDERER::Mesh& m) {
-      if (combo.item(m.getName().c_str(), mesh.mesh.handle.get() == handle)) {
-        auto newMesh = renderer.getMesh(m.getName());
-        if (newMesh.has_value()) {
-          mesh.mesh = *newMesh;
-        } else {
-          SPDLOG_ERROR("Failed to get mesh '{}'", m.getName());
-        }
-      }
-    });
+    renderer.operateOnAllMeshes(
+        [&](keptech::core::rendering::Mesh::Handle handle,
+            KEPTECH_RENDERER::Mesh& m) {
+          if (combo.item(m.getName().c_str(), mesh == handle)) {
+            mesh = handle;
+          }
+        });
   }
 
   if (meshPtr != nullptr)
@@ -513,25 +511,20 @@ void MaterialEditorLayer::materialInspectorUi(
 
   frame.separatorText("Material");
 
-  auto materialPtr = renderer.getMaterialData(material.material.handle.get());
+  auto materialPtr = renderer.getMaterialData(material);
 
   const char* materialName =
       (materialPtr != nullptr) ? materialPtr->name.c_str() : "";
 
   {
     auto combo = frame.combo("Material", materialName);
-    renderer.operateOnAllMaterials([&](keptech::core::SlotMapHandle handle,
-                                       KEPTECH_RENDERER::Material& m) {
-      if (combo.item(m.name.c_str(),
-                     material.material.handle.get() == handle)) {
-        auto newMat = renderer.getMaterial(m.name);
-        if (newMat.has_value()) {
-          material.material = *newMat;
-        } else {
-          SPDLOG_ERROR("Failed to get material '{}'", m.name);
-        }
-      }
-    });
+    renderer.operateOnAllMaterials(
+        [&](keptech::core::rendering::Material::Handle handle,
+            KEPTECH_RENDERER::Material& m) {
+          if (combo.item(m.name.c_str(), material == handle)) {
+            material = handle;
+          }
+        });
   }
 
   if (materialPtr != nullptr)

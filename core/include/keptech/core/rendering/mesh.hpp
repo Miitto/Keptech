@@ -7,22 +7,15 @@
 #include <vector>
 
 namespace keptech::core::rendering {
+  namespace _priv {
+    struct MeshHandleDiffereniator {};
+  } // namespace _priv
+
   class Mesh {
   public:
-    struct Handle {
-      SlotMapSmartHandle handle;
-
-      bool operator==(const Handle& other) const {
-        return handle == other.handle;
-      }
-
-      bool operator==(const SlotMapHandle other) const {
-        return handle == other;
-      }
-    };
-    struct WeakHandle {
-      SlotMapWeakHandle handle;
-    };
+    using Handle = core::SlotMapHandle<_priv::MeshHandleDiffereniator>;
+    using SmartHandle =
+        core::SlotMapSmartHandle<_priv::MeshHandleDiffereniator>;
 
     struct Vertex {
       glm::vec3 position;
@@ -41,17 +34,6 @@ namespace keptech::core::rendering {
                       .uvY = uv.y,
                       .color = col,
                       .tangent = tang};
-      }
-    };
-
-    struct UnpackedVertex {
-      glm::vec3 position;
-      glm::vec2 uv;
-      glm::vec3 normal;
-      glm::vec4 color;
-
-      operator Vertex() const {
-        return Vertex::create(position, uv, normal, color);
       }
     };
 
