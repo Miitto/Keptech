@@ -53,12 +53,29 @@ public:
   void materialInspectorUi(keptech::gui::Frame& frame,
                            KEPTECH_RENDERER::Material& ro);
 
+  struct SceneNode {
+    keptech::ecs::EntityHandle id;
+    std::string* name;
+    SceneNode* parent = nullptr;
+    std::vector<std::unique_ptr<SceneNode>> children{};
+    bool hasChildSelected = false;
+  };
+
 private:
   void initDocks();
   void drawGui();
   void drawViewport();
   void drawToolbar();
   void drawSceneTree();
+  void addNodeToList(
+      keptech::ecs::EntityHandle entity, keptech::components::Name& name,
+      std::vector<std::unique_ptr<MaterialEditorLayer::SceneNode>>& roots,
+      std::unordered_map<keptech::ecs::EntityHandle,
+                         MaterialEditorLayer::SceneNode*>& nodeMap);
+  void drawSceneNodeInTree(SceneNode& node);
+  /// Returns true if the node was deleted
+  bool drawSceneTreeEntityContextMenu(SceneNode& node);
+
   void drawSelectedProperties();
   void drawEntityProperties(keptech::gui::Frame& frame,
                             keptech::ecs::EntityHandle entity);

@@ -58,10 +58,38 @@ namespace keptech::vkh {
       void resetAll();
     };
 
+    struct InstanceData {
+      glm::mat4 modelMatrix;
+    };
+
+    struct InstanceBuffers {
+      AllocatedBuffer staging;
+      AddressedAllocatedBuffer device;
+
+      [[nodiscard]] size_t maxInstances() const {
+        return staging.allocInfo.size / sizeof(InstanceData);
+      }
+
+      std::expected<InstanceBuffers, std::string> static create(
+          vma::Allocator& allocator, vk::raii::Device& device,
+          size_t maxInstances);
+
+      void destroy(vma::Allocator& allocator);
+      std::expected<void, std::string> resize(vma::Allocator& allocator,
+                                              vk::raii::Device& device,
+                                              size_t newMaxInstances);
+
+      std::expected<void, std::string>
+      copyToDevice(vk::raii::Device& device,
+                   const vk::raii::CommandBuffer& cmdBuf,
+                   size_t instanceCount = 0);
+    };
+
     struct PerFrame {
       vk::raii::Fence inFlightFence;
       vk::raii::Semaphore imageAvailableSemaphore;
       Pools pools;
+      InstanceBuffers instanceBuffers;
     };
 
     struct GBuffers {
@@ -113,41 +141,12 @@ namespace keptech::vkh {
       bool suboptimalSwapchain = false;
     };
 
-    struct InstanceData {
-      glm::mat4 modelMatrix;
-    };
-
-    struct InstanceBuffers {
-      AllocatedBuffer staging;
-      AddressedAllocatedBuffer device;
-
-      [[nodiscard]] size_t maxInstances() const {
-        return staging.allocInfo.size / sizeof(InstanceData);
-      }
-
-      std::expected<InstanceBuffers, std::string> static create(
-          vma::Allocator& allocator, vk::raii::Device& device,
-          size_t maxInstances);
-
-      void destroy(vma::Allocator& allocator);
-      std::expected<void, std::string> resize(vma::Allocator& allocator,
-                                              vk::raii::Device& device,
-                                              size_t newMaxInstances);
-
-      std::expected<void, std::string>
-      copyToDevice(vk::raii::Device& device,
-                   const vk::raii::CommandBuffer& cmdBuf,
-                   size_t instanceCount = 0);
-    };
-
   private:
     Renderer(const core::window::Window& window, VulkanCore&& vkcore,
-             ImGuiVkObjects&& imGuiObjects, CameraObjects&& cameraObjects,
-             InstanceBuffers instanceBuffers)
+             ImGuiVkObjects&& imGuiObjects, CameraObjects&& cameraObjects)
         : window(&window), vkcore(std::move(vkcore)),
           imGuiObjects(std::move(imGuiObjects)),
-          cameraObjects(std::move(cameraObjects)),
-          instanceBuffers(instanceBuffers) {}
+          cameraObjects(std::move(cameraObjects)) {}
 
   public:
     std::expected<Renderer, std::string> static create(
@@ -311,8 +310,6 @@ namespace keptech::vkh {
     VulkanCore vkcore;
     ImGuiVkObjects imGuiObjects;
     CameraObjects cameraObjects;
-
-    InstanceBuffers instanceBuffers;
 
     std::array<std::vector<vk::raii::CommandBuffer>, MAX_FRAMES_IN_FLIGHT>
         submittedCommandBuffers;

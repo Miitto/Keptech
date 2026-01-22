@@ -3,6 +3,7 @@
 #include "keptech/core/gui.h"
 
 namespace keptech::components {
+
   void Transform::recalculateGlobalTransform() {
     if (!flags.has(Flags::Dirty)) {
       return;

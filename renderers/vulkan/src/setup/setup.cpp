@@ -95,15 +95,10 @@ namespace keptech::vkh {
     VKH_MAKE(imguiObjects, keptech::vkh::setup::setupImGui(window, vkcore),
              "Failed to create ImGui Vulkan objects.");
 
-    VKH_MAKE(
-        instanceBuffers,
-        InstanceBuffers::create(vkcore.allocator, vkcore.device.logical, 10),
-        "Failed to create instance buffers.");
-
     VK_DEBUG("Vulkan renderer created successfully.");
 
     Renderer r{window, std::move(vkcore), std::move(imguiObjects),
-               std::move(cameraObjects), instanceBuffers};
+               std::move(cameraObjects)};
 
     return std::move(r);
   }

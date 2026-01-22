@@ -46,21 +46,9 @@ namespace keptech::maths {
       return *this;
     }
 
-    Transform& apply(const Transform& other) {
-      position += other.position;
-      rotation = other.rotation * rotation;
-      _scale *= other._scale;
-      return *this;
-    }
+    Transform& apply(const Transform& other);
 
-    [[nodiscard]] glm::mat4 toMatrix(bool viewMatrix = false) const {
-      glm::mat4 t = glm::translate(glm::mat4(1.0f), position);
-      glm::mat4 r = glm::mat4(rotation);
-      // Adjust for LH-Y up
-      glm::mat4 s = glm::scale(glm::mat4(1.0f),
-                               _scale * glm::vec3(1, viewMatrix ? -1 : 1, 1));
-      return t * r * s;
-    }
+    [[nodiscard]] glm::mat4 toMatrix(bool viewMatrix = false) const;
 
     explicit operator glm::mat4() const { return toMatrix(); }
 

@@ -178,63 +178,68 @@ namespace keptech::vkh {
           std::max({objLists.deferred.size(), objLists.forward.size(),
                     objLists.transparent.size()});
 
-      VK_TRACE("Drawing {} deferred objects", objLists.deferred.size());
+      if (maxObjTypeCount != 0) {
 
-      auto instanceBufferSize = instanceBuffers.maxInstances();
-      if (instanceBufferSize < maxObjTypeCount) {
-        auto res = instanceBuffers.resize(
-            vkcore.allocator, vkcore.device.logical, maxObjTypeCount);
-        if (!res.has_value()) {
-          VK_ERROR("Failed to resize instance buffers: {}", res.error());
+        VK_TRACE("Drawing {} deferred objects", objLists.deferred.size());
+
+        auto instanceBufferSize =
+            info.perFrame.get().instanceBuffers.maxInstances();
+        if (instanceBufferSize < maxObjTypeCount) {
+          auto res = info.perFrame.get().instanceBuffers.resize(
+              vkcore.allocator, vkcore.device.logical, maxObjTypeCount);
+          if (!res.has_value()) {
+            VK_ERROR("Failed to resize instance buffers: {}", res.error());
+            return;
+          }
+        }
+
+        {
+          size_t objIndex = 0;
+          for (; objIndex < objLists.deferred.size(); ++objIndex) {
+            auto& transform = objLists.deferred[objIndex].transform;
+
+            InstanceData data{
+                .modelMatrix = transform.toMatrix(),
+            };
+
+            memcpy(info.perFrame.get().instanceBuffers.staging.mapping() +
+                       (objIndex * sizeof(InstanceData)),
+                   &data, sizeof(InstanceData));
+          }
+
+          for (int i = 0; i < objLists.forward.size(); ++i, ++objIndex) {
+            auto& transform = objLists.forward[i].transform;
+
+            InstanceData data{
+                .modelMatrix = transform.toMatrix(),
+            };
+
+            memcpy(info.perFrame.get().instanceBuffers.staging.mapping() +
+                       (objIndex * sizeof(InstanceData)),
+                   &data, sizeof(InstanceData));
+          }
+
+          for (int i = 0; i < objLists.transparent.size(); ++i, ++objIndex) {
+            auto& transform = objLists.transparent[i].transform;
+
+            InstanceData data{
+                .modelMatrix = transform.toMatrix(),
+            };
+
+            memcpy(info.perFrame.get().instanceBuffers.staging.mapping() +
+                       (objIndex * sizeof(InstanceData)),
+                   &data, sizeof(InstanceData));
+          }
+        }
+
+        auto instanceDataTransferRes =
+            info.perFrame.get().instanceBuffers.copyToDevice(
+                vkcore.device.logical, graphicsCmdBuffer, maxObjTypeCount);
+        if (!instanceDataTransferRes) {
+          VK_ERROR("Failed to copy instance data to device: {}",
+                   instanceDataTransferRes.error());
           return;
         }
-      }
-
-      {
-        size_t objIndex = 0;
-        for (; objIndex < objLists.deferred.size(); ++objIndex) {
-          auto& transform = objLists.deferred[objIndex].transform;
-
-          InstanceData data{
-              .modelMatrix = transform.toMatrix(),
-          };
-
-          memcpy(instanceBuffers.staging.mapping() +
-                     (objIndex * sizeof(InstanceData)),
-                 &data, sizeof(InstanceData));
-        }
-
-        for (int i = 0; i < objLists.forward.size(); ++i, ++objIndex) {
-          auto& transform = objLists.forward[i].transform;
-
-          InstanceData data{
-              .modelMatrix = transform.toMatrix(),
-          };
-
-          memcpy(instanceBuffers.staging.mapping() +
-                     (objIndex * sizeof(InstanceData)),
-                 &data, sizeof(InstanceData));
-        }
-
-        for (int i = 0; i < objLists.transparent.size(); ++i, ++objIndex) {
-          auto& transform = objLists.transparent[i].transform;
-
-          InstanceData data{
-              .modelMatrix = transform.toMatrix(),
-          };
-
-          memcpy(instanceBuffers.staging.mapping() +
-                     (objIndex * sizeof(InstanceData)),
-                 &data, sizeof(InstanceData));
-        }
-      }
-
-      auto instanceDataTransferRes = instanceBuffers.copyToDevice(
-          vkcore.device.logical, graphicsCmdBuffer, maxObjTypeCount);
-      if (!instanceDataTransferRes) {
-        VK_ERROR("Failed to copy instance data to device: {}",
-                 instanceDataTransferRes.error());
-        return;
       }
 
       graphicsCmdBuffer.beginRendering(renderingInfo);
@@ -263,7 +268,8 @@ namespace keptech::vkh {
           uint32_t instanceOffset;
         } pushConstantData{
             .vertexBufferAddress = mesh.vertexBuffer.address,
-            .transformAddress = instanceBuffers.device.address,
+            .transformAddress =
+                info.perFrame.get().instanceBuffers.device.address,
             .instanceOffset = static_cast<uint32_t>(instanceOffset),
         };
 

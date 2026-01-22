@@ -88,10 +88,11 @@ namespace keptech::vkh {
   Renderer::Frame Renderer::startFrame() {
     checkCompletedCommandBuffers();
 
-    auto& sync = vkcore.perFrame[thisFrameIndex];
+    auto& perFrame = vkcore.perFrame[thisFrameIndex];
 
-    auto nextImageRes = vkcore.swapchain.getNextImage(
-        vkcore.device, sync.inFlightFence, sync.imageAvailableSemaphore);
+    auto nextImageRes =
+        vkcore.swapchain.getNextImage(vkcore.device, perFrame.inFlightFence,
+                                      perFrame.imageAvailableSemaphore);
 
     if (!nextImageRes) {
       VK_CRITICAL("Failed to acquire next swapchain image: {}",
@@ -114,7 +115,7 @@ namespace keptech::vkh {
     Frame frameInfo{
         .index = thisFrameIndex,
         .imageIndex = static_cast<uint8_t>(imageIndex),
-        .perFrame = std::ref(sync),
+        .perFrame = std::ref(perFrame),
     };
 
     if (swapchainState == vkh::Swapchain::State::Suboptimal) {
@@ -207,7 +208,8 @@ namespace keptech::vkh {
     vkcore.gBuffer.normal.destroy(vkcore.allocator, vkcore.device.logical);
     vkcore.gBuffer.depth.destroy(vkcore.allocator, vkcore.device.logical);
 
-    instanceBuffers.destroy(vkcore.allocator);
+    for (auto& frame : vkcore.perFrame)
+      frame.instanceBuffers.destroy(vkcore.allocator);
 
     loadedMeshes.reset();
     loadedMaterials.reset();

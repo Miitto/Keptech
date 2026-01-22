@@ -7,6 +7,7 @@ target_sources(${PROJECT_NAME}
     components/transform.cpp
     gltf/loaded.cpp
     layers/layerStack.cpp
+    maths/transform.cpp
     events.cpp
     gui.cpp
     kt-logger.cpp

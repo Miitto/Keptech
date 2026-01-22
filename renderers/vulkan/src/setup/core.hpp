@@ -159,6 +159,14 @@ namespace keptech::vkh::setup {
     VK_MAKE(sem1, device.createSemaphore({}), "Failed to create sem1");
     VK_MAKE(sem2, device.createSemaphore({}), "Failed to create sem2");
 
+    VKH_MAKE(instanceBuffers1,
+             Renderer::InstanceBuffers::create(allocator, device, 10),
+             "Failed to create instance buffers.");
+
+    VKH_MAKE(instanceBuffers2,
+             Renderer::InstanceBuffers::create(allocator, device, 10),
+             "Failed to create instance buffers.");
+
     return Renderer::VulkanCore{
         .context = std::move(context),
         .instance = std::move(instance),
@@ -173,12 +181,13 @@ namespace keptech::vkh::setup {
                          .inFlightFence = std::move(fence1),
                          .imageAvailableSemaphore = std::move(sem1),
                          .pools = std::move(poolsArray[0]),
+                         .instanceBuffers = instanceBuffers1,
                      },
-                     Renderer::PerFrame{
-                         .inFlightFence = std::move(fence2),
-                         .imageAvailableSemaphore = std::move(sem2),
-                         .pools = std::move(poolsArray[1]),
-                     }},
+                     Renderer::PerFrame{.inFlightFence = std::move(fence2),
+                                        .imageAvailableSemaphore =
+                                            std::move(sem2),
+                                        .pools = std::move(poolsArray[1]),
+                                        .instanceBuffers = instanceBuffers2}},
         .transferPool = std::move(transferPoolStruct),
     };
   }

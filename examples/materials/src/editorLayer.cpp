@@ -203,103 +203,154 @@ void MaterialEditorLayer::drawToolbar() {
   }
 }
 
-namespace {
-  struct SceneNode {
-    keptech::ecs::EntityHandle id;
-    std::string* name;
-    std::vector<std::unique_ptr<SceneNode>> children{};
-  };
-  void addNodeToList(
-      keptech::ecs::EntityHandle entity, keptech::components::Name& name,
-      std::vector<std::unique_ptr<SceneNode>>& roots,
-      std::unordered_map<keptech::ecs::EntityHandle, SceneNode*>& nodeMap,
-      keptech::core::Scene& scene) {
-    if (nodeMap.find(entity) != nodeMap.end())
-      return;
+void MaterialEditorLayer::addNodeToList(
+    keptech::ecs::EntityHandle entity, keptech::components::Name& name,
+    std::vector<std::unique_ptr<MaterialEditorLayer::SceneNode>>& roots,
+    std::unordered_map<keptech::ecs::EntityHandle,
+                       MaterialEditorLayer::SceneNode*>& nodeMap) {
+  if (nodeMap.find(entity) != nodeMap.end())
+    return;
 
-    std::unique_ptr node = std::make_unique<SceneNode>(
-        SceneNode{.id = entity, .name = &name.name});
-    nodeMap.emplace(entity, node.get());
+  std::unique_ptr node = std::make_unique<MaterialEditorLayer::SceneNode>(
+      MaterialEditorLayer::SceneNode{.id = entity, .name = &name.name});
+  nodeMap.emplace(entity, node.get());
 
-    auto transform =
-        scene.getEcs().try_get<keptech::components::Transform>(entity);
-    if (transform != nullptr && transform->getParent().getHandle() !=
-                                    keptech::ecs::INVALID_ENTITY_HANDLE) {
-      auto parentId = transform->getParent().getHandle();
+  auto transform =
+      scene.getEcs().try_get<keptech::components::Transform>(entity);
+  if (transform != nullptr && transform->getParent().getHandle() !=
+                                  keptech::ecs::INVALID_ENTITY_HANDLE) {
+    auto parentId = transform->getParent().getHandle();
 
-      if (nodeMap.find(parentId) == nodeMap.end()) {
-        auto nameComp = scene.getEcs().get<keptech::components::Name>(parentId);
-        addNodeToList(parentId, nameComp, roots, nodeMap, scene);
-      }
-
-      nodeMap[parentId]->children.push_back(std::move(node));
-    } else {
-      roots.push_back(std::move(node));
+    if (nodeMap.find(parentId) == nodeMap.end()) {
+      auto& nameComp = scene.getEcs().get<keptech::components::Name>(parentId);
+      addNodeToList(parentId, nameComp, roots, nodeMap);
     }
+
+    node->parent = nodeMap[parentId];
+
+    nodeMap[parentId]->children.push_back(std::move(node));
+  } else {
+    roots.push_back(std::move(node));
+  }
+}
+
+void MaterialEditorLayer::drawSceneNodeInTree(SceneNode& node) {
+  ImGui::PushID(node.name);
+  bool hasChildren = !node.children.empty();
+
+  ImGuiTreeNodeFlags flags =
+      ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanFullWidth;
+  if (!hasChildren)
+    flags |= ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_Leaf;
+
+  if (selectedItem.index() == 1) {
+    keptech::ecs::EntityHandle selectedEntity =
+        std::get<keptech::ecs::EntityHandle>(selectedItem);
+    if (selectedEntity == node.id)
+      flags |= ImGuiTreeNodeFlags_Selected;
   }
 
-  void displaySceneNodeInTree(SceneNode& node,
-                              MaterialEditorLayer::SelectedItem& selectedItem) {
-    ImGui::PushID(node.name);
-    bool hasChildren = !node.children.empty();
+  if (node.hasChildSelected) {
+    ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+  }
+  auto open = ImGui::TreeNodeEx(node.name->c_str(), flags);
+  if (ImGui::IsItemClicked()) {
+    selectedItem = node.id;
+  }
 
-    ImGuiTreeNodeFlags flags =
-        ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanFullWidth;
-    if (!hasChildren)
-      flags |= ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_Leaf;
-
-    if (selectedItem.index() == 1) {
-      keptech::ecs::EntityHandle selectedEntity =
-          std::get<keptech::ecs::EntityHandle>(selectedItem);
-      if (selectedEntity == node.id)
-        flags |= ImGuiTreeNodeFlags_Selected;
+  if (drawSceneTreeEntityContextMenu(node)) {
+    if (open && hasChildren) {
+      ImGui::TreePop();
     }
-
-    if (ImGui::TreeNodeEx(node.name->c_str(), flags)) {
-
-      // Need to double buffer the string, since ImGui uses the name as the
-      // widget ID. If the label changes, the ID changes, and the popup closes
-      // immediately - i.e. whenever you'd type.
-      struct RenameBuffer {
-        keptech::ecs::EntityHandle entity;
-        std::string newName;
-      };
-
-      static std::optional<RenameBuffer> renameBuffer;
-
-      if (ImGui::BeginPopupContextItem(nullptr,
-                                       ImGuiPopupFlags_MouseButtonRight |
-                                           ImGuiPopupFlags_NoReopen)) {
-        if (!renameBuffer.has_value() || renameBuffer->entity != node.id) {
-          renameBuffer = RenameBuffer{
-              .entity = node.id,
-              .newName = *node.name,
-          };
-        }
-        if (ImGui::InputText("Rename", &renameBuffer->newName,
-                             ImGuiInputTextFlags_EnterReturnsTrue)) {
-          node.name->assign(renameBuffer->newName);
-        }
-
-        ImGui::EndPopup();
-      } else if (renameBuffer.has_value() && renameBuffer->entity == node.id) {
-        renameBuffer.reset();
-      }
-
-      if (hasChildren) {
-        for (auto& child : node.children) {
-          displaySceneNodeInTree(*child, selectedItem);
-        }
-        ImGui::TreePop();
-      }
-    }
-    if (ImGui::IsItemClicked()) {
-      selectedItem = node.id;
-    }
-
     ImGui::PopID();
+    return;
   }
-} // namespace
+
+  if (open && hasChildren) {
+    for (auto& child : node.children) {
+      drawSceneNodeInTree(*child);
+    }
+    ImGui::TreePop();
+  }
+
+  ImGui::PopID();
+}
+
+bool MaterialEditorLayer::drawSceneTreeEntityContextMenu(SceneNode& node) {
+  // Need to double buffer the string, since ImGui uses the name as the
+  // widget ID. If the label changes, the ID changes, and the popup closes
+  // immediately - i.e. whenever you'd type.
+  struct RenameBuffer {
+    keptech::ecs::EntityHandle entity;
+    std::string newName;
+  };
+
+  static std::optional<RenameBuffer> renameBuffer;
+
+  if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonRight |
+                                                ImGuiPopupFlags_NoReopen)) {
+    if (!renameBuffer.has_value() || renameBuffer->entity != node.id) {
+      renameBuffer = RenameBuffer{
+          .entity = node.id,
+          .newName = *node.name,
+      };
+    }
+    if (ImGui::InputText("Rename", &renameBuffer->newName,
+                         ImGuiInputTextFlags_EnterReturnsTrue)) {
+      node.name->assign(renameBuffer->newName);
+    }
+
+    if (ImGui::Button("Create Child")) {
+      auto thisEntity = keptech::ecs::Entity(node.id, scene.getEcs());
+
+      if (!thisEntity.hasAllComponents<keptech::components::Transform>()) {
+        thisEntity.addComponent<keptech::components::Transform>();
+      }
+
+      auto child = scene.createEntity("Unnamed Entity");
+      auto& transform = child.addComponent<keptech::components::Transform>();
+      transform.setParent(keptech::ecs::Entity(node.id, scene.getEcs()));
+      selectedItem = child.getHandle();
+      ImGui::CloseCurrentPopup();
+    }
+
+    if (ImGui::Button("Create Sibling")) {
+      auto sibling = scene.createEntity("Unnamed Entity");
+      if (node.parent != nullptr) {
+        auto& transform =
+            sibling.addComponent<keptech::components::Transform>();
+        transform.setParent(
+            keptech::ecs::Entity(node.parent->id, scene.getEcs()));
+      }
+      selectedItem = sibling.getHandle();
+      ImGui::CloseCurrentPopup();
+    }
+
+    if (ImGui::Button("Delete")) {
+      keptech::ecs::Entity(node.id, scene.getEcs()).destroy();
+      if (selectedItem.index() == 1) {
+        keptech::ecs::EntityHandle selectedEntity =
+            std::get<keptech::ecs::EntityHandle>(selectedItem);
+        if (selectedEntity == node.id) {
+          selectedItem = std::monostate{};
+        }
+      }
+      for (auto& child : node.children) {
+        auto e = keptech::ecs::Entity(child->id, scene.getEcs());
+        auto& transform = e.getComponents<keptech::components::Transform>();
+        transform.setParent(keptech::ecs::Entity{});
+      }
+      renameBuffer.reset();
+      ImGui::EndPopup();
+      return true;
+    }
+
+    ImGui::EndPopup();
+  } else if (renameBuffer.has_value() && renameBuffer->entity == node.id) {
+    renameBuffer.reset();
+  }
+  return false;
+}
 
 void MaterialEditorLayer::drawSceneTree() {
   auto scenePanel = keptech::gui::Frame("Scene Tree", nullptr,
@@ -308,18 +359,41 @@ void MaterialEditorLayer::drawSceneTree() {
   if (!scenePanel.isOpen())
     return;
 
+  if (ImGui::BeginPopupContextWindow()) {
+
+    if (ImGui::Button("New Entity")) {
+      scene.createEntity("Unnamed Entity");
+      ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
+  }
+
   std::vector<std::unique_ptr<SceneNode>> roots;
   {
     std::unordered_map<keptech::ecs::EntityHandle, SceneNode*> nodeMap;
 
     auto view = scene.getEcs().view<keptech::components::Name>();
     for (auto [entity, name] : view.each()) {
-      addNodeToList(entity, name, roots, nodeMap, scene);
+      addNodeToList(entity, name, roots, nodeMap);
+    }
+
+    if (selectedItem.index() == 1) {
+      keptech::ecs::EntityHandle selectedEntity =
+          std::get<keptech::ecs::EntityHandle>(selectedItem);
+      auto it = nodeMap.find(selectedEntity);
+      if (it != nodeMap.end()) {
+        SceneNode* node = it->second;
+        while (node->parent != nullptr) {
+          node->parent->hasChildSelected = true;
+          node = node->parent;
+        }
+      }
     }
   }
 
   for (auto& root : roots) {
-    displaySceneNodeInTree(*root, selectedItem);
+    drawSceneNodeInTree(*root);
   }
 }
 
@@ -382,6 +456,29 @@ void MaterialEditorLayer::drawEntityProperties(
         func.invoke({}, this, &propertiesPanel, entity.getHandle());
       }
     }
+  }
+  ImGui::Separator();
+
+  ImGui::Button("Add Component");
+
+  if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft |
+                                                ImGuiPopupFlags_NoReopen)) {
+
+    if (!entity.hasAllComponents<keptech::components::Mesh>()) {
+      if (ImGui::Button("Mesh")) {
+        entity.addComponent<keptech::components::Mesh>();
+        ImGui::CloseCurrentPopup();
+      }
+    }
+
+    if (!entity.hasAllComponents<keptech::components::Material>()) {
+      if (ImGui::Button("Material")) {
+        entity.addComponent<keptech::components::Material>();
+        ImGui::CloseCurrentPopup();
+      }
+    }
+
+    ImGui::EndPopup();
   }
 }
 
