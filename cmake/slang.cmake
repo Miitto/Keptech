@@ -1,0 +1,19 @@
+FetchContent_Declare(
+    slang
+    GIT_REPOSITORY https://github.com/shader-slang/slang.git
+    GIT_TAG master
+    SYSTEM
+)
+set(SLANG_ENABLE_TESTS OFF)
+set(SLANG_ENABLE_EXAMPLES OFF)
+set(SLANG_ENABLE_SLANGD OFF)
+set(SLANG_ENABLE_SLANGI OFF)
+set(SLANG_ENABLE_SLANG_RHI OFF)
+FetchContent_MakeAvailable(slang)
+set_target_properties(slang PROPERTIES
+  CXX_CLANG_TIDY ""
+)
+
+function(link_slang target ACCESS)
+  target_link_libraries(${target} ${ACCESS} slang)
+endfunction()

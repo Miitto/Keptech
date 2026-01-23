@@ -20,6 +20,7 @@ mkShell {
 
     sccache
     shader-slang
+    python3
     vulkan-headers vulkan-loader vulkan-validation-layers vulkan-memory-allocator
     alsa-lib libpulseaudio jack2 sndio mesa mesa_glu dbus systemd fcitx5
     wayland wayland-scanner

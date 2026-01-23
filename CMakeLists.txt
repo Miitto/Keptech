@@ -8,6 +8,20 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(FetchContent)
 
+find_program(SCCACHE_FOUND sccache)
+
+if(SCCACHE_FOUND)
+  message(STATUS "Using sccache for compilation")
+  set(CMAKE_CXX_COMPILER_LAUNCHER ${SCCACHE_FOUND})
+  set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE_FOUND})
+
+  # For MSVC debug information format
+  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT Embedded)
+  cmake_policy(SET CMP0141 NEW)
+else()
+  message(STATUS "sccache not found, using default compiler")
+endif()
+
 option(BUILD_EXAMPLES "Build example applications" ON)
 if (BUILD_EXAMPLES)
   set(CMAKE_CXX_STANDARD 23)
@@ -43,6 +57,7 @@ add_subdirectory(ecs)
 add_subdirectory(core)
 add_subdirectory(renderers)
 add_subdirectory(engine)
+add_subdirectory(shader_processor)
 add_subdirectory(shader_embedder)
 
 # Vendored Deps

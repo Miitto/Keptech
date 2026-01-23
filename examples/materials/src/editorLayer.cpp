@@ -464,6 +464,13 @@ void MaterialEditorLayer::drawEntityProperties(
   if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft |
                                                 ImGuiPopupFlags_NoReopen)) {
 
+    if (!entity.hasAllComponents<keptech::components::Transform>()) {
+      if (ImGui::Button("Transform")) {
+        entity.addComponent<keptech::components::Transform>();
+        ImGui::CloseCurrentPopup();
+      }
+    }
+
     if (!entity.hasAllComponents<keptech::components::Mesh>()) {
       if (ImGui::Button("Mesh")) {
         entity.addComponent<keptech::components::Mesh>();
@@ -631,21 +638,14 @@ void MaterialEditorLayer::materialInspectorUi(
 void MaterialEditorLayer::materialInspectorUi(
     keptech::gui::Frame& frame, KEPTECH_RENDERER::Material& material) {
 
-  {
-    using S = keptech::core::rendering::Material::Stage;
-    auto combo =
-        frame.combo("Stage", fmt::format("{}", material.stage).c_str());
-    if (combo.item(fmt::format("{}", S::Deferred).c_str(),
-                   material.stage == S::Deferred)) {
-      material.stage = S::Deferred;
-    }
-    if (combo.item(fmt::format("{}", S::Forward).c_str(),
-                   material.stage == S::Forward)) {
-      material.stage = S::Forward;
-    }
-    if (combo.item(fmt::format("{}", S::Transparent).c_str(),
-                   material.stage == S::Transparent)) {
-      material.stage = S::Transparent;
+  auto stageStr = fmt::format("Stage: {}", material.stage);
+  frame.text(stageStr.c_str());
+
+  using S = keptech::core::rendering::Material::Stage;
+  if (material.mode == keptech::shaders::RenderingMode::Forward) {
+    bool checked = (material.stage != S::Opaque);
+    if (ImGui::Checkbox("Transparent", &checked)) {
+      material.stage = checked ? S::Transparent : S::Opaque;
     }
   }
 }

@@ -20,7 +20,7 @@ namespace keptech::vkh {
     };
 
     static auto create(const vk::raii::Device& device,
-                       const unsigned char* const code, size_t size)
+                       const std::span<const uint8_t> code)
         -> std::expected<Shader, std::string>;
 
     [[nodiscard]] auto get() const noexcept -> const vk::raii::ShaderModule& {
@@ -50,20 +50,6 @@ namespace keptech::vkh {
       }
 
       return stages;
-    }
-
-    constexpr inline auto
-    vertFrag(const char* const vertFn = "vert",
-             const char* const fragFn = "frag") const noexcept
-        -> std::array<vk::PipelineShaderStageCreateInfo, 2> {
-
-      std::array<ShaderStageParams, 2> shaderStages = {
-          ShaderStageParams{.stage = vk::ShaderStageFlagBits::eVertex,
-                            .name = vertFn},
-          ShaderStageParams{.stage = vk::ShaderStageFlagBits::eFragment,
-                            .name = fragFn}};
-
-      return stages(shaderStages);
     }
   };
 } // namespace keptech::vkh

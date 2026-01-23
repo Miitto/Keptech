@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.10..4.0)
 
-project(stb LANGUAGES C)
+project(ktstb LANGUAGES C)
 
-add_library(stb)
-add_library(stb::stb ALIAS stb)
+add_library(ktstb)
+add_library(stb::stb ALIAS ktstb)
 
-target_sources(stb
+target_sources(ktstb
   PUBLIC
     FILE_SET HEADERS
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include

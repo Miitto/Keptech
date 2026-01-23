@@ -14,7 +14,6 @@
 
 namespace shaders {
 #include "shaders/basic.h"
-
 #include "shaders/deferred.h"
 } // namespace shaders
 
@@ -36,17 +35,21 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   MaterialEditorLayer::initMeta();
 
-  auto deferredMaterialRes = renderer.createMaterial(
-      "Deferred", {
-                      .stage = Material::Stage::Deferred,
-                      .pipelineConfig =
-                          {
-                              .shaders = {{
-                                  .code = shaders::deferred,
-                                  .size = shaders::deferred_size,
-                              }},
-                          },
-                  });
+  auto basicMaterialRes = renderer.createMaterial({
+      .shader = ::shaders::basic,
+  });
+  if (!basicMaterialRes) {
+    return std::unexpected(fmt::format("Failed to create basic material: {}",
+                                       basicMaterialRes.error()));
+  }
+
+  auto deferredMaterialRes = renderer.createMaterial({
+      .shader = ::shaders::deferred,
+      .pipelineConfig =
+          {
+
+          },
+  });
   if (!deferredMaterialRes) {
     return std::unexpected(fmt::format("Failed to create basic material: {}",
                                        deferredMaterialRes.error()));
@@ -54,6 +57,39 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
   auto& deferred = deferredMaterialRes.value();
 
   SPDLOG_INFO("Created materials");
+
+  using Vertex = keptech::core::rendering::Mesh::Vertex;
+
+  std::vector<Vertex> triangleVertices = {
+      {
+          .position = {-0.5f, -0.5f, 0.0f},
+          .uvX = 0.f,
+          .normal = {0.0f, 0.0f, 1.0f},
+          .uvY = 0.f,
+          .color = {1.0f, 0.0f, 0.0f, 1.0f},
+      },
+      {
+          .position = {0.5f, -0.5f, 0.0f},
+          .uvX = 1.f,
+          .normal = {0.0f, 0.0f, 1.0f},
+          .uvY = 0.f,
+          .color = {0.0f, 1.0f, 0.0f, 1.0f},
+      },
+      {
+          .position = {0.0f, 0.5f, 0.0f},
+          .uvX = 0.5f,
+          .normal = {0.0f, 0.0f, 1.0f},
+          .uvY = 1.f,
+          .color = {0.0f, 0.0f, 1.0f, 1.0f},
+      },
+  };
+
+  auto triangleMeshRes =
+      renderer.meshFromData({.name = "Triangle", .vertices = triangleVertices});
+  if (!triangleMeshRes) {
+    return std::unexpected(fmt::format("Failed to create triangle mesh: {}",
+                                       triangleMeshRes.error()));
+  }
 
   auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
   if (!monkeyMeshRes) {

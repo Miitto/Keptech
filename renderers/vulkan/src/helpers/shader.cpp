@@ -1,9 +1,6 @@
 #include "keptech/vulkan/helpers/shader.hpp"
 
-#include "vk-logger.hpp"
-#include <fstream>
 #include <macros.hpp>
-#include <vector>
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 #include <Windows.h>
@@ -13,7 +10,7 @@ namespace keptech::vkh {
 
   [[nodiscard]]
   auto createShaderModule(const vk::raii::Device& device,
-                          std::span<const unsigned char> code)
+                          std::span<const uint8_t> code)
       -> std::expected<vk::raii::ShaderModule, std::string> {
 
     vk::ShaderModuleCreateInfo createInfo{
@@ -27,9 +24,10 @@ namespace keptech::vkh {
   }
 
   auto Shader::create(const vk::raii::Device& device,
-                      const unsigned char* const code, size_t size)
+                      const std::span<const uint8_t> code)
       -> std::expected<Shader, std::string> {
-    auto shaderModule_res = createShaderModule(device, {code, size});
+    auto shaderModule_res =
+        createShaderModule(device, {code.data(), code.size()});
 
     if (!shaderModule_res) {
       return std::unexpected(shaderModule_res.error());

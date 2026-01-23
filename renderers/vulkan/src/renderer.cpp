@@ -67,7 +67,7 @@ namespace keptech::vkh {
       case Material::Stage::Deferred:
         lists.deferred.push_back(ro);
         break;
-      case Material::Stage::Forward:
+      case Material::Stage::Opaque:
         lists.forward.push_back(ro);
         break;
       case Material::Stage::Transparent:

@@ -123,20 +123,19 @@ namespace keptech::vkh {
   }
 
   namespace {
-    vk::ShaderStageFlagBits from(core::rendering::ShaderStages stages) {
+    vk::ShaderStageFlagBits from(shaders::ShaderStages stages) {
       switch (stages) {
-      case core::rendering::ShaderStages::Vertex:
+      case shaders::ShaderStages::Vertex:
         return vk::ShaderStageFlagBits::eVertex;
-      case core::rendering::ShaderStages::Fragment:
+      case shaders::ShaderStages::Fragment:
         return vk::ShaderStageFlagBits::eFragment;
-      case core::rendering::ShaderStages::Compute:
+      case shaders::ShaderStages::Compute:
         return vk::ShaderStageFlagBits::eCompute;
       }
     }
 
-    vk::ShaderStageFlags
-    from(core::Bitflag<core::rendering::ShaderStages> stages) {
-      using S = core::rendering::ShaderStages;
+    vk::ShaderStageFlags from(core::Bitflag<shaders::ShaderStages> stages) {
+      using S = shaders::ShaderStages;
       vk::ShaderStageFlags flags = {};
       if (stages.has(S::Vertex)) {
         flags = flags | vk::ShaderStageFlagBits::eVertex;
@@ -340,7 +339,7 @@ namespace keptech::vkh {
       }
 
       auto& meshHandle = meshRes.value();
-      meshHandles.emplace_back(std::move(meshHandle));
+      meshHandles.emplace_back(meshHandle);
       VK_DEBUG("Loaded mesh '{}' from glTF file '{}'", name, path);
     }
     VK_DEBUG("Loaded {} meshes from glTF file '{}'", meshHandles.size(), path);
@@ -395,45 +394,37 @@ namespace keptech::vkh {
   }
 
   std::expected<core::rendering::Material::Handle, std::string>
-  Renderer::createMaterial(std::string name, Material::CreateInfo createInfo) {
+  Renderer::createMaterial(Material::CreateInfo createInfo) {
     GraphicsPipelineConfig config;
-
-    std::vector<Shader> shaderModules;
 
     std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
 
-    for (auto& shaderInfo : createInfo.pipelineConfig.shaders) {
-      VKH_MAKE(shaderModule,
-               Shader::create(vkcore.device.logical, shaderInfo.code,
-                              shaderInfo.size),
-               "Failed to create shader module");
+    VKH_MAKE(shaderModule,
+             Shader::create(vkcore.device.logical, createInfo.shader.code),
+             "Failed to create shader module");
 
-      shaderModules.push_back(std::move(shaderModule));
+    for (auto& stage : createInfo.shader.stages) {
+      vk::PipelineShaderStageCreateInfo stageInfo{
+          .stage = from(stage.stage),
+          .module = shaderModule.get(),
+          .pName = stage.name, // NOLINT
+      };
 
-      auto& shder = shaderModules.back();
-
-      for (auto& stage : shaderInfo.stages) {
-        vk::PipelineShaderStageCreateInfo stageInfo{
-            .stage = from(stage.stage),
-            .module = shder.get(),
-            .pName = stage.name.data(), // NOLINT
-        };
-
-        shaderStages.push_back(stageInfo);
-      }
+      shaderStages.push_back(stageInfo);
     }
 
     config.shaders = shaderStages;
 
-    switch (createInfo.stage) {
-    case Material::Stage::Deferred: {
+    switch (createInfo.shader.mode) {
+    case shaders::RenderingMode::Deferred: {
       createInfo.pipelineConfig.attachments =
           deferredPipelineAttachmentConfig();
       break;
     }
-    case core::rendering::Material::Stage::Forward:
-    case core::rendering::Material::Stage::Transparent:
-      // TODO: Set renderer attachment config
+    case shaders::RenderingMode::Forward:
+      // TODO: Implement forward / transparent attechment defaults
+      break;
+    case shaders::RenderingMode::Custom:
       break;
     }
 
@@ -542,13 +533,26 @@ namespace keptech::vkh {
         .pipeline = std::move(pipeline),
         .pipelineLayout = std::move(pipelineLayout),
     };
-    mat.stage = createInfo.stage;
-    mat.name = name;
+
+    mat.mode = createInfo.shader.mode;
+    if (createInfo.shader.mode == shaders::RenderingMode::Deferred) {
+      mat.stage = keptech::core::rendering::Material::Stage::Deferred;
+    } else if (createInfo.shader.mode == shaders::RenderingMode::Forward) {
+      if (createInfo.pipelineConfig.blend.enableBlending) {
+        mat.stage = keptech::core::rendering::Material::Stage::Transparent;
+      } else {
+        mat.stage = keptech::core::rendering::Material::Stage::Opaque;
+      }
+    } else {
+      return std::unexpected("Unsupported shader rendering mode");
+    }
+
+    mat.name = createInfo.shader.name;
 
     auto handle = loadedMaterials.emplace(std::move(mat));
     core::rendering::Material::Handle materialHandle{handle};
 
-    VK_INFO("Created material '{}'", name);
+    VK_INFO("Created material '{}'", createInfo.shader.name);
 
     return materialHandle;
   }
@@ -560,11 +564,6 @@ namespace keptech::vkh {
   vkh::Material*
   Renderer::getMaterialData(const core::rendering::Material::Handle handle) {
     return loadedMaterials.get(handle);
-  }
-
-  std::expected<Shader, std::string>
-  Renderer::createShader(const unsigned char* const code, size_t size) {
-    return Shader::create(vkcore.device.logical, code, size);
   }
 
   std::expected<core::rendering::TextureHandle, std::string>

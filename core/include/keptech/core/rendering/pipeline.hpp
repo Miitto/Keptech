@@ -3,33 +3,15 @@
 #include "keptech/core/bitflag.hpp"
 #include "keptech/core/macros.hpp"
 #include "texture.hpp"
+#include <keptech/shaders/shader.h>
 #include <string_view>
 #include <vector>
 
-namespace keptech::core::rendering {
-  enum class ShaderStages : uint8_t {
-    Vertex = BIT(0),
-    Fragment = BIT(1),
-    Compute = BIT(2),
-  };
-}
+namespace keptech::core::rendering {}
 
-DEFINE_BITFLAG_ENUM_OPERATORS(keptech::core::rendering::ShaderStages)
+DEFINE_BITFLAG_ENUM_OPERATORS(keptech::shaders::ShaderStages)
 
 namespace keptech::core::rendering {
-  struct ShaderStage {
-    ShaderStages stage;
-    std::string_view name;
-  };
-
-  struct ShaderCreateInfo {
-    uint8_t const* code = nullptr;
-    size_t size = 0;
-    std::vector<ShaderStage> stages = {
-        {.stage = ShaderStages::Vertex, .name = "vert"},
-        {.stage = ShaderStages::Fragment, .name = "frag"}};
-  };
-
   struct AttachmentConfig {
     std::vector<Texture::Format> colorFormats = {};
     Texture::Format depthFormat = Texture::Format::Undefined;
@@ -100,8 +82,8 @@ namespace keptech::core::rendering {
   struct PushConstantRange {
     uint32_t offset = 0;
     uint32_t size = 0;
-    Bitflag<ShaderStages> stages =
-        ShaderStages::Vertex | ShaderStages::Fragment;
+    Bitflag<shaders::ShaderStages> stages =
+        shaders::ShaderStages::Vertex | shaders::ShaderStages::Fragment;
   };
 
   enum class DescriptorType : uint8_t {
@@ -121,8 +103,8 @@ namespace keptech::core::rendering {
   struct SetLayout {
     uint32_t binding;
     DescriptorType type;
-    Bitflag<ShaderStages> stages =
-        ShaderStages::Vertex | ShaderStages::Fragment;
+    Bitflag<shaders::ShaderStages> stages =
+        shaders::ShaderStages::Vertex | shaders::ShaderStages::Fragment;
   };
 
   struct LayoutConfig {
@@ -134,7 +116,6 @@ namespace keptech::core::rendering {
   };
 
   struct PipelineCreateInfo {
-    std::vector<ShaderCreateInfo> shaders;
     AttachmentConfig attachments = {};
     Topology topology = Topology::TriangleList;
     RasterizerConfig rasterizer = {};

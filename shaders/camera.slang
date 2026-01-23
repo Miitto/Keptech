@@ -12,27 +12,27 @@ public namespace keptech {
     float4x4 inverseViewProjectionMatrix;
 
     public float4 worldToCamera(float4 worldPosition) {
-      return mul(viewMatrix, worldPosition);
+      return mul(worldPosition, viewMatrix);
     }
 
     public float4 cameraToWorld(float4 cameraPosition) {
-      return mul(inverseViewMatrix, cameraPosition);
+      return mul(cameraPosition, inverseViewMatrix);
     }
 
     public float4 cameraToClip(float4 cameraPosition) {
-      return mul(projectionMatrix, cameraPosition);
+      return mul(cameraPosition, projectionMatrix);
     }
 
     public float4 clipToCamera(float4 clipPosition) {
-      return mul(inverseProjectionMatrix, clipPosition);
+      return mul(clipPosition, inverseProjectionMatrix);
     }
 
     public float4 worldToClip(float4 worldPosition) {
-      return mul(viewProjectionMatrix, worldPosition);
+      return mul(worldPosition, viewProjectionMatrix);
     }
 
     public float4 clipToWorld(float4 clipPosition) {
-      return mul(inverseViewProjectionMatrix, clipPosition);
+      return mul(clipPosition, inverseViewProjectionMatrix);
     }
 
     public float3 position() {

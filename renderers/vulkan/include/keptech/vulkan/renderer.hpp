@@ -203,7 +203,7 @@ namespace keptech::vkh {
     }
 
     std::expected<core::rendering::Material::Handle, std::string>
-    createMaterial(std::string name, Material::CreateInfo createInfo);
+    createMaterial(Material::CreateInfo createInfo);
 
     void unloadMaterial(const core::rendering::Material::Handle handle);
 
@@ -226,9 +226,6 @@ namespace keptech::vkh {
         func(handle, *material);
       }
     }
-
-    std::expected<Shader, std::string>
-    createShader(const unsigned char* const code, size_t size);
 
     std::expected<core::rendering::TextureHandle, std::string>
     createTexture(glm::uvec3 size, core::rendering::Texture::Format format,

@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.15..4.0)
 
-project(imgui LANGUAGES CXX)
+project(ktimgui LANGUAGES CXX)
 
-add_library(imgui)
-add_library(imgui::imgui ALIAS imgui)
+add_library(ktimgui)
+add_library(imgui::imgui ALIAS ktimgui)
 
-target_sources(imgui PRIVATE
+target_sources(ktimgui PRIVATE
   imgui/imgui.cpp
   imgui/imgui_demo.cpp
   imgui/imgui_draw.cpp
@@ -25,7 +25,7 @@ target_sources(imgui PRIVATE
 )
 
 include(sdl)
-link_sdl(imgui PUBLIC)
+link_sdl(ktimgui PUBLIC)
 
 if (USE_VULKAN)
   include(vulkan)
@@ -34,11 +34,11 @@ if (USE_VULKAN)
 endif()
 
 # Disable warnings
-target_compile_options(imgui PRIVATE
+target_compile_options(ktimgui PRIVATE
   $<$<CXX_COMPILER_ID:MSVC>:/W0>
   $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wno-everything>
 )
 
-set_target_properties(imgui PROPERTIES
+set_target_properties(ktimgui PROPERTIES
   CXX_CLANG_TIDY ""
 )

@@ -14,15 +14,16 @@ namespace keptech::core::rendering {
     using SmartHandle =
         core::SlotMapSmartHandle<_priv::MaterialHandleDifferentiator>;
 
-    enum class Stage : uint8_t { Deferred, Forward, Transparent };
+    enum class Stage : uint8_t { Deferred, Opaque, Transparent };
 
     struct CreateInfo {
-      Stage stage = Stage::Deferred;
-      PipelineCreateInfo pipelineConfig;
+      const keptech::shaders::Shader& shader; // NOLINT
+      PipelineCreateInfo pipelineConfig{};
     };
 
     std::string name;
     Stage stage;
+    shaders::RenderingMode mode;
   };
 } // namespace keptech::core::rendering
 
@@ -37,8 +38,8 @@ struct fmt::formatter<keptech::core::rendering::Material::Stage>
     case keptech::core::rendering::Material::Stage::Deferred:
       name = "Deferred";
       break;
-    case keptech::core::rendering::Material::Stage::Forward:
-      name = "Forward";
+    case keptech::core::rendering::Material::Stage::Opaque:
+      name = "Opaque";
       break;
     case keptech::core::rendering::Material::Stage::Transparent:
       name = "Transparent";
