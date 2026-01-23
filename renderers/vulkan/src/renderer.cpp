@@ -204,9 +204,9 @@ namespace keptech::vkh {
     vkcore.device.logical.waitIdle();
     ongoingCommandBuffers.clear();
 
-    vkcore.gBuffer.color.destroy(vkcore.allocator, vkcore.device.logical);
-    vkcore.gBuffer.normal.destroy(vkcore.allocator, vkcore.device.logical);
-    vkcore.gBuffer.depth.destroy(vkcore.allocator, vkcore.device.logical);
+    gBuffer.color.destroy(vkcore.allocator, vkcore.device.logical);
+    gBuffer.normal.destroy(vkcore.allocator, vkcore.device.logical);
+    gBuffer.depth.destroy(vkcore.allocator, vkcore.device.logical);
 
     for (auto& frame : vkcore.perFrame)
       frame.instanceBuffers.destroy(vkcore.allocator);
@@ -214,8 +214,7 @@ namespace keptech::vkh {
     loadedMeshes.reset();
     loadedMaterials.reset();
 
-    cameraObjects.descriptorSet.release(); // The pool destructor will free this
-    cameraObjects.uniformBuffer.destroy(vkcore.allocator);
+    cameraBuffer.destroy(vkcore.allocator);
 
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL3_Shutdown();

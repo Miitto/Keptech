@@ -108,7 +108,6 @@ namespace keptech::core::rendering {
   };
 
   struct LayoutConfig {
-    bool useCamera = true;
     bool useVertexBuffer = true;
     bool useModelMatrix = true;
     std::vector<SetLayout> setLayouts = {};

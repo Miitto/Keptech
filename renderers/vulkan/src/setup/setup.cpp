@@ -3,6 +3,7 @@
 #include "keptech/vulkan/renderer.hpp"
 #include "setup/core.hpp"
 
+#include "descriptors.hpp"
 #include "imgui.hpp"
 #include "keptech/core/window.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
@@ -13,40 +14,25 @@
 #include <SDL3/SDL_vulkan.h>
 #include <expected>
 #include <keptech/core/components/camera.hpp>
+#include <keptech/core/maths/maths.hpp>
 
 namespace keptech::vkh::setup {
   using namespace keptech::vkh;
 
-  std::expected<Renderer::CameraObjects, std::string>
-  createCameraObjects(const vk::raii::Device& device,
-                      vma::Allocator& allocator) {
-    vk::DescriptorPoolSize poolSize{
-        .type = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = 1,
-    };
-    VK_MAKE(descPool,
-            device.createDescriptorPool(
-                {.maxSets = 1, .poolSizeCount = 1, .pPoolSizes = &poolSize}),
-            "Faild to create camera "
-            "descriptor pool.");
+  std::expected<AllocatedBuffer, std::string>
+  createCameraObjects(const vk::raii::Device& device, vma::Allocator& allocator,
+                      DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>& descriptors) {
 
-    DescriptorLayoutBuilder layoutBuilder;
-    layoutBuilder.addBinding(0, vk::DescriptorType::eUniformBuffer,
-                             vk::ShaderStageFlagBits::eAll);
-    VKH_MAKE(descLayout, layoutBuilder.build(device, nullptr),
-             "Failed to create camera descriptor layout.");
-
-    VK_MAKE(descSet,
-            device.allocateDescriptorSets({.descriptorPool = *descPool,
-                                           .descriptorSetCount = 1,
-                                           .pSetLayouts = &*descLayout}),
-            "Failed to allocate camera descriptor set.");
+    auto sizeSingleCameraUniform = sizeof(components::Camera::Uniforms);
+    auto paddedSize =
+        keptech::core::maths::roundToAlignment(sizeSingleCameraUniform, 256);
+    auto totalSize = paddedSize + sizeSingleCameraUniform;
 
     VKH_MAKE(uniformBuffer,
              AllocatedBuffer::create(
                  allocator,
                  {
-                     .size = sizeof(components::Camera::Uniforms),
+                     .size = totalSize,
                      .usage = vk::BufferUsageFlagBits::eUniformBuffer,
                      .sharingMode = vk::SharingMode::eExclusive,
                  },
@@ -56,26 +42,22 @@ namespace keptech::vkh::setup {
                  }),
              "Failed to create camera uniform buffer.");
 
-    DescriptorWriter descWriter{};
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+      auto& descriptor = descriptors.sets[i];
+      DescriptorWriter descWriter{};
 
-    descWriter.writeBuffer(0,
-                           vk::DescriptorBufferInfo{
-                               .buffer = uniformBuffer.buffer,
-                               .offset = 0,
-                               .range = sizeof(components::Camera::Uniforms),
-                           },
-                           DescriptorWriter::BufferType::Uniform);
+      descWriter.writeBuffer(0,
+                             vk::DescriptorBufferInfo{
+                                 .buffer = uniformBuffer.buffer,
+                                 .offset = i * paddedSize,
+                                 .range = sizeof(components::Camera::Uniforms),
+                             },
+                             DescriptorWriter::BufferType::Uniform);
 
-    descWriter.update(device, *descSet.front());
+      descWriter.update(device, descriptor);
+    }
 
-    Renderer::CameraObjects cameraObjects{
-        .layout = std::move(descLayout),
-        .pool = std::move(descPool),
-        .descriptorSet = std::move(descSet.front()),
-        .uniformBuffer = uniformBuffer,
-    };
-
-    return std::move(cameraObjects);
+    return uniformBuffer;
   }
 } // namespace keptech::vkh::setup
 
@@ -88,17 +70,30 @@ namespace keptech::vkh {
     VKH_MAKE(vkcore, createVulkanCore(createInfo, window),
              "Failed to create Vulkan core.");
 
+    VKH_MAKE(gBuffer,
+             createGBuffer(vkcore.allocator, vkcore.device.logical,
+                           vkcore.device.physical,
+                           vkcore.swapchain.config().extent),
+             "Failed to create GBuffer.");
+
+    VKH_MAKE(globalDescriptorSets,
+             createGlobalDescriptors(vkcore.device.logical),
+             "Failed to create global descriptor sets.");
+
     VKH_MAKE(cameraObjects,
-             createCameraObjects(vkcore.device.logical, vkcore.allocator),
+             createCameraObjects(vkcore.device.logical, vkcore.allocator,
+                                 globalDescriptorSets),
              "Failed to create camera objects.");
 
-    VKH_MAKE(imguiObjects, keptech::vkh::setup::setupImGui(window, vkcore),
+    VKH_MAKE(imguiObjects,
+             keptech::vkh::setup::setupImGui(window, vkcore, gBuffer),
              "Failed to create ImGui Vulkan objects.");
 
     VK_DEBUG("Vulkan renderer created successfully.");
 
-    Renderer r{window, std::move(vkcore), std::move(imguiObjects),
-               std::move(cameraObjects)};
+    Renderer r{
+        window,        std::move(vkcore), std::move(imguiObjects),
+        cameraObjects, gBuffer,           std::move(globalDescriptorSets)};
 
     return std::move(r);
   }

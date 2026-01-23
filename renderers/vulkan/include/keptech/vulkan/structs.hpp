@@ -6,6 +6,12 @@
 
 namespace keptech::vkh {
 
+  template <size_t N> struct DescriptorPoolSet {
+    vk::raii::DescriptorPool pool;
+    vk::raii::DescriptorSetLayout layout;
+    std::array<vk::raii::DescriptorSet, N> sets;
+  };
+
   struct Queue {
     uint32_t index;
     std::shared_ptr<vk::raii::Queue> queue;

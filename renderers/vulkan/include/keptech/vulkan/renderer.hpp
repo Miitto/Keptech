@@ -108,7 +108,6 @@ namespace keptech::vkh {
       vma::Allocator allocator;
       Queues queues;
       Swapchain swapchain;
-      GBuffers gBuffer;
       std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame;
       CommandPool transferPool;
     };
@@ -125,13 +124,6 @@ namespace keptech::vkh {
       ImGuiGBufferHandles gBufferHandles;
     };
 
-    struct CameraObjects {
-      vk::raii::DescriptorSetLayout layout;
-      vk::raii::DescriptorPool pool;
-      vk::raii::DescriptorSet descriptorSet;
-      AllocatedBuffer uniformBuffer;
-    };
-
     struct Frame {
       constexpr static uint8_t INVALID_INDEX = 255;
 
@@ -143,10 +135,13 @@ namespace keptech::vkh {
 
   private:
     Renderer(const core::window::Window& window, VulkanCore&& vkcore,
-             ImGuiVkObjects&& imGuiObjects, CameraObjects&& cameraObjects)
+             ImGuiVkObjects&& imGuiObjects, AllocatedBuffer cameraBuffer,
+             GBuffers gBuffer,
+             DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>&& globalDescriptorSets)
         : window(&window), vkcore(std::move(vkcore)),
-          imGuiObjects(std::move(imGuiObjects)),
-          cameraObjects(std::move(cameraObjects)) {}
+          imGuiObjects(std::move(imGuiObjects)), cameraBuffer(cameraBuffer),
+          gBuffer(gBuffer),
+          globalDescriptorSets(std::move(globalDescriptorSets)) {}
 
   public:
     std::expected<Renderer, std::string> static create(
@@ -168,8 +163,7 @@ namespace keptech::vkh {
     }
 
     inline const glm::vec2 getGBufferSize() const {
-      return glm::vec2{vkcore.gBuffer.color.extent.width,
-                       vkcore.gBuffer.color.extent.height};
+      return glm::vec2{gBuffer.color.extent.width, gBuffer.color.extent.height};
     }
 
     inline const ImGuiGBufferHandles& getImGuiGBufferHandles() const {
@@ -262,19 +256,27 @@ namespace keptech::vkh {
       std::vector<VkRenderObject> transparent;
     };
 
+    struct PrimaryDrawData {
+      ObjectLists objLists;
+      components::Camera* camera = nullptr;
+      components::Transform* cameraTransform = nullptr;
+    };
+
     ObjectLists buildRenderObjectLists(core::Scene& scene,
                                        const maths::Frustum& frustum);
-
-    std::expected<void, std::string> recreateSwapchain();
-
-    Frame startFrame();
     void
     setupGraphicsCommandBuffer(const Frame& info,
                                const vk::raii::CommandBuffer& graphicsCmdBuffer,
                                const components::Camera& camera);
+
+    std::expected<void, std::string> recreateSwapchain();
+
+    Frame startFrame();
+    PrimaryDrawData setupFrameData(const Frame& info,
+                                   vk::raii::CommandBuffer& graphicsCmdBuffer);
     void imagesToRenderable(const Frame& info,
                             const vk::raii::CommandBuffer& graphicsCmdBuffer);
-    void drawDeferred(const Frame& info,
+    void drawDeferred(const Frame& info, const PrimaryDrawData& drawData,
                       const vk::raii::CommandBuffer& graphicsCmdBuffer);
     void gBufferToAttachments(const Frame& info,
                               const vk::raii::CommandBuffer& graphicsCmdBuffer);
@@ -306,7 +308,12 @@ namespace keptech::vkh {
     const core::window::Window* window;
     VulkanCore vkcore;
     ImGuiVkObjects imGuiObjects;
-    CameraObjects cameraObjects;
+
+    DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
+
+    AllocatedBuffer cameraBuffer;
+
+    GBuffers gBuffer;
 
     std::array<std::vector<vk::raii::CommandBuffer>, MAX_FRAMES_IN_FLIGHT>
         submittedCommandBuffers;

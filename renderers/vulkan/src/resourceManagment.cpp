@@ -511,8 +511,7 @@ namespace keptech::vkh {
       }
     }
 
-    if (createInfo.pipelineConfig.layout.useCamera)
-      config.layout.setLayouts.push_back(cameraObjects.layout);
+    config.layout.setLayouts.push_back(globalDescriptorSets.layout);
 
     // TODO: User Descriptor sets
 

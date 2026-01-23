@@ -163,17 +163,24 @@ namespace keptech::vkh::setup {
         vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
         vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
-        ENGINE_DEVICE_EXTENSIONS = {{},
-                                    {.shaderDrawParameters = true},
-                                    {
-                                        .descriptorIndexing = true,
-                                        .bufferDeviceAddress = true,
-                                    },
-                                    {
-                                        .synchronization2 = true,
-                                        .dynamicRendering = true,
-                                    },
-                                    {.extendedDynamicState = true}};
+        ENGINE_DEVICE_EXTENSIONS = {
+            {},
+            {
+                .shaderDrawParameters = true,
+            },
+            {
+                .descriptorIndexing = true,
+                .descriptorBindingUniformBufferUpdateAfterBind = true,
+                .descriptorBindingSampledImageUpdateAfterBind = true,
+                .descriptorBindingPartiallyBound = true,
+                .bufferDeviceAddress = true,
+            },
+            {
+                .synchronization2 = true,
+                .dynamicRendering = true,
+            },
+            {.extendedDynamicState = true},
+        };
 
     vk::DeviceCreateInfo deviceCreateInfo{
         .pNext =

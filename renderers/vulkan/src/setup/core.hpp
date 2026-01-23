@@ -128,11 +128,6 @@ namespace keptech::vkh::setup {
                              surface, queues, std::nullopt),
              "Failed to create swapchain.");
 
-    VKH_MAKE(
-        gBuffer,
-        createGBuffer(allocator, device, physDevice, swapchain.config().extent),
-        "Failed to create GBuffer.");
-
     VK_MAKE(transferPool,
             device.createCommandPool(vk::CommandPoolCreateInfo{
                 .flags = vk::CommandPoolCreateFlagBits::eTransient,
@@ -176,7 +171,6 @@ namespace keptech::vkh::setup {
         .allocator = allocator,
         .queues = std::move(queues),
         .swapchain = std::move(swapchain),
-        .gBuffer = gBuffer,
         .perFrame = {Renderer::PerFrame{
                          .inFlightFence = std::move(fence1),
                          .imageAvailableSemaphore = std::move(sem1),

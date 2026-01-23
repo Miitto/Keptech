@@ -1,6 +1,6 @@
 import keptech;
 
-#include "keptech/cameraUniform.slang"
+#include "keptech/globals.slang"
 
 struct Vertex {
   float3 position;
