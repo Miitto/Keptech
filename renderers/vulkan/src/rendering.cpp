@@ -322,7 +322,8 @@ namespace keptech::vkh {
 
       {
         size_t offset = 0;
-        for (auto& obj : drawData.objLists.deferred) {
+
+        auto writeInstanceData = [&](const VkRenderObject& obj) {
           InstanceData data{
               .modelMatrix = obj.transform.toMatrix(),
           };
@@ -330,36 +331,48 @@ namespace keptech::vkh {
           memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
                  &data, sizeof(InstanceData));
           offset += sizeof(InstanceData);
-          size_t extraDataSize = obj.pipeline->extraInstanceDataSize;
-          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
-                 obj.instanceData.data(), extraDataSize);
-          offset += extraDataSize;
+
+          if (obj.materialComp->instanceData.size() !=
+              obj.pipeline->instanceDataTypes.size()) {
+            VK_ERROR("Instance data size mismatch for object with pipeline "
+                     "'{}'.",
+                     obj.pipeline->name);
+            VK_ERROR("Pipeline expects:");
+            for (auto& type : obj.pipeline->instanceDataTypes) {
+              VK_ERROR(" - {}", type);
+            }
+            VK_ERROR("Object provided:");
+            for (auto& data : obj.materialComp->instanceData) {
+              VK_ERROR(" - {}", data);
+            }
+            abort();
+          }
+
+          uint8_t* stagingPtr =
+              info.perFrame.get().instanceBuffers.staging.mapping() + offset;
+          for (size_t i = 0; i < obj.pipeline->instanceDataTypes.size(); ++i) {
+            auto dataType = obj.pipeline->instanceDataTypes[i];
+            switch (dataType) {
+            case core::rendering::InstanceDataType::TextureIndex: {
+              auto handle = std::get<core::rendering::TextureHandle>(
+                  obj.materialComp->instanceData[i]);
+              auto indexOpt = loadedTextures.indexOf(handle);
+              uint32_t index = indexOpt.has_value() ? indexOpt.value() : 0;
+              memcpy(stagingPtr + offset, &index, sizeof(uint32_t));
+              offset += sizeof(uint32_t);
+            } break;
+            }
+          }
+        };
+
+        for (auto& obj : drawData.objLists.deferred) {
+          writeInstanceData(obj);
         }
         for (auto& obj : drawData.objLists.forward) {
-          InstanceData data{
-              .modelMatrix = obj.transform.toMatrix(),
-          };
-
-          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
-                 &data, sizeof(InstanceData));
-          offset += sizeof(InstanceData);
-          size_t extraDataSize = obj.pipeline->extraInstanceDataSize;
-          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
-                 obj.instanceData.data(), extraDataSize);
-          offset += extraDataSize;
+          writeInstanceData(obj);
         }
         for (auto& obj : drawData.objLists.transparent) {
-          InstanceData data{
-              .modelMatrix = obj.transform.toMatrix(),
-          };
-
-          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
-                 &data, sizeof(InstanceData));
-          offset += sizeof(InstanceData);
-          size_t extraDataSize = obj.pipeline->extraInstanceDataSize;
-          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
-                 obj.instanceData.data(), extraDataSize);
-          offset += extraDataSize;
+          writeInstanceData(obj);
         }
       }
 

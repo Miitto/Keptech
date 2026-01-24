@@ -5,6 +5,7 @@
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include "keptech/vulkan/material.hpp"
 #include "keptech/vulkan/mesh.hpp"
+#include "keptech/vulkan/texture.hpp"
 #include <algorithm>
 #include <expected>
 #include <functional>
@@ -41,6 +42,7 @@ namespace keptech::vkh {
     using Shader = keptech::vkh::Shader;
     using Mesh = vkh::Mesh;
     using Pipeline = vkh::LoadedPipeline;
+    using Texture = vkh::Texture;
 
     static inline constexpr const char* getName() { return "VulkanRenderer"; }
 
@@ -220,14 +222,30 @@ namespace keptech::vkh {
     }
 
     std::expected<core::rendering::TextureHandle, std::string>
-    createTexture(glm::uvec3 size, core::rendering::Texture::Format format,
+    createTexture(std::string name, glm::uvec3 size,
+                  core::rendering::Texture::Format format,
                   core::Bitflag<core::rendering::Texture::Usage> usage,
                   uint32_t mipLevels, bool cpuAccess = false,
                   const void* data = nullptr);
     std::expected<core::rendering::TextureHandle, std::string>
-    createTexture(const core::Image& image,
+    createTexture(std::string name, const core::Image& image,
                   core::rendering::Texture::Usage usage,
                   bool cpuAccess = false);
+
+    core::rendering::Texture*
+    getTextureData(const core::rendering::TextureHandle handle) {
+      return loadedTextures.get(handle);
+    }
+    template <typename Func>
+    void operateOnAllTextures(Func func)
+      requires(std::is_invocable_v<Func, core::rendering::TextureHandle,
+                                   vkh::Texture&>)
+    {
+      for (auto handle : loadedTextures.handles()) {
+        auto tex = loadedTextures.get(handle);
+        func(handle, *tex);
+      }
+    }
 
     void newFrame();
 
@@ -244,9 +262,9 @@ namespace keptech::vkh {
 
     struct VkRenderObject {
       keptech::maths::Transform transform;
-      vkh::LoadedPipeline* pipeline = nullptr;
-      vkh::Mesh* mesh = nullptr;
-      std::span<uint8_t> instanceData;
+      vkh::LoadedPipeline* pipeline;
+      vkh::Mesh* mesh;
+      components::Material* materialComp;
     };
 
     struct ObjectLists {
@@ -323,7 +341,7 @@ namespace keptech::vkh {
 
     core::SlotMap<vkh::Mesh> loadedMeshes = {};
     core::SlotMap<vkh::LoadedPipeline> loadedPipelines = {};
-    core::SlotMap<AllocatedImage> loadedTextures = {};
+    core::SlotMap<vkh::Texture> loadedTextures = {};
 
     core::Scene* frameScene = nullptr;
   };

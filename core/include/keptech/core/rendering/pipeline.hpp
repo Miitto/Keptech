@@ -5,6 +5,7 @@
 #include <keptech/shaders/shader.h>
 #include <spdlog/fmt/bundled/format.h>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace keptech::core::rendering {}
@@ -107,12 +108,16 @@ namespace keptech::core::rendering {
         shaders::ShaderStages::Vertex | shaders::ShaderStages::Fragment;
   };
 
+  enum class InstanceDataType : uint8_t {
+    TextureIndex,
+  };
+
   struct LayoutConfig {
     bool useVertexBuffer = true;
     bool useModelMatrix = true;
     std::vector<SetLayout> setLayouts = {};
     std::vector<PushConstantRange> pushConstantRanges = {};
-    uint32_t extraInstanceDataSize = 0;
+    std::vector<InstanceDataType> instanceDataTypes = {};
   };
 
   struct PipelineCreateInfo {
@@ -133,6 +138,8 @@ namespace keptech::core::rendering {
     using SmartHandle =
         core::SlotMapSmartHandle<_priv::PipelineHandleDifferentiator>;
 
+    using InstanceData = std::variant<core::rendering::TextureHandle>;
+
     struct CreateInfo {
       const keptech::shaders::Shader& shader; // NOLINT
       PipelineCreateInfo pipelineConfig{};
@@ -143,6 +150,7 @@ namespace keptech::core::rendering {
     std::string name;
     Stage stage;
     shaders::RenderingMode mode;
+    std::vector<InstanceDataType> instanceDataTypes = {};
   };
 } // namespace keptech::core::rendering
 
@@ -163,6 +171,42 @@ struct fmt::formatter<keptech::core::rendering::Pipeline::Stage>
       break;
     case S::Transparent:
       name = "Transparent";
+      break;
+    }
+    return fmt::formatter<std::string_view>::format(name, ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<keptech::core::rendering::InstanceDataType>
+    : fmt::formatter<std::string_view> {
+  template <typename FormatContext>
+  auto format(const keptech::core::rendering::InstanceDataType t,
+              FormatContext& ctx) const {
+    using S = keptech::core::rendering::InstanceDataType;
+    std::string_view name = "";
+    switch (t) {
+    case S::TextureIndex:
+      name = "TextureIndex";
+      break;
+    }
+    return fmt::formatter<std::string_view>::format(name, ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<keptech::core::rendering::Pipeline::InstanceData>
+    : fmt::formatter<std::string_view> {
+  template <typename FormatContext>
+  auto format(const keptech::core::rendering::Pipeline::InstanceData& t,
+              FormatContext& ctx) const {
+    using S = keptech::core::rendering::InstanceDataType;
+    std::string_view name = "";
+    switch (t.index()) {
+    case static_cast<size_t>(S::TextureIndex):
+      name = "TextureIndex";
+      break;
+    default:
       break;
     }
     return fmt::formatter<std::string_view>::format(name, ctx);

@@ -15,6 +15,7 @@
 #include <keptech/core/renderer.hpp>
 #include <keptech/core/rendering/gltf/loaded.hpp>
 #include <keptech/core/window.hpp>
+#include <utility>
 #include <vk_mem_alloc_structs.hpp>
 
 namespace keptech::vkh {
@@ -543,8 +544,17 @@ namespace keptech::vkh {
 
     mat.name = createInfo.shader.name;
 
-    mat.extraInstanceDataSize =
-        createInfo.pipelineConfig.layout.extraInstanceDataSize;
+    mat.extraInstanceDataSize = 0;
+    for (auto& instanceDataType :
+         createInfo.pipelineConfig.layout.instanceDataTypes) {
+      switch (instanceDataType) {
+      case core::rendering::InstanceDataType::TextureIndex:
+        mat.extraInstanceDataSize += sizeof(uint32_t);
+        break;
+      }
+    }
+    mat.instanceDataTypes =
+        std::move(createInfo.pipelineConfig.layout.instanceDataTypes);
 
     auto handle = loadedPipelines.emplace(std::move(mat));
     core::rendering::Pipeline::Handle materialHandle{handle};
@@ -564,7 +574,7 @@ namespace keptech::vkh {
   }
 
   std::expected<core::rendering::TextureHandle, std::string>
-  Renderer::createTexture(glm::uvec3 size,
+  Renderer::createTexture(std::string name, glm::uvec3 size,
                           core::rendering::Texture::Format format,
                           core::Bitflag<core::rendering::Texture::Usage> usage,
                           uint32_t mipLevels, bool cpuAccess,
@@ -611,15 +621,21 @@ namespace keptech::vkh {
             vkcore.device.logical.createImageView(imageViewCreateInfo),
             "Failed to create image view.");
 
-    AllocatedImage allocatedImage{
-        .image = vkImg.first,
-        .view = imageView,
-        .alloc = vkImg.second,
-        .extent = {.width = size.x, .height = size.y, .depth = size.z},
-        .format = imageCreateInfo.format,
+    vkh::Texture tex{
+        .image =
+            AllocatedImage{
+                .image = vkImg.first,
+                .view = imageView,
+                .alloc = vkImg.second,
+                .extent = {.width = size.x, .height = size.y, .depth = size.z},
+                .format = imageCreateInfo.format,
+            },
     };
 
-    auto handle = loadedTextures.emplace(allocatedImage);
+    tex.name = std::move(name);
+    tex.format = format;
+
+    auto handle = loadedTextures.emplace(tex);
 
     return core::rendering::TextureHandle(handle);
   }

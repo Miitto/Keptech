@@ -4,6 +4,7 @@
 #include "keptech/core/components/transform.hpp"
 #include "keptech/core/slotmap.hpp"
 #include "keptech/ecs/entity.hpp"
+#include <filesystem>
 #include <imgui/misc/cpp/imgui_stdlib.h>
 
 #include <spdlog/fmt/bundled/format.h>
@@ -65,11 +66,44 @@ void MaterialEditorLayer::initMeta() {
   metaFunc<keptech::components::Material>();
 }
 
+namespace {
+  using Directory = MaterialEditorLayer::Directory;
+  using File = MaterialEditorLayer::File;
+  MaterialEditorLayer::Directory
+  parseDirectory(const std::filesystem::path& path) {
+    Directory dir;
+
+    dir.name = path.filename().string();
+
+    for (const auto& entry : std::filesystem::directory_iterator(path)) {
+      if (entry.is_directory()) {
+        dir.directories.push_back(parseDirectory(entry.path()));
+      } else if (entry.is_regular_file()) {
+        File file;
+        file.name = entry.path().filename().string();
+        auto ext = entry.path().extension().string();
+        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") {
+          file.type = MaterialEditorLayer::FileType::Image;
+        } else if (ext == ".glb" || ext == ".gltf") {
+          file.type = MaterialEditorLayer::FileType::Mesh;
+        } else {
+          file.type = MaterialEditorLayer::FileType::Unknown;
+        }
+        dir.files.push_back(file);
+      }
+    }
+
+    return dir;
+  }
+} // namespace
+
 MaterialEditorLayer::MaterialEditorLayer(KEPTECH_RENDERER& renderer,
                                          keptech::core::Scene&& scene)
     : keptech::core::layers::Layer("MaterialEditorLayer"), renderer(renderer),
       scene(std::move(scene)), orbitController(this->scene.getActiveCamera()) {
   renderer.setScene(this->scene);
+
+  refreshAssetsDirectory();
 }
 
 void MaterialEditorLayer::onUpdate(keptech::core::Timestep ts) {
@@ -430,6 +464,19 @@ void MaterialEditorLayer::drawSelectedProperties() {
             propertiesPanel.separatorText(label.c_str());
             pipelineInspectorUi(propertiesPanel, *materialPtr);
           },
+          [&](keptech::core::rendering::TextureHandle textureHandle) {
+            auto texturePtr = renderer.getTextureData(textureHandle);
+            if (texturePtr == nullptr) {
+              propertiesPanel.separatorText("Invalid Texture");
+              return;
+            }
+
+            auto label = fmt::format("Texture: {}", texturePtr->name);
+            propertiesPanel.separatorText(label.c_str());
+            std::string formatStr =
+                fmt::format("Format: {}", texturePtr->format);
+            propertiesPanel.text(formatStr.c_str());
+          },
       },
       selectedItem);
 }
@@ -488,12 +535,83 @@ void MaterialEditorLayer::drawEntityProperties(
   }
 }
 
+#ifndef NDEBUG
+namespace {
+  void printDirectory(const MaterialEditorLayer::Directory& dir, size_t depth) {
+    std::string indent(depth * 2, ' ');
+    SPDLOG_INFO("{}{}", indent, dir.name);
+    for (auto& d : dir.directories)
+      printDirectory(d, depth + 1);
+
+    std::string fileIndent((depth + 1) * 2, ' ');
+    for (const auto& file : dir.files) {
+      SPDLOG_INFO("{}{}", fileIndent, file.name);
+    }
+  }
+} // namespace
+#endif
+
+void MaterialEditorLayer::refreshAssetsDirectory() {
+  assetsRootDir = parseDirectory(ASSET_DIR);
+  assetsRootDir.name = "Assets";
+
+#ifndef NDEBUG
+  printDirectory(assetsRootDir, 0);
+#endif
+}
+
+void MaterialEditorLayer::drawAssetsDirectory(keptech::gui::Frame& frame,
+                                              const Directory& directory,
+                                              float depth) {
+  if (directory.name.empty())
+    return;
+  ImGui::PushID(directory.name.c_str());
+
+  ImGui::Unindent();
+  ImGui::Indent(depth * 7.f);
+  if (ImGui::TreeNodeEx(directory.name.c_str(),
+                        ImGuiTreeNodeFlags_SpanFullWidth |
+                            ImGuiTreeNodeFlags_FramePadding |
+                            ImGuiTreeNodeFlags_DrawLinesFull)) {
+
+    for (const auto& dir : directory.directories) {
+      drawAssetsDirectory(frame, dir, depth + 1);
+    }
+
+    ImGui::Unindent();
+    ImGui::Indent(depth * 7.f);
+    for (const auto& file : directory.files) {
+      if (file.name.empty())
+        continue;
+      ImGui::PushID(file.name.c_str());
+      ImGui::TreeNodeEx(file.name.c_str(),
+                        ImGuiTreeNodeFlags_Leaf |
+                            ImGuiTreeNodeFlags_NoTreePushOnOpen |
+                            ImGuiTreeNodeFlags_SpanFullWidth);
+      ImGui::PopID();
+    }
+
+    ImGui::TreePop();
+  }
+  ImGui::PopID();
+}
+
 void MaterialEditorLayer::drawAssetsPanel() {
   auto assetsPanel = keptech::gui::Frame("Assets", nullptr,
                                          ImGuiWindowFlags_NoDecoration |
                                              ImGuiWindowFlags_NoMove);
   if (!assetsPanel.isOpen())
     return;
+
+  if (ImGui::BeginPopupContextWindow()) {
+    if (ImGui::Button("Refresh")) {
+      refreshAssetsDirectory();
+      ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+  }
+
+  drawAssetsDirectory(assetsPanel, assetsRootDir, 0);
 }
 
 void MaterialEditorLayer::drawLoadedAssetsPanel() {
@@ -567,6 +685,22 @@ void MaterialEditorLayer::drawLoadedAssetsPanel() {
 
       } break;
       case AssetType::Texture:
+        renderer.operateOnAllTextures(
+            [&](keptech::core::rendering::TextureHandle handle,
+                KEPTECH_RENDERER::Texture& tex) {
+              ImGui::TableNextColumn();
+
+              bool selected = false;
+              if (selectedItem.index() == 3) {
+                selected = std::get<keptech::core::rendering::TextureHandle>(
+                               selectedItem) == handle;
+              }
+
+              if (child.selectable(tex.name.c_str(), selected)) {
+                selectedItem = handle;
+              }
+            });
+
         break;
       }
       ImGui::EndTable();
@@ -614,24 +748,52 @@ void MaterialEditorLayer::materialInspectorUi(
 
   frame.separatorText("Material");
 
-  auto pipelinePtr = renderer.getPipelineData(material.pipeline);
+  if (ImGui::CollapsingHeader("Pipeline##header")) {
+    auto pipelinePtr = renderer.getPipelineData(material.pipeline);
 
-  const char* pipelineName =
-      (pipelinePtr != nullptr) ? pipelinePtr->name.c_str() : "";
+    const char* pipelineName =
+        (pipelinePtr != nullptr) ? pipelinePtr->name.c_str() : "";
 
-  {
-    auto combo = frame.combo("Pipeline", pipelineName);
-    renderer.operateOnAllPipelines(
-        [&](keptech::core::rendering::Pipeline::Handle handle,
-            KEPTECH_RENDERER::Pipeline& m) {
-          if (combo.item(m.name.c_str(), material.pipeline == handle)) {
-            material.pipeline = handle;
-          }
-        });
+    {
+      auto combo = frame.combo("Pipeline", pipelineName);
+      renderer.operateOnAllPipelines(
+          [&](keptech::core::rendering::Pipeline::Handle handle,
+              KEPTECH_RENDERER::Pipeline& m) {
+            if (combo.item(m.name.c_str(), material.pipeline == handle)) {
+              material.pipeline = handle;
+            }
+          });
+    }
+
+    if (pipelinePtr != nullptr)
+      pipelineInspectorUi(frame, *pipelinePtr);
   }
 
-  if (pipelinePtr != nullptr)
-    pipelineInspectorUi(frame, *pipelinePtr);
+  for (auto& data : material.instanceData) {
+    switch (data.index()) {
+    case static_cast<size_t>(
+        keptech::core::rendering::InstanceDataType::TextureIndex): {
+      auto& handle = std::get<keptech::core::rendering::TextureHandle>(data);
+      auto texturePtr = renderer.getTextureData(handle);
+
+      {
+        auto combo = frame.combo("Texture", (texturePtr != nullptr)
+                                                ? texturePtr->name.c_str()
+                                                : "Invalid");
+        renderer.operateOnAllTextures(
+            [&](keptech::core::rendering::TextureHandle texHandle,
+                KEPTECH_RENDERER::Texture& texture) {
+              if (combo.item(texture.name.c_str(), handle == texHandle)) {
+                handle = texHandle;
+              }
+            });
+      }
+
+    } break;
+    default:
+      break;
+    }
+  }
 }
 
 void MaterialEditorLayer::pipelineInspectorUi(

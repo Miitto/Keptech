@@ -38,8 +38,8 @@ namespace keptech::vkh {
 
     for (auto [entity, transform, meshComp, materialComp] : view.each()) {
 
-      auto materialP = loadedPipelines.get(materialComp.pipeline);
-      if (!materialP) {
+      auto pipelineP = loadedPipelines.get(materialComp.pipeline);
+      if (!pipelineP) {
         VK_WARN("RenderObject has invalid material handle, skipping");
         continue;
       }
@@ -51,7 +51,7 @@ namespace keptech::vkh {
       }
 
       auto& mesh = *meshP;
-      auto& material = *materialP;
+      auto& pipeline = *pipelineP;
 
       transform.recalculateGlobalTransform();
 
@@ -59,11 +59,12 @@ namespace keptech::vkh {
 
       struct VkRenderObject ro{
           .transform = transform.getGlobal(),
-          .pipeline = &material,
+          .pipeline = &pipeline,
           .mesh = &mesh,
+          .materialComp = &materialComp,
       };
 
-      switch (material.stage) {
+      switch (pipeline.stage) {
       case Pipeline::Stage::Deferred:
         lists.deferred.push_back(ro);
         break;
@@ -213,6 +214,11 @@ namespace keptech::vkh {
 
     loadedMeshes.reset();
     loadedPipelines.reset();
+
+    for (auto& texture : loadedTextures.rawData()) {
+      if (texture.has_value())
+        texture->image.destroy(vkcore.allocator, vkcore.device.logical);
+    }
 
     cameraBuffer.destroy(vkcore.allocator);
 

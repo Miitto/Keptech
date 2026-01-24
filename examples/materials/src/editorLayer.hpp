@@ -24,7 +24,8 @@ class MaterialEditorLayer : public keptech::core::layers::Layer {
 public:
   using SelectedItem = std::variant<std::monostate, keptech::ecs::EntityHandle,
                                     keptech::core::rendering::Mesh::Handle,
-                                    keptech::core::rendering::Pipeline::Handle>;
+                                    keptech::core::rendering::Pipeline::Handle,
+                                    keptech::core::rendering::TextureHandle>;
 
   enum class ActiveDebugView : uint8_t { Albedo, Normals, Depth, Final };
 
@@ -61,6 +62,23 @@ public:
     bool hasChildSelected = false;
   };
 
+  enum class FileType : uint8_t {
+    Unknown,
+    Image,
+    Mesh,
+  };
+
+  struct File {
+    std::string name;
+    FileType type;
+  };
+
+  struct Directory {
+    std::string name;
+    std::vector<File> files;
+    std::vector<Directory> directories;
+  };
+
 private:
   void initDocks();
   void drawGui();
@@ -79,6 +97,9 @@ private:
   void drawSelectedProperties();
   void drawEntityProperties(keptech::gui::Frame& frame,
                             keptech::ecs::EntityHandle entity);
+  void refreshAssetsDirectory();
+  void drawAssetsDirectory(keptech::gui::Frame& frame,
+                           const Directory& directory, float depth);
   void drawAssetsPanel();
   void drawLoadedAssetsPanel();
 
@@ -87,6 +108,8 @@ private:
   keptech::cameras::OrbitCameraController orbitController;
 
   SelectedItem selectedItem = std::monostate{};
+
+  Directory assetsRootDir;
 
   ActiveDebugView activeDebugView = ActiveDebugView::Final;
 };

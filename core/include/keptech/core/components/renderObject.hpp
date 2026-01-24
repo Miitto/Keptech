@@ -9,5 +9,6 @@ namespace keptech::components {
 
   struct Material {
     core::rendering::Pipeline::Handle pipeline;
+    std::vector<core::rendering::Pipeline::InstanceData> instanceData;
   };
 } // namespace keptech::components

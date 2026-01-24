@@ -44,9 +44,8 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
   auto deferredPipelineRes = renderer.createPipeline({
       .shader = ::shaders::deferred,
       .pipelineConfig =
-          {
-
-          },
+          {.layout = {.instanceDataTypes =
+                          {core::rendering::InstanceDataType::TextureIndex}}},
   });
   if (!deferredPipelineRes) {
     return std::unexpected(fmt::format("Failed to create basic material: {}",
@@ -100,7 +99,9 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   auto monkey = scene.createEntity("Monkey");
   monkey.addComponent<keptech::components::Mesh>(monkeyMeshRes.value()[0]);
-  monkey.addComponent<keptech::components::Material>(deferred);
+  monkey.addComponent<keptech::components::Material>(
+      deferred, std::vector{core::rendering::Pipeline::InstanceData{
+                    core::rendering::TextureHandle{0}}});
   monkey.addComponent<keptech::components::Transform>();
 
   auto camera = scene.createEntity("Camera");
