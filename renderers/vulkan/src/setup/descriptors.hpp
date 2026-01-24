@@ -18,7 +18,7 @@ namespace keptech::vkh::setup {
             .descriptorCount = 1 * MAX_FRAMES_IN_FLIGHT,
         },
         vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eSampledImage,
+            .type = vk::DescriptorType::eCombinedImageSampler,
             .descriptorCount = 1000 * MAX_FRAMES_IN_FLIGHT,
         },
     };
@@ -43,7 +43,7 @@ namespace keptech::vkh::setup {
         },
         vk::DescriptorSetLayoutBinding{
             .binding = 1,
-            .descriptorType = vk::DescriptorType::eSampledImage,
+            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
             .descriptorCount = 1000,
             .stageFlags = vk::ShaderStageFlagBits::eAll,
         },

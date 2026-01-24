@@ -67,8 +67,7 @@ namespace keptech::vkh {
 
   std::expected<void, std::string>
   Renderer::InstanceBuffers::resize(vma::Allocator& allocator,
-                                    vk::raii::Device& device,
-                                    size_t newMaxInstances) {
+                                    vk::raii::Device& device, size_t size) {
     staging.destroy(allocator);
     this->device.destroy(allocator);
 
@@ -76,8 +75,7 @@ namespace keptech::vkh {
              AllocatedBuffer::create(
                  allocator,
                  vk::BufferCreateInfo{
-                     .size = static_cast<vk::DeviceSize>(
-                         sizeof(Renderer::InstanceData) * newMaxInstances),
+                     .size = static_cast<vk::DeviceSize>(size),
                      .usage = vk::BufferUsageFlagBits::eTransferSrc,
                      .sharingMode = vk::SharingMode::eExclusive,
                  },
@@ -92,8 +90,7 @@ namespace keptech::vkh {
              AddressedAllocatedBuffer::create(
                  device, allocator,
                  vk::BufferCreateInfo{
-                     .size = static_cast<vk::DeviceSize>(
-                         sizeof(Renderer::InstanceData) * newMaxInstances),
+                     .size = static_cast<vk::DeviceSize>(size),
                      .usage = vk::BufferUsageFlagBits::eUniformBuffer |
                               vk::BufferUsageFlagBits::eTransferDst |
                               vk::BufferUsageFlagBits::eShaderDeviceAddress,
@@ -110,14 +107,12 @@ namespace keptech::vkh {
 
   std::expected<void, std::string> Renderer::InstanceBuffers::copyToDevice(
       vk::raii::Device& device, const vk::raii::CommandBuffer& cmdBuffer,
-      size_t instanceCount) {
+      size_t size) {
 
-    cmdBuffer.copyBuffer(
-        staging.buffer, this->device.buffer,
-        vk::BufferCopy{
-            .size = static_cast<vk::DeviceSize>(instanceCount *
-                                                sizeof(Renderer::InstanceData)),
-        });
+    cmdBuffer.copyBuffer(staging.buffer, this->device.buffer,
+                         vk::BufferCopy{
+                             .size = static_cast<vk::DeviceSize>(size),
+                         });
 
     return {};
   }
@@ -393,8 +388,8 @@ namespace keptech::vkh {
     return loadedMeshes.get(handle);
   }
 
-  std::expected<core::rendering::Material::Handle, std::string>
-  Renderer::createMaterial(Material::CreateInfo createInfo) {
+  std::expected<core::rendering::Pipeline::Handle, std::string>
+  Renderer::createPipeline(core::rendering::Pipeline::CreateInfo createInfo) {
     GraphicsPipelineConfig config;
 
     std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
@@ -528,19 +523,19 @@ namespace keptech::vkh {
             vkcore.device.logical.createGraphicsPipeline(nullptr, vkConfig),
             "Failed to create graphics pipeline");
 
-    Material mat{
+    LoadedPipeline mat{
         .pipeline = std::move(pipeline),
         .pipelineLayout = std::move(pipelineLayout),
     };
 
     mat.mode = createInfo.shader.mode;
     if (createInfo.shader.mode == shaders::RenderingMode::Deferred) {
-      mat.stage = keptech::core::rendering::Material::Stage::Deferred;
+      mat.stage = keptech::core::rendering::Pipeline::Stage::Deferred;
     } else if (createInfo.shader.mode == shaders::RenderingMode::Forward) {
       if (createInfo.pipelineConfig.blend.enableBlending) {
-        mat.stage = keptech::core::rendering::Material::Stage::Transparent;
+        mat.stage = keptech::core::rendering::Pipeline::Stage::Transparent;
       } else {
-        mat.stage = keptech::core::rendering::Material::Stage::Opaque;
+        mat.stage = keptech::core::rendering::Pipeline::Stage::Opaque;
       }
     } else {
       return std::unexpected("Unsupported shader rendering mode");
@@ -548,21 +543,24 @@ namespace keptech::vkh {
 
     mat.name = createInfo.shader.name;
 
-    auto handle = loadedMaterials.emplace(std::move(mat));
-    core::rendering::Material::Handle materialHandle{handle};
+    mat.extraInstanceDataSize =
+        createInfo.pipelineConfig.layout.extraInstanceDataSize;
+
+    auto handle = loadedPipelines.emplace(std::move(mat));
+    core::rendering::Pipeline::Handle materialHandle{handle};
 
     VK_INFO("Created material '{}'", createInfo.shader.name);
 
     return materialHandle;
   }
 
-  void Renderer::unloadMaterial(const core::rendering::Material::Handle name) {
-    loadedMaterials.erase(name);
+  void Renderer::unloadPipeline(const core::rendering::Pipeline::Handle name) {
+    loadedPipelines.erase(name);
   }
 
-  vkh::Material*
-  Renderer::getMaterialData(const core::rendering::Material::Handle handle) {
-    return loadedMaterials.get(handle);
+  vkh::LoadedPipeline*
+  Renderer::getPipelineData(const core::rendering::Pipeline::Handle handle) {
+    return loadedPipelines.get(handle);
   }
 
   std::expected<core::rendering::TextureHandle, std::string>

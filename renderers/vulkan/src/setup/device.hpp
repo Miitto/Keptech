@@ -173,6 +173,7 @@ namespace keptech::vkh::setup {
                 .descriptorBindingUniformBufferUpdateAfterBind = true,
                 .descriptorBindingSampledImageUpdateAfterBind = true,
                 .descriptorBindingPartiallyBound = true,
+                .runtimeDescriptorArray = true,
                 .bufferDeviceAddress = true,
             },
             {

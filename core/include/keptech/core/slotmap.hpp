@@ -185,56 +185,18 @@ namespace keptech::core {
 
     std::vector<std::optional<T>>& rawData() { return data; }
 
-    /// Packs the SlotMap to remove gaps from erased elements.
-    void pack() {
-      std::vector<std::optional<size_t>> handleIndices;
-
-      size_t indexMapSize = indexMap.size();
-      size_t dataSize = data.size();
-
-      size_t maxSize = std::max(indexMapSize, dataSize);
-
-      handleIndices.resize(maxSize);
-
-      for (const auto& [handle, index] : indexMap) {
-        handleIndices[index] = handle;
-      }
-
-      for (size_t i = 0; i < data.size(); ++i) {
-        std::optional<T>& dataOpt = data[i];
-        if (!dataOpt.has_value()) {
-          // Find next valid entry
-          size_t j = i + 1;
-          while (j < data.size() && !data[j].has_value()) {
-            ++j;
-          }
-          if (j >= data.size()) {
-            break; // No more valid entries
-          }
-          // Move entry from j to i
-          data[i] = std::move(data[j]);
-          data[j] = std::nullopt;
-
-          // Update indexMap
-          std::optional<size_t>& handleOpt = handleIndices[j];
-          if (handleOpt.has_value()) {
-            Handle handle = handleOpt.value();
-            indexMap[handle] = i;
-            handleOpt = std::nullopt;
-            handleIndices[i] = handle;
-          }
-        }
-      }
-
-      for (size_t i = data.size(); i-- > 0;) {
-        if (data[i].has_value()) {
-          nextFree = i + 1;
-          break;
-        }
-      }
-    }
-
     [[nodiscard]] size_t size() const { return indexMap.size(); }
+
+    /// Returns the internal index of the given handle, or std::nullopt if not
+    /// present. Used for when using a SlotMap as a backing store for another
+    /// container.
+    std::optional<size_t> indexOf(Handle handle) const {
+      auto it = indexMap.find(handle);
+      if (it == indexMap.end()) {
+        return std::nullopt;
+      }
+      return it->second;
+    }
 
   private:
     size_t nextFree = 0;

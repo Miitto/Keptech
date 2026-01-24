@@ -40,7 +40,7 @@ namespace keptech::vkh {
   public:
     using Shader = keptech::vkh::Shader;
     using Mesh = vkh::Mesh;
-    using Material = vkh::Material;
+    using Pipeline = vkh::LoadedPipeline;
 
     static inline constexpr const char* getName() { return "VulkanRenderer"; }
 
@@ -66,9 +66,7 @@ namespace keptech::vkh {
       AllocatedBuffer staging;
       AddressedAllocatedBuffer device;
 
-      [[nodiscard]] size_t maxInstances() const {
-        return staging.allocInfo.size / sizeof(InstanceData);
-      }
+      [[nodiscard]] size_t getSize() const { return staging.allocInfo.size; }
 
       std::expected<InstanceBuffers, std::string> static create(
           vma::Allocator& allocator, vk::raii::Device& device,
@@ -196,27 +194,27 @@ namespace keptech::vkh {
       }
     }
 
-    std::expected<core::rendering::Material::Handle, std::string>
-    createMaterial(Material::CreateInfo createInfo);
+    std::expected<core::rendering::Pipeline::Handle, std::string>
+    createPipeline(core::rendering::Pipeline::CreateInfo createInfo);
 
-    void unloadMaterial(const core::rendering::Material::Handle handle);
+    void unloadPipeline(const core::rendering::Pipeline::Handle handle);
 
-    vkh::Material*
-    getMaterialData(const core::rendering::Material::Handle handle);
+    vkh::LoadedPipeline*
+    getPipelineData(const core::rendering::Pipeline::Handle handle);
 
-    core::rendering::Material::SmartHandle
-    toSmartHandle(const core::rendering::Material::Handle handle) {
+    core::rendering::Pipeline::SmartHandle
+    toSmartHandle(const core::rendering::Pipeline::Handle handle) {
       return {core::SlotMapRawSmartHandle(
-          handle, [this, handle]() { unloadMaterial(handle); })};
+          handle, [this, handle]() { unloadPipeline(handle); })};
     }
 
     template <typename Func>
-    void operateOnAllMaterials(Func func)
-      requires(std::is_invocable_v<Func, core::rendering::Material::Handle,
-                                   vkh::Material&>)
+    void operateOnAllPipelines(Func func)
+      requires(std::is_invocable_v<Func, core::rendering::Pipeline::Handle,
+                                   vkh::LoadedPipeline&>)
     {
-      for (auto handle : loadedMaterials.handles()) {
-        auto material = loadedMaterials.get(handle);
+      for (auto handle : loadedPipelines.handles()) {
+        auto material = loadedPipelines.get(handle);
         func(handle, *material);
       }
     }
@@ -246,8 +244,9 @@ namespace keptech::vkh {
 
     struct VkRenderObject {
       keptech::maths::Transform transform;
-      vkh::Material* material = nullptr;
+      vkh::LoadedPipeline* pipeline = nullptr;
       vkh::Mesh* mesh = nullptr;
+      std::span<uint8_t> instanceData;
     };
 
     struct ObjectLists {
@@ -323,7 +322,7 @@ namespace keptech::vkh {
     std::vector<OnGoingCmdTransfer> ongoingCommandBuffers = {};
 
     core::SlotMap<vkh::Mesh> loadedMeshes = {};
-    core::SlotMap<vkh::Material> loadedMaterials = {};
+    core::SlotMap<vkh::LoadedPipeline> loadedPipelines = {};
     core::SlotMap<AllocatedImage> loadedTextures = {};
 
     core::Scene* frameScene = nullptr;

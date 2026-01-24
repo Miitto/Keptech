@@ -1,7 +1,5 @@
 import keptech;
 
-#include "keptech/globals.slang"
-
 struct Vertex {
   float3 position;
   float uvX;
@@ -13,6 +11,8 @@ struct Vertex {
 
 struct Instance {
   float4x4 modelMatrix;
+  uint albedoTextureIndex;
+  uint normalTextureIndex;
 };
 
 struct PushConstants {
@@ -35,6 +35,8 @@ struct VertexOutput
     float3 tangent : TANGENT0;
     float uvY : TEXCOORD1;
     float3 bitangent : BITANGENT0;
+    uint albedoTextureIndex : TEXCOORD2;
+    uint normalTextureIndex : TEXCOORD3;
 };
 
 [shader("vertex")]
@@ -44,7 +46,7 @@ VertexOutput vert(uint vid: SV_VertexID, uint iid: SV_InstanceID) {
   Vertex v = PC.vBuffer[vid];
   Instance inst = PC.iBuffer[iid + PC.instanceOffset];
 
-  output.position = camera.worldToClip(mul(inst.modelMatrix, float4(v.position, 1.0)));
+  output.position = keptech::camera.worldToClip(mul(inst.modelMatrix, float4(v.position, 1.0)));
   output.color = v.color;
   output.uvX = v.uvX;
   output.uvY = v.uvY;
@@ -72,6 +74,11 @@ float4 linearToSrgb(float4 color) {
 [shader("pixel")]
 keptech::DeferredOutput frag(VertexOutput input) {
   keptech::DeferredOutput output;
+
+  if (input.albedoTextureIndex != uint(-1)) {
+    let albedoTexture = keptech::textures.getTexture(input.albedoTextureIndex);
+    input.color = albedoTexture.Sample(float2(input.uvX, input.uvY));
+  }
 
   output.albedo = input.color;
   output.normal = float4(input.normal, 1.f);

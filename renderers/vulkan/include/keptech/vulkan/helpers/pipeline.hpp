@@ -1,6 +1,5 @@
 #pragma once
 
-#include <keptech/core/rendering/material.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace keptech::vkh {
@@ -109,7 +108,6 @@ namespace keptech::vkh {
     DynamicStateInfo dynamicState = {vk::DynamicState::eViewport,
                                      vk::DynamicState::eScissor};
     PipelineLayoutConfig layout = {};
-
 
     std::optional<vk::PipelineVertexInputStateCreateInfo>
         _internalVertexInputInfo = std::nullopt;

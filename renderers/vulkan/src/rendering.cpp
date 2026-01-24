@@ -295,19 +295,25 @@ namespace keptech::vkh {
         .pDepthAttachment = &deferredDepthAttachmentInfo,
     };
 
-    size_t maxObjTypeCount = std::max({drawData.objLists.deferred.size(),
-                                       drawData.objLists.forward.size(),
-                                       drawData.objLists.transparent.size()});
+    size_t objectCount = drawData.objLists.deferred.size() +
+                         drawData.objLists.forward.size() +
+                         drawData.objLists.transparent.size();
+    size_t instanceDataSize = sizeof(InstanceData) * objectCount;
+    for (auto& obj : drawData.objLists.deferred) {
+      instanceDataSize += obj.pipeline->extraInstanceDataSize;
+    }
+    for (auto& obj : drawData.objLists.forward) {
+      instanceDataSize += obj.pipeline->extraInstanceDataSize;
+    }
+    for (auto& obj : drawData.objLists.transparent) {
+      instanceDataSize += obj.pipeline->extraInstanceDataSize;
+    }
 
-    if (maxObjTypeCount != 0) {
-
-      VK_TRACE("Drawing {} deferred objects", objLists.deferred.size());
-
-      auto instanceBufferSize =
-          info.perFrame.get().instanceBuffers.maxInstances();
-      if (instanceBufferSize < maxObjTypeCount) {
+    if (instanceDataSize != 0) {
+      auto instanceBufferSize = info.perFrame.get().instanceBuffers.getSize();
+      if (instanceBufferSize < instanceDataSize) {
         auto res = info.perFrame.get().instanceBuffers.resize(
-            vkcore.allocator, vkcore.device.logical, maxObjTypeCount);
+            vkcore.allocator, vkcore.device.logical, instanceDataSize);
         if (!res.has_value()) {
           VK_ERROR("Failed to resize instance buffers: {}", res.error());
           return;
@@ -315,48 +321,51 @@ namespace keptech::vkh {
       }
 
       {
-        size_t objIndex = 0;
-        for (; objIndex < drawData.objLists.deferred.size(); ++objIndex) {
-          auto& transform = drawData.objLists.deferred[objIndex].transform;
-
+        size_t offset = 0;
+        for (auto& obj : drawData.objLists.deferred) {
           InstanceData data{
-              .modelMatrix = transform.toMatrix(),
+              .modelMatrix = obj.transform.toMatrix(),
           };
 
-          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() +
-                     (objIndex * sizeof(InstanceData)),
+          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
                  &data, sizeof(InstanceData));
+          offset += sizeof(InstanceData);
+          size_t extraDataSize = obj.pipeline->extraInstanceDataSize;
+          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
+                 obj.instanceData.data(), extraDataSize);
+          offset += extraDataSize;
         }
-
-        for (int i = 0; i < drawData.objLists.forward.size(); ++i, ++objIndex) {
-          auto& transform = drawData.objLists.forward[i].transform;
-
+        for (auto& obj : drawData.objLists.forward) {
           InstanceData data{
-              .modelMatrix = transform.toMatrix(),
+              .modelMatrix = obj.transform.toMatrix(),
           };
 
-          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() +
-                     (objIndex * sizeof(InstanceData)),
+          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
                  &data, sizeof(InstanceData));
+          offset += sizeof(InstanceData);
+          size_t extraDataSize = obj.pipeline->extraInstanceDataSize;
+          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
+                 obj.instanceData.data(), extraDataSize);
+          offset += extraDataSize;
         }
-
-        for (int i = 0; i < drawData.objLists.transparent.size();
-             ++i, ++objIndex) {
-          auto& transform = drawData.objLists.transparent[i].transform;
-
+        for (auto& obj : drawData.objLists.transparent) {
           InstanceData data{
-              .modelMatrix = transform.toMatrix(),
+              .modelMatrix = obj.transform.toMatrix(),
           };
 
-          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() +
-                     (objIndex * sizeof(InstanceData)),
+          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
                  &data, sizeof(InstanceData));
+          offset += sizeof(InstanceData);
+          size_t extraDataSize = obj.pipeline->extraInstanceDataSize;
+          memcpy(info.perFrame.get().instanceBuffers.staging.mapping() + offset,
+                 obj.instanceData.data(), extraDataSize);
+          offset += extraDataSize;
         }
       }
 
       auto instanceDataTransferRes =
           info.perFrame.get().instanceBuffers.copyToDevice(
-              vkcore.device.logical, graphicsCmdBuffer, maxObjTypeCount);
+              vkcore.device.logical, graphicsCmdBuffer, instanceDataSize);
       if (!instanceDataTransferRes) {
         VK_ERROR("Failed to copy instance data to device: {}",
                  instanceDataTransferRes.error());
@@ -367,7 +376,7 @@ namespace keptech::vkh {
     graphicsCmdBuffer.beginRendering(renderingInfo);
     size_t instanceOffset = 0;
     for (auto& renderObject : drawData.objLists.deferred) {
-      auto& material = *renderObject.material;
+      auto& material = *renderObject.pipeline;
       auto& mesh = *renderObject.mesh;
 
       graphicsCmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
@@ -408,7 +417,7 @@ namespace keptech::vkh {
           graphicsCmdBuffer.draw(submesh.indexCount, 1, 0, 0);
         }
       }
-      ++instanceOffset;
+      instanceOffset += sizeof(InstanceData) + material.extraInstanceDataSize;
     }
 
     graphicsCmdBuffer.endRendering();

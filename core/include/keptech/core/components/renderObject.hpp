@@ -1,11 +1,13 @@
 #pragma once
 
-#include "keptech/core/rendering/material.hpp"
 #include "keptech/core/rendering/mesh.hpp"
+#include "keptech/core/rendering/pipeline.hpp"
 
 namespace keptech::components {
 
   using Mesh = core::rendering::Mesh::Handle;
 
-  using Material = core::rendering::Material::Handle;
+  struct Material {
+    core::rendering::Pipeline::Handle pipeline;
+  };
 } // namespace keptech::components

@@ -24,7 +24,7 @@ class MaterialEditorLayer : public keptech::core::layers::Layer {
 public:
   using SelectedItem = std::variant<std::monostate, keptech::ecs::EntityHandle,
                                     keptech::core::rendering::Mesh::Handle,
-                                    keptech::core::rendering::Material::Handle>;
+                                    keptech::core::rendering::Pipeline::Handle>;
 
   enum class ActiveDebugView : uint8_t { Albedo, Normals, Depth, Final };
 
@@ -50,8 +50,8 @@ public:
   void materialInspectorUi(keptech::gui::Frame& frame,
                            keptech::components::Material& ro);
 
-  void materialInspectorUi(keptech::gui::Frame& frame,
-                           KEPTECH_RENDERER::Material& ro);
+  void pipelineInspectorUi(keptech::gui::Frame& frame,
+                           KEPTECH_RENDERER::Pipeline& ro);
 
   struct SceneNode {
     keptech::ecs::EntityHandle id;

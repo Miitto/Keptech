@@ -5,7 +5,6 @@
 #include "keptech/core/slotmap.hpp"
 #include "keptech/ecs/entity.hpp"
 #include <imgui/misc/cpp/imgui_stdlib.h>
-#include <keptech/core/rendering/material.hpp>
 
 #include <spdlog/fmt/bundled/format.h>
 
@@ -420,8 +419,8 @@ void MaterialEditorLayer::drawSelectedProperties() {
             propertiesPanel.separatorText(label.c_str());
             meshInspectorUi(propertiesPanel, *meshPtr);
           },
-          [&](keptech::core::rendering::Material::Handle materialHandle) {
-            auto materialPtr = renderer.getMaterialData(materialHandle);
+          [&](keptech::core::rendering::Pipeline::Handle materialHandle) {
+            auto materialPtr = renderer.getPipelineData(materialHandle);
             if (materialPtr == nullptr) {
               propertiesPanel.separatorText("Invalid Material");
               return;
@@ -429,7 +428,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
 
             auto label = fmt::format("Material: {}", materialPtr->name);
             propertiesPanel.separatorText(label.c_str());
-            materialInspectorUi(propertiesPanel, *materialPtr);
+            pipelineInspectorUi(propertiesPanel, *materialPtr);
           },
       },
       selectedItem);
@@ -550,14 +549,14 @@ void MaterialEditorLayer::drawLoadedAssetsPanel() {
             });
       } break;
       case AssetType::Material: {
-        renderer.operateOnAllMaterials(
-            [&](keptech::core::rendering::Material::Handle handle,
-                KEPTECH_RENDERER::Material& material) {
+        renderer.operateOnAllPipelines(
+            [&](keptech::core::rendering::Pipeline::Handle handle,
+                KEPTECH_RENDERER::Pipeline& material) {
               ImGui::TableNextColumn();
 
               bool selected = false;
               if (selectedItem.index() == 3) {
-                selected = std::get<keptech::core::rendering::Material::Handle>(
+                selected = std::get<keptech::core::rendering::Pipeline::Handle>(
                                selectedItem) == handle;
               }
 
@@ -615,37 +614,37 @@ void MaterialEditorLayer::materialInspectorUi(
 
   frame.separatorText("Material");
 
-  auto materialPtr = renderer.getMaterialData(material);
+  auto pipelinePtr = renderer.getPipelineData(material.pipeline);
 
-  const char* materialName =
-      (materialPtr != nullptr) ? materialPtr->name.c_str() : "";
+  const char* pipelineName =
+      (pipelinePtr != nullptr) ? pipelinePtr->name.c_str() : "";
 
   {
-    auto combo = frame.combo("Material", materialName);
-    renderer.operateOnAllMaterials(
-        [&](keptech::core::rendering::Material::Handle handle,
-            KEPTECH_RENDERER::Material& m) {
-          if (combo.item(m.name.c_str(), material == handle)) {
-            material = handle;
+    auto combo = frame.combo("Pipeline", pipelineName);
+    renderer.operateOnAllPipelines(
+        [&](keptech::core::rendering::Pipeline::Handle handle,
+            KEPTECH_RENDERER::Pipeline& m) {
+          if (combo.item(m.name.c_str(), material.pipeline == handle)) {
+            material.pipeline = handle;
           }
         });
   }
 
-  if (materialPtr != nullptr)
-    materialInspectorUi(frame, *materialPtr);
+  if (pipelinePtr != nullptr)
+    pipelineInspectorUi(frame, *pipelinePtr);
 }
 
-void MaterialEditorLayer::materialInspectorUi(
-    keptech::gui::Frame& frame, KEPTECH_RENDERER::Material& material) {
+void MaterialEditorLayer::pipelineInspectorUi(
+    keptech::gui::Frame& frame, KEPTECH_RENDERER::Pipeline& pipeline) {
 
-  auto stageStr = fmt::format("Stage: {}", material.stage);
+  auto stageStr = fmt::format("Stage: {}", pipeline.stage);
   frame.text(stageStr.c_str());
 
-  using S = keptech::core::rendering::Material::Stage;
-  if (material.mode == keptech::shaders::RenderingMode::Forward) {
-    bool checked = (material.stage != S::Opaque);
+  using S = keptech::core::rendering::Pipeline::Stage;
+  if (pipeline.mode == keptech::shaders::RenderingMode::Forward) {
+    bool checked = (pipeline.stage != S::Opaque);
     if (ImGui::Checkbox("Transparent", &checked)) {
-      material.stage = checked ? S::Transparent : S::Opaque;
+      pipeline.stage = checked ? S::Transparent : S::Opaque;
     }
   }
 }

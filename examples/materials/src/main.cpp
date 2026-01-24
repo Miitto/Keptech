@@ -31,30 +31,28 @@ std::expected<void, std::string>
 keptech::setupAppLayers(core::layers::LayerStack& layerStack,
                         core::window::Window& window,
                         keptech::vkh::Renderer& renderer) {
-  using Material = keptech::vkh::Material;
-
   MaterialEditorLayer::initMeta();
 
-  auto basicMaterialRes = renderer.createMaterial({
+  auto basicPipelineRes = renderer.createPipeline({
       .shader = ::shaders::basic,
   });
-  if (!basicMaterialRes) {
+  if (!basicPipelineRes) {
     return std::unexpected(fmt::format("Failed to create basic material: {}",
-                                       basicMaterialRes.error()));
+                                       basicPipelineRes.error()));
   }
 
-  auto deferredMaterialRes = renderer.createMaterial({
+  auto deferredPipelineRes = renderer.createPipeline({
       .shader = ::shaders::deferred,
       .pipelineConfig =
           {
 
           },
   });
-  if (!deferredMaterialRes) {
+  if (!deferredPipelineRes) {
     return std::unexpected(fmt::format("Failed to create basic material: {}",
-                                       deferredMaterialRes.error()));
+                                       deferredPipelineRes.error()));
   }
-  auto& deferred = deferredMaterialRes.value();
+  auto& deferred = deferredPipelineRes.value();
 
   SPDLOG_INFO("Created materials");
 

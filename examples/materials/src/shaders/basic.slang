@@ -1,7 +1,5 @@
 import keptech;
 
-#include "keptech/globals.slang"
-
 struct Vertex {
   float3 position;
   float uvX;
@@ -26,7 +24,7 @@ VertexOutput vert(uint vid: SV_VertexID) {
 
   Vertex v = vBuffer[vid];
 
-  output.position = camera.worldToClip(float4(v.position, 1.0));
+  output.position = keptech::camera.worldToClip(float4(v.position, 1.0));
   output.color = v.color;
 
   return output;

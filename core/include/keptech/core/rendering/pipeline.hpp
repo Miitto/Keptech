@@ -1,9 +1,9 @@
 #pragma once
 
 #include "keptech/core/bitflag.hpp"
-#include "keptech/core/macros.hpp"
 #include "texture.hpp"
 #include <keptech/shaders/shader.h>
+#include <spdlog/fmt/bundled/format.h>
 #include <string_view>
 #include <vector>
 
@@ -112,6 +112,7 @@ namespace keptech::core::rendering {
     bool useModelMatrix = true;
     std::vector<SetLayout> setLayouts = {};
     std::vector<PushConstantRange> pushConstantRanges = {};
+    uint32_t extraInstanceDataSize = 0;
   };
 
   struct PipelineCreateInfo {
@@ -122,4 +123,48 @@ namespace keptech::core::rendering {
     DepthConfig depth{};
     LayoutConfig layout = {};
   };
+
+  namespace _priv {
+    struct PipelineHandleDifferentiator {};
+  } // namespace _priv
+
+  struct Pipeline {
+    using Handle = core::SlotMapHandle<_priv::PipelineHandleDifferentiator>;
+    using SmartHandle =
+        core::SlotMapSmartHandle<_priv::PipelineHandleDifferentiator>;
+
+    struct CreateInfo {
+      const keptech::shaders::Shader& shader; // NOLINT
+      PipelineCreateInfo pipelineConfig{};
+    };
+
+    enum class Stage : uint8_t { Deferred, Opaque, Transparent };
+
+    std::string name;
+    Stage stage;
+    shaders::RenderingMode mode;
+  };
 } // namespace keptech::core::rendering
+
+template <>
+struct fmt::formatter<keptech::core::rendering::Pipeline::Stage>
+    : fmt::formatter<std::string_view> {
+  template <typename FormatContext>
+  auto format(const keptech::core::rendering::Pipeline::Stage stage,
+              FormatContext& ctx) const {
+    using S = keptech::core::rendering::Pipeline::Stage;
+    std::string_view name = "";
+    switch (stage) {
+    case S::Deferred:
+      name = "Deferred";
+      break;
+    case S::Opaque:
+      name = "Opaque";
+      break;
+    case S::Transparent:
+      name = "Transparent";
+      break;
+    }
+    return fmt::formatter<std::string_view>::format(name, ctx);
+  }
+};
