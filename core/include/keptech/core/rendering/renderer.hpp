@@ -41,19 +41,21 @@ namespace keptech {
     virtual std::expected<PipelinePtr, std::string>
     createPipeline(PipelineCreateInfo createInfo) = 0;
 
-    virtual std::expected<CmdBufPtr, std::string> createGraphicsCmdBuffer() = 0;
+    virtual std::expected<CmdBufPtr, std::string>
+        createCmdBuffer(CmdBufType) = 0;
 
     virtual void
     textureLayoutTransition(const CmdBufPtr&,
                             const std::vector<TextureTransition>&) = 0;
 
     virtual void newFrame() = 0;
+
+    /// Do work necessary at the start of the frame, such as transitioning the
+    /// swapchain image
+    virtual void startFrame(const CmdBufPtr&) = 0;
     virtual void renderImGui(const CmdBufPtr&) = 0;
-    virtual void submitGraphicsCommandBuffers(std::vector<CmdBufPtr>) = 0;
+    virtual void submitCommandBuffers(std::vector<CmdBufPtr>) = 0;
     virtual void endFrame(CmdBufPtr&&) = 0;
-    /// Manually present the frame (if needed). Is called inside endFrame by
-    /// default.
-    virtual void present() = 0;
 
     virtual void initImGui() = 0;
 

@@ -90,7 +90,7 @@ namespace keptech::vkh {
       uint8_t index = 0;
       uint8_t nextIndex = 1;
       uint8_t imageIndex = INVALID_INDEX;
-      PerFrame* perFrame;
+      PerFrame* perFrame = nullptr;
       bool suboptimalSwapchain = false;
     };
 
@@ -111,18 +111,20 @@ namespace keptech::vkh {
 
     ImTextureRef getImGuiTextureHandle(const TexPtr& texture) final;
 
-    std::expected<CmdBufPtr, std::string> createGraphicsCmdBuffer() final;
+    std::expected<CmdBufPtr, std::string> createCmdBuffer(CmdBufType) final;
 
     void textureLayoutTransition(const CmdBufPtr&,
                                  const std::vector<TextureTransition>&) final;
 
     void newFrame() final;
 
-    void submitGraphicsCommandBuffers(std::vector<CmdBufPtr>) final;
+    void startFrame(const CmdBufPtr& graphicsCmdBuffer) final;
+
+    void submitCommandBuffers(std::vector<CmdBufPtr>) final;
 
     void renderImGui(const CmdBufPtr&) final;
     void endFrame(CmdBufPtr&& graphicsCmdBuffer) final;
-    void present() final;
+    void present();
 
     void initImGui() final;
 
@@ -131,8 +133,8 @@ namespace keptech::vkh {
     RendererBackend() = delete;
     RendererBackend(const RendererBackend&) = delete;
     RendererBackend& operator=(const RendererBackend&) = delete;
-    RendererBackend(RendererBackend&&) noexcept = default;
-    RendererBackend& operator=(RendererBackend&&) noexcept = default;
+    RendererBackend(RendererBackend&&) noexcept;
+    RendererBackend& operator=(RendererBackend&&) noexcept;
     ~RendererBackend() final;
 
   private:
@@ -140,7 +142,9 @@ namespace keptech::vkh {
         const core::window::Window& window, VulkanCore&& vkcore,
         DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>&& globalDescriptorSets)
         : window(&window), vkcore(std::move(vkcore)),
-          globalDescriptorSets(std::move(globalDescriptorSets)) {}
+          globalDescriptorSets(std::move(globalDescriptorSets)) {
+      frameInfo.perFrame = &this->vkcore.perFrame[0];
+    }
 
     [[nodiscard]] const vk::Format& getSwapchainImageFormat() const {
       return vkcore.swapchain.config().format.format;

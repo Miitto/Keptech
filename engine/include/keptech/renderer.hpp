@@ -5,7 +5,6 @@
 #include "keptech/core/rendering/mesh.hpp"
 #include "keptech/core/rendering/renderer.hpp"
 #include <expected>
-#include <future>
 #include <memory>
 #include <utility>
 
@@ -23,10 +22,9 @@ namespace keptech {
   public:
     void setScene(Scene* newScene) { scene = newScene; }
 
-    std::future<std::expected<MeshPtr, std::string>>
-    loadMesh(const MeshData& data, bool backgroundLoad = false);
-    std::future<std::expected<std::vector<MeshPtr>, std::string>>
-    loadMesh(std::string_view path, bool backgroundLoad = false);
+    std::expected<Mesh, std::string> loadMesh(const MeshData& data);
+    std::expected<std::vector<Mesh>, std::string>
+    loadMesh(std::string_view path);
 
     inline std::expected<PipelinePtr, std::string>
     createPipeline(const PipelineCreateInfo& createInfo) {
@@ -63,8 +61,17 @@ namespace keptech {
     ~Renderer();
 
   private:
-    Renderer(std::unique_ptr<IRendererBackend> backend, GBuffers gBuffers)
-        : backend(std::move(backend)), gBuffers(std::move(gBuffers)) {}
+    struct Buffers {
+      size_t vertexEnd = 0;
+      BufPtr vertex;
+      size_t indexEnd = 0;
+      BufPtr index;
+    };
+
+    Renderer(std::unique_ptr<IRendererBackend> backend, GBuffers gBuffers,
+             Buffers&& buffers)
+        : backend(std::move(backend)), gBuffers(std::move(gBuffers)),
+          buffers(std::move(buffers)) {}
 
     void initImGui();
 
@@ -89,5 +96,7 @@ namespace keptech {
 
     std::unique_ptr<IRendererBackend> backend;
     GBuffers gBuffers;
+
+    Buffers buffers;
   };
 } // namespace keptech

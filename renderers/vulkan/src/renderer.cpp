@@ -1,4 +1,5 @@
 #include "keptech/vulkan/renderer.hpp"
+#include "keptech/core/moveGuard.hpp"
 #include "keptech/vulkan/commandBuffer.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include "macros.hpp"
@@ -14,6 +15,7 @@
 #include <set>
 
 namespace keptech::vkh {
+
   void RendererBackend::Pools::resetAll() {
     std::set<vk::raii::CommandPool*> unique{
         &graphics.get()->pool,
@@ -71,24 +73,61 @@ namespace keptech::vkh {
   }
 
   std::expected<CmdBufPtr, std::string>
-  RendererBackend::createGraphicsCmdBuffer() {
+  RendererBackend::createCmdBuffer(CmdBufType t) {
+    vk::raii::CommandPool* pool = nullptr;
+    switch (t) {
+    case CmdBufType::Graphics:
+      pool = &frameInfo.perFrame->pools.graphics.get()->pool;
+      break;
+    case CmdBufType::Compute:
+      pool = &frameInfo.perFrame->pools.compute.get()->pool;
+      break;
+    case CmdBufType::Transfer:
+      pool = &vkcore.transferPool.pool;
+      break;
+    }
+
     vk::CommandBufferAllocateInfo cmdBufAllocInfo{
-        .commandPool = *frameInfo.perFrame->pools.graphics.get()->pool,
+        .commandPool = *pool,
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = 1,
     };
 
-    VK_MAKE(graphicsCmdBuffers,
-            vkcore.device->allocateCommandBuffers(cmdBufAllocInfo),
+    VK_MAKE(cmdBuffers, vkcore.device->allocateCommandBuffers(cmdBufAllocInfo),
             "Failed to allocate graphics command buffer");
 
-    vk::raii::CommandBuffer graphicsCmdBuffer =
-        std::move(graphicsCmdBuffers_res.value.front());
+    vk::raii::CommandBuffer cmdBuffer = std::move(cmdBuffers_res.value.front());
 
-    std::unique_ptr<CommandBuffer> buffer =
-        std::make_unique<CommandBuffer>(std::move(graphicsCmdBuffer));
+    return std::make_unique<CommandBuffer>(std::move(cmdBuffer), t);
+  }
 
-    return std::move(buffer);
+  void RendererBackend::startFrame(const CmdBufPtr& cmdBuf) {
+    auto& graphicsCmdBuffer = dynamic_cast<CommandBuffer*>(cmdBuf.get())->get();
+
+    vk::ImageMemoryBarrier2 barrier{
+        .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
+        .srcAccessMask = vk::AccessFlagBits2::eNone,
+        .dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+        .oldLayout = vk::ImageLayout::eUndefined,
+        .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = vkcore.swapchain.nImage(frameInfo.imageIndex),
+        .subresourceRange =
+            vk::ImageSubresourceRange{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+
+    graphicsCmdBuffer.pipelineBarrier2(vk::DependencyInfo{
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &barrier,
+    });
   }
 
   void RendererBackend::renderImGui(const CmdBufPtr& cmdBuf) {
@@ -119,8 +158,8 @@ namespace keptech::vkh {
     graphicsCmdBuffer.endRendering();
   }
 
-  void RendererBackend::submitGraphicsCommandBuffers(
-      std::vector<CmdBufPtr> cmdBuffers) {
+  void
+  RendererBackend::submitCommandBuffers(std::vector<CmdBufPtr> cmdBuffers) {
     if (cmdBuffers.empty()) {
       return;
     }
@@ -159,7 +198,8 @@ namespace keptech::vkh {
     }
 
     vk::SubmitInfo2 submitInfo{
-        .waitSemaphoreInfoCount = 1,
+        .waitSemaphoreInfoCount =
+            frameInfo.imageIndex == Frame::INVALID_INDEX ? 0u : 1u,
         .pWaitSemaphoreInfos = &waitInfo,
         .commandBufferInfoCount = static_cast<uint32_t>(cmdBufInfos.size()),
         .pCommandBufferInfos = cmdBufInfos.data(),
@@ -167,12 +207,30 @@ namespace keptech::vkh {
         .pSignalSemaphoreInfos = &signalInfo,
     };
 
-    vkcore.queues.graphics->submit2(submitInfo);
+    vk::raii::Queue* queue = nullptr;
+
+    // FIXME: Assumes all command buffers are of the same type
+    switch (cmdBuffers.front()->getType()) {
+    case CmdBufType::Graphics:
+      queue = vkcore.queues.graphics.queue.get();
+      break;
+    case CmdBufType::Compute:
+      queue = vkcore.queues.compute.queue.get();
+      break;
+    case CmdBufType::Transfer:
+      queue = vkcore.queues.transfer.queue.get();
+      break;
+    }
+
+    queue->submit2(submitInfo);
 
     thisFrameCmdBufs.reserve(thisFrameCmdBufs.size() + vkCmdBufs.size());
     for (auto& vkCmdBuf : vkCmdBufs) {
       thisFrameCmdBufs.emplace_back(std::move(vkCmdBuf));
     }
+
+    VK_DEBUG("Submitted {} command buffers at {}, waiting for {}",
+             vkCmdBufs.size(), frameInfo.index, thisFrameCmdBufs.size());
   }
 
   void RendererBackend::endFrame(
@@ -180,7 +238,35 @@ namespace keptech::vkh {
     vk::raii::CommandBuffer vkCmdBuf =
         std::move(dynamic_cast<CommandBuffer*>(cmdBuf.get())->get());
 
+    vk::ImageMemoryBarrier2 barrier{
+        .srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .srcAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eBottomOfPipe,
+        .dstAccessMask = vk::AccessFlagBits2::eNone,
+        .oldLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .newLayout = vk::ImageLayout::ePresentSrcKHR,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = vkcore.swapchain.nImage(frameInfo.imageIndex),
+        .subresourceRange =
+            vk::ImageSubresourceRange{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+
+    vkCmdBuf.pipelineBarrier2(vk::DependencyInfo{
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &barrier,
+    });
+
     auto& sem = vkcore.swapchain.nPresentSemaphore(frameInfo.imageIndex);
+
+    VK_DEBUG("Present {} waiting for {}", frameInfo.index,
+             submittedCommandBuffers[frameInfo.index].size());
 
     vk::SemaphoreSubmitInfo waitInfo{
         .semaphore = vkcore.perFrame[frameInfo.index].timelineSemaphore,
@@ -257,6 +343,29 @@ namespace keptech::vkh {
     }
   }
 
+  RendererBackend::RendererBackend(RendererBackend&& o) noexcept
+      : moveGuard(std::move(o.moveGuard)), vkcore{std::move(o.vkcore)},
+        window{o.window},
+        globalDescriptorSets{std::move(o.globalDescriptorSets)},
+        imGuiObjects{std::move(o.imGuiObjects)}, frameInfo{o.frameInfo} {
+    frameInfo.perFrame = &vkcore.perFrame[frameInfo.index];
+  }
+
+  RendererBackend& RendererBackend::operator=(RendererBackend&& o) noexcept {
+    if (this == &o)
+      return *this;
+
+    moveGuard = std::move(o.moveGuard);
+    vkcore = std::move(o.vkcore);
+    window = o.window;
+    globalDescriptorSets = std::move(o.globalDescriptorSets);
+    imGuiObjects = std::move(o.imGuiObjects);
+    frameInfo = o.frameInfo;
+    frameInfo.perFrame = &vkcore.perFrame[frameInfo.index];
+
+    return *this;
+  }
+
   RendererBackend::~RendererBackend() {
     if (moveGuard.moved()) {
       return;
@@ -296,4 +405,5 @@ namespace keptech::vkh {
 
     return {};
   }
+
 } // namespace keptech::vkh

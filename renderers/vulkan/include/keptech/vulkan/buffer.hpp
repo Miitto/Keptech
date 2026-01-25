@@ -18,6 +18,10 @@ namespace keptech::vkh {
       return buffer.address;
     }
 
+    [[nodiscard]] const AddressedAllocatedBuffer& getBuffer() const {
+      return buffer;
+    }
+
     Buffer(const Buffer&) = delete;
     Buffer(Buffer&& o) noexcept
         :

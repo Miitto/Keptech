@@ -6,12 +6,17 @@
 namespace keptech::vkh {
   class CommandBuffer final : public keptech::ICommandBuffer {
   public:
-    CommandBuffer(vk::raii::CommandBuffer&& commandBuffer)
-        : cmd(std::move(commandBuffer)) {}
+    CommandBuffer(vk::raii::CommandBuffer&& commandBuffer, CmdBufType type)
+        : ICommandBuffer(type), cmd(std::move(commandBuffer)) {}
 
     void begin() final {
       cmd.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     }
+
+    void copyBufferToBuffer(IBuffer& src, IBuffer& dst, uint64_t size,
+                            uint64_t srcOffset = 0,
+                            uint64_t dstOffset = 0) final;
+
     void beginRendering(const CommandBufferBeginRenderingInfo& info) final;
 
     void setViewport(glm::vec2 offset, glm::vec2 extent) final;
@@ -21,6 +26,12 @@ namespace keptech::vkh {
     void end() final { cmd.end(); }
 
     vk::raii::CommandBuffer& get() { return cmd; }
+
+    CommandBuffer(const CommandBuffer&) = delete;
+    CommandBuffer(CommandBuffer&&) = default;
+    CommandBuffer& operator=(const CommandBuffer&) = delete;
+    CommandBuffer& operator=(CommandBuffer&&) = default;
+    ~CommandBuffer() final = default;
 
   private:
     vk::raii::CommandBuffer cmd;

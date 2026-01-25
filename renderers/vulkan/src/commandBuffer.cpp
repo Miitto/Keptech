@@ -1,5 +1,6 @@
 #include "keptech/vulkan/commandBuffer.hpp"
 
+#include "keptech/vulkan/buffer.hpp"
 #include "keptech/vulkan/texture.hpp"
 
 namespace keptech::vkh {
@@ -14,6 +15,22 @@ namespace keptech::vkh {
       return static_cast<vk::AttachmentStoreOp>(storeOp);
     }
   } // namespace
+
+  void CommandBuffer::copyBufferToBuffer(IBuffer& src, IBuffer& dst,
+                                         uint64_t size, uint64_t srcOffset,
+                                         uint64_t dstOffset) {
+    vkh::Buffer& vkSrc = dynamic_cast<vkh::Buffer&>(src);
+    vkh::Buffer& vkDst = dynamic_cast<vkh::Buffer&>(dst);
+
+    vk::BufferCopy copyRegion{
+        .srcOffset = srcOffset,
+        .dstOffset = dstOffset,
+        .size = size,
+    };
+
+    cmd.copyBuffer(vkSrc.getBuffer().buffer, vkDst.getBuffer().buffer,
+                   copyRegion);
+  }
 
   void
   CommandBuffer::beginRendering(const CommandBufferBeginRenderingInfo& info) {

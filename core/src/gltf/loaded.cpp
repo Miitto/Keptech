@@ -116,7 +116,7 @@ namespace keptech::gltf {
         std::shared_ptr meshPtr =
             std::make_shared<MeshData>(std::move(meshData));
 
-        gltf.meshses.emplace(meshPtr->name, meshPtr);
+        gltf.meshes.emplace(meshPtr->name, meshPtr);
       }
     }
   } // namespace

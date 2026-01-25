@@ -11,7 +11,7 @@
 namespace keptech::gltf {
 
   struct LoadedGltf {
-    std::unordered_map<std::string, std::shared_ptr<MeshData>> meshses;
+    std::unordered_map<std::string, std::shared_ptr<MeshData>> meshes;
     std::unordered_map<std::string, std::shared_ptr<fastgltf::Material>>
         materials;
     std::unordered_map<std::string, std::shared_ptr<fastgltf::Texture>>

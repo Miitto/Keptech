@@ -6,20 +6,34 @@
 namespace keptech {
 
   void Renderer::render() {
+    FrameData frame;
+
+    auto graphicsCmdBuf_res = backend->createCmdBuffer(CmdBufType::Graphics);
+    if (!graphicsCmdBuf_res) {
+      KT_CRITICAL("Failed to create graphics command buffer: {}",
+                  graphicsCmdBuf_res.error());
+      return;
+    }
+    frame.graphicsCmdBuf = std::move(graphicsCmdBuf_res.value());
+
+    frame.graphicsCmdBuf->begin();
+    backend->startFrame(frame.graphicsCmdBuf);
+
     if (!scene) {
       KT_WARN("No scene set for renderer, skipping render.");
-      backend->present();
+      frame.graphicsCmdBuf->end();
+      backend->endFrame(std::move(frame.graphicsCmdBuf));
       return;
     }
 
-    FrameData frame;
     {
       auto activeCameraEntity = scene->getActiveCamera();
       if (!activeCameraEntity
                .hasAllComponents<components::Camera, components::Transform>()) {
         KT_ERROR(
             "Active camera entity is missing Camera or Transform component.");
-        backend->present();
+        frame.graphicsCmdBuf->end();
+        backend->endFrame(std::move(frame.graphicsCmdBuf));
         return;
       }
 
@@ -31,17 +45,6 @@ namespace keptech {
       frame.cameraData.transform = &transform;
     }
 
-    auto graphicsCmdBuf_res = backend->createGraphicsCmdBuffer();
-    if (!graphicsCmdBuf_res) {
-      KT_ERROR("Failed to create graphics command buffer: {}",
-               graphicsCmdBuf_res.error());
-      backend->present();
-      return;
-    }
-    frame.graphicsCmdBuf = std::move(graphicsCmdBuf_res.value());
-
-    frame.graphicsCmdBuf->begin();
-
     drawDeferredPass(frame);
     drawLightingPass(frame);
     combineDeferredPass(frame);
@@ -50,7 +53,6 @@ namespace keptech {
     drawUIPass(frame);
 
     frame.graphicsCmdBuf->end();
-
     backend->endFrame(std::move(frame.graphicsCmdBuf));
   }
 

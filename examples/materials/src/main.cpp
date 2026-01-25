@@ -54,7 +54,6 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
   SPDLOG_INFO("Created materials");
 
   keptech::Scene scene;
-  /*
 
   std::vector<Vertex> triangleVertices = {
       {
@@ -80,28 +79,28 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
       },
   };
 
-  auto triangleMeshRes =
-      renderer.loadMesh({.name = "Triangle", .vertices = triangleVertices})
-          .get();
+  auto triangleMeshRes = renderer.loadMesh(
+      {.name = "Triangle", .vertices = triangleVertices, .indices = {0, 1, 2}});
   if (!triangleMeshRes) {
     return std::unexpected(fmt::format("Failed to create triangle mesh: {}",
                                        triangleMeshRes.error()));
   }
 
-  auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb").get();
+  auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
   if (!monkeyMeshRes) {
     return std::unexpected(
         fmt::format("Failed to load monkey mesh: {}", monkeyMeshRes.error()));
   }
   SPDLOG_INFO("Loaded monkey mesh: {}", monkeyMeshRes.value().size());
 
+  MeshPtr triangleMesh = std::make_shared<Mesh>(triangleMeshRes.value());
+  MeshPtr monkeyMesh = std::make_shared<Mesh>(monkeyMeshRes.value()[0]);
 
   auto monkey = scene.createEntity("Monkey");
-  monkey.addComponent<keptech::components::Mesh>(monkeyMeshRes.value()[0]);
+  monkey.addComponent<keptech::components::Mesh>(monkeyMesh);
   monkey.addComponent<keptech::components::Material>(
       deferred, std::vector{InstanceData{TexPtr{}}});
   monkey.addComponent<keptech::components::Transform>();
-*/
 
   auto camera = scene.createEntity("Camera");
   auto& camTransform = camera.addComponent<keptech::components::Transform>();
@@ -120,8 +119,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   layerStack.emplaceLayer<MaterialEditorLayer>(
       renderer, std::move(scene),
-      std::vector<keptech::MeshPtr>{
-          /*triangleMeshRes.value(), monkeyMeshRes.value()[0]*/},
+      std::vector<keptech::MeshPtr>{triangleMesh, monkeyMesh},
       std::vector{basicPipelineRes.value(), deferred});
 
   return {};

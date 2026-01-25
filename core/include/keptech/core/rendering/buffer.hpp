@@ -11,10 +11,10 @@
 namespace keptech {
   enum class BufferUsage : uint8_t {
     None = 0,
-    VertexBuffer = BIT(0),
-    IndexBuffer = BIT(1),
-    UniformBuffer = BIT(2),
-    StorageBuffer = BIT(3),
+    Vertex = BIT(0),
+    Index = BIT(1),
+    Uniform = BIT(2),
+    Storage = BIT(3),
     TransferSrc = BIT(4),
     TransferDst = BIT(5),
   };
@@ -77,3 +77,5 @@ namespace keptech {
     { t.destroy() } -> std::same_as<void>;
   };
 } // namespace keptech
+
+DEFINE_BITFLAG_ENUM_OPERATORS(keptech::BufferUsage)

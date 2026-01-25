@@ -212,16 +212,16 @@ namespace keptech::vkh {
 
       vk::BufferUsageFlags flags = {};
 
-      if (usage.has(Usage::VertexBuffer)) {
+      if (usage.has(Usage::Vertex)) {
         flags = flags | vk::BufferUsageFlagBits::eVertexBuffer;
       }
-      if (usage.has(Usage::IndexBuffer)) {
+      if (usage.has(Usage::Index)) {
         flags = flags | vk::BufferUsageFlagBits::eIndexBuffer;
       }
-      if (usage.has(Usage::UniformBuffer)) {
+      if (usage.has(Usage::Uniform)) {
         flags = flags | vk::BufferUsageFlagBits::eUniformBuffer;
       }
-      if (usage.has(Usage::StorageBuffer)) {
+      if (usage.has(Usage::Storage)) {
         flags = flags | vk::BufferUsageFlagBits::eStorageBuffer;
       }
       if (usage.has(Usage::TransferSrc)) {
@@ -266,7 +266,8 @@ namespace keptech::vkh {
   RendererBackend::createBuffer(const BufferCreateInfo& createInfo) {
     vk::BufferCreateInfo bufInfo{
         .size = createInfo.size,
-        .usage = from(createInfo.usage),
+        .usage = from(createInfo.usage) |
+                 vk::BufferUsageFlagBits::eShaderDeviceAddress,
         .sharingMode = vk::SharingMode::eExclusive,
     };
 

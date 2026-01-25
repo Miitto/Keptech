@@ -1,5 +1,6 @@
 #include "keptech/renderer.hpp"
 #include "keptech/core/window.hpp"
+#include <keptech/core/rendering/buffer.hpp>
 
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/imgui.h>
@@ -88,7 +89,33 @@ namespace keptech {
     gBuffers.normal = std::move(normalRes.value());
     gBuffers.depth = std::move(depthRes.value());
 
-    Renderer renderer{std::move(backend), std::move(gBuffers)};
+    auto vertexBufRes = backend->createBuffer(BufferCreateInfo{
+        .size = sizeof(Vertex) * 1000,
+        .usage = BufferUsage::Vertex | BufferUsage::TransferDst,
+        .memoryType = BufferMemoryType::GpuOnly,
+    });
+    if (!vertexBufRes) {
+      return std::unexpected(fmt::format("Failed to create vertex buffer: {}",
+                                         vertexBufRes.error()));
+    }
+    auto indexBufRes = backend->createBuffer(BufferCreateInfo{
+        .size = sizeof(uint32_t) * 1000,
+        .usage = BufferUsage::Index | BufferUsage::TransferDst,
+        .memoryType = BufferMemoryType::GpuOnly,
+    });
+    if (!indexBufRes) {
+      return std::unexpected(fmt::format("Failed to create index buffer: {}",
+                                         indexBufRes.error()));
+    }
+
+    Renderer renderer{
+        std::move(backend),
+        std::move(gBuffers),
+        Buffers{
+            .vertex = std::move(vertexBufRes.value()),
+            .index = std::move(indexBufRes.value()),
+        },
+    };
 
     renderer.initImGui();
 

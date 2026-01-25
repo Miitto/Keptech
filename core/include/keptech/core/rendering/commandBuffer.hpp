@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/core/rendering/buffer.hpp"
 #include "keptech/core/rendering/texture.hpp"
 #include <glm/glm.hpp>
 #include <memory>
@@ -39,9 +40,15 @@ namespace keptech {
     RenderingDepthStencilAttachmentInfo stencilAttachment{};
   };
 
+  enum class CmdBufType : uint8_t { Graphics = 0, Compute = 1, Transfer = 2 };
   class ICommandBuffer {
   public:
     virtual void begin() = 0;
+
+    virtual void copyBufferToBuffer(IBuffer& src, IBuffer& dst, uint64_t size,
+                                    uint64_t srcOffset = 0,
+                                    uint64_t dstOffset = 0) = 0;
+
     virtual void
     beginRendering(const CommandBufferBeginRenderingInfo& info) = 0;
     virtual void setViewport(glm::vec2 offset, glm::vec2 extent) = 0;
@@ -50,12 +57,19 @@ namespace keptech {
     virtual void endRendering() = 0;
     virtual void end() = 0;
 
+    [[nodiscard]] CmdBufType getType() const noexcept { return type; }
+
+    ICommandBuffer(CmdBufType t) : type(t) {}
+
     ICommandBuffer() = default;
     ICommandBuffer(const ICommandBuffer&) = default;
     ICommandBuffer(ICommandBuffer&&) = default;
     ICommandBuffer& operator=(const ICommandBuffer&) = default;
     ICommandBuffer& operator=(ICommandBuffer&&) = default;
     virtual ~ICommandBuffer() = default;
+
+  protected:
+    CmdBufType type = CmdBufType::Graphics;
   };
 
   using CmdBufPtr = std::unique_ptr<ICommandBuffer>;

@@ -46,7 +46,7 @@ namespace keptech {
     [[nodiscard]] size_t getIndexCount() const { return indexCount; }
 #endif
 
-    Mesh(uint32_t indexOffset, std::vector<Submesh>&& submeshes
+    Mesh(uint32_t indexOffset, std::vector<Submesh> submeshes
 #ifdef KT_ADD_RESOURCE_INFO
          ,
          std::string name,
