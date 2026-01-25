@@ -4,7 +4,7 @@
 #include "keptech/vulkan/structs.hpp"
 
 namespace keptech::vkh {
-  struct Texture : public keptech::core::rendering::Texture {
+  struct Texture : public keptech::ITexture {
     AllocatedImage image;
   };
 } // namespace keptech::vkh

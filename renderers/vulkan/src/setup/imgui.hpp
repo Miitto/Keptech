@@ -75,7 +75,6 @@ namespace keptech::vkh::setup {
     // 2: initialize imgui library
 
     // this initializes the core structures of imgui
-    ImGui::CreateContext();
 
     auto& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard

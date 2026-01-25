@@ -73,8 +73,7 @@ add_subdirectory(src)
 
 if (KT_USE_PCH)
   target_precompile_headers(${PROJECT_NAME}
-    PRIVATE
-      ${KT_PCH_HEADERS}
+    PUBLIC
       <glm/glm.hpp>
   )
 endif()
@@ -87,3 +86,10 @@ target_compile_definitions(${PROJECT_NAME}
   PUBLIC
     KT_LOG_LEVEL=SPDLOG_LEVEL_${KT_LOG_LEVEL}
 )
+
+if(KT_ADD_RESOURCE_INFO)
+  target_compile_definitions(${PROJECT_NAME}
+    PUBLIC
+      KT_ADD_RESOURCE_INFO
+  )
+endif()

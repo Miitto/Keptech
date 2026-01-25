@@ -18,16 +18,14 @@ int main() {
 
   bool exitCleanly = false;
   {
-    std::expected<KEPTECH_RENDERER, std::string> rendererRes =
-        KEPTECH_RENDERER::create(info.renderer, window);
+    std::expected<Renderer, std::string> rendererRes =
+        Renderer::create(info.renderer, window);
     if (!rendererRes) {
       KT_CRITICAL("Failed to create renderer: {}", rendererRes.error());
       return -1;
     }
 
-    KEPTECH_RENDERER& renderer = rendererRes.value();
-
-    KT_INFO("Created renderer: {}", KEPTECH_RENDERER::getName());
+    Renderer renderer = std::move(rendererRes.value());
 
     core::layers::LayerStack layerStack;
 

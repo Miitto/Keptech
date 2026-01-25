@@ -1,109 +1,117 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <keptech/core/bitflag.hpp>
 #include <keptech/core/macros.hpp>
 #include <keptech/core/slotmap.hpp>
+#include <memory>
 #include <spdlog/fmt/bundled/format.h>
 
-namespace keptech::core::rendering {
-  namespace _internal {
-    struct TextureHandleDifferentiator {};
-  } // namespace _internal
-
-  using TextureHandle =
-      core::SlotMapHandle<_internal::TextureHandleDifferentiator>;
-
-  struct Texture {
-    enum class Usage : uint8_t {
-      Sampled = BIT(0),
-      RenderTarget = BIT(1),
-      Storage = BIT(2),
-      DepthStencil = BIT(3),
-      TransferSrc = BIT(4),
-      TransferDst = BIT(5),
-    };
-
-    enum class Format : uint8_t {
-      Undefined = 0,
-      Default,
-      R8,
-      R16F,
-      R32F,
-      RG8,
-      RG16F,
-      RG32F,
-      RGB8,
-      RGB16F,
-      RGB32F,
-      RGBA8,
-      RGBA16F,
-      RGBA32F,
-      Depth16,
-      Depth24Stencil8,
-    };
-
-    std::string name;
-    Format format;
+namespace keptech {
+  enum class TextureUsage : uint8_t {
+    Sampled = BIT(0),
+    RenderTarget = BIT(1),
+    Storage = BIT(2),
+    DepthStencil = BIT(3),
+    TransferSrc = BIT(4),
+    TransferDst = BIT(5),
   };
-} // namespace keptech::core::rendering
+  enum class TextureFormat : uint8_t {
+    Undefined = 0,
+    Default,
+    R8,
+    R16F,
+    R32F,
+    RG8,
+    RG16F,
+    RG32F,
+    RGB8,
+    RGB16F,
+    RGB32F,
+    RGBA8,
+    RGBA16F,
+    RGBA32F,
+    Depth16,
+    Depth24Stencil8,
+  };
 
-DEFINE_BITFLAG_ENUM_OPERATORS(keptech::core::rendering::Texture::Usage)
+  class ITexture {
+  public:
+    virtual void writeData(const void* data, glm::uvec3 offset, glm::uvec3 size,
+                           uint32_t mipLevel = 0) = 0;
+
+    [[nodiscard]] glm::vec3 getSize() const { return size; }
+
+    ITexture(const ITexture&) = default;
+    ITexture(ITexture&&) = default;
+    ITexture& operator=(const ITexture&) = default;
+    ITexture& operator=(ITexture&&) = default;
+    virtual ~ITexture() = default;
+
+  private:
+    glm::vec3 size{0, 0, 0};
+  };
+
+  using UTexPtr = std::unique_ptr<ITexture>;
+  using STexPtr = std::shared_ptr<ITexture>;
+} // namespace keptech
+
+DEFINE_BITFLAG_ENUM_OPERATORS(keptech::TextureUsage)
 
 template <>
-struct fmt::formatter<keptech::core::rendering::Texture::Format>
+struct fmt::formatter<keptech::TextureFormat>
     : fmt::formatter<std::string_view> {
   template <typename FormatContext>
-  auto format(const keptech::core::rendering::Texture::Format format,
-              FormatContext& ctx) const {
-    using S = keptech::core::rendering::Texture::Format;
+  auto format(const keptech::TextureFormat format, FormatContext& ctx) const {
+    using F = keptech::TextureFormat;
     std::string_view name = "";
     switch (format) {
-    case keptech::core::rendering::Texture::Format::Undefined:
+    case F::Undefined:
       name = "Undefined";
       break;
-    case keptech::core::rendering::Texture::Format::Default:
+    case F::Default:
       name = "Default";
       break;
-    case keptech::core::rendering::Texture::Format::R8:
+    case F::R8:
       name = "R8";
       break;
-    case keptech::core::rendering::Texture::Format::R16F:
+    case F::R16F:
       name = "R16F";
       break;
-    case keptech::core::rendering::Texture::Format::R32F:
+    case F::R32F:
       name = "R32F";
       break;
-    case keptech::core::rendering::Texture::Format::RG8:
+    case F::RG8:
       name = "RG8";
       break;
-    case keptech::core::rendering::Texture::Format::RG16F:
+    case F::RG16F:
       name = "RG16F";
       break;
-    case keptech::core::rendering::Texture::Format::RG32F:
+    case F::RG32F:
       name = "RG32F";
       break;
-    case keptech::core::rendering::Texture::Format::RGB8:
+    case F::RGB8:
       name = "RGB8";
       break;
-    case keptech::core::rendering::Texture::Format::RGB16F:
+    case F::RGB16F:
       name = "RGB16F";
       break;
-    case keptech::core::rendering::Texture::Format::RGB32F:
+    case F::RGB32F:
       name = "RGB32F";
       break;
-    case keptech::core::rendering::Texture::Format::RGBA8:
+    case F::RGBA8:
       name = "RGBA8";
       break;
-    case keptech::core::rendering::Texture::Format::RGBA16F:
+    case F::RGBA16F:
       name = "RGBA16F";
       break;
-    case keptech::core::rendering::Texture::Format::RGBA32F:
+    case F::RGBA32F:
       name = "RGBA32F";
       break;
-    case keptech::core::rendering::Texture::Format::Depth16:
+    case F::Depth16:
       name = "Depth16";
       break;
-    case keptech::core::rendering::Texture::Format::Depth24Stencil8:
+    case F::Depth24Stencil8:
       name = "Depth24Stencil8";
       break;
     }

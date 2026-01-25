@@ -196,58 +196,7 @@ namespace keptech::vkh {
   }
 
   void Renderer::imagesToRenderable(
-      const Frame& info, const vk::raii::CommandBuffer& graphicsCmdBuffer) {
-    vk::ImageMemoryBarrier2 toDrawableBarrier{
-        .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
-        .srcAccessMask = vk::AccessFlagBits2::eNone,
-        .dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-        .dstAccessMask = vk::AccessFlagBits2::eColorAttachmentRead |
-                         vk::AccessFlagBits2::eColorAttachmentWrite,
-        .oldLayout = vk::ImageLayout::eUndefined,
-        .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = vkcore.swapchain.nImage(info.imageIndex),
-        .subresourceRange =
-            vk::ImageSubresourceRange{
-                .aspectMask = vk::ImageAspectFlagBits::eColor,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-    };
-
-    vk::ImageMemoryBarrier2 gBufferColorToDrawableBarrier = toDrawableBarrier;
-    gBufferColorToDrawableBarrier.image = gBuffer.color.image;
-    vk::ImageMemoryBarrier2 gBufferNormalToDrawableBarrier = toDrawableBarrier;
-    gBufferNormalToDrawableBarrier.image = gBuffer.normal.image;
-
-    vk::ImageMemoryBarrier2 gBufferDepthToDrawableBarrier = toDrawableBarrier;
-    gBufferDepthToDrawableBarrier.image = gBuffer.depth.image;
-    gBufferDepthToDrawableBarrier.newLayout =
-        vk::ImageLayout::eDepthStencilAttachmentOptimal;
-    gBufferDepthToDrawableBarrier.dstStageMask =
-        vk::PipelineStageFlagBits2::eEarlyFragmentTests |
-        vk::PipelineStageFlagBits2::eLateFragmentTests;
-    gBufferDepthToDrawableBarrier.dstAccessMask =
-        vk::AccessFlagBits2::eDepthStencilAttachmentRead |
-        vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-    gBufferDepthToDrawableBarrier.subresourceRange.aspectMask =
-        vk::ImageAspectFlagBits::eDepth;
-
-    std::array<vk::ImageMemoryBarrier2, 4> barriers{
-        toDrawableBarrier,
-        gBufferColorToDrawableBarrier,
-        gBufferNormalToDrawableBarrier,
-        gBufferDepthToDrawableBarrier,
-    };
-
-    graphicsCmdBuffer.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = barriers.size(),
-        .pImageMemoryBarriers = barriers.data(),
-    });
-  }
+      const Frame& info, const vk::raii::CommandBuffer& graphicsCmdBuffer) {}
 
   void
   Renderer::drawDeferred(const Frame& info, const PrimaryDrawData& drawData,
@@ -486,31 +435,5 @@ namespace keptech::vkh {
   }
 
   void Renderer::drawImGui(const Frame& info,
-                           const vk::raii::CommandBuffer& graphicsCmdBuffer) {
-    ImGui::Render();
-
-    vk::RenderingAttachmentInfo aInfo{
-        .imageView = vkcore.swapchain.nView(info.imageIndex),
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eLoad,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-    };
-
-    vk::RenderingInfo renderingInfo{
-        .renderArea =
-            vk::Rect2D{
-                .offset = vk::Offset2D{.x = 0, .y = 0},
-                .extent = vkcore.swapchain.config().extent,
-            },
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &aInfo,
-    };
-
-    graphicsCmdBuffer.beginRendering(renderingInfo);
-
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *graphicsCmdBuffer);
-
-    graphicsCmdBuffer.endRendering();
-  }
+                           const vk::raii::CommandBuffer& graphicsCmdBuffer) {}
 } // namespace keptech::vkh

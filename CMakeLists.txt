@@ -22,16 +22,18 @@ else()
   message(STATUS "sccache not found, using default compiler")
 endif()
 
-option(BUILD_EXAMPLES "Build example applications" ON)
-if (BUILD_EXAMPLES)
+option(KT_USE_PCH ON)
+option(KT_BUILD_EXAMPLES "Build example applications" ON)
+option(KT_ADD_RESOURCE_INFO "Add a name to resources. Allows for better debugging and for use in editors - but increaces memory usage." ON)
+
+if(KT_BUILD_EXAMPLES)
+  set(KT_ADD_RESOURCE_INFO ON)
   set(CMAKE_CXX_STANDARD 23)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
   set(CMAKE_CXX_EXTENSIONS OFF)
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
   add_subdirectory(examples)
 endif()
-
-option(KT_USE_PCH ON)
 
 set(KT_PCH_HEADERS
   <algorithm>

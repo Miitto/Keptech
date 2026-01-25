@@ -8,15 +8,13 @@
 #include <variant>
 #include <vector>
 
-namespace keptech::core::rendering {}
-
 DEFINE_BITFLAG_ENUM_OPERATORS(keptech::shaders::ShaderStages)
 
-namespace keptech::core::rendering {
+namespace keptech {
   struct AttachmentConfig {
-    std::vector<Texture::Format> colorFormats = {};
-    Texture::Format depthFormat = Texture::Format::Undefined;
-    Texture::Format stencilFormat = Texture::Format::Undefined;
+    std::vector<TextureFormat> colorFormats = {};
+    TextureFormat depthFormat = TextureFormat::Undefined;
+    TextureFormat stencilFormat = TextureFormat::Undefined;
   };
 
   enum class Topology : uint8_t {
@@ -121,6 +119,7 @@ namespace keptech::core::rendering {
   };
 
   struct PipelineCreateInfo {
+    const keptech::shaders::Shader& shader; // NOLINT
     AttachmentConfig attachments = {};
     Topology topology = Topology::TriangleList;
     RasterizerConfig rasterizer = {};
@@ -133,34 +132,29 @@ namespace keptech::core::rendering {
     struct PipelineHandleDifferentiator {};
   } // namespace _priv
 
-  struct Pipeline {
-    using Handle = core::SlotMapHandle<_priv::PipelineHandleDifferentiator>;
-    using SmartHandle =
-        core::SlotMapSmartHandle<_priv::PipelineHandleDifferentiator>;
+  enum class PipelineStage : uint8_t { Deferred, Opaque, Transparent };
 
-    using InstanceData = std::variant<core::rendering::TextureHandle>;
-
-    struct CreateInfo {
-      const keptech::shaders::Shader& shader; // NOLINT
-      PipelineCreateInfo pipelineConfig{};
-    };
-
-    enum class Stage : uint8_t { Deferred, Opaque, Transparent };
-
+  class IPipeline {
+  public:
+  private:
+#ifdef KT_ADD_RESOURCE_INFO
     std::string name;
-    Stage stage;
+    PipelineStage stage;
     shaders::RenderingMode mode;
+#endif
     std::vector<InstanceDataType> instanceDataTypes = {};
   };
-} // namespace keptech::core::rendering
+
+  using UPipelinePtr = std::unique_ptr<IPipeline>;
+  using SPipelinePtr = std::shared_ptr<IPipeline>;
+} // namespace keptech
 
 template <>
-struct fmt::formatter<keptech::core::rendering::Pipeline::Stage>
+struct fmt::formatter<keptech::PipelineStage>
     : fmt::formatter<std::string_view> {
   template <typename FormatContext>
-  auto format(const keptech::core::rendering::Pipeline::Stage stage,
-              FormatContext& ctx) const {
-    using S = keptech::core::rendering::Pipeline::Stage;
+  auto format(const keptech::PipelineStage stage, FormatContext& ctx) const {
+    using S = keptech::PipelineStage;
     std::string_view name = "";
     switch (stage) {
     case S::Deferred:
@@ -178,35 +172,15 @@ struct fmt::formatter<keptech::core::rendering::Pipeline::Stage>
 };
 
 template <>
-struct fmt::formatter<keptech::core::rendering::InstanceDataType>
+struct fmt::formatter<keptech::InstanceDataType>
     : fmt::formatter<std::string_view> {
   template <typename FormatContext>
-  auto format(const keptech::core::rendering::InstanceDataType t,
-              FormatContext& ctx) const {
-    using S = keptech::core::rendering::InstanceDataType;
+  auto format(const keptech::InstanceDataType t, FormatContext& ctx) const {
+    using S = keptech::InstanceDataType;
     std::string_view name = "";
     switch (t) {
     case S::TextureIndex:
       name = "TextureIndex";
-      break;
-    }
-    return fmt::formatter<std::string_view>::format(name, ctx);
-  }
-};
-
-template <>
-struct fmt::formatter<keptech::core::rendering::Pipeline::InstanceData>
-    : fmt::formatter<std::string_view> {
-  template <typename FormatContext>
-  auto format(const keptech::core::rendering::Pipeline::InstanceData& t,
-              FormatContext& ctx) const {
-    using S = keptech::core::rendering::InstanceDataType;
-    std::string_view name = "";
-    switch (t.index()) {
-    case static_cast<size_t>(S::TextureIndex):
-      name = "TextureIndex";
-      break;
-    default:
       break;
     }
     return fmt::formatter<std::string_view>::format(name, ctx);

@@ -1,4 +1,5 @@
 #include "keptech/vulkan/renderer.hpp"
+#include "keptech/vulkan/commandBuffer.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include "macros.hpp"
 #include "vulkan/vulkan.hpp"
@@ -8,16 +9,12 @@
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
 #include <keptech/core/components/camera.hpp>
-#include <keptech/core/renderer.hpp>
 #include <keptech/core/rendering/gltf/loaded.hpp>
 #include <keptech/core/window.hpp>
 #include <set>
 
 namespace keptech::vkh {
-  static_assert(core::renderer::CRenderer<Renderer>,
-                "Renderer must satisfy CRenderer concept");
-
-  void Renderer::Pools::resetAll() {
+  void RendererBackend::Pools::resetAll() {
     std::set<vk::raii::CommandPool*> unique{
         &graphics.get()->pool,
         &compute.get()->pool,
@@ -27,69 +24,9 @@ namespace keptech::vkh {
     }
   }
 
-  Renderer::ObjectLists
-  Renderer::buildRenderObjectLists(core::Scene& scene,
-                                   const maths::Frustum& frustum) {
-    ObjectLists lists;
-
-    auto view = scene.getEcs()
-                    .view<components::Transform, components::Mesh,
-                          components::Material>();
-
-    for (auto [entity, transform, meshComp, materialComp] : view.each()) {
-
-      auto pipelineP = loadedPipelines.get(materialComp.pipeline);
-      if (!pipelineP) {
-        VK_WARN("RenderObject has invalid material handle, skipping");
-        continue;
-      }
-
-      auto meshP = loadedMeshes.get(meshComp);
-      if (!meshP) {
-        VK_WARN("RenderObject has invalid mesh handle, skipping");
-        continue;
-      }
-
-      auto& mesh = *meshP;
-      auto& pipeline = *pipelineP;
-
-      transform.recalculateGlobalTransform();
-
-      // TODO: Frustum cull
-
-      struct VkRenderObject ro{
-          .transform = transform.getGlobal(),
-          .pipeline = &pipeline,
-          .mesh = &mesh,
-          .materialComp = &materialComp,
-      };
-
-      switch (pipeline.stage) {
-      case Pipeline::Stage::Deferred:
-        lists.deferred.push_back(ro);
-        break;
-      case Pipeline::Stage::Opaque:
-        lists.forward.push_back(ro);
-        break;
-      case Pipeline::Stage::Transparent:
-        lists.transparent.push_back(ro);
-        break;
-      }
-    }
-    return lists;
-  }
-
-  void Renderer::newFrame() {
+  void RendererBackend::newFrame() {
     ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
-
-    ImGui::NewFrame();
-  }
-
-  Renderer::Frame Renderer::startFrame() {
-    checkCompletedCommandBuffers();
-
-    auto& perFrame = vkcore.perFrame[thisFrameIndex];
+    auto& perFrame = vkcore.perFrame[frameInfo.index];
 
     auto nextImageRes =
         vkcore.swapchain.getNextImage(vkcore.device, perFrame.inFlightFence,
@@ -110,27 +47,123 @@ namespace keptech::vkh {
       }
       VK_DEBUG("Restarting frame after swapchain recreation");
       // Try again
-      return startFrame();
+      newFrame();
     }
 
-    Frame frameInfo{
-        .index = thisFrameIndex,
-        .imageIndex = static_cast<uint8_t>(imageIndex),
-        .perFrame = std::ref(perFrame),
-    };
+    frameInfo.imageIndex = imageIndex;
+    frameInfo.perFrame = &perFrame;
 
     if (swapchainState == vkh::Swapchain::State::Suboptimal) {
       frameInfo.suboptimalSwapchain = true;
     }
 
-    frameInfo.perFrame.get().pools.resetAll();
-    submittedCommandBuffers[thisFrameIndex].clear();
-
-    return frameInfo;
+    frameInfo.perFrame->pools.resetAll();
   }
 
-  void Renderer::setupGraphicsCommandBuffer(
-      const Frame& info, const vk::raii::CommandBuffer& graphicsCmdBuffer,
+  std::expected<UCmdBufPtr, std::string>
+  RendererBackend::createGraphicsCmdBuffer() {
+    vk::CommandBufferAllocateInfo cmdBufAllocInfo{
+        .commandPool = *frameInfo.perFrame->pools.graphics.get()->pool,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1,
+    };
+
+    VK_MAKE(graphicsCmdBuffers,
+            vkcore.device->allocateCommandBuffers(cmdBufAllocInfo),
+            "Failed to allocate graphics command buffer");
+
+    vk::raii::CommandBuffer graphicsCmdBuffer =
+        std::move(graphicsCmdBuffers_res.value.front());
+
+    std::unique_ptr<CommandBuffer> buffer =
+        std::make_unique<CommandBuffer>(std::move(graphicsCmdBuffer));
+
+    return std::move(buffer);
+  }
+
+  void RendererBackend::renderImGui(const UCmdBufPtr& cmdBuf) {
+    ImGui::Render();
+
+    vk::RenderingAttachmentInfo aInfo{
+        .imageView = vkcore.swapchain.nView(frameInfo.imageIndex),
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eLoad,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+    };
+
+    vk::RenderingInfo renderingInfo{
+        .renderArea =
+            vk::Rect2D{
+                .offset = vk::Offset2D{.x = 0, .y = 0},
+                .extent = vkcore.swapchain.config().extent,
+            },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &aInfo,
+    };
+
+    auto& graphicsCmdBuffer = dynamic_cast<CommandBuffer*>(cmdBuf.get())->get();
+
+    graphicsCmdBuffer.beginRendering(renderingInfo);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *graphicsCmdBuffer);
+    graphicsCmdBuffer.endRendering();
+  }
+
+  void RendererBackend::beginDeferredPass() {
+    vk::ImageMemoryBarrier2 toDrawableBarrier{
+        .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
+        .srcAccessMask = vk::AccessFlagBits2::eNone,
+        .dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .dstAccessMask = vk::AccessFlagBits2::eColorAttachmentRead |
+                         vk::AccessFlagBits2::eColorAttachmentWrite,
+        .oldLayout = vk::ImageLayout::eUndefined,
+        .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = vkcore.swapchain.nImage(frameInfo.imageIndex),
+        .subresourceRange =
+            vk::ImageSubresourceRange{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+
+    vk::ImageMemoryBarrier2 gBufferColorToDrawableBarrier = toDrawableBarrier;
+    gBufferColorToDrawableBarrier.image = gBuffer.color.image;
+    vk::ImageMemoryBarrier2 gBufferNormalToDrawableBarrier = toDrawableBarrier;
+    gBufferNormalToDrawableBarrier.image = gBuffer.normal.image;
+
+    vk::ImageMemoryBarrier2 gBufferDepthToDrawableBarrier = toDrawableBarrier;
+    gBufferDepthToDrawableBarrier.image = gBuffer.depth.image;
+    gBufferDepthToDrawableBarrier.newLayout =
+        vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    gBufferDepthToDrawableBarrier.dstStageMask =
+        vk::PipelineStageFlagBits2::eEarlyFragmentTests |
+        vk::PipelineStageFlagBits2::eLateFragmentTests;
+    gBufferDepthToDrawableBarrier.dstAccessMask =
+        vk::AccessFlagBits2::eDepthStencilAttachmentRead |
+        vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+    gBufferDepthToDrawableBarrier.subresourceRange.aspectMask =
+        vk::ImageAspectFlagBits::eDepth;
+
+    std::array<vk::ImageMemoryBarrier2, 4> barriers{
+        toDrawableBarrier,
+        gBufferColorToDrawableBarrier,
+        gBufferNormalToDrawableBarrier,
+        gBufferDepthToDrawableBarrier,
+    };
+
+    graphicsCmdBuffer.pipelineBarrier2(vk::DependencyInfo{
+        .imageMemoryBarrierCount = barriers.size(),
+        .pImageMemoryBarriers = barriers.data(),
+    });
+  }
+
+  void RendererBackend::setupGraphicsCommandBuffer(
+      const vk::raii::CommandBuffer& graphicsCmdBuffer,
       const components::Camera& camera) {
 
     auto& viewport = camera.getViewport();
@@ -164,10 +197,10 @@ namespace keptech::vkh {
                                     });
   }
 
-  void Renderer::presentFrame(const Frame& info) {
-    uint32_t imageIndex = info.imageIndex;
+  void RendererBackend::endFrame() {
+    auto& sem = vkcore.swapchain.nPresentSemaphore(frameInfo.imageIndex);
 
-    auto& sem = vkcore.swapchain.nPresentSemaphore(imageIndex);
+    uint32_t imageIndex = frameInfo.imageIndex;
 
     vk::PresentInfoKHR presentInfo{
         .waitSemaphoreCount = 1,
@@ -178,9 +211,13 @@ namespace keptech::vkh {
     };
 
     auto result = vkcore.queues.present.queue->presentKHR(presentInfo);
-    this->thisFrameIndex = (this->thisFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+
+    frameInfo.index = frameInfo.nextIndex; // Advance to next frame index
+
+    frameInfo.nextIndex = (frameInfo.nextIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+
     if (result == vk::Result::eErrorOutOfDateKHR ||
-        result == vk::Result::eSuboptimalKHR || info.suboptimalSwapchain) {
+        result == vk::Result::eSuboptimalKHR || frameInfo.suboptimalSwapchain) {
       auto res = recreateSwapchain();
       if (!res) {
         VK_CRITICAL("Failed to recreate swapchain: {}", res.error());
@@ -189,42 +226,19 @@ namespace keptech::vkh {
     }
   }
 
-  void Renderer::endFrame() { ImGui::EndFrame(); }
-
-  Renderer::~Renderer() {
+  RendererBackend::~RendererBackend() {
     if (moveGuard.moved()) {
       return;
     }
 
     vkcore.device.logical.waitIdle();
 
-    for (auto& ongoing : ongoingCommandBuffers) {
-      ongoing.buffer.destroy(vkcore.allocator);
-    }
-
     vkcore.device.logical.waitIdle();
-    ongoingCommandBuffers.clear();
-
-    gBuffer.color.destroy(vkcore.allocator, vkcore.device.logical);
-    gBuffer.normal.destroy(vkcore.allocator, vkcore.device.logical);
-    gBuffer.depth.destroy(vkcore.allocator, vkcore.device.logical);
 
     for (auto& frame : vkcore.perFrame)
       frame.instanceBuffers.destroy(vkcore.allocator);
 
-    loadedMeshes.reset();
-    loadedPipelines.reset();
-
-    for (auto& texture : loadedTextures.rawData()) {
-      if (texture.has_value())
-        texture->image.destroy(vkcore.allocator, vkcore.device.logical);
-    }
-
-    cameraBuffer.destroy(vkcore.allocator);
-
     ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
-    ImGui::DestroyContext();
 
     vkcore.allocator.destroy();
     vkcore.device.logical.waitIdle();
@@ -232,7 +246,7 @@ namespace keptech::vkh {
     VK_INFO("Vulkan renderer shut down cleanly");
   }
 
-  std::expected<void, std::string> Renderer::recreateSwapchain() {
+  std::expected<void, std::string> RendererBackend::recreateSwapchain() {
     VK_DEBUG("Recreating swapchain");
     VKH_MAKE(newSwapchain,
              setup::createSwapchain(vkcore.device.physical,

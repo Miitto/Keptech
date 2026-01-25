@@ -47,7 +47,7 @@ add_subdirectory(src)
 target_link_libraries(${PROJECT_NAME} PUBLIC keptech::core)
 
 if (KT_USE_PCH)
-  target_precompile_headers(${PROJECT_NAME} PRIVATE
+  target_precompile_headers(${PROJECT_NAME} PUBLIC
     ${KT_PCH_HEADERS}
   )
 endif()

@@ -4,4 +4,7 @@ target_sources(${PROJECT_NAME}
     TYPE HEADERS
   PRIVATE
     main.cpp
+    renderer.cpp
+    rendering.cpp
+    resourceManagment.cpp
 )
