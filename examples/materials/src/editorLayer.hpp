@@ -22,18 +22,19 @@ void forwardCompInspectorUi(MaterialEditorLayer* layer,
 
 class MaterialEditorLayer : public keptech::core::layers::Layer {
 public:
-  using SelectedItem = std::variant<std::monostate, keptech::ecs::EntityHandle,
-                                    keptech::core::rendering::Mesh::Handle,
-                                    keptech::core::rendering::Pipeline::Handle,
-                                    keptech::core::rendering::TextureHandle>;
+  using SelectedItem =
+      std::variant<std::monostate, keptech::ecs::EntityHandle, keptech::MeshPtr,
+                   keptech::PipelinePtr, keptech::TexPtr>;
 
   enum class ActiveDebugView : uint8_t { Albedo, Normals, Depth, Final };
 
-  MaterialEditorLayer(KEPTECH_RENDERER& renderer, keptech::core::Scene&& scene);
+  MaterialEditorLayer(keptech::Renderer& renderer, keptech::Scene&& scene,
+                      std::vector<keptech::MeshPtr>&& meshes,
+                      std::vector<keptech::PipelinePtr>&& pipelines);
 
   static void initMeta();
 
-  keptech::core::Scene& getScene() { return scene; }
+  keptech::Scene& getScene() { return scene; }
 
   void onUpdate(keptech::core::Timestep ts) override;
 
@@ -46,13 +47,13 @@ public:
   void meshInspectorUi(keptech::gui::Frame& frame,
                        keptech::components::Mesh& ro);
 
-  void meshInspectorUi(keptech::gui::Frame& frame, KEPTECH_RENDERER::Mesh& ro);
-
   void materialInspectorUi(keptech::gui::Frame& frame,
                            keptech::components::Material& ro);
 
-  void pipelineInspectorUi(keptech::gui::Frame& frame,
-                           KEPTECH_RENDERER::Pipeline& ro);
+  void pipelineInspectorUi(keptech::gui::Frame& frame, keptech::IPipeline& ro);
+
+  void cameraInspectorUi(keptech::gui::Frame& frame,
+                         keptech::components::Camera& camera);
 
   struct SceneNode {
     keptech::ecs::EntityHandle id;
@@ -103,11 +104,20 @@ private:
   void drawAssetsPanel();
   void drawLoadedAssetsPanel();
 
-  KEPTECH_RENDERER& renderer;
-  keptech::core::Scene scene;
+  keptech::Renderer& renderer;
+  keptech::Scene scene;
   keptech::cameras::OrbitCameraController orbitController;
 
   SelectedItem selectedItem = std::monostate{};
+
+  struct gBufferImGuiHandles {
+    ImTextureRef albedo;
+    ImTextureRef normal;
+    ImTextureRef depth;
+  } gBufferImGuiHandles;
+
+  std::vector<keptech::MeshPtr> loadedMeshes;
+  std::vector<keptech::PipelinePtr> loadedPipelines;
 
   Directory assetsRootDir;
 

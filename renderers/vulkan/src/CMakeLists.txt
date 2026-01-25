@@ -14,9 +14,8 @@ target_sources(${PROJECT_NAME}
     helpers/validators.cpp
     helpers/vmaImpl.cpp
 
-    mesh.cpp
+    commandBuffer.cpp
     renderer.cpp
-    rendering.cpp
     resourceManagment.cpp
     structs.cpp
     vk-logger.cpp

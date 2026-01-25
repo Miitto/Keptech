@@ -75,8 +75,7 @@ namespace keptech::vkh {
     return finder;
   }
 
-  QueueFinder
-  QueueFinder::filterTypes(core::Bitflag<QueueTypeFlags> type) const {
+  QueueFinder QueueFinder::filterTypes(Bitflag<QueueTypeFlags> type) const {
     std::vector<QueueFinder::QueueFamily> filtered{};
 
     for (auto& queueFamily : queueFamilyProperties) {

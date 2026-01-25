@@ -8,11 +8,10 @@
 #include <string>
 #include <unordered_map>
 
-namespace keptech::core::gltf {
+namespace keptech::gltf {
 
   struct LoadedGltf {
-    std::unordered_map<std::string, std::shared_ptr<rendering::MeshData>>
-        meshses;
+    std::unordered_map<std::string, std::shared_ptr<MeshData>> meshses;
     std::unordered_map<std::string, std::shared_ptr<fastgltf::Material>>
         materials;
     std::unordered_map<std::string, std::shared_ptr<fastgltf::Texture>>
@@ -27,4 +26,4 @@ namespace keptech::core::gltf {
     static std::expected<LoadedGltf, std::string>
     fromFile(std::string_view path);
   };
-} // namespace keptech::core::gltf
+} // namespace keptech::gltf

@@ -6,6 +6,7 @@
 #include <expected>
 #include <memory>
 #include <string>
+#include <utility>
 
 namespace keptech {
   enum class BufferUsage : uint8_t {
@@ -19,17 +20,25 @@ namespace keptech {
   };
 
   enum class BufferMemoryType : uint8_t {
-    GPUOnly = 0,
-    CPUToGPU,
-    GPUToCPU,
+    GpuOnly = 0,
+    CpuToGpu,
+    GpuToCpu,
+  };
+
+  struct BufferCreateInfo {
+    size_t size = 0;
+    Bitflag<BufferUsage> usage = BufferUsage::None;
+    BufferMemoryType memoryType = BufferMemoryType::GpuOnly;
   };
 
   class IBuffer {
   public:
-    [[nodiscard]] virtual size_t getSize() const = 0;
-    [[nodiscard]] virtual void* getMapping() const;
-    [[nodiscard]] virtual uint64_t getDeviceAddress() const;
+    [[nodiscard]] size_t getSize() const { return size; }
+    [[nodiscard]] virtual void* getMapping() const = 0;
+    [[nodiscard]] virtual uint64_t getDeviceAddress() const = 0;
 
+    IBuffer() = default;
+    IBuffer(size_t size) : size(size) {}
     IBuffer(const IBuffer&) = default;
     IBuffer(IBuffer&&) = default;
     IBuffer& operator=(const IBuffer&) = default;
@@ -37,31 +46,34 @@ namespace keptech {
     virtual ~IBuffer() = default;
 
 #ifdef KT_ADD_RESOURCE_INFO
-    void setDebugName(const std::string& name) { debugName = name; }
-    const std::string& getDebugName() const { return debugName; }
+    IBuffer(size_t size, std::string name, Bitflag<BufferUsage> usage,
+            BufferMemoryType memoryType)
+        : debugName(std::move(name)), usageFlags(usage), memoryType(memoryType),
+          size(size) {}
 
-    Bitflag<BufferUsage> getUsageFlags() const { return usageFlags; }
-    BufferMemoryType getMemoryType() const { return memoryType; }
+    void setDebugName(const std::string& name) { debugName = name; }
+    [[nodiscard]] const std::string& getDebugName() const { return debugName; }
+
+    [[nodiscard]] Bitflag<BufferUsage> getUsageFlags() const {
+      return usageFlags;
+    }
+    [[nodiscard]] BufferMemoryType getMemoryType() const { return memoryType; }
 #endif
 
-  private:
+  protected:
 #ifdef KT_ADD_RESOURCE_INFO
     std::string debugName = "";
     Bitflag<BufferUsage> usageFlags = BufferUsage::None;
-    BufferMemoryType memoryType = BufferMemoryType::GPUOnly;
+    BufferMemoryType memoryType = BufferMemoryType::GpuOnly;
 #endif
     size_t size = 0;
   };
 
-  using UBufPtr = std::unique_ptr<IBuffer>;
-  using SBufPtr = std::shared_ptr<IBuffer>;
+  using BufPtr = std::shared_ptr<IBuffer>;
 
   template <typename T>
-  concept IsBuffer = requires(T t, std::size_t size, BufferUsage usage,
-                              BufferMemoryType memType) {
-    {
-      T::create(size, usage, memType, true)
-    } -> std::same_as<std::expected<T, std::string>>;
+  concept IsBuffer = requires(T t, BufferCreateInfo i) {
+    { T::create(i) } -> std::same_as<std::expected<T, std::string>>;
     { t.destroy() } -> std::same_as<void>;
   };
 } // namespace keptech

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "keptech/core/renderer.hpp"
 #include "keptech/vulkan/renderer.hpp"
 
 #include "keptech/core/window.hpp"
@@ -8,7 +7,7 @@
 #include "keptech/vulkan/helpers/instance.hpp"
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
-#include "setup/gbuffers.hpp"
+#include "setup/swapchain.hpp"
 #include "vulkan/vulkan.hpp"
 #include <SDL3/SDL_vulkan.h>
 #include <array>
@@ -18,19 +17,18 @@
 #include <string>
 
 #include "device.hpp"
-#include "swapchain.hpp"
 
 namespace keptech::vkh::setup {
   using namespace keptech::vkh;
 
-  std::expected<std::array<Renderer::Pools, 2>, std::string>
+  std::expected<std::array<RendererBackend::Pools, 2>, std::string>
   createPools(std::set<uint32_t>& uniqueQueueFamilies,
               const QueueIndices& queueIndices, vk::raii::Device& device,
-              const Renderer::Queues& queues) {
-    Renderer::Pools pools1;
-    Renderer::Pools pools2;
+              const RendererBackend::Queues& queues) {
+    RendererBackend::Pools pools1;
+    RendererBackend::Pools pools2;
 
-    std::array<Renderer::Pools*, 2> poolsArray = {&pools1, &pools2};
+    std::array<RendererBackend::Pools*, 2> poolsArray = {&pools1, &pools2};
 
     vk::CommandPoolCreateInfo poolCreateInfo{
         .flags = vk::CommandPoolCreateFlagBits::eTransient,
@@ -50,7 +48,7 @@ namespace keptech::vkh::setup {
       }
 
       for (int i = 0; i < 2; i++) {
-        Renderer::Pools& pools = *poolsArray[i];
+        RendererBackend::Pools& pools = *poolsArray[i];
 
         VK_MAKE(poolRaii, device.createCommandPool(poolCreateInfo),
                 "Failed to create command pool.");
@@ -67,12 +65,12 @@ namespace keptech::vkh::setup {
       }
     }
 
-    return std::move(
-        std::array<Renderer::Pools, 2>{std::move(pools1), std::move(pools2)});
+    return std::move(std::array<RendererBackend::Pools, 2>{std::move(pools1),
+                                                           std::move(pools2)});
   }
 
-  std::expected<Renderer::VulkanCore, std::string>
-  createVulkanCore(const core::renderer::CreateInfo& createInfo,
+  std::expected<RendererBackend::VulkanCore, std::string>
+  createVulkanCore(const RendererCreateInfo& createInfo,
                    const core::window::Window& window) {
     auto context = vk::raii::Context{};
 
@@ -154,15 +152,23 @@ namespace keptech::vkh::setup {
     VK_MAKE(sem1, device.createSemaphore({}), "Failed to create sem1");
     VK_MAKE(sem2, device.createSemaphore({}), "Failed to create sem2");
 
-    VKH_MAKE(instanceBuffers1,
-             Renderer::InstanceBuffers::create(allocator, device, 10),
-             "Failed to create instance buffers.");
+    vk::SemaphoreTypeCreateInfo timelineCreateInfo{
+        .semaphoreType = vk::SemaphoreType::eTimeline,
+        .initialValue = 0,
+    };
 
-    VKH_MAKE(instanceBuffers2,
-             Renderer::InstanceBuffers::create(allocator, device, 10),
-             "Failed to create instance buffers.");
+    VK_MAKE(timelineSem1,
+            device.createSemaphore(vk::SemaphoreCreateInfo{
+                .pNext = &timelineCreateInfo,
+            }),
+            "Failed to create timeline sem1");
+    VK_MAKE(timelineSem2,
+            device.createSemaphore(vk::SemaphoreCreateInfo{
+                .pNext = &timelineCreateInfo,
+            }),
+            "Failed to create timeline sem2");
 
-    return Renderer::VulkanCore{
+    return RendererBackend::VulkanCore{
         .context = std::move(context),
         .instance = std::move(instance),
         .surface = std::move(surface),
@@ -171,17 +177,21 @@ namespace keptech::vkh::setup {
         .allocator = allocator,
         .queues = std::move(queues),
         .swapchain = std::move(swapchain),
-        .perFrame = {Renderer::PerFrame{
-                         .inFlightFence = std::move(fence1),
-                         .imageAvailableSemaphore = std::move(sem1),
-                         .pools = std::move(poolsArray[0]),
-                         .instanceBuffers = instanceBuffers1,
-                     },
-                     Renderer::PerFrame{.inFlightFence = std::move(fence2),
-                                        .imageAvailableSemaphore =
-                                            std::move(sem2),
-                                        .pools = std::move(poolsArray[1]),
-                                        .instanceBuffers = instanceBuffers2}},
+        .perFrame =
+            {
+                RendererBackend::PerFrame{
+                    .inFlightFence = std::move(fence1),
+                    .imageAvailableSemaphore = std::move(sem1),
+                    .timelineSemaphore = std::move(timelineSem1),
+                    .pools = std::move(poolsArray[0]),
+                },
+                RendererBackend::PerFrame{
+                    .inFlightFence = std::move(fence2),
+                    .imageAvailableSemaphore = std::move(sem2),
+                    .timelineSemaphore = std::move(timelineSem2),
+                    .pools = std::move(poolsArray[1]),
+                },
+            },
         .transferPool = std::move(transferPoolStruct),
     };
   }

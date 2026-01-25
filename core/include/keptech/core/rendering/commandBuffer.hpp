@@ -43,7 +43,10 @@ namespace keptech {
   public:
     virtual void begin() = 0;
     virtual void
-    beginRenderering(const CommandBufferBeginRenderingInfo& info) = 0;
+    beginRendering(const CommandBufferBeginRenderingInfo& info) = 0;
+    virtual void setViewport(glm::vec2 offset, glm::vec2 extent) = 0;
+    virtual void setScissor(glm::ivec2 offset, glm::uvec2 extent) = 0;
+
     virtual void endRendering() = 0;
     virtual void end() = 0;
 
@@ -55,6 +58,5 @@ namespace keptech {
     virtual ~ICommandBuffer() = default;
   };
 
-  using UCmdBufPtr = std::unique_ptr<ICommandBuffer>;
-  using SCmdBufPtr = std::shared_ptr<ICommandBuffer>;
+  using CmdBufPtr = std::unique_ptr<ICommandBuffer>;
 } // namespace keptech

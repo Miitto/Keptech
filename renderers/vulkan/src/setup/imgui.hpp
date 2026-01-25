@@ -12,10 +12,9 @@
 namespace keptech::vkh::setup {
   using namespace keptech::vkh;
 
-  std::expected<Renderer::ImGuiVkObjects, std::string>
+  std::expected<RendererBackend::ImGuiVkObjects, std::string>
   setupImGui(const keptech::core::window::Window& window,
-             const Renderer::VulkanCore& vkcore,
-             const Renderer::GBuffers& gBuffer) {
+             const RendererBackend::VulkanCore& vkcore) {
     std::array<vk::DescriptorPoolSize, 11> pool_sizes = {
         {{
              .type = vk::DescriptorType::eSampler,
@@ -121,26 +120,8 @@ namespace keptech::vkh::setup {
             }),
             "Failed to create ImGui linear sampler");
 
-    VkSampler samplerC = static_cast<VkSampler>(*linearSampler);
-
-    auto albedoHandle = ImGui_ImplVulkan_AddTexture(
-        samplerC, static_cast<VkImageView>(gBuffer.color.view),
-        static_cast<VkImageLayout>(vk::ImageLayout::eShaderReadOnlyOptimal));
-    auto normalHandle = ImGui_ImplVulkan_AddTexture(
-        samplerC, static_cast<VkImageView>(gBuffer.normal.view),
-        static_cast<VkImageLayout>(vk::ImageLayout::eShaderReadOnlyOptimal));
-    auto depthHandle = ImGui_ImplVulkan_AddTexture(
-        samplerC, static_cast<VkImageView>(gBuffer.depth.view),
-        static_cast<VkImageLayout>(vk::ImageLayout::eShaderReadOnlyOptimal));
-
-    Renderer::ImGuiGBufferHandles gBufferHandles{
-        .albedo = albedoHandle,
-        .normal = normalHandle,
-        .depth = depthHandle,
-    };
-
-    return Renderer::ImGuiVkObjects{.descriptorPool = std::move(imguiPool),
-                                    .gBufferSampler = std::move(linearSampler),
-                                    .gBufferHandles = gBufferHandles};
+    return RendererBackend::ImGuiVkObjects{.descriptorPool =
+                                               std::move(imguiPool),
+                                           .sampler = std::move(linearSampler)};
   }
 } // namespace keptech::vkh::setup

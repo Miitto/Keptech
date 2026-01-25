@@ -1,6 +1,5 @@
 #pragma once
 
-#include "keptech/core/rendering/renderer.hpp"
 #include "keptech/renderer.hpp"
 #include <keptech/core/layers/layerStack.hpp>
 #include <keptech/core/window.hpp>

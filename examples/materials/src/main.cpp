@@ -30,7 +30,7 @@ keptech::SetupInfo keptech::configureApp() {
 std::expected<void, std::string>
 keptech::setupAppLayers(core::layers::LayerStack& layerStack,
                         core::window::Window& window,
-                        keptech::vkh::Renderer& renderer) {
+                        keptech::Renderer& renderer) {
   MaterialEditorLayer::initMeta();
 
   auto basicPipelineRes = renderer.createPipeline({
@@ -43,9 +43,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   auto deferredPipelineRes = renderer.createPipeline({
       .shader = ::shaders::deferred,
-      .pipelineConfig =
-          {.layout = {.instanceDataTypes =
-                          {core::rendering::InstanceDataType::TextureIndex}}},
+      .layout = {.instanceDataTypes = {InstanceDataType::TextureIndex}},
   });
   if (!deferredPipelineRes) {
     return std::unexpected(fmt::format("Failed to create basic material: {}",
@@ -55,7 +53,8 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   SPDLOG_INFO("Created materials");
 
-  using Vertex = keptech::core::rendering::Mesh::Vertex;
+  keptech::Scene scene;
+  /*
 
   std::vector<Vertex> triangleVertices = {
       {
@@ -82,27 +81,27 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
   };
 
   auto triangleMeshRes =
-      renderer.meshFromData({.name = "Triangle", .vertices = triangleVertices});
+      renderer.loadMesh({.name = "Triangle", .vertices = triangleVertices})
+          .get();
   if (!triangleMeshRes) {
     return std::unexpected(fmt::format("Failed to create triangle mesh: {}",
                                        triangleMeshRes.error()));
   }
 
-  auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
+  auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb").get();
   if (!monkeyMeshRes) {
     return std::unexpected(
         fmt::format("Failed to load monkey mesh: {}", monkeyMeshRes.error()));
   }
   SPDLOG_INFO("Loaded monkey mesh: {}", monkeyMeshRes.value().size());
 
-  keptech::core::Scene scene;
 
   auto monkey = scene.createEntity("Monkey");
   monkey.addComponent<keptech::components::Mesh>(monkeyMeshRes.value()[0]);
   monkey.addComponent<keptech::components::Material>(
-      deferred, std::vector{core::rendering::Pipeline::InstanceData{
-                    core::rendering::TextureHandle{0}}});
+      deferred, std::vector{InstanceData{TexPtr{}}});
   monkey.addComponent<keptech::components::Transform>();
+*/
 
   auto camera = scene.createEntity("Camera");
   auto& camTransform = camera.addComponent<keptech::components::Transform>();
@@ -119,7 +118,11 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   scene.useCamera(camera);
 
-  layerStack.emplaceLayer<MaterialEditorLayer>(renderer, std::move(scene));
+  layerStack.emplaceLayer<MaterialEditorLayer>(
+      renderer, std::move(scene),
+      std::vector<keptech::MeshPtr>{
+          /*triangleMeshRes.value(), monkeyMeshRes.value()[0]*/},
+      std::vector{basicPipelineRes.value(), deferred});
 
   return {};
 }

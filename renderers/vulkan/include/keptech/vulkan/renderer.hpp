@@ -1,15 +1,14 @@
 #pragma once
 
+#include "keptech/core/rendering/buffer.hpp"
+#include "keptech/core/rendering/commandBuffer.hpp"
 #include "keptech/core/rendering/renderer.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
 #include "keptech/vulkan/helpers/shader.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include "keptech/vulkan/material.hpp"
-#include "keptech/vulkan/mesh.hpp"
 #include "keptech/vulkan/texture.hpp"
-#include <algorithm>
 #include <expected>
-#include <functional>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <keptech/core/components/renderObject.hpp>
 #include <keptech/core/components/transform.hpp>
@@ -25,7 +24,6 @@
 #include <keptech/vulkan/structs.hpp>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vk_mem_alloc.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
@@ -41,7 +39,6 @@ namespace keptech::vkh {
   class RendererBackend final : public keptech::IRendererBackend {
   public:
     using Shader = keptech::vkh::Shader;
-    using Mesh = vkh::Mesh;
     using Pipeline = vkh::LoadedPipeline;
     using Texture = vkh::Texture;
 
@@ -63,36 +60,11 @@ namespace keptech::vkh {
       void resetAll();
     };
 
-    struct InstanceData {
-      glm::mat4 modelMatrix;
-    };
-
-    struct InstanceBuffers {
-      AllocatedBuffer staging;
-      AddressedAllocatedBuffer device;
-
-      [[nodiscard]] size_t getSize() const { return staging.allocInfo.size; }
-
-      std::expected<InstanceBuffers, std::string> static create(
-          vma::Allocator& allocator, vk::raii::Device& device,
-          size_t maxInstances);
-
-      void destroy(vma::Allocator& allocator);
-      std::expected<void, std::string> resize(vma::Allocator& allocator,
-                                              vk::raii::Device& device,
-                                              size_t newMaxInstances);
-
-      std::expected<void, std::string>
-      copyToDevice(vk::raii::Device& device,
-                   const vk::raii::CommandBuffer& cmdBuf,
-                   size_t instanceCount = 0);
-    };
-
     struct PerFrame {
       vk::raii::Fence inFlightFence;
       vk::raii::Semaphore imageAvailableSemaphore;
+      vk::raii::Semaphore timelineSemaphore;
       Pools pools;
-      InstanceBuffers instanceBuffers;
     };
 
     struct VulkanCore {
@@ -109,6 +81,7 @@ namespace keptech::vkh {
 
     struct ImGuiVkObjects {
       vk::raii::DescriptorPool descriptorPool;
+      vk::raii::Sampler sampler;
     };
 
     struct Frame {
@@ -121,24 +94,39 @@ namespace keptech::vkh {
       bool suboptimalSwapchain = false;
     };
 
-    std::expected<UPipelinePtr, std::string>
-    createPipeline(PipelineCreateInfo createInfo);
+    std::expected<BufPtr, std::string>
+    createBuffer(const BufferCreateInfo&) final;
 
-    std::expected<UTexPtr, std::string>
+    std::expected<PipelinePtr, std::string>
+    createPipeline(PipelineCreateInfo createInfo) final;
+
+    std::expected<TexPtr, std::string>
     createTexture(std::string name, glm::uvec3 size, TextureFormat format,
                   Bitflag<TextureUsage> usage, uint32_t mipLevels,
-                  bool cpuAccess = false, const void* data = nullptr);
-    std::expected<UTexPtr, std::string> createTexture(const core::Image& image,
-                                                      TextureUsage usage,
-                                                      bool cpuAccess = false);
+                  bool cpuAccess = false, const void* data = nullptr) final;
 
-    std::expected<UCmdBufPtr, std::string> createGraphicsCmdBuffer() final;
+    std::expected<TexPtr, std::string> createTexture(const core::Image& image,
+                                                     TextureUsage usage,
+                                                     bool cpuAccess = false);
+
+    ImTextureRef getImGuiTextureHandle(const TexPtr& texture) final;
+
+    std::expected<CmdBufPtr, std::string> createGraphicsCmdBuffer() final;
+
+    void textureLayoutTransition(const CmdBufPtr&,
+                                 const std::vector<TextureTransition>&) final;
 
     void newFrame() final;
-    void renderImGui(const UCmdBufPtr&) final;
-    void endFrame() final;
+
+    void submitGraphicsCommandBuffers(std::vector<CmdBufPtr>) final;
+
+    void renderImGui(const CmdBufPtr&) final;
+    void endFrame(CmdBufPtr&& graphicsCmdBuffer) final;
+    void present() final;
 
     void initImGui() final;
+
+    [[nodiscard]] bool hasMoved() const noexcept { return moveGuard.moved(); }
 
     RendererBackend() = delete;
     RendererBackend(const RendererBackend&) = delete;
@@ -150,42 +138,22 @@ namespace keptech::vkh {
   private:
     RendererBackend(
         const core::window::Window& window, VulkanCore&& vkcore,
-        ImGuiVkObjects&& imGuiObjects,
         DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>&& globalDescriptorSets)
         : window(&window), vkcore(std::move(vkcore)),
-          imGuiObjects(std::move(imGuiObjects)),
           globalDescriptorSets(std::move(globalDescriptorSets)) {}
 
     [[nodiscard]] const vk::Format& getSwapchainImageFormat() const {
       return vkcore.swapchain.config().format.format;
     }
 
-    void
-    setupGraphicsCommandBuffer(const Frame& info,
-                               const vk::raii::CommandBuffer& graphicsCmdBuffer,
-                               const components::Camera& camera);
-
     std::expected<void, std::string> recreateSwapchain();
-
-    void imagesToRenderable(const Frame& info,
-                            const vk::raii::CommandBuffer& graphicsCmdBuffer);
-    void gBufferToAttachments(const Frame& info,
-                              const vk::raii::CommandBuffer& graphicsCmdBuffer);
-    void drawImGui(const Frame& info,
-                   const vk::raii::CommandBuffer& graphicsCmdBuffer);
-
-    inline void registerCommandBuffer(uint8_t frameIndex,
-                                      vk::raii::CommandBuffer&& commandBuffer) {
-      submittedCommandBuffers[frameIndex].emplace_back(
-          std::move(commandBuffer));
-    }
 
   private:
     core::MoveGuard moveGuard = core::MoveGuard{};
 
     const core::window::Window* window;
     VulkanCore vkcore;
-    ImGuiVkObjects imGuiObjects;
+    std::optional<ImGuiVkObjects> imGuiObjects;
 
     DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
 

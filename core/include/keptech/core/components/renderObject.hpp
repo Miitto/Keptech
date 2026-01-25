@@ -4,11 +4,10 @@
 #include "keptech/core/rendering/pipeline.hpp"
 
 namespace keptech::components {
-
-  using Mesh = core::rendering::Mesh::Handle;
+  using Mesh = MeshPtr;
 
   struct Material {
-    core::rendering::Pipeline::Handle pipeline;
-    std::vector<core::rendering::Pipeline::InstanceData> instanceData;
+    PipelinePtr pipeline;
+    std::vector<InstanceData> instanceData;
   };
 } // namespace keptech::components

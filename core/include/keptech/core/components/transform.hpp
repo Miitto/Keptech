@@ -44,6 +44,6 @@ namespace keptech::components {
     maths::Transform local;
     maths::Transform global;
     ecs::Entity parent = ecs::Entity{};
-    core::Bitflag<Flags> flags = Flags::Dirty;
+    Bitflag<Flags> flags = Flags::Dirty;
   };
 } // namespace keptech::components

@@ -15,7 +15,7 @@ namespace keptech::vkh::setup {
   createSwapchain(const vk::raii::PhysicalDevice& physicalDevice,
                   glm::ivec2 framebufferSize, const vk::raii::Device& device,
                   const vk::raii::SurfaceKHR& surface,
-                  const Renderer::Queues& queues,
+                  const RendererBackend::Queues& queues,
                   std::optional<vk::raii::SwapchainKHR*> oldSwapchain) {
     VK_MAKE(surfaceCapabilities,
             physicalDevice.getSurfaceCapabilitiesKHR(surface),

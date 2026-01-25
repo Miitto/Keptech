@@ -1,8 +1,6 @@
 #pragma once
 
-#include "keptech/vulkan/texture.hpp"
 #include <keptech/core/rendering/commandBuffer.hpp>
-#include <memory>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace keptech::vkh {
@@ -14,9 +12,13 @@ namespace keptech::vkh {
     void begin() final {
       cmd.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     }
-    void beginRenderering(const CommandBufferBeginRenderingInfo& info) final;
-    void endRendering();
-    void end();
+    void beginRendering(const CommandBufferBeginRenderingInfo& info) final;
+
+    void setViewport(glm::vec2 offset, glm::vec2 extent) final;
+    void setScissor(glm::ivec2 offset, glm::uvec2 extent) final;
+
+    void endRendering() final { cmd.endRendering(); }
+    void end() final { cmd.end(); }
 
     vk::raii::CommandBuffer& get() { return cmd; }
 

@@ -1,5 +1,7 @@
 #include "keptech/vulkan/commandBuffer.hpp"
 
+#include "keptech/vulkan/texture.hpp"
+
 namespace keptech::vkh {
   using vk::ClearDepthStencilValue;
 
@@ -14,13 +16,13 @@ namespace keptech::vkh {
   } // namespace
 
   void
-  CommandBuffer::beginRenderering(const CommandBufferBeginRenderingInfo& info) {
+  CommandBuffer::beginRendering(const CommandBufferBeginRenderingInfo& info) {
     std::vector<vk::RenderingAttachmentInfo> colorAttachments;
     colorAttachments.reserve(info.colorAttachments.size());
     for (auto& atch : info.colorAttachments) {
       vk::RenderingAttachmentInfo vkAtch{
           .imageView = static_cast<vk::ImageView>(
-              dynamic_cast<vkh::Texture*>(atch.texture)->image.view),
+              dynamic_cast<vkh::Texture*>(atch.texture)->getImage().view),
           .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
           .loadOp = from(atch.loadOp),
           .storeOp = from(atch.storeOp),
@@ -34,7 +36,8 @@ namespace keptech::vkh {
     vk::RenderingAttachmentInfo depthAttachmentInfo{
         .imageView = static_cast<vk::ImageView>(
             dynamic_cast<vkh::Texture*>(info.depthAttachment.texture)
-                ->image.view),
+                ->getImage()
+                .view),
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
         .loadOp = from(info.depthAttachment.loadOp),
         .storeOp = from(info.depthAttachment.storeOp),
@@ -59,6 +62,31 @@ namespace keptech::vkh {
     };
 
     cmd.beginRendering(renderingInfo);
+  }
+
+  void CommandBuffer::setViewport(glm::vec2 offset, glm::vec2 extent) {
+    cmd.setViewport(0, vk::Viewport{
+                           .x = offset.x,
+                           .y = offset.y,
+                           .width = extent.x,
+                           .height = extent.y,
+                           .minDepth = 0.0f,
+                           .maxDepth = 1.0f,
+                       });
+  }
+  void CommandBuffer::setScissor(glm::ivec2 offset, glm::uvec2 extent) {
+    cmd.setScissor(0, vk::Rect2D{
+                          .offset =
+                              {
+                                  .x = offset.x,
+                                  .y = offset.y,
+                              },
+                          .extent =
+                              {
+                                  .width = extent.x,
+                                  .height = extent.y,
+                              },
+                      });
   }
 
 } // namespace keptech::vkh

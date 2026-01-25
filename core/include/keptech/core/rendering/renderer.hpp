@@ -7,7 +7,6 @@
 #include "keptech/core/rendering/texture.hpp"
 #include <concepts>
 #include <expected>
-#include <memory>
 #include <string>
 
 namespace keptech::core {
@@ -29,23 +28,32 @@ namespace keptech {
 
   class IRendererBackend {
   public:
-    virtual std::expected<std::unique_ptr<IBuffer>, std::string>
-    createBuffer(size_t size, Bitflag<BufferUsage> usage) = 0;
+    virtual std::expected<BufPtr, std::string>
+    createBuffer(const BufferCreateInfo&) = 0;
 
-    virtual std::expected<std::unique_ptr<ITexture>, std::string>
-    createTexture(glm::uvec3 size, TextureFormat format,
+    virtual std::expected<TexPtr, std::string>
+    createTexture(std::string name, glm::uvec3 size, TextureFormat format,
                   Bitflag<TextureUsage> usage, uint32_t mipLevels,
                   bool cpuAccess = false, const void* data = nullptr) = 0;
 
-    virtual std::expected<std::unique_ptr<IPipeline>, std::string>
-    createPipeline(const PipelineCreateInfo& createInfo) = 0;
+    virtual ImTextureRef getImGuiTextureHandle(const TexPtr& texture) = 0;
 
-    virtual std::expected<UCmdBufPtr, std::string>
-    createGraphicsCmdBuffer() = 0;
+    virtual std::expected<PipelinePtr, std::string>
+    createPipeline(PipelineCreateInfo createInfo) = 0;
+
+    virtual std::expected<CmdBufPtr, std::string> createGraphicsCmdBuffer() = 0;
+
+    virtual void
+    textureLayoutTransition(const CmdBufPtr&,
+                            const std::vector<TextureTransition>&) = 0;
 
     virtual void newFrame() = 0;
-    virtual void renderImGui(const UCmdBufPtr&) = 0;
-    virtual void endFrame() = 0;
+    virtual void renderImGui(const CmdBufPtr&) = 0;
+    virtual void submitGraphicsCommandBuffers(std::vector<CmdBufPtr>) = 0;
+    virtual void endFrame(CmdBufPtr&&) = 0;
+    /// Manually present the frame (if needed). Is called inside endFrame by
+    /// default.
+    virtual void present() = 0;
 
     virtual void initImGui() = 0;
 

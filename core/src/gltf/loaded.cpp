@@ -4,17 +4,17 @@
 #include <fastgltf/glm_element_traits.hpp>
 #include <keptech/core/fastgltf_formatting.hpp>
 
-namespace keptech::core::gltf {
+namespace keptech::gltf {
   namespace {
     void loadMeshData(fastgltf::Asset& asset, LoadedGltf& gltf) {
 
       for (auto& mesh : asset.meshes) {
-        std::vector<rendering::Mesh::Vertex> vertices;
+        std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
-        std::vector<rendering::Mesh::Submesh> submeshes;
+        std::vector<Mesh::Submesh> submeshes;
 
         for (auto& primitive : mesh.primitives) {
-          rendering::Mesh::Submesh submesh{
+          Mesh::Submesh submesh{
               .indexCount = static_cast<uint32_t>(
                   asset.accessors[primitive.indicesAccessor.value()].count),
               .indexOffset = static_cast<uint32_t>(indices.size()),
@@ -44,7 +44,7 @@ namespace keptech::core::gltf {
 
             fastgltf::iterateAccessorWithIndex<glm::vec3>(
                 asset, posAccessor, [&](glm::vec3 position, size_t index) {
-                  rendering::Mesh::Vertex vertex{};
+                  Vertex vertex{};
                   vertex.position = position;
                   // Can flip Y here if needed in future
                   vertices[startIndex + index] = vertex;
@@ -107,14 +107,14 @@ namespace keptech::core::gltf {
           }
         }
 
-        rendering::MeshData meshData{
+        MeshData meshData{
             .name = std::string(mesh.name),
             .vertices = std::move(vertices),
             .indices = std::move(indices),
             .submeshes = std::move(submeshes),
         };
         std::shared_ptr meshPtr =
-            std::make_shared<rendering::MeshData>(std::move(meshData));
+            std::make_shared<MeshData>(std::move(meshData));
 
         gltf.meshses.emplace(meshPtr->name, meshPtr);
       }
@@ -184,4 +184,4 @@ namespace keptech::core::gltf {
 
     return loadedGltf;
   }
-} // namespace keptech::core::gltf
+} // namespace keptech::gltf

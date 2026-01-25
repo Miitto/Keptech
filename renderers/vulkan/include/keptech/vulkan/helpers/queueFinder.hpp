@@ -59,7 +59,7 @@ namespace keptech::vkh {
     [[nodiscard]] auto findType(const QueueType type) const -> QueueFinder;
     [[nodiscard]] auto findCombined(const std::vector<QueueType>& types) const
         -> QueueFinder;
-    [[nodiscard]] auto filterTypes(core::Bitflag<QueueTypeFlags> type) const
+    [[nodiscard]] auto filterTypes(Bitflag<QueueTypeFlags> type) const
         -> QueueFinder;
 
     [[nodiscard]] auto queues() const noexcept

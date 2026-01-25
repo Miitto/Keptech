@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <imgui/imgui.h>
 #include <keptech/core/bitflag.hpp>
 #include <keptech/core/macros.hpp>
 #include <keptech/core/slotmap.hpp>
@@ -37,10 +38,12 @@ namespace keptech {
 
   class ITexture {
   public:
-    virtual void writeData(const void* data, glm::uvec3 offset, glm::uvec3 size,
-                           uint32_t mipLevel = 0) = 0;
+    ITexture(glm::uvec3 size, TextureFormat format, uint32_t mipLevels)
+        : size(size), format(format), mipLevels(mipLevels) {}
 
     [[nodiscard]] glm::vec3 getSize() const { return size; }
+    [[nodiscard]] TextureFormat getFormat() const { return format; }
+    [[nodiscard]] uint32_t getMipLevels() const { return mipLevels; }
 
     ITexture(const ITexture&) = default;
     ITexture(ITexture&&) = default;
@@ -48,12 +51,52 @@ namespace keptech {
     ITexture& operator=(ITexture&&) = default;
     virtual ~ITexture() = default;
 
-  private:
+#ifdef KT_ADD_RESOURCE_INFO
+    void setDebugName(const std::string& name) { debugName = name; }
+    [[nodiscard]] const std::string& getDebugName() const { return debugName; }
+    [[nodiscard]] Bitflag<TextureUsage> getUsageFlags() const {
+      return usageFlags;
+    }
+
+    ITexture(std::string name, glm::uvec3 size, TextureFormat format,
+             Bitflag<TextureUsage> usage, uint32_t mipLevels)
+        : debugName(std::move(name)), size(size), format(format),
+          usageFlags(usage), mipLevels(mipLevels) {}
+#endif
+
+  protected:
+#ifdef KT_ADD_RESOURCE_INFO
+    std::string debugName{};
+    Bitflag<TextureUsage> usageFlags{};
+#endif
     glm::vec3 size{0, 0, 0};
+    TextureFormat format{TextureFormat::Undefined};
+    uint32_t mipLevels{1};
   };
 
-  using UTexPtr = std::unique_ptr<ITexture>;
-  using STexPtr = std::shared_ptr<ITexture>;
+  enum class TextureTransitionType : uint8_t {
+    UndefinedToRenderable = 0,
+    RenderableToShaderRead,
+    ShaderReadToRenderable,
+  };
+
+  struct TextureTransition {
+    TextureTransitionType type;
+    ITexture* texture;
+  };
+
+  using TexPtr = std::shared_ptr<ITexture>;
+
+  class ImGuiTextureHandle {
+  public:
+    ImGuiTextureHandle() : handle(nullptr) {}
+    ImGuiTextureHandle(void* imguiHandle) : handle(imguiHandle) {}
+
+    [[nodiscard]] ImTextureRef get() const { return handle; }
+
+  private:
+    ImTextureRef handle;
+  };
 } // namespace keptech
 
 DEFINE_BITFLAG_ENUM_OPERATORS(keptech::TextureUsage)

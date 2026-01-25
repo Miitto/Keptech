@@ -134,19 +134,11 @@ namespace keptech {
 
   enum class PipelineStage : uint8_t { Deferred, Opaque, Transparent };
 
-  class IPipeline {
-  public:
-  private:
-#ifdef KT_ADD_RESOURCE_INFO
-    std::string name;
-    PipelineStage stage;
-    shaders::RenderingMode mode;
-#endif
-    std::vector<InstanceDataType> instanceDataTypes = {};
+  struct TextureIndex {
+    uint32_t index;
   };
 
-  using UPipelinePtr = std::unique_ptr<IPipeline>;
-  using SPipelinePtr = std::shared_ptr<IPipeline>;
+  using InstanceData = std::variant<TexPtr>;
 } // namespace keptech
 
 template <>
@@ -186,3 +178,78 @@ struct fmt::formatter<keptech::InstanceDataType>
     return fmt::formatter<std::string_view>::format(name, ctx);
   }
 };
+
+template <>
+struct fmt::formatter<keptech::shaders::RenderingMode>
+    : fmt::formatter<std::string_view> {
+  template <typename FormatContext>
+  auto format(const keptech::shaders::RenderingMode mode,
+              FormatContext& ctx) const {
+    using S = keptech::shaders::RenderingMode;
+    std::string_view name = "";
+    switch (mode) {
+    case S::Deferred:
+      name = "Deferred";
+      break;
+    case S::Forward:
+      name = "Forward";
+      break;
+    case keptech::shaders::RenderingMode::Custom:
+      name = "Custom";
+      break;
+    }
+    return fmt::formatter<std::string_view>::format(name, ctx);
+  }
+};
+
+namespace keptech {
+  class IPipeline {
+  public:
+    [[nodiscard]] PipelineStage getStage() const { return stage; }
+    [[nodiscard]] const std::vector<InstanceDataType>&
+    getInstanceDataTypes() const {
+      return instanceDataTypes;
+    }
+
+    void setStage(PipelineStage newStage) {
+      stage = newStage;
+#ifndef NDEBUG
+#ifdef KT_ADD_RESOURCE_INFO
+      if (stage == PipelineStage::Deferred &&
+          mode != shaders::RenderingMode::Deferred) {
+        throw std::runtime_error(
+            fmt::format("Pipeline '{}' set to Deferred stage but has mode "
+                        "'{}'",
+                        name, mode));
+      }
+
+      if (mode == shaders::RenderingMode::Deferred &&
+          stage != PipelineStage::Deferred) {
+        throw std::runtime_error(
+            fmt::format("Pipeline '{}' has Deferred mode but is set to stage "
+                        "'{}'",
+                        name, stage));
+      }
+#endif
+#endif
+    }
+
+#ifdef KT_ADD_RESOURCE_INFO
+    void setName(const std::string& newName) { name = newName; }
+    [[nodiscard]] const std::string& getDebugName() const { return name; }
+    [[nodiscard]] shaders::RenderingMode getRenderingMode() const {
+      return mode;
+    }
+#endif
+
+  protected:
+#ifdef KT_ADD_RESOURCE_INFO
+    std::string name;
+    shaders::RenderingMode mode;
+#endif
+    PipelineStage stage;
+    std::vector<InstanceDataType> instanceDataTypes = {};
+  };
+
+  using PipelinePtr = std::shared_ptr<IPipeline>;
+} // namespace keptech

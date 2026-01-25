@@ -29,7 +29,7 @@ namespace keptech {
     }
   };
 
-  class IMesh {
+  class Mesh {
   public:
     struct Submesh {
       uint32_t indexCount;
@@ -41,20 +41,20 @@ namespace keptech {
     }
 
 #ifdef KT_ADD_RESOURCE_INFO
-    std::string& getName() { return name; }
+    std::string& getDebugName() { return name; }
     [[nodiscard]] size_t getVertexCount() const { return vertexCount; }
     [[nodiscard]] size_t getIndexCount() const { return indexCount; }
 #endif
 
-    IMesh(std::vector<Submesh>&& submeshes
+    Mesh(uint32_t indexOffset, std::vector<Submesh>&& submeshes
 #ifdef KT_ADD_RESOURCE_INFO
-          ,
-          std::string name,
-          size_t vertexCount, // NOLINT
-          size_t indexCount
+         ,
+         std::string name,
+         size_t vertexCount, // NOLINT
+         size_t indexCount
 #endif
-          )
-        : submeshes(std::move(submeshes))
+         )
+        : indexOffset(indexOffset), submeshes(std::move(submeshes))
 #ifdef KT_ADD_RESOURCE_INFO
           ,
           name(std::move(name)), vertexCount(vertexCount),
@@ -64,6 +64,7 @@ namespace keptech {
     }
 
   protected:
+    uint32_t indexOffset;
     std::vector<Submesh> submeshes;
 
 #ifdef KT_ADD_RESOURCE_INFO
@@ -73,13 +74,12 @@ namespace keptech {
 #endif
   };
 
-  using UMeshPtr = std::unique_ptr<IMesh>;
-  using SMeshPtr = std::shared_ptr<IMesh>;
+  using MeshPtr = std::shared_ptr<Mesh>;
 
   struct MeshData {
     std::string name;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices = {};
-    std::vector<IMesh::Submesh> submeshes = {};
+    std::vector<Mesh::Submesh> submeshes = {};
   };
 } // namespace keptech

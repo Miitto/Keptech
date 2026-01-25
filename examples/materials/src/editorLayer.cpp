@@ -29,6 +29,16 @@ void forwardCompInspectorUi<keptech::components::Material>(
 }
 
 template <>
+void forwardCompInspectorUi<keptech::components::Camera>(
+    MaterialEditorLayer* layer, keptech::gui::Frame* frame,
+    keptech::ecs::EntityHandle entity) {
+
+  auto& comp =
+      layer->getScene().getEcs().get<keptech::components::Camera>(entity);
+  layer->cameraInspectorUi(*frame, comp);
+}
+
+template <>
 struct fmt::formatter<MaterialEditorLayer::ActiveDebugView>
     : fmt::formatter<std::string_view> {
   template <typename FormatContext>
@@ -64,6 +74,7 @@ namespace {
 void MaterialEditorLayer::initMeta() {
   metaFunc<keptech::components::Mesh>();
   metaFunc<keptech::components::Material>();
+  metaFunc<keptech::components::Camera>();
 }
 
 namespace {
@@ -97,11 +108,21 @@ namespace {
   }
 } // namespace
 
-MaterialEditorLayer::MaterialEditorLayer(KEPTECH_RENDERER& renderer,
-                                         keptech::core::Scene&& scene)
+MaterialEditorLayer::MaterialEditorLayer(
+    keptech::Renderer& renderer, keptech::Scene&& scene,
+    std::vector<keptech::MeshPtr>&& meshes,
+    std::vector<keptech::PipelinePtr>&& pipelines)
     : keptech::core::layers::Layer("MaterialEditorLayer"), renderer(renderer),
-      scene(std::move(scene)), orbitController(this->scene.getActiveCamera()) {
-  renderer.setScene(this->scene);
+      scene(std::move(scene)), orbitController(this->scene.getActiveCamera()),
+      loadedMeshes(std::move(meshes)), loadedPipelines(std::move(pipelines)) {
+  renderer.setScene(&this->scene);
+
+  gBufferImGuiHandles.albedo =
+      renderer.getImGuiTextureHandle(renderer.getGBuffers().albedo);
+  gBufferImGuiHandles.normal =
+      renderer.getImGuiTextureHandle(renderer.getGBuffers().normal);
+  gBufferImGuiHandles.depth =
+      renderer.getImGuiTextureHandle(renderer.getGBuffers().depth);
 
   refreshAssetsDirectory();
 }
@@ -183,20 +204,18 @@ void MaterialEditorLayer::drawViewport() {
     ImGui::SetNextFrameWantCaptureMouse(false);
   }
 
-  auto& gbuffer = renderer.getImGuiGBufferHandles();
-
   ImVec2 size = ImGui::GetContentRegionAvail();
 
   switch (activeDebugView) {
   case ActiveDebugView::Final:
   case ActiveDebugView::Albedo:
-    ImGui::Image(gbuffer.albedo, size);
+    ImGui::Image(gBufferImGuiHandles.albedo, size);
     break;
   case ActiveDebugView::Normals:
-    ImGui::Image(gbuffer.normal, size);
+    ImGui::Image(gBufferImGuiHandles.normal, size);
     break;
   case ActiveDebugView::Depth:
-    ImGui::Image(gbuffer.depth, size);
+    ImGui::Image(gBufferImGuiHandles.depth, size);
     break;
   }
   ImGui::PopStyleVar(1);
@@ -437,48 +456,47 @@ void MaterialEditorLayer::drawSelectedProperties() {
   if (!propertiesPanel.isOpen())
     return;
 
-  std::visit(
-      keptech::core::overloaded{
-          [&](std::monostate) {},
-          [&](keptech::ecs::EntityHandle entity) {
-            drawEntityProperties(propertiesPanel, entity);
-          },
-          [&](keptech::core::rendering::Mesh::Handle meshHandle) {
-            auto meshPtr = renderer.getMeshData(meshHandle);
-            if (meshPtr == nullptr) {
-              propertiesPanel.separatorText("Invalid Mesh");
-              return;
-            }
-            auto label = fmt::format("Mesh: {}", meshPtr->getName());
-            propertiesPanel.separatorText(label.c_str());
-            meshInspectorUi(propertiesPanel, *meshPtr);
-          },
-          [&](keptech::core::rendering::Pipeline::Handle materialHandle) {
-            auto materialPtr = renderer.getPipelineData(materialHandle);
-            if (materialPtr == nullptr) {
-              propertiesPanel.separatorText("Invalid Material");
-              return;
-            }
+  std::visit(keptech::core::overloaded{
+                 [&](std::monostate) {},
+                 [&](keptech::ecs::EntityHandle entity) {
+                   drawEntityProperties(propertiesPanel, entity);
+                 },
+                 [&](keptech::MeshPtr meshPtr) {
+                   if (meshPtr == nullptr) {
+                     propertiesPanel.separatorText("Invalid Mesh");
+                     return;
+                   }
+                   auto label =
+                       fmt::format("Mesh: {}", meshPtr->getDebugName());
+                   propertiesPanel.separatorText(label.c_str());
+                   meshInspectorUi(propertiesPanel, meshPtr);
+                 },
+                 [&](keptech::PipelinePtr pipelinePtr) {
+                   if (pipelinePtr == nullptr) {
+                     propertiesPanel.separatorText("Invalid Material");
+                     return;
+                   }
 
-            auto label = fmt::format("Material: {}", materialPtr->name);
-            propertiesPanel.separatorText(label.c_str());
-            pipelineInspectorUi(propertiesPanel, *materialPtr);
-          },
-          [&](keptech::core::rendering::TextureHandle textureHandle) {
-            auto texturePtr = renderer.getTextureData(textureHandle);
-            if (texturePtr == nullptr) {
-              propertiesPanel.separatorText("Invalid Texture");
-              return;
-            }
+                   auto label =
+                       fmt::format("Pipeline: {}", pipelinePtr->getDebugName());
+                   propertiesPanel.separatorText(label.c_str());
+                   pipelineInspectorUi(propertiesPanel, *pipelinePtr);
+                 },
+                 [&](keptech::TexPtr texturePtr) {
+                   if (texturePtr == nullptr) {
+                     propertiesPanel.separatorText("Invalid Texture");
+                     return;
+                   }
 
-            auto label = fmt::format("Texture: {}", texturePtr->name);
-            propertiesPanel.separatorText(label.c_str());
-            std::string formatStr =
-                fmt::format("Format: {}", texturePtr->format);
-            propertiesPanel.text(formatStr.c_str());
-          },
-      },
-      selectedItem);
+                   auto label =
+                       fmt::format("Texture: {}", texturePtr->getDebugName());
+                   propertiesPanel.separatorText(label.c_str());
+                   std::string formatStr =
+                       fmt::format("Format: {}", texturePtr->getFormat());
+                   propertiesPanel.text(formatStr.c_str());
+                 },
+             },
+             selectedItem);
 }
 
 void MaterialEditorLayer::drawEntityProperties(
@@ -650,56 +668,35 @@ void MaterialEditorLayer::drawLoadedAssetsPanel() {
     if (ImGui::BeginTable("Assets Table", cols, 0, {0, 0}, 5.f)) {
       switch (activeAssetType) {
       case AssetType::Mesh: {
-        renderer.operateOnAllMeshes(
-            [&](keptech::core::rendering::Mesh::Handle handle,
-                KEPTECH_RENDERER::Mesh& mesh) {
-              ImGui::TableNextColumn();
+        for (auto& meshPtr : loadedMeshes) {
+          ImGui::TableNextColumn();
 
-              bool selected = false;
-              if (selectedItem.index() == 2) {
-                selected = std::get<keptech::core::rendering::Mesh::Handle>(
-                               selectedItem) == handle;
-              }
+          bool selected = false;
+          if (selectedItem.index() == 2) {
+            selected = std::get<keptech::MeshPtr>(selectedItem) == meshPtr;
+          }
 
-              if (child.selectable(mesh.getName().c_str(), selected)) {
-                selectedItem = handle;
-              }
-            });
+          if (child.selectable(meshPtr->getDebugName().c_str(), selected)) {
+            selectedItem = meshPtr;
+          }
+        }
       } break;
       case AssetType::Material: {
-        renderer.operateOnAllPipelines(
-            [&](keptech::core::rendering::Pipeline::Handle handle,
-                KEPTECH_RENDERER::Pipeline& material) {
-              ImGui::TableNextColumn();
+        for (auto& pipelinePtr : loadedPipelines) {
+          ImGui::TableNextColumn();
 
-              bool selected = false;
-              if (selectedItem.index() == 3) {
-                selected = std::get<keptech::core::rendering::Pipeline::Handle>(
-                               selectedItem) == handle;
-              }
+          bool selected = false;
+          if (selectedItem.index() == 3) {
+            selected =
+                std::get<keptech::PipelinePtr>(selectedItem) == pipelinePtr;
+          }
 
-              if (child.selectable(material.name.c_str(), selected)) {
-                selectedItem = handle;
-              }
-            });
-
+          if (child.selectable(pipelinePtr->getDebugName().c_str(), selected)) {
+            selectedItem = pipelinePtr;
+          }
+        }
       } break;
       case AssetType::Texture:
-        renderer.operateOnAllTextures(
-            [&](keptech::core::rendering::TextureHandle handle,
-                KEPTECH_RENDERER::Texture& tex) {
-              ImGui::TableNextColumn();
-
-              bool selected = false;
-              if (selectedItem.index() == 3) {
-                selected = std::get<keptech::core::rendering::TextureHandle>(
-                               selectedItem) == handle;
-              }
-
-              if (child.selectable(tex.name.c_str(), selected)) {
-                selectedItem = handle;
-              }
-            });
 
         break;
       }
@@ -712,35 +709,24 @@ void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
                                           keptech::components::Mesh& mesh) {
   frame.separatorText("Mesh");
 
-  auto meshPtr = renderer.getMeshData(mesh);
-
-  const char* meshName = (meshPtr != nullptr) ? meshPtr->getName().c_str() : "";
+  const char* meshName = (mesh != nullptr) ? mesh->getDebugName().c_str() : "";
 
   {
     auto combo = frame.combo("Mesh", meshName);
-    renderer.operateOnAllMeshes(
-        [&](keptech::core::rendering::Mesh::Handle handle,
-            KEPTECH_RENDERER::Mesh& m) {
-          if (combo.item(m.getName().c_str(), mesh == handle)) {
-            mesh = handle;
-          }
-        });
+    for (auto& m : loadedMeshes) {
+      if (combo.item(m->getDebugName().c_str(), mesh == m)) {
+        mesh = m;
+      }
+    }
   }
 
-  if (meshPtr != nullptr)
-    meshInspectorUi(frame, *meshPtr);
-}
-
-void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
-                                          KEPTECH_RENDERER::Mesh& mesh) {
-
-  frame.text("Vertices: %zu", mesh.getVertexCount());
-  frame.text("Indices: %zu", mesh.getIndexCount());
+  frame.text("Vertices: %zu", mesh->getVertexCount());
+  frame.text("Indices: %zu", mesh->getIndexCount());
   frame.text("Triangles: %zu",
-             (mesh.getIndexCount() == 0 ? mesh.getVertexCount()
-                                        : mesh.getIndexCount()) /
+             (mesh->getIndexCount() == 0 ? mesh->getVertexCount()
+                                         : mesh->getIndexCount()) /
                  3);
-  frame.text("Submeshes: %zu", mesh.getSubmeshes().size());
+  frame.text("Submeshes: %zu", mesh->getSubmeshes().size());
 }
 
 void MaterialEditorLayer::materialInspectorUi(
@@ -749,44 +735,34 @@ void MaterialEditorLayer::materialInspectorUi(
   frame.separatorText("Material");
 
   if (ImGui::CollapsingHeader("Pipeline##header")) {
-    auto pipelinePtr = renderer.getPipelineData(material.pipeline);
 
-    const char* pipelineName =
-        (pipelinePtr != nullptr) ? pipelinePtr->name.c_str() : "";
+    const char* pipelineName = (material.pipeline != nullptr)
+                                   ? material.pipeline->getDebugName().c_str()
+                                   : "";
 
     {
       auto combo = frame.combo("Pipeline", pipelineName);
-      renderer.operateOnAllPipelines(
-          [&](keptech::core::rendering::Pipeline::Handle handle,
-              KEPTECH_RENDERER::Pipeline& m) {
-            if (combo.item(m.name.c_str(), material.pipeline == handle)) {
-              material.pipeline = handle;
-            }
-          });
+      for (auto& p : loadedPipelines) {
+        if (combo.item(p->getDebugName().c_str(), material.pipeline == p)) {
+          material.pipeline = p;
+        }
+      }
     }
 
-    if (pipelinePtr != nullptr)
-      pipelineInspectorUi(frame, *pipelinePtr);
+    if (material.pipeline != nullptr)
+      pipelineInspectorUi(frame, *material.pipeline);
   }
 
   for (auto& data : material.instanceData) {
     switch (data.index()) {
-    case static_cast<size_t>(
-        keptech::core::rendering::InstanceDataType::TextureIndex): {
-      auto& handle = std::get<keptech::core::rendering::TextureHandle>(data);
-      auto texturePtr = renderer.getTextureData(handle);
+    case static_cast<size_t>(keptech::InstanceDataType::TextureIndex): {
+      auto texturePtr = std::get<keptech::TexPtr>(data);
 
       {
-        auto combo = frame.combo("Texture", (texturePtr != nullptr)
-                                                ? texturePtr->name.c_str()
-                                                : "Invalid");
-        renderer.operateOnAllTextures(
-            [&](keptech::core::rendering::TextureHandle texHandle,
-                KEPTECH_RENDERER::Texture& texture) {
-              if (combo.item(texture.name.c_str(), handle == texHandle)) {
-                handle = texHandle;
-              }
-            });
+        auto combo =
+            frame.combo("Texture", (texturePtr != nullptr)
+                                       ? texturePtr->getDebugName().c_str()
+                                       : "Invalid");
       }
 
     } break;
@@ -796,17 +772,31 @@ void MaterialEditorLayer::materialInspectorUi(
   }
 }
 
-void MaterialEditorLayer::pipelineInspectorUi(
-    keptech::gui::Frame& frame, KEPTECH_RENDERER::Pipeline& pipeline) {
+void MaterialEditorLayer::pipelineInspectorUi(keptech::gui::Frame& frame,
+                                              keptech::IPipeline& pipeline) {
 
-  auto stageStr = fmt::format("Stage: {}", pipeline.stage);
+  auto stageStr = fmt::format("Stage: {}", pipeline.getStage());
   frame.text(stageStr.c_str());
 
-  using S = keptech::core::rendering::Pipeline::Stage;
-  if (pipeline.mode == keptech::shaders::RenderingMode::Forward) {
-    bool checked = (pipeline.stage != S::Opaque);
+  using S = keptech::PipelineStage;
+  if (pipeline.getRenderingMode() == keptech::shaders::RenderingMode::Forward) {
+    bool checked = (pipeline.getStage() != S::Opaque);
     if (ImGui::Checkbox("Transparent", &checked)) {
-      pipeline.stage = checked ? S::Transparent : S::Opaque;
+      pipeline.setStage(checked ? S::Transparent : S::Opaque);
+    }
+  }
+}
+
+void MaterialEditorLayer::cameraInspectorUi(keptech::gui::Frame& frame,
+                                            keptech::components::Camera& cam) {
+  frame.separatorText("Camera");
+
+  auto& params = cam.getParams();
+
+  if (cam.isPerspective()) {
+    float fovY = params.perspective.fovY;
+
+    if (frame.inputFloat("FovY", fovY)) {
     }
   }
 }

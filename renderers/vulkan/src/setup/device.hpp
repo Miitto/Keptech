@@ -174,6 +174,7 @@ namespace keptech::vkh::setup {
                 .descriptorBindingSampledImageUpdateAfterBind = true,
                 .descriptorBindingPartiallyBound = true,
                 .runtimeDescriptorArray = true,
+                .timelineSemaphore = true,
                 .bufferDeviceAddress = true,
             },
             {
@@ -199,7 +200,7 @@ namespace keptech::vkh::setup {
     return std::move(device);
   }
 
-  std::expected<Renderer::Queues, std::string>
+  std::expected<RendererBackend::Queues, std::string>
   getQueues(vk::raii::Device& device, QueueIndices& queueIndices,
             const std::set<uint32_t>& uniqueQueueFamilies) {
     std::vector<Queue> queues{};
@@ -224,7 +225,7 @@ namespace keptech::vkh::setup {
       return q.index == queueIndices.transfer;
     });
 
-    return std::move(Renderer::Queues{
+    return std::move(RendererBackend::Queues{
         .graphics = graphicsQueue,
         .present = presentQueue,
         .compute = computeQueue,
