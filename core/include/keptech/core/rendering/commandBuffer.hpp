@@ -1,6 +1,7 @@
 #pragma once
 
 #include "keptech/core/rendering/buffer.hpp"
+#include "keptech/core/rendering/pipeline.hpp"
 #include "keptech/core/rendering/texture.hpp"
 #include <glm/glm.hpp>
 #include <memory>
@@ -41,6 +42,7 @@ namespace keptech {
   };
 
   enum class CmdBufType : uint8_t { Graphics = 0, Compute = 1, Transfer = 2 };
+
   class ICommandBuffer {
   public:
     virtual void begin() = 0;
@@ -53,6 +55,18 @@ namespace keptech {
     beginRendering(const CommandBufferBeginRenderingInfo& info) = 0;
     virtual void setViewport(glm::vec2 offset, glm::vec2 extent) = 0;
     virtual void setScissor(glm::ivec2 offset, glm::uvec2 extent) = 0;
+
+    virtual void bindPipeline(const IPipeline& pipeline) = 0;
+    virtual void writePushConstants(const IPipeline& pipeline,
+                                    Bitflag<shaders::ShaderStages> stages,
+                                    uint32_t offset, uint32_t size,
+                                    const void* data) = 0;
+
+    virtual void bindIndexBuffer(IBuffer& buffer, uint64_t offset) = 0;
+
+    virtual void drawIndexed(uint32_t indexCount, uint32_t instanceCount = 1,
+                             uint32_t firstIndex = 0, int32_t vertexOffset = 0,
+                             uint32_t firstInstance = 0) = 0;
 
     virtual void endRendering() = 0;
     virtual void end() = 0;

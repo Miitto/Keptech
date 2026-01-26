@@ -35,10 +35,14 @@ namespace keptech::vkh {
   std::expected<AllocatedBuffer, std::string>
   AllocatedBuffer::create(vma::Allocator& allocator,
                           const vk::BufferCreateInfo& bufInfo,
-                          const vma::AllocationCreateInfo& allocInfo) {
+                          const vma::AllocationCreateInfo& allocInfo,
+                          const std::optional<std::string>& name) {
     vma::AllocationInfo aInfo = {};
     VMA_MAKE(buffer, allocator.createBuffer(bufInfo, allocInfo, aInfo),
              "Failed to create allocated buffer");
+
+    if (name.has_value())
+      allocator.setAllocationName(buffer.second, name->c_str());
 
     return AllocatedBuffer{
         .buffer = buffer.first,
@@ -51,12 +55,16 @@ namespace keptech::vkh {
   AddressedAllocatedBuffer::create(const vk::raii::Device& device,
                                    vma::Allocator& allocator,
                                    const vk::BufferCreateInfo& bufInfo,
-                                   const vma::AllocationCreateInfo& allocInfo) {
+                                   const vma::AllocationCreateInfo& allocInfo,
+                                   const std::optional<std::string>& name) {
     auto allocatedBufferRes =
         AllocatedBuffer::create(allocator, bufInfo, allocInfo);
     if (!allocatedBufferRes) {
       return std::unexpected(allocatedBufferRes.error());
     }
+
+    if (name.has_value())
+      allocator.setAllocationName(allocatedBufferRes->alloc, name->c_str());
 
     return fromAllocatedBuffer(device, *allocatedBufferRes);
   }

@@ -70,9 +70,13 @@ namespace keptech::vkh {
       return static_cast<uint8_t*>(allocInfo.pMappedData) + offset;
     }
 
+    void setDebugName(const vk::raii::Device& device,
+                      const std::string& name) const {}
+
     static std::expected<AllocatedBuffer, std::string>
     create(vma::Allocator& allocator, const vk::BufferCreateInfo& bufInfo,
-           const vma::AllocationCreateInfo& allocInfo);
+           const vma::AllocationCreateInfo& allocInfo,
+           const std::optional<std::string>& name = std::nullopt);
 
     inline void destroy(vma::Allocator& allocator) {
       if (alloc) {
@@ -89,7 +93,8 @@ namespace keptech::vkh {
     static std::expected<AddressedAllocatedBuffer, std::string>
     create(const vk::raii::Device& device, vma::Allocator& allocator,
            const vk::BufferCreateInfo& bufInfo,
-           const vma::AllocationCreateInfo& allocInfo);
+           const vma::AllocationCreateInfo& allocInfo,
+           const std::optional<std::string>& name = std::nullopt);
 
     static std::expected<AddressedAllocatedBuffer, std::string>
     fromAllocatedBuffer(const vk::raii::Device& desvice,

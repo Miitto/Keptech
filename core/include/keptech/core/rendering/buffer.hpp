@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -26,6 +27,7 @@ namespace keptech {
   };
 
   struct BufferCreateInfo {
+    std::optional<std::string> name = std::nullopt;
     size_t size = 0;
     Bitflag<BufferUsage> usage = BufferUsage::None;
     BufferMemoryType memoryType = BufferMemoryType::GpuOnly;

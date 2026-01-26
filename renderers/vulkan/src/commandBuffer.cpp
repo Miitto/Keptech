@@ -3,6 +3,8 @@
 #include "keptech/vulkan/buffer.hpp"
 #include "keptech/vulkan/texture.hpp"
 
+#include "conversions.hpp"
+
 namespace keptech::vkh {
   using vk::ClearDepthStencilValue;
 
@@ -104,6 +106,38 @@ namespace keptech::vkh {
                                   .height = extent.y,
                               },
                       });
+  }
+
+  void CommandBuffer::writePushConstants(const IPipeline& pipeline,
+                                         Bitflag<shaders::ShaderStages> stages,
+                                         uint32_t offset, uint32_t size,
+                                         const void* data) {
+    const LoadedPipeline& vkPipeline =
+        static_cast<const LoadedPipeline&>(pipeline);
+
+    vk::PushConstantsInfo info{
+        .layout = *vkPipeline.pipelineLayout,
+        .stageFlags = from(stages),
+        .offset = offset,
+        .size = size,
+        .pValues = data,
+    };
+
+    cmd.pushConstants2(info);
+  }
+
+  void CommandBuffer::bindIndexBuffer(IBuffer& buffer, uint64_t offset) {
+    vkh::Buffer& vkBuffer = static_cast<vkh::Buffer&>(buffer);
+
+    cmd.bindIndexBuffer(vkBuffer.getBuffer().buffer, offset,
+                        vk::IndexType::eUint32);
+  }
+
+  void CommandBuffer::drawIndexed(uint32_t indexCount, uint32_t instanceCount,
+                                  uint32_t firstIndex, int32_t vertexOffset,
+                                  uint32_t firstInstance) {
+    cmd.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset,
+                    firstInstance);
   }
 
 } // namespace keptech::vkh

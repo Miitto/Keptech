@@ -1,9 +1,11 @@
 #include "keptech/vulkan/renderer.hpp"
 #include "keptech/core/moveGuard.hpp"
+#include "keptech/vulkan/buffer.hpp"
 #include "keptech/vulkan/commandBuffer.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include "macros.hpp"
 #include "vulkan/vulkan.hpp"
+#include <keptech/core/maths/maths.hpp>
 
 #include "setup/imgui.hpp"
 #include "vk-logger.hpp"
@@ -67,9 +69,6 @@ namespace keptech::vkh {
     if (swapchainState == vkh::Swapchain::State::Suboptimal) {
       frameInfo.suboptimalSwapchain = true;
     }
-
-    frameInfo.perFrame->pools.resetAll();
-    submittedCommandBuffers[frameInfo.index].clear();
   }
 
   std::expected<CmdBufPtr, std::string>
@@ -101,8 +100,45 @@ namespace keptech::vkh {
     return std::make_unique<CommandBuffer>(std::move(cmdBuffer), t);
   }
 
-  void RendererBackend::startFrame(const CmdBufPtr& cmdBuf) {
-    auto& graphicsCmdBuffer = dynamic_cast<CommandBuffer*>(cmdBuf.get())->get();
+  std::expected<CmdBufPtr, std::string> RendererBackend::startFrame() {
+    for (auto& info : submittedCommandBuffers[frameInfo.index]) {
+      VK_TRACE("Waiting for command buffer submitted at {} with signal value "
+               "{}",
+               frameInfo.index, info.signalValue);
+
+      vk::Result res = vk::Result::eTimeout;
+      while (res = vkcore.device->waitSemaphores(
+                 vk::SemaphoreWaitInfo{
+                     .semaphoreCount = 1,
+                     .pSemaphores = &*frameInfo.perFrame->timelineSemaphore,
+                     .pValues = &info.signalValue,
+                 },
+                 UINT64_MAX),
+             res == vk::Result::eTimeout) {
+      }
+
+      if (res != vk::Result::eSuccess) {
+        VK_CRITICAL("Failed to wait for command buffer semaphore: {}",
+                    vk::to_string(res));
+        abort();
+      }
+    }
+
+    submittedCommandBuffers[frameInfo.index].clear();
+    frameInfo.perFrame->pools.resetAll();
+
+    vk::CommandBufferAllocateInfo cmdBufAllocInfo{
+        .commandPool = *frameInfo.perFrame->pools.graphics.get()->pool,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1,
+    };
+    VK_MAKE(cmdBuffers, vkcore.device->allocateCommandBuffers(cmdBufAllocInfo),
+            "Failed to allocate graphics command buffer");
+    auto cmdBuffer = std::move(cmdBuffers_res.value.front());
+
+    cmdBuffer.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
 
     vk::ImageMemoryBarrier2 barrier{
         .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
@@ -124,10 +160,47 @@ namespace keptech::vkh {
             },
     };
 
-    graphicsCmdBuffer.pipelineBarrier2(vk::DependencyInfo{
+    cmdBuffer.pipelineBarrier2(vk::DependencyInfo{
         .imageMemoryBarrierCount = 1,
         .pImageMemoryBarriers = &barrier,
     });
+
+    return std::make_unique<CommandBuffer>(std::move(cmdBuffer),
+                                           CmdBufType::Graphics);
+  }
+  void RendererBackend::writeCameraMatrices(const CmdBufPtr& cmdBuf,
+                                            const BufPtr& stagingBuffer) {
+    vk::raii::CommandBuffer& vkCmdBuf =
+        dynamic_cast<CommandBuffer*>(cmdBuf.get())->get();
+    Buffer& vkStagingBuffer = *dynamic_cast<Buffer*>(stagingBuffer.get());
+
+    uint64_t offset = 0;
+    uint64_t size = sizeof(components::Camera::Uniforms);
+
+    for (size_t i = 0; i < frameInfo.index; ++i) {
+      offset += size;
+      offset = maths::roundToAlignment(offset, 256);
+    }
+
+    vkCmdBuf.copyBuffer(vkStagingBuffer.getBuffer().buffer, cameraBuffer.buffer,
+                        vk::BufferCopy{
+                            .srcOffset = 0,
+                            .dstOffset = offset,
+                            .size = size,
+                        });
+  }
+
+  void
+  RendererBackend::bindGlobalDescriptorSets(const CmdBufPtr& cmdBuf,
+                                            const IPipeline& pipeline,
+                                            Bitflag<shaders::ShaderStages>) {
+    CommandBuffer& vkCmdBuf = *dynamic_cast<CommandBuffer*>(cmdBuf.get());
+    const LoadedPipeline& vkPipeline =
+        static_cast<const LoadedPipeline&>(pipeline);
+
+    vkCmdBuf.get().bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, vkPipeline.pipelineLayout, 0,
+        {*globalDescriptorSets.sets[frameInfo.index]}, {});
   }
 
   void RendererBackend::renderImGui(const CmdBufPtr& cmdBuf) {
@@ -159,16 +232,23 @@ namespace keptech::vkh {
   }
 
   void
-  RendererBackend::submitCommandBuffers(std::vector<CmdBufPtr> cmdBuffers) {
+  RendererBackend::submitCommandBuffers(std::vector<SubmitInfo> cmdBuffers) {
     if (cmdBuffers.empty()) {
       return;
     }
 
-    std::vector<vk::raii::CommandBuffer> vkCmdBufs;
-    vkCmdBufs.reserve(cmdBuffers.size());
+    uint64_t nextSignalValue = frameInfo.perFrame->nextTimelineValue++;
+
+    std::vector<SubmittedCommandBufferInfo> submittedCmdBufInfos;
+    submittedCmdBufInfos.reserve(cmdBuffers.size());
     for (auto& cmdBuf : cmdBuffers) {
-      auto& vkCmdBuf = dynamic_cast<CommandBuffer*>(cmdBuf.get())->get();
-      vkCmdBufs.emplace_back(std::move(vkCmdBuf));
+      auto& vkCmdBuf =
+          dynamic_cast<CommandBuffer*>(cmdBuf.commandBuffer.get())->get();
+      submittedCmdBufInfos.emplace_back(SubmittedCommandBufferInfo{
+          .signalValue = nextSignalValue,
+          .buffer = std::move(vkCmdBuf),
+          .trackedBuffers = std::move(cmdBuf.trackedBuffers),
+      });
     }
 
     auto& perFrame = vkcore.perFrame[frameInfo.index];
@@ -183,16 +263,16 @@ namespace keptech::vkh {
 
     vk::SemaphoreSubmitInfo signalInfo{
         .semaphore = perFrame.timelineSemaphore,
-        .value = thisFrameCmdBufs.size() + vkCmdBufs.size(),
+        .value = nextSignalValue,
         .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
         .deviceIndex = 0,
     };
 
     std::vector<vk::CommandBufferSubmitInfo> cmdBufInfos;
-    cmdBufInfos.reserve(vkCmdBufs.size());
-    for (auto& vkCmdBuf : vkCmdBufs) {
+    cmdBufInfos.reserve(submittedCmdBufInfos.size());
+    for (auto& info : submittedCmdBufInfos) {
       cmdBufInfos.emplace_back(vk::CommandBufferSubmitInfo{
-          .commandBuffer = *vkCmdBuf,
+          .commandBuffer = *info.buffer,
           .deviceMask = 0,
       });
     }
@@ -210,7 +290,7 @@ namespace keptech::vkh {
     vk::raii::Queue* queue = nullptr;
 
     // FIXME: Assumes all command buffers are of the same type
-    switch (cmdBuffers.front()->getType()) {
+    switch (cmdBuffers.front().commandBuffer->getType()) {
     case CmdBufType::Graphics:
       queue = vkcore.queues.graphics.queue.get();
       break;
@@ -224,13 +304,14 @@ namespace keptech::vkh {
 
     queue->submit2(submitInfo);
 
-    thisFrameCmdBufs.reserve(thisFrameCmdBufs.size() + vkCmdBufs.size());
-    for (auto& vkCmdBuf : vkCmdBufs) {
-      thisFrameCmdBufs.emplace_back(std::move(vkCmdBuf));
+    thisFrameCmdBufs.reserve(thisFrameCmdBufs.size() +
+                             submittedCmdBufInfos.size());
+    for (auto& info : submittedCmdBufInfos) {
+      thisFrameCmdBufs.emplace_back(std::move(info));
     }
 
     VK_DEBUG("Submitted {} command buffers at {}, waiting for {}",
-             vkCmdBufs.size(), frameInfo.index, thisFrameCmdBufs.size());
+             submittedCmdBufInfos.size(), frameInfo.index, nextSignalValue);
   }
 
   void RendererBackend::endFrame(
@@ -265,9 +346,6 @@ namespace keptech::vkh {
 
     auto& sem = vkcore.swapchain.nPresentSemaphore(frameInfo.imageIndex);
 
-    VK_DEBUG("Present {} waiting for {}", frameInfo.index,
-             submittedCommandBuffers[frameInfo.index].size());
-
     vk::SemaphoreSubmitInfo waitInfo{
         .semaphore = vkcore.perFrame[frameInfo.index].timelineSemaphore,
         .value = submittedCommandBuffers[frameInfo.index].size(),
@@ -300,7 +378,11 @@ namespace keptech::vkh {
     vkcore.queues.graphics->submit2(
         submitInfo, vkcore.perFrame[frameInfo.index].inFlightFence);
 
-    submittedCommandBuffers[frameInfo.index].emplace_back(std::move(vkCmdBuf));
+    submittedCommandBuffers[frameInfo.index].emplace_back(
+        SubmittedCommandBufferInfo{
+            .signalValue = 0,
+            .buffer = std::move(vkCmdBuf),
+        });
 
     present();
   }
@@ -345,7 +427,7 @@ namespace keptech::vkh {
 
   RendererBackend::RendererBackend(RendererBackend&& o) noexcept
       : moveGuard(std::move(o.moveGuard)), vkcore{std::move(o.vkcore)},
-        window{o.window},
+        window{o.window}, cameraBuffer{o.cameraBuffer},
         globalDescriptorSets{std::move(o.globalDescriptorSets)},
         imGuiObjects{std::move(o.imGuiObjects)}, frameInfo{o.frameInfo} {
     frameInfo.perFrame = &vkcore.perFrame[frameInfo.index];
@@ -358,6 +440,7 @@ namespace keptech::vkh {
     moveGuard = std::move(o.moveGuard);
     vkcore = std::move(o.vkcore);
     window = o.window;
+    cameraBuffer = o.cameraBuffer;
     globalDescriptorSets = std::move(o.globalDescriptorSets);
     imGuiObjects = std::move(o.imGuiObjects);
     frameInfo = o.frameInfo;
@@ -366,6 +449,8 @@ namespace keptech::vkh {
     return *this;
   }
 
+  void RendererBackend::preExit() { vkcore.device.logical.waitIdle(); }
+
   RendererBackend::~RendererBackend() {
     if (moveGuard.moved()) {
       return;
@@ -373,13 +458,11 @@ namespace keptech::vkh {
 
     vkcore.device.logical.waitIdle();
 
-    vkcore.device.logical.waitIdle();
-
     ImGui_ImplVulkan_Shutdown();
 
     vkcore.allocator.destroy();
-    vkcore.device.logical.waitIdle();
 
+    vkcore.device.logical.waitIdle();
     VK_INFO("Vulkan renderer shut down cleanly");
   }
 

@@ -64,6 +64,7 @@ namespace keptech::vkh {
       vk::raii::Fence inFlightFence;
       vk::raii::Semaphore imageAvailableSemaphore;
       vk::raii::Semaphore timelineSemaphore;
+      uint64_t nextTimelineValue = 1;
       Pools pools;
     };
 
@@ -118,15 +119,23 @@ namespace keptech::vkh {
 
     void newFrame() final;
 
-    void startFrame(const CmdBufPtr& graphicsCmdBuffer) final;
+    std::expected<CmdBufPtr, std::string> startFrame() final;
 
-    void submitCommandBuffers(std::vector<CmdBufPtr>) final;
+    void writeCameraMatrices(const CmdBufPtr&,
+                             const BufPtr& stagingBuffer) final;
+
+    void bindGlobalDescriptorSets(const CmdBufPtr&, const IPipeline& pipeline,
+                                  Bitflag<shaders::ShaderStages>) final;
+
+    void submitCommandBuffers(std::vector<SubmitInfo>) final;
 
     void renderImGui(const CmdBufPtr&) final;
     void endFrame(CmdBufPtr&& graphicsCmdBuffer) final;
     void present();
 
     void initImGui() final;
+
+    void preExit() final;
 
     [[nodiscard]] bool hasMoved() const noexcept { return moveGuard.moved(); }
 
@@ -140,8 +149,10 @@ namespace keptech::vkh {
   private:
     RendererBackend(
         const core::window::Window& window, VulkanCore&& vkcore,
+        AllocatedBuffer cameraBuffer,
         DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>&& globalDescriptorSets)
         : window(&window), vkcore(std::move(vkcore)),
+          cameraBuffer(cameraBuffer),
           globalDescriptorSets(std::move(globalDescriptorSets)) {
       frameInfo.perFrame = &this->vkcore.perFrame[0];
     }
@@ -159,9 +170,17 @@ namespace keptech::vkh {
     VulkanCore vkcore;
     std::optional<ImGuiVkObjects> imGuiObjects;
 
+    AllocatedBuffer cameraBuffer;
+
     DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
 
-    std::array<std::vector<vk::raii::CommandBuffer>, MAX_FRAMES_IN_FLIGHT>
+    struct SubmittedCommandBufferInfo {
+      uint64_t signalValue;
+      vk::raii::CommandBuffer buffer;
+      std::vector<BufPtr> trackedBuffers{};
+    };
+
+    std::array<std::vector<SubmittedCommandBufferInfo>, MAX_FRAMES_IN_FLIGHT>
         submittedCommandBuffers;
 
     Frame frameInfo{};

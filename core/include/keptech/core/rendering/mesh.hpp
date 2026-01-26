@@ -40,6 +40,8 @@ namespace keptech {
       return submeshes;
     }
 
+    [[nodiscard]] uint32_t getIndexOffset() const { return indexOffset; }
+
 #ifdef KT_ADD_RESOURCE_INFO
     std::string& getDebugName() { return name; }
     [[nodiscard]] size_t getVertexCount() const { return vertexCount; }

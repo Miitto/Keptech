@@ -20,248 +20,9 @@
 #include <utility>
 #include <vk_mem_alloc_structs.hpp>
 
+#include "conversions.hpp"
+
 namespace keptech::vkh {
-  namespace {
-    vk::ShaderStageFlagBits from(shaders::ShaderStages stages) {
-      switch (stages) {
-      case shaders::ShaderStages::Vertex:
-        return vk::ShaderStageFlagBits::eVertex;
-      case shaders::ShaderStages::Fragment:
-        return vk::ShaderStageFlagBits::eFragment;
-      case shaders::ShaderStages::Compute:
-        return vk::ShaderStageFlagBits::eCompute;
-      }
-    }
-
-    vk::ShaderStageFlags from(Bitflag<shaders::ShaderStages> stages) {
-      using S = shaders::ShaderStages;
-      vk::ShaderStageFlags flags = {};
-      if (stages.has(S::Vertex)) {
-        flags = flags | vk::ShaderStageFlagBits::eVertex;
-      }
-      if (stages.has(S::Fragment)) {
-        flags = flags | vk::ShaderStageFlagBits::eFragment;
-      }
-      if (stages.has(S::Compute)) {
-        flags = flags | vk::ShaderStageFlagBits::eCompute;
-      }
-
-      return flags;
-    }
-
-    vk::Format from(TextureFormat format, vk::Format defaultFormat) {
-      using Format = TextureFormat;
-      switch (format) {
-      case Format::RGB8:
-        return vk::Format::eR8G8B8Unorm;
-      case Format::RGBA8:
-        return vk::Format::eR8G8B8A8Unorm;
-      case Format::Default:
-        return defaultFormat;
-      case Format::Undefined:
-        return vk::Format::eUndefined;
-      case Format::R8:
-        return vk::Format::eR8Unorm;
-      case Format::R16F:
-        return vk::Format::eR16Sfloat;
-      case Format::R32F:
-        return vk::Format::eR32Sfloat;
-      case Format::RG8:
-        return vk::Format::eR8G8Unorm;
-      case Format::RG16F:
-        return vk::Format::eR16G16Sfloat;
-      case Format::RG32F:
-        return vk::Format::eR32G32Sfloat;
-      case Format::RGB16F:
-        return vk::Format::eR16G16B16Sfloat;
-      case Format::RGB32F:
-        return vk::Format::eR32G32B32Sfloat;
-      case Format::RGBA16F:
-        return vk::Format::eR16G16B16A16Sfloat;
-      case Format::RGBA32F:
-        return vk::Format::eR32G32B32A32Sfloat;
-      case Format::Depth16:
-        return vk::Format::eD16Unorm;
-      case Format::Depth24Stencil8:
-        return vk::Format::eD24UnormS8Uint;
-      }
-    }
-
-    vk::ImageUsageFlags from(Bitflag<TextureUsage> usage) {
-      using Usage = TextureUsage;
-
-      vk::ImageUsageFlags flags = {};
-
-      if (usage.has(Usage::Sampled)) {
-        flags = flags | vk::ImageUsageFlagBits::eSampled;
-      }
-      if (usage.has(Usage::RenderTarget)) {
-        flags = flags | vk::ImageUsageFlagBits::eColorAttachment;
-      }
-      if (usage.has(Usage::Storage)) {
-        flags = flags | vk::ImageUsageFlagBits::eStorage;
-      }
-      if (usage.has(Usage::DepthStencil)) {
-        flags = flags | vk::ImageUsageFlagBits::eDepthStencilAttachment;
-      }
-      if (usage.has(Usage::TransferSrc)) {
-        flags = flags | vk::ImageUsageFlagBits::eTransferSrc;
-      }
-      if (usage.has(Usage::TransferDst)) {
-        flags = flags | vk::ImageUsageFlagBits::eTransferDst;
-      }
-      return flags;
-    }
-
-    vk::PrimitiveTopology from(Topology topology) {
-      switch (topology) {
-      case Topology::TriangleList:
-        return vk::PrimitiveTopology::eTriangleList;
-      case Topology::TriangleStrip:
-        return vk::PrimitiveTopology::eTriangleStrip;
-      case Topology::LineList:
-        return vk::PrimitiveTopology::eLineList;
-      case Topology::LineStrip:
-        return vk::PrimitiveTopology::eLineStrip;
-      case Topology::PointList:
-        return vk::PrimitiveTopology::ePointList;
-      default:
-        return vk::PrimitiveTopology::eTriangleList;
-      }
-    }
-
-    vk::PolygonMode from(PolygonMode mode) {
-      switch (mode) {
-      case PolygonMode::Fill:
-        return vk::PolygonMode::eFill;
-      case PolygonMode::Line:
-        return vk::PolygonMode::eLine;
-      case PolygonMode::Point:
-        return vk::PolygonMode::ePoint;
-      default:
-        return vk::PolygonMode::eFill;
-      }
-    }
-
-    vk::CullModeFlags from(CullMode mode) {
-      switch (mode) {
-      case CullMode::None:
-        return vk::CullModeFlagBits::eNone;
-      case CullMode::Front:
-        return vk::CullModeFlagBits::eFront;
-      case CullMode::Back:
-        return vk::CullModeFlagBits::eBack;
-      case CullMode::FrontAndBack:
-        return vk::CullModeFlagBits::eFrontAndBack;
-      default:
-        return vk::CullModeFlagBits::eNone;
-      }
-    }
-
-    vk::FrontFace from(FrontFace face) {
-      switch (face) {
-      case FrontFace::Clockwise:
-        return vk::FrontFace::eClockwise;
-      case FrontFace::CounterClockwise:
-        return vk::FrontFace::eCounterClockwise;
-      default:
-        return vk::FrontFace::eClockwise;
-      }
-    }
-
-    vk::BlendFactor from(BlendFactor factor) {
-      switch (factor) {
-      case BlendFactor::Zero:
-        return vk::BlendFactor::eZero;
-      case BlendFactor::One:
-        return vk::BlendFactor::eOne;
-      case BlendFactor::SrcAlpha:
-        return vk::BlendFactor::eSrcAlpha;
-      case BlendFactor::OneMinusSrcAlpha:
-        return vk::BlendFactor::eOneMinusSrcAlpha;
-      default:
-        return vk::BlendFactor::eOne;
-      }
-    }
-
-    vk::CompareOp from(DepthCompareOp op) {
-      switch (op) {
-      case DepthCompareOp::Never:
-        return vk::CompareOp::eNever;
-      case DepthCompareOp::Less:
-        return vk::CompareOp::eLess;
-      case DepthCompareOp::Equal:
-        return vk::CompareOp::eEqual;
-      case DepthCompareOp::LessEqual:
-        return vk::CompareOp::eLessOrEqual;
-      case DepthCompareOp::Greater:
-        return vk::CompareOp::eGreater;
-      case DepthCompareOp::NotEqual:
-        return vk::CompareOp::eNotEqual;
-      case DepthCompareOp::GreaterEqual:
-        return vk::CompareOp::eGreaterOrEqual;
-      case DepthCompareOp::Always:
-        return vk::CompareOp::eAlways;
-      default:
-        return vk::CompareOp::eLess;
-      }
-    }
-
-    vk::BufferUsageFlags from(Bitflag<BufferUsage> usage) {
-      using Usage = BufferUsage;
-
-      vk::BufferUsageFlags flags = {};
-
-      if (usage.has(Usage::Vertex)) {
-        flags = flags | vk::BufferUsageFlagBits::eVertexBuffer;
-      }
-      if (usage.has(Usage::Index)) {
-        flags = flags | vk::BufferUsageFlagBits::eIndexBuffer;
-      }
-      if (usage.has(Usage::Uniform)) {
-        flags = flags | vk::BufferUsageFlagBits::eUniformBuffer;
-      }
-      if (usage.has(Usage::Storage)) {
-        flags = flags | vk::BufferUsageFlagBits::eStorageBuffer;
-      }
-      if (usage.has(Usage::TransferSrc)) {
-        flags = flags | vk::BufferUsageFlagBits::eTransferSrc;
-      }
-      if (usage.has(Usage::TransferDst)) {
-        flags = flags | vk::BufferUsageFlagBits::eTransferDst;
-      }
-      return flags;
-    }
-
-    vma::MemoryUsage from(BufferMemoryType memoryType) {
-      switch (memoryType) {
-      case BufferMemoryType::GpuOnly:
-        return vma::MemoryUsage::eGpuOnly;
-      case BufferMemoryType::CpuToGpu:
-        return vma::MemoryUsage::eCpuToGpu;
-      case BufferMemoryType::GpuToCpu:
-        return vma::MemoryUsage::eGpuToCpu;
-      }
-    }
-
-    vk::ImageAspectFlags aspectFromFormat(TextureFormat format) {
-      vk::ImageAspectFlags aspectMask = vk::ImageAspectFlagBits::eColor;
-      switch (format) {
-      case TextureFormat::Depth16:
-        aspectMask = vk::ImageAspectFlagBits::eDepth;
-        break;
-      case TextureFormat::Depth24Stencil8:
-        aspectMask =
-            vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
-        break;
-      default:
-        break;
-      }
-
-      return aspectMask;
-    }
-  } // namespace
-
   std::expected<BufPtr, std::string>
   RendererBackend::createBuffer(const BufferCreateInfo& createInfo) {
     vk::BufferCreateInfo bufInfo{
@@ -278,8 +39,9 @@ namespace keptech::vkh {
         .usage = from(createInfo.memoryType),
     };
 
-    auto vkRes = AddressedAllocatedBuffer::create(
-        vkcore.device.logical, vkcore.allocator, bufInfo, allocInfo);
+    auto vkRes = AddressedAllocatedBuffer::create(vkcore.device.logical,
+                                                  vkcore.allocator, bufInfo,
+                                                  allocInfo, createInfo.name);
     if (!vkRes) {
       return std::unexpected(
           fmt::format("Failed to create buffer: {}", vkRes.error()));
@@ -519,7 +281,7 @@ namespace keptech::vkh {
     vkBarriers.reserve(transitions.size());
 
     for (auto& transition : transitions) {
-      auto* texture = dynamic_cast<vkh::Texture*>(transition.texture);
+      auto* texture = static_cast<vkh::Texture*>(transition.texture);
       vk::ImageLayout oldLayout = vk::ImageLayout::eUndefined;
       vk::ImageLayout newLayout = vk::ImageLayout::eUndefined;
       vk::PipelineStageFlags2 srcStageMask;

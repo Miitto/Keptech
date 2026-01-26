@@ -1,5 +1,6 @@
 #include "keptech/renderer.hpp"
 
+#include <keptech/core/kt-logger.hpp>
 #include <keptech/core/rendering/gltf/loaded.hpp>
 
 namespace keptech {
@@ -16,11 +17,15 @@ namespace keptech {
     }
     CmdBufPtr cmdBuf = std::move(cmdBufRes.value());
 
+    KT_DEBUG("Loading mesh '{}' with {} vertices and {} indices", data.name,
+             data.vertices.size(), data.indices.size());
+
     size_t vertexSize = data.vertices.size() * sizeof(Vertex);
     size_t indexSize = data.indices.size() * sizeof(uint32_t);
     size_t totalSize = vertexSize + indexSize;
 
     BufferCreateInfo stagingBufInfo{
+        .name = fmt::format("Staging Buffer for Mesh '{}'", data.name),
         .size = totalSize,
         .usage = BufferUsage::TransferSrc,
         .memoryType = BufferMemoryType::CpuToGpu,
@@ -45,12 +50,15 @@ namespace keptech {
     cmdBuf->copyBufferToBuffer(*stagingBuf.get(), *buffers.vertex.get(),
                                vertexSize, 0, buffers.vertexEnd);
     cmdBuf->copyBufferToBuffer(*stagingBuf.get(), *buffers.index.get(),
-                               indexSize, 0, buffers.indexEnd);
+                               indexSize, vertexSize, buffers.indexEnd);
     cmdBuf->end();
 
-    std::vector<CmdBufPtr> cmdBufs;
-    cmdBufs.push_back(std::move(cmdBuf));
-    backend->submitCommandBuffers(std::move(cmdBufs));
+    std::vector<IRendererBackend::SubmitInfo> submitInfos;
+    submitInfos.push_back(IRendererBackend::SubmitInfo{
+        .commandBuffer = std::move(cmdBuf),
+        .trackedBuffers = {stagingBuf, buffers.vertex, buffers.index},
+    });
+    backend->submitCommandBuffers(std::move(submitInfos));
 
     Mesh mesh(buffers.indexEnd / sizeof(uint32_t), data.submeshes
 #ifdef KT_ADD_RESOURCE_INFO

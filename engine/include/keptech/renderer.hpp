@@ -62,6 +62,7 @@ namespace keptech {
 
   private:
     struct Buffers {
+      BufPtr cameraStaging;
       size_t vertexEnd = 0;
       BufPtr vertex;
       size_t indexEnd = 0;

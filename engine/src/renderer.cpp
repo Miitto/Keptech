@@ -28,9 +28,15 @@ namespace keptech {
       return;
     }
 
+    backend->preExit();
+
     gBuffers.albedo.reset();
     gBuffers.normal.reset();
     gBuffers.depth.reset();
+
+    buffers.cameraStaging.reset();
+    buffers.vertex.reset();
+    buffers.index.reset();
 
     backend.reset();
 
@@ -90,7 +96,8 @@ namespace keptech {
     gBuffers.depth = std::move(depthRes.value());
 
     auto vertexBufRes = backend->createBuffer(BufferCreateInfo{
-        .size = sizeof(Vertex) * 1000,
+        .name = "Vertex Buffer",
+        .size = sizeof(Vertex) * 10'000,
         .usage = BufferUsage::Vertex | BufferUsage::TransferDst,
         .memoryType = BufferMemoryType::GpuOnly,
     });
@@ -99,7 +106,8 @@ namespace keptech {
                                          vertexBufRes.error()));
     }
     auto indexBufRes = backend->createBuffer(BufferCreateInfo{
-        .size = sizeof(uint32_t) * 1000,
+        .name = "Index Buffer",
+        .size = sizeof(uint32_t) * 50'000,
         .usage = BufferUsage::Index | BufferUsage::TransferDst,
         .memoryType = BufferMemoryType::GpuOnly,
     });
@@ -108,10 +116,18 @@ namespace keptech {
                                          indexBufRes.error()));
     }
 
+    auto cameraStagingRes = backend->createBuffer(BufferCreateInfo{
+        .name = "Camera Staging Buffer",
+        .size = sizeof(components::Camera::Uniforms),
+        .usage = BufferUsage::TransferSrc,
+        .memoryType = BufferMemoryType::CpuToGpu,
+    });
+
     Renderer renderer{
         std::move(backend),
         std::move(gBuffers),
         Buffers{
+            .cameraStaging = std::move(cameraStagingRes.value()),
             .vertex = std::move(vertexBufRes.value()),
             .index = std::move(indexBufRes.value()),
         },

@@ -51,13 +51,26 @@ namespace keptech {
     virtual void newFrame() = 0;
 
     /// Do work necessary at the start of the frame, such as transitioning the
-    /// swapchain image
-    virtual void startFrame(const CmdBufPtr&) = 0;
+    /// swapchain image. Creates the main graphics command buffer for the frame.
+    virtual std::expected<CmdBufPtr, std::string> startFrame() = 0;
+
+    virtual void writeCameraMatrices(const CmdBufPtr&,
+                                     const BufPtr& stagingBuffer) = 0;
+    virtual void bindGlobalDescriptorSets(const CmdBufPtr&, const IPipeline&,
+                                          Bitflag<shaders::ShaderStages>) = 0;
+
     virtual void renderImGui(const CmdBufPtr&) = 0;
-    virtual void submitCommandBuffers(std::vector<CmdBufPtr>) = 0;
+
+    struct SubmitInfo {
+      CmdBufPtr commandBuffer;
+      std::vector<BufPtr> trackedBuffers;
+    };
+    virtual void submitCommandBuffers(std::vector<SubmitInfo>) = 0;
     virtual void endFrame(CmdBufPtr&&) = 0;
 
     virtual void initImGui() = 0;
+
+    virtual void preExit() = 0;
 
     IRendererBackend() = default;
     IRendererBackend(const IRendererBackend&) = default;

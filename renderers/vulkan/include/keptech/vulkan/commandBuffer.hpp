@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/vulkan/material.hpp"
 #include <keptech/core/rendering/commandBuffer.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
@@ -21,6 +22,24 @@ namespace keptech::vkh {
 
     void setViewport(glm::vec2 offset, glm::vec2 extent) final;
     void setScissor(glm::ivec2 offset, glm::uvec2 extent) final;
+
+    void bindPipeline(const IPipeline& pipeline) final {
+      const LoadedPipeline& vkPipeline =
+          static_cast<const LoadedPipeline&>(pipeline);
+
+      cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *vkPipeline.pipeline);
+    }
+
+    void writePushConstants(const IPipeline& pipeline,
+                            Bitflag<shaders::ShaderStages> stages,
+                            uint32_t offset, uint32_t size,
+                            const void* data) final;
+
+    void bindIndexBuffer(IBuffer& buffer, uint64_t offset) final;
+
+    void drawIndexed(uint32_t indexCount, uint32_t instanceCount = 1,
+                     uint32_t firstIndex = 0, int32_t vertexOffset = 0,
+                     uint32_t firstInstance = 0) final;
 
     void endRendering() final { cmd.endRendering(); }
     void end() final { cmd.end(); }
