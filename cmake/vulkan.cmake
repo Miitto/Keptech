@@ -36,6 +36,7 @@ function(link_vulkan target ACCESS)
   )
   target_include_directories(${target} ${ACCESS}
       "${Vulkan_INCLUDE_DIR}"
+      "${Vulkan_INCLUDE_DIR}/vma"
   )
 
   if (KT_USE_PCH)

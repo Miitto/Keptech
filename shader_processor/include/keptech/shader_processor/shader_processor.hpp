@@ -5,6 +5,7 @@
 #include <expected>
 #include <slang-com-ptr.h>
 #include <vector>
+#include <string>
 
 namespace keptech::shader_processor {
   void init();

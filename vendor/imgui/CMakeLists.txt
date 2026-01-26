@@ -11,7 +11,6 @@ target_sources(ktimgui PRIVATE
   imgui/imgui_draw.cpp
   imgui/imgui_tables.cpp
   imgui/imgui_widgets.cpp
-  imgui/backends/imgui_impl_vulkan.cpp
   imgui/backends/imgui_impl_sdl3.cpp
   imgui/misc/cpp/imgui_stdlib.cpp
   PUBLIC
@@ -27,10 +26,13 @@ target_sources(ktimgui PRIVATE
 include(sdl)
 link_sdl(ktimgui PUBLIC)
 
-if (USE_VULKAN)
+if (ENABLE_VULKAN)
   include(vulkan)
   find_vulkan(23)
-  link_vulkan(imgui PUBLIC)
+  link_vulkan(ktimgui PUBLIC)
+  target_sources(ktimgui PRIVATE
+    imgui/backends/imgui_impl_vulkan.cpp
+  )
 endif()
 
 # Disable warnings
