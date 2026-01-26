@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <span>
+#include <vector>
 
 #ifndef BIT
 #define BIT(x) (1 << (x))
@@ -15,6 +16,23 @@ namespace keptech::shaders {
   };
   enum class RenderingMode : uint8_t { Deferred, Forward, Custom };
 
+  enum class DataType {
+    Float,
+    Float2,
+    Float3,
+    Float4,
+    Int,
+    Int2,
+    Int3,
+    Int4,
+    Uint,
+    Uint2,
+    Uint3,
+    Uint4,
+    Float4x4,
+    Sampler2D,
+  };
+
   struct ShaderStage {
     const char* name;
     ShaderStages stage;
@@ -25,5 +43,6 @@ namespace keptech::shaders {
     std::span<const uint8_t> code;
     RenderingMode mode;
     std::span<const ShaderStage> stages;
+    std::span<DataType> vertexLayout;
   };
 } // namespace keptech::shaders

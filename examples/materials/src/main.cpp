@@ -43,7 +43,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   auto deferredPipelineRes = renderer.createPipeline({
       .shader = ::shaders::deferred,
-      .layout = {.instanceDataTypes = {InstanceDataType::TextureIndex}},
+      .layout = {.instanceDataTypes = {shaders::DataType::Uint}},
   });
   if (!deferredPipelineRes) {
     return std::unexpected(fmt::format("Failed to create basic material: {}",

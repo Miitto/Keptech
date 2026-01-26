@@ -727,6 +727,7 @@ void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
                                          : mesh->getIndexCount()) /
                  3);
   frame.text("Submeshes: %zu", mesh->getSubmeshes().size());
+  frame.text("Vertex Offset: %zu", mesh->getVertexOffset());
 }
 
 void MaterialEditorLayer::materialInspectorUi(
@@ -755,7 +756,7 @@ void MaterialEditorLayer::materialInspectorUi(
 
   for (auto& data : material.instanceData) {
     switch (data.index()) {
-    case static_cast<size_t>(keptech::InstanceDataType::TextureIndex): {
+    case static_cast<size_t>(keptech::shaders::DataType::Uint): {
       auto texturePtr = std::get<keptech::TexPtr>(data);
 
       {

@@ -237,7 +237,7 @@ namespace keptech::vkh {
     mat.extraInstanceDataSize = 0;
     for (auto& instanceDataType : createInfo.layout.instanceDataTypes) {
       switch (instanceDataType) {
-      case InstanceDataType::TextureIndex:
+      case shaders::DataType::Uint:
         mat.extraInstanceDataSize += sizeof(uint32_t);
         break;
       }

@@ -178,12 +178,29 @@ namespace keptech {
 
       for (auto& submesh : mesh->getSubmeshes()) {
         frame.graphicsCmdBuf->drawIndexed(
-            submesh.indexCount, 1, submesh.indexOffset,
+            submesh.indexCount, 1, submesh.indexOffset + mesh->getIndexOffset(),
             static_cast<int32_t>(mesh->getVertexOffset()), 0);
       }
     }
 
     frame.graphicsCmdBuf->endRendering();
+
+    backend->textureLayoutTransition(
+        frame.graphicsCmdBuf,
+        {
+            TextureTransition{
+                .type = TextureTransitionType::RenderableToShaderRead,
+                .texture = gBuffers.albedo.get(),
+            },
+            TextureTransition{
+                .type = TextureTransitionType::RenderableToShaderRead,
+                .texture = gBuffers.normal.get(),
+            },
+            TextureTransition{
+                .type = TextureTransitionType::RenderableToShaderRead,
+                .texture = gBuffers.depth.get(),
+            },
+        });
   }
 
   void Renderer::drawLightingPass(const FrameData& frame) {}

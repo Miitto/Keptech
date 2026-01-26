@@ -41,6 +41,7 @@ namespace keptech {
     }
 
     [[nodiscard]] uint32_t getVertexOffset() const { return vertexOffset; }
+    [[nodiscard]] uint32_t getIndexOffset() const { return indexOffset; }
 
 #ifdef KT_ADD_RESOURCE_INFO
     std::string& getDebugName() { return name; }
@@ -48,7 +49,8 @@ namespace keptech {
     [[nodiscard]] size_t getIndexCount() const { return indexCount; }
 #endif
 
-    Mesh(uint32_t vertexOffset, std::vector<Submesh> submeshes
+    Mesh(uint32_t vertexOffset, uint32_t indexOffset,
+         std::vector<Submesh> submeshes
 #ifdef KT_ADD_RESOURCE_INFO
          ,
          std::string name,
@@ -56,7 +58,8 @@ namespace keptech {
          size_t indexCount
 #endif
          )
-        : vertexOffset(vertexOffset), submeshes(std::move(submeshes))
+        : vertexOffset(vertexOffset), indexOffset(indexOffset),
+          submeshes(std::move(submeshes))
 #ifdef KT_ADD_RESOURCE_INFO
           ,
           name(std::move(name)), vertexCount(vertexCount),
@@ -67,6 +70,7 @@ namespace keptech {
 
   protected:
     uint32_t vertexOffset;
+    uint32_t indexOffset;
     std::vector<Submesh> submeshes;
 
 #ifdef KT_ADD_RESOURCE_INFO

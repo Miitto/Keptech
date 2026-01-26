@@ -106,16 +106,13 @@ namespace keptech {
         shaders::ShaderStages::Vertex | shaders::ShaderStages::Fragment;
   };
 
-  enum class InstanceDataType : uint8_t {
-    TextureIndex,
-  };
-
   struct LayoutConfig {
     bool useVertexBuffer = true;
     bool useModelMatrix = true;
     std::vector<SetLayout> setLayouts = {};
     std::vector<PushConstantRange> pushConstantRanges = {};
-    std::vector<InstanceDataType> instanceDataTypes = {};
+    std::vector<shaders::DataType> vertexLayout = {};
+    std::vector<shaders::DataType> instanceDataTypes = {};
   };
 
   struct PipelineCreateInfo {
@@ -164,17 +161,35 @@ struct fmt::formatter<keptech::PipelineStage>
 };
 
 template <>
-struct fmt::formatter<keptech::InstanceDataType>
+struct fmt::formatter<keptech::shaders::DataType>
     : fmt::formatter<std::string_view> {
   template <typename FormatContext>
-  auto format(const keptech::InstanceDataType t, FormatContext& ctx) const {
-    using S = keptech::InstanceDataType;
+  auto format(const keptech::shaders::DataType t, FormatContext& ctx) const {
+    using S = keptech::shaders::DataType;
     std::string_view name = "";
+
+#define N(_n)                                                                  \
+  case S::_n:                                                                  \
+    name = #_n;                                                                \
+    break;
+
     switch (t) {
-    case S::TextureIndex:
-      name = "TextureIndex";
-      break;
+      N(Float)
+      N(Float2)
+      N(Float3)
+      N(Float4)
+      N(Int)
+      N(Int2)
+      N(Int3)
+      N(Int4)
+      N(Uint)
+      N(Uint2)
+      N(Uint3)
+      N(Uint4)
+      N(Float4x4)
+      N(Sampler2D)
     }
+#undef N
     return fmt::formatter<std::string_view>::format(name, ctx);
   }
 };
@@ -206,7 +221,7 @@ namespace keptech {
   class IPipeline {
   public:
     [[nodiscard]] PipelineStage getStage() const { return stage; }
-    [[nodiscard]] const std::vector<InstanceDataType>&
+    [[nodiscard]] const std::vector<shaders::DataType>&
     getInstanceDataTypes() const {
       return instanceDataTypes;
     }
@@ -248,7 +263,7 @@ namespace keptech {
     shaders::RenderingMode mode;
 #endif
     PipelineStage stage;
-    std::vector<InstanceDataType> instanceDataTypes = {};
+    std::vector<shaders::DataType> instanceDataTypes = {};
   };
 
   using PipelinePtr = std::shared_ptr<IPipeline>;

@@ -98,6 +98,14 @@ namespace keptech::shader_processor {
       compilerOptionEntries.push_back({.name = name, .value = value});
     }
 
+    if (config.optimizationLevel == OptimizationLevel::Debug) {
+      slang::CompilerOptionValue value;
+      value.intValue0 = true;
+      compilerOptionEntries.push_back(
+          {.name = slang::CompilerOptionName::DebugInformation,
+           .value = value});
+    }
+
     std::vector<const char*> searchPaths{KEPTECH_SHADER_DIR};
 
     sessionDesc.compilerOptionEntries = compilerOptionEntries.data();

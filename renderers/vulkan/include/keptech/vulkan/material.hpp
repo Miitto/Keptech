@@ -11,7 +11,7 @@ namespace keptech::vkh {
 
     void setRenderingMode(shaders::RenderingMode newMode) { mode = newMode; }
 
-    std::vector<InstanceDataType>& getInstanceDataTypes() {
+    std::vector<shaders::DataType>& getInstanceDataTypes() {
       return instanceDataTypes;
     }
   };
