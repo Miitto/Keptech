@@ -80,6 +80,23 @@ namespace keptech {
   }
 
   void Renderer::drawDeferredPass(const FrameData& frame) {
+    backend->textureLayoutTransition(
+        frame.graphicsCmdBuf,
+        {
+            TextureTransition{
+                .type = TextureTransitionType::UndefinedToRenderable,
+                .texture = gBuffers.albedo.get(),
+            },
+            TextureTransition{
+                .type = TextureTransitionType::UndefinedToRenderable,
+                .texture = gBuffers.normal.get(),
+            },
+            TextureTransition{
+                .type = TextureTransitionType::UndefinedToRenderable,
+                .texture = gBuffers.depth.get(),
+            },
+        });
+
     CommandBufferBeginRenderingInfo info{
         .renderAreaExtent =
             {
