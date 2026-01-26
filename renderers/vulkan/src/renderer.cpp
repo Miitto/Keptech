@@ -101,27 +101,23 @@ namespace keptech::vkh {
   }
 
   std::expected<CmdBufPtr, std::string> RendererBackend::startFrame() {
-    for (auto& info : submittedCommandBuffers[frameInfo.index]) {
-      VK_TRACE("Waiting for command buffer submitted at {} with signal value "
-               "{}",
-               frameInfo.index, info.signalValue);
+    vk::Result res = vk::Result::eTimeout;
+    uint64_t waitValue = frameInfo.perFrame->timelineValue;
 
-      vk::Result res = vk::Result::eTimeout;
-      while (res = vkcore.device->waitSemaphores(
-                 vk::SemaphoreWaitInfo{
-                     .semaphoreCount = 1,
-                     .pSemaphores = &*frameInfo.perFrame->timelineSemaphore,
-                     .pValues = &info.signalValue,
-                 },
-                 UINT64_MAX),
-             res == vk::Result::eTimeout) {
-      }
+    while (res = vkcore.device->waitSemaphores(
+               vk::SemaphoreWaitInfo{
+                   .semaphoreCount = 1,
+                   .pSemaphores = &*frameInfo.perFrame->timelineSemaphore,
+                   .pValues = &waitValue,
+               },
+               UINT64_MAX),
+           res == vk::Result::eTimeout) {
+    }
 
-      if (res != vk::Result::eSuccess) {
-        VK_CRITICAL("Failed to wait for command buffer semaphore: {}",
-                    vk::to_string(res));
-        abort();
-      }
+    if (res != vk::Result::eSuccess) {
+      VK_CRITICAL("Failed to wait for command buffer semaphore: {}",
+                  vk::to_string(res));
+      abort();
     }
 
     submittedCommandBuffers[frameInfo.index].clear();
@@ -237,7 +233,7 @@ namespace keptech::vkh {
       return;
     }
 
-    uint64_t nextSignalValue = frameInfo.perFrame->nextTimelineValue++;
+    uint64_t signalValue = ++frameInfo.perFrame->timelineValue;
 
     std::vector<SubmittedCommandBufferInfo> submittedCmdBufInfos;
     submittedCmdBufInfos.reserve(cmdBuffers.size());
@@ -245,7 +241,6 @@ namespace keptech::vkh {
       auto& vkCmdBuf =
           dynamic_cast<CommandBuffer*>(cmdBuf.commandBuffer.get())->get();
       submittedCmdBufInfos.emplace_back(SubmittedCommandBufferInfo{
-          .signalValue = nextSignalValue,
           .buffer = std::move(vkCmdBuf),
           .trackedBuffers = std::move(cmdBuf.trackedBuffers),
       });
@@ -263,7 +258,7 @@ namespace keptech::vkh {
 
     vk::SemaphoreSubmitInfo signalInfo{
         .semaphore = perFrame.timelineSemaphore,
-        .value = nextSignalValue,
+        .value = signalValue,
         .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
         .deviceIndex = 0,
     };
@@ -311,7 +306,7 @@ namespace keptech::vkh {
     }
 
     VK_DEBUG("Submitted {} command buffers at {}, waiting for {}",
-             submittedCmdBufInfos.size(), frameInfo.index, nextSignalValue);
+             submittedCmdBufInfos.size(), frameInfo.index, signalValue);
   }
 
   void RendererBackend::endFrame(
@@ -344,14 +339,24 @@ namespace keptech::vkh {
         .pImageMemoryBarriers = &barrier,
     });
 
+    vkCmdBuf.end();
+
     auto& sem = vkcore.swapchain.nPresentSemaphore(frameInfo.imageIndex);
 
     vk::SemaphoreSubmitInfo waitInfo{
         .semaphore = vkcore.perFrame[frameInfo.index].timelineSemaphore,
-        .value = submittedCommandBuffers[frameInfo.index].size(),
+        .value = vkcore.perFrame[frameInfo.index].timelineValue,
         .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
         .deviceIndex = 0,
     };
+
+    vk::SemaphoreSubmitInfo imageAvailableWaitInfo{
+        .semaphore = vkcore.perFrame[frameInfo.index].imageAvailableSemaphore,
+        .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
+    };
+
+    std::array<vk::SemaphoreSubmitInfo, 2> waitSemaphores{
+        waitInfo, imageAvailableWaitInfo};
 
     vk::SemaphoreSubmitInfo signalInfo{
         .semaphore = sem,
@@ -365,8 +370,8 @@ namespace keptech::vkh {
     };
 
     vk::SubmitInfo2 submitInfo{
-        .waitSemaphoreInfoCount = 1,
-        .pWaitSemaphoreInfos = &waitInfo,
+        .waitSemaphoreInfoCount = 2,
+        .pWaitSemaphoreInfos = waitSemaphores.data(),
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &cmdBufInfo,
         .signalSemaphoreInfoCount = 1,
@@ -380,7 +385,6 @@ namespace keptech::vkh {
 
     submittedCommandBuffers[frameInfo.index].emplace_back(
         SubmittedCommandBufferInfo{
-            .signalValue = 0,
             .buffer = std::move(vkCmdBuf),
         });
 
@@ -457,6 +461,8 @@ namespace keptech::vkh {
     }
 
     vkcore.device.logical.waitIdle();
+
+    cameraBuffer.destroy(vkcore.allocator);
 
     ImGui_ImplVulkan_Shutdown();
 

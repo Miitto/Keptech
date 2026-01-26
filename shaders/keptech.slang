@@ -3,7 +3,7 @@ module keptech;
 __include camera;
 
 public namespace keptech {
-  [vk::binding(0, 0)]
+  [[vk::binding(0, 0)]]
   public ConstantBuffer<keptech::Camera> camera : register(b0);
 
   public struct TexData {
@@ -14,7 +14,7 @@ public namespace keptech {
     }
   };
 
-  [vk::binding(1, 0)]
+  [[vk::binding(1, 0)]]
   public ConstantBuffer<TexData> textures;
 
   public struct DeferredOutput {

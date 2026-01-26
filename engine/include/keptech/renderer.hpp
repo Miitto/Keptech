@@ -67,6 +67,8 @@ namespace keptech {
       BufPtr vertex;
       size_t indexEnd = 0;
       BufPtr index;
+      size_t instanceEnd = 0;
+      BufPtr instance;
     };
 
     Renderer(std::unique_ptr<IRendererBackend> backend, GBuffers gBuffers,

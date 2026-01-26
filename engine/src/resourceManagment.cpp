@@ -60,12 +60,14 @@ namespace keptech {
     });
     backend->submitCommandBuffers(std::move(submitInfos));
 
-    Mesh mesh(buffers.indexEnd / sizeof(uint32_t), data.submeshes
+    Mesh mesh(buffers.vertexEnd / sizeof(Vertex), data.submeshes
 #ifdef KT_ADD_RESOURCE_INFO
               ,
               data.name, data.vertices.size(), data.indices.size()
 #endif
     );
+
+    KT_DEBUG("Created mesh at offset {}", mesh.getVertexOffset());
 
     buffers.vertexEnd += vertexSize;
     buffers.indexEnd += indexSize;

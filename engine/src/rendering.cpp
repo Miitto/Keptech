@@ -75,7 +75,6 @@ namespace keptech {
     drawTransparentPass(frame);
     drawUIPass(frame);
 
-    frame.graphicsCmdBuf->end();
     backend->endFrame(std::move(frame.graphicsCmdBuf));
   }
 
@@ -144,10 +143,34 @@ namespace keptech {
       frame.graphicsCmdBuf->bindIndexBuffer(*buffers.index.get(), 0);
 
       uint64_t vertexAddress = buffers.vertex->getDeviceAddress();
+
+      struct InstanceData {
+        glm::mat4 modelMatrix;
+        uint32_t albedoTextureIndex;
+        uint32_t normalTextureIndex;
+      } instanceData{
+          .modelMatrix = transform.getGlobal().toMatrix(),
+          .albedoTextureIndex = 0,
+          .normalTextureIndex = 0,
+      };
+
+      memcpy(static_cast<uint8_t*>(buffers.instance->getMapping()),
+             &instanceData, sizeof(InstanceData));
+
+      struct PushConstantData {
+        uint64_t vertexAddress;
+        uint64_t instanceAddress;
+        uint32_t instanceOffset;
+      } pushConstantData{
+          .vertexAddress = vertexAddress,
+          .instanceAddress = buffers.instance->getDeviceAddress(),
+          .instanceOffset = 0,
+      };
+
       frame.graphicsCmdBuf->writePushConstants(
           *material.pipeline,
           Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex), 0,
-          sizeof(uint64_t), &vertexAddress);
+          sizeof(PushConstantData), &pushConstantData);
       backend->bindGlobalDescriptorSets(
           frame.graphicsCmdBuf, *material.pipeline,
           Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex |
@@ -156,7 +179,7 @@ namespace keptech {
       for (auto& submesh : mesh->getSubmeshes()) {
         frame.graphicsCmdBuf->drawIndexed(
             submesh.indexCount, 1, submesh.indexOffset,
-            static_cast<int32_t>(mesh->getIndexOffset()), 0);
+            static_cast<int32_t>(mesh->getVertexOffset()), 0);
       }
     }
 

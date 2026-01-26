@@ -5,10 +5,27 @@
 #include "vk-logger.hpp"
 
 #include "keptech/vulkan/helpers/validators.hpp"
+#include "vulkan/vulkan.hpp"
 #include <SDL3/SDL_vulkan.h>
 #include <keptech/core/window.hpp>
 
 namespace keptech::vkh {
+
+  vk::Bool32 debug_utils_messenger_callback(
+      vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
+      vk::DebugUtilsMessageTypeFlagsEXT message_type,
+      const vk::DebugUtilsMessengerCallbackDataEXT* callback_data,
+      void* user_data) {
+    if (message_severity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning) {
+      VK_WARN("{} - {}: {}", callback_data->messageIdNumber,
+              callback_data->pMessageIdName, callback_data->pMessage);
+    } else if (message_severity &
+               vk::DebugUtilsMessageSeverityFlagBitsEXT::eError) {
+      VK_ERROR("{} - {}: {}", callback_data->messageIdNumber,
+               callback_data->pMessageIdName, callback_data->pMessage);
+    }
+    return VK_FALSE;
+  }
 
   auto createInstance(vk::raii::Context& context, const char* appName,
                       const bool enableValidationLayers,
@@ -30,6 +47,10 @@ namespace keptech::vkh {
     std::vector<const char*> extensions{extensionsSDL, extensionsSDL + extCnt};
     extensions.insert(extensions.end(), extraExtensions.begin(),
                       extraExtensions.end());
+
+#ifndef NDEBUG
+    extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+#endif
 
     auto layerNames = std::vector<const char*>{};
 
@@ -75,6 +96,19 @@ namespace keptech::vkh {
         .ppEnabledLayerNames = layerNames.data(),
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
         .ppEnabledExtensionNames = extensions.data()};
+
+#ifndef NDEBUG
+    vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo{
+        .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                           vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
+        .messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                       vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+                       vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
+        .pfnUserCallback = debug_utils_messenger_callback,
+    };
+    iCreateInfo.pNext = &debugCreateInfo;
+#endif
+
     VK_MAKE(instance, context.createInstance(iCreateInfo),
             "Failed to create Vulkan Instance");
 

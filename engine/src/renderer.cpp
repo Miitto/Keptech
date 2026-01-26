@@ -37,6 +37,7 @@ namespace keptech {
     buffers.cameraStaging.reset();
     buffers.vertex.reset();
     buffers.index.reset();
+    buffers.instance.reset();
 
     backend.reset();
 
@@ -122,6 +123,22 @@ namespace keptech {
         .usage = BufferUsage::TransferSrc,
         .memoryType = BufferMemoryType::CpuToGpu,
     });
+    if (!cameraStagingRes) {
+      return std::unexpected(
+          fmt::format("Failed to create camera staging buffer: {}",
+                      cameraStagingRes.error()));
+    }
+
+    auto instanceBufRes = backend->createBuffer(BufferCreateInfo{
+        .name = "Instance Buffer",
+        .size = (sizeof(glm::mat4) + 8) * 10,
+        .usage = BufferUsage::Uniform,
+        .memoryType = BufferMemoryType::CpuToGpu,
+    });
+    if (!instanceBufRes) {
+      return std::unexpected(fmt::format("Failed to create instance buffer: {}",
+                                         instanceBufRes.error()));
+    }
 
     Renderer renderer{
         std::move(backend),
@@ -130,6 +147,7 @@ namespace keptech {
             .cameraStaging = std::move(cameraStagingRes.value()),
             .vertex = std::move(vertexBufRes.value()),
             .index = std::move(indexBufRes.value()),
+            .instance = std::move(instanceBufRes.value()),
         },
     };
 

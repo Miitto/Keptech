@@ -36,6 +36,16 @@ namespace keptech {
     Depth24Stencil8,
   };
 
+  inline bool isDepthFormat(TextureFormat format) {
+    switch (format) {
+    case TextureFormat::Depth16:
+    case TextureFormat::Depth24Stencil8:
+      return true;
+    default:
+      return false;
+    }
+  }
+
   class ITexture {
   public:
     ITexture(glm::uvec3 size, TextureFormat format, uint32_t mipLevels)

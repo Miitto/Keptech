@@ -64,7 +64,7 @@ namespace keptech::vkh {
       vk::raii::Fence inFlightFence;
       vk::raii::Semaphore imageAvailableSemaphore;
       vk::raii::Semaphore timelineSemaphore;
-      uint64_t nextTimelineValue = 1;
+      uint64_t timelineValue = 0;
       Pools pools;
     };
 
@@ -175,7 +175,6 @@ namespace keptech::vkh {
     DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
 
     struct SubmittedCommandBufferInfo {
-      uint64_t signalValue;
       vk::raii::CommandBuffer buffer;
       std::vector<BufPtr> trackedBuffers{};
     };

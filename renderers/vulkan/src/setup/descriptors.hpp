@@ -82,6 +82,19 @@ namespace keptech::vkh::setup {
     VK_MAKE(descriptorSets, device.allocateDescriptorSets(allocInfo),
             "Failed to allocate bindless descriptor set.");
 
+#ifndef NDEBUG
+    for (int i = 0; i < descriptorSets.size(); i++) {
+      std::string name = fmt::format("Global Descriptor Set {}", i);
+
+      VkDescriptorSet vkDescriptorSet = *descriptorSets[i];
+      device.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+          .objectType = vk::ObjectType::eDescriptorSet,
+          .objectHandle = reinterpret_cast<uint64_t>(vkDescriptorSet),
+          .pObjectName = name.c_str(),
+      });
+    }
+#endif
+
     return DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>{
         .pool = std::move(descriptorPool),
         .layout = std::move(layout),

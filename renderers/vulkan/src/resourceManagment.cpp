@@ -1,4 +1,5 @@
 #include "keptech/core/rendering/commandBuffer.hpp"
+#include "keptech/core/rendering/texture.hpp"
 #include "keptech/vulkan/renderer.hpp"
 
 #include "keptech/core/rendering/pipeline.hpp"
@@ -46,6 +47,18 @@ namespace keptech::vkh {
       return std::unexpected(
           fmt::format("Failed to create buffer: {}", vkRes.error()));
     }
+
+#ifndef NDEBUG
+    if (createInfo.name.has_value()) {
+      VkBuffer vkBuffer = vkRes.value().buffer;
+      vkcore.device.logical.setDebugUtilsObjectNameEXT(
+          vk::DebugUtilsObjectNameInfoEXT{
+              .objectType = vk::ObjectType::eBuffer,
+              .objectHandle = reinterpret_cast<uint64_t>(vkBuffer),
+              .pObjectName = createInfo.name->c_str(),
+          });
+    }
+#endif
 
     auto buffer =
         std::make_shared<vkh::Buffer>(vkcore.allocator, vkRes.value());
@@ -179,6 +192,27 @@ namespace keptech::vkh {
             vkcore.device.logical.createGraphicsPipeline(nullptr, vkConfig),
             "Failed to create graphics pipeline");
 
+#ifndef NDEBUG
+    std::string layoutName =
+        fmt::format("{}_pipeline_layout", createInfo.shader.name);
+
+    VkPipelineLayout vkPipelineLayout = *pipelineLayout;
+    vkcore.device.logical.setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::ePipelineLayout,
+            .objectHandle = reinterpret_cast<uint64_t>(vkPipelineLayout),
+            .pObjectName = layoutName.c_str(),
+        });
+
+    VkPipeline vkPipeline = *pipeline;
+    vkcore.device.logical.setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::ePipeline,
+            .objectHandle = reinterpret_cast<uint64_t>(vkPipeline),
+            .pObjectName = createInfo.shader.name,
+        });
+#endif
+
     LoadedPipeline mat{
         .pipeline = std::move(pipeline),
         .pipelineLayout = std::move(pipelineLayout),
@@ -263,6 +297,26 @@ namespace keptech::vkh {
                                     imageViewCreateInfo, true),
              "Failed to create texture image");
 
+#ifndef NDEBUG
+    VkImage vkImage = img.image;
+    VkImageView vkImageView = img.view;
+    vkcore.device.logical.setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eImage,
+            .objectHandle = reinterpret_cast<uint64_t>(vkImage),
+            .pObjectName = name.c_str(),
+        });
+
+    std::string viewName = name + "_view";
+
+    vkcore.device.logical.setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eImageView,
+            .objectHandle = reinterpret_cast<uint64_t>(vkImageView),
+            .pObjectName = viewName.c_str(),
+        });
+#endif
+
     vkh::Texture texture(vkcore.allocator, vkcore.device.logical, img, size,
                          format, mipLevels
 #ifdef KT_ADD_RESOURCE_INFO
@@ -292,14 +346,18 @@ namespace keptech::vkh {
       switch (transition.type) {
       case TextureTransitionType::UndefinedToRenderable:
         oldLayout = vk::ImageLayout::eUndefined;
-        newLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        newLayout = isDepthFormat(texture->getFormat())
+                        ? vk::ImageLayout::eDepthAttachmentOptimal
+                        : vk::ImageLayout::eColorAttachmentOptimal;
         srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
         dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
         srcAccessMask = vk::AccessFlagBits2::eNone;
         dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
         break;
       case TextureTransitionType::RenderableToShaderRead:
-        oldLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        oldLayout = isDepthFormat(texture->getFormat())
+                        ? vk::ImageLayout::eDepthAttachmentOptimal
+                        : vk::ImageLayout::eColorAttachmentOptimal;
         newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
         srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
         dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader;
@@ -308,7 +366,9 @@ namespace keptech::vkh {
         break;
       case TextureTransitionType::ShaderReadToRenderable:
         oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        newLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        newLayout = isDepthFormat(texture->getFormat())
+                        ? vk::ImageLayout::eDepthAttachmentOptimal
+                        : vk::ImageLayout::eColorAttachmentOptimal;
         srcStageMask = vk::PipelineStageFlagBits2::eFragmentShader;
         dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
         srcAccessMask = vk::AccessFlagBits2::eShaderRead;
