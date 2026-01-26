@@ -43,7 +43,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   auto deferredPipelineRes = renderer.createPipeline({
       .shader = ::shaders::deferred,
-      .layout = {.instanceDataTypes = {shaders::DataType::Uint}},
+      .layout = {.instanceDataTypes = {shaders::DataType::U32}},
   });
   if (!deferredPipelineRes) {
     return std::unexpected(fmt::format("Failed to create basic material: {}",
@@ -62,6 +62,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
           .normal = {0.0f, 0.0f, 1.0f},
           .uvY = 0.f,
           .color = {1.0f, 0.0f, 0.0f, 1.0f},
+          .tangent = {1.0f, 0.0f, 0.0f, 1.0f},
       },
       {
           .position = {0.5f, -0.5f, 0.0f},
@@ -69,6 +70,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
           .normal = {0.0f, 0.0f, 1.0f},
           .uvY = 0.f,
           .color = {0.0f, 1.0f, 0.0f, 1.0f},
+          .tangent = {1.0f, 0.0f, 0.0f, 1.0f},
       },
       {
           .position = {0.0f, 0.5f, 0.0f},
@@ -76,6 +78,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
           .normal = {0.0f, 0.0f, 1.0f},
           .uvY = 1.f,
           .color = {0.0f, 0.0f, 1.0f, 1.0f},
+          .tangent = {1.0f, 0.0f, 0.0f, 1.0f},
       },
   };
 

@@ -29,7 +29,7 @@ function(compile_shader target shader_target)
 
     add_custom_command(
     OUTPUT ${OUT_FILE}
-    DEPENDS ${RAW_FILES} Keptech_shader_embedder
+    DEPENDS ${IN_FILE} ${KT_SHADERS} Keptech_shader_embedder
     COMMAND Keptech_shader_embedder ${source} ${IN_FILE} ${OUT_FILE}
     COMMENT "Embedding shaders into header for target ${target}"
     VERBATIM

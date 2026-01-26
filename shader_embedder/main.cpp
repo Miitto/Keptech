@@ -95,12 +95,33 @@ int main(int argc, char** argv) {
         << static_cast<uint32_t>(stage.stage) << ")},\n";
   }
 
+  for (int i = 0; i < shader.vertexLayout.size(); ++i) {
+    auto& param = shader.vertexLayout[i];
+    out << "};\nconstexpr keptech::shaders::DataType " << name
+        << "_vertexLayout" << std::dec << i << "[] = {\n";
+    for (auto& type : param) {
+      out << "    static_cast<keptech::shaders::DataType>("
+          << static_cast<uint32_t>(type) << "),\n";
+    }
+  }
+
+  out << "};\nconstexpr std::span<const "
+         "keptech::shaders::DataType> "
+      << name << "_vertexLayout[] = {\n";
+  for (int i = 0; i < shader.vertexLayout.size(); ++i) {
+    out << "    std::span<const keptech::shaders::DataType>(" << name
+        << "_vertexLayout" << std::dec << i << ", "
+        << shader.vertexLayout[i].size() << "),\n";
+  }
+
   out << "};\nconstexpr keptech::shaders::Shader " << name << "{ .name = \""
       << name << "\",\n .code = std::span(" << name << "_source, " << std::dec
       << shader.code.size()
       << "),\n.mode = static_cast<keptech::shaders::RenderingMode>("
       << static_cast<uint32_t>(shader.mode) << "),\n .stages = std::span("
-      << name << "_stages, " << std::dec << shader.stages.size() << "),};\n";
+      << name << "_stages, " << std::dec << shader.stages.size()
+      << "),\n .vertexLayout = std::span(" << name << "_vertexLayout, "
+      << std::dec << shader.vertexLayout.size() << "),};\n";
 
   return 0;
 }

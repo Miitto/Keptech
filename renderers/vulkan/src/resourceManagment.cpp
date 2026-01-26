@@ -134,6 +134,52 @@ namespace keptech::vkh {
           from(createInfo.depth.depthCompareOp.value());
     }
 
+    // Vertex Assembly
+    std::vector<vk::VertexInputAttributeDescription> vertexAttributes;
+    uint32_t binding = 0;
+    for (auto& param : createInfo.shader.vertexLayout) {
+      uint32_t voffset = 0;
+      uint32_t location = 0;
+      for (auto& type : param) {
+        vk::VertexInputAttributeDescription attrDesc{
+            .location = location++,
+            .binding = binding,
+            .format = from(type, vk::Format::eUndefined),
+            .offset = voffset,
+        };
+        vertexAttributes.push_back(attrDesc);
+        voffset += getSize(type);
+      }
+      ++binding;
+    }
+
+    std::vector<vk::VertexInputBindingDescription> vertexBindings;
+    std::ranges::sort(createInfo.layout.vertexInstanceBindings);
+    uint32_t currentBinding = 0;
+    for (auto& param : createInfo.shader.vertexLayout) {
+
+      size_t bindingStride = 0;
+      for (auto& type : param) {
+        bindingStride += getSize(type);
+      }
+
+      auto isInstance =
+          createInfo.layout.vertexInstanceBindings.end() !=
+          std::ranges::find(createInfo.layout.vertexInstanceBindings,
+                            static_cast<uint32_t>(currentBinding));
+
+      vk::VertexInputBindingDescription bindingDesc{
+          .binding = static_cast<uint32_t>(currentBinding++),
+          .stride = static_cast<uint32_t>(bindingStride),
+          .inputRate = isInstance ? vk::VertexInputRate::eInstance
+                                  : vk::VertexInputRate::eVertex,
+      };
+      vertexBindings.push_back(bindingDesc);
+    }
+
+    config.vertexInput.attributes = vertexAttributes;
+    config.vertexInput.bindings = vertexBindings;
+
     // Layout
     for (auto& pushConstant : createInfo.layout.pushConstantRanges) {
       vk::PushConstantRange range{
@@ -237,7 +283,7 @@ namespace keptech::vkh {
     mat.extraInstanceDataSize = 0;
     for (auto& instanceDataType : createInfo.layout.instanceDataTypes) {
       switch (instanceDataType) {
-      case shaders::DataType::Uint:
+      case shaders::DataType::U32:
         mat.extraInstanceDataSize += sizeof(uint32_t);
         break;
       }

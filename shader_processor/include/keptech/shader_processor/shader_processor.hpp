@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <expected>
 #include <slang-com-ptr.h>
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace keptech::shader_processor {
   void init();
@@ -55,6 +55,8 @@ namespace keptech::shader_processor {
 
     struct ShaderResources {
       std::vector<shaders::ShaderStage> stages;
+      std::vector<std::vector<shaders::DataType>> vertexLayout;
+      std::vector<std::span<const shaders::DataType>> vertexLayoutSpans;
       Slang::ComPtr<slang::IBlob> code;
     };
     [[nodiscard]] std::expected<

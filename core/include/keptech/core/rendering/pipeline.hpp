@@ -106,13 +106,15 @@ namespace keptech {
         shaders::ShaderStages::Vertex | shaders::ShaderStages::Fragment;
   };
 
+  enum class VertexInputRate : uint8_t { Vertex, Instance };
+
   struct LayoutConfig {
     bool useVertexBuffer = true;
     bool useModelMatrix = true;
-    std::vector<SetLayout> setLayouts = {};
-    std::vector<PushConstantRange> pushConstantRanges = {};
-    std::vector<shaders::DataType> vertexLayout = {};
-    std::vector<shaders::DataType> instanceDataTypes = {};
+    std::vector<SetLayout> setLayouts{};
+    std::vector<PushConstantRange> pushConstantRanges{};
+    std::vector<uint32_t> vertexInstanceBindings{};
+    std::vector<shaders::DataType> instanceDataTypes{};
   };
 
   struct PipelineCreateInfo {
@@ -156,40 +158,6 @@ struct fmt::formatter<keptech::PipelineStage>
       name = "Transparent";
       break;
     }
-    return fmt::formatter<std::string_view>::format(name, ctx);
-  }
-};
-
-template <>
-struct fmt::formatter<keptech::shaders::DataType>
-    : fmt::formatter<std::string_view> {
-  template <typename FormatContext>
-  auto format(const keptech::shaders::DataType t, FormatContext& ctx) const {
-    using S = keptech::shaders::DataType;
-    std::string_view name = "";
-
-#define N(_n)                                                                  \
-  case S::_n:                                                                  \
-    name = #_n;                                                                \
-    break;
-
-    switch (t) {
-      N(Float)
-      N(Float2)
-      N(Float3)
-      N(Float4)
-      N(Int)
-      N(Int2)
-      N(Int3)
-      N(Int4)
-      N(Uint)
-      N(Uint2)
-      N(Uint3)
-      N(Uint4)
-      N(Float4x4)
-      N(Sampler2D)
-    }
-#undef N
     return fmt::formatter<std::string_view>::format(name, ctx);
   }
 };

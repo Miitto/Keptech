@@ -16,7 +16,6 @@ struct Instance {
 };
 
 struct PushConstants {
-  Vertex* vBuffer;
   Instance* iBuffer;
   uint instanceOffset;
 };
@@ -40,10 +39,9 @@ struct VertexOutput
 };
 
 [shader("vertex")]
-VertexOutput vert(uint vid: SV_VertexID, uint iid: SV_InstanceID) {
+VertexOutput vert(Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID) {
   VertexOutput output;
 
-  Vertex v = PC.vBuffer[vid];
   Instance inst = PC.iBuffer[iid + PC.instanceOffset];
 
   output.position = keptech::camera.worldToClip(mul(inst.modelMatrix, float4(v.position, 1.0)));

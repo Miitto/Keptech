@@ -36,6 +36,8 @@ namespace keptech::vkh {
                             const void* data) final;
 
     void bindIndexBuffer(IBuffer& buffer, uint64_t offset) final;
+    void bindVertexBuffer(uint32_t firstBinding, std::vector<IBuffer*> buffers,
+                          std::vector<uint64_t> offsets) final;
 
     void drawIndexed(uint32_t indexCount, uint32_t instanceCount = 1,
                      uint32_t firstIndex = 0, int32_t vertexOffset = 0,

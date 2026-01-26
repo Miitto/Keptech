@@ -133,6 +133,19 @@ namespace keptech::vkh {
                         vk::IndexType::eUint32);
   }
 
+  void CommandBuffer::bindVertexBuffer(uint32_t firstBinding,
+                                       std::vector<IBuffer*> buffers,
+                                       std::vector<uint64_t> offsets) {
+    std::vector<vk::Buffer> vkBuffers;
+    vkBuffers.reserve(buffers.size());
+    for (auto* buf : buffers) {
+      vkh::Buffer& vkBuffer = static_cast<vkh::Buffer&>(*buf);
+      vkBuffers.push_back(vkBuffer.getBuffer().buffer);
+    }
+
+    cmd.bindVertexBuffers(firstBinding, vkBuffers, offsets);
+  }
+
   void CommandBuffer::drawIndexed(uint32_t indexCount, uint32_t instanceCount,
                                   uint32_t firstIndex, int32_t vertexOffset,
                                   uint32_t firstInstance) {

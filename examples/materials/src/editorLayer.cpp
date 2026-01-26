@@ -2,7 +2,6 @@
 
 #include "imgui.h"
 #include "keptech/core/components/transform.hpp"
-#include "keptech/core/slotmap.hpp"
 #include "keptech/ecs/entity.hpp"
 #include <filesystem>
 #include <imgui/misc/cpp/imgui_stdlib.h>
@@ -461,7 +460,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
                  [&](keptech::ecs::EntityHandle entity) {
                    drawEntityProperties(propertiesPanel, entity);
                  },
-                 [&](keptech::MeshPtr meshPtr) {
+                 [&](keptech::MeshPtr& meshPtr) {
                    if (meshPtr == nullptr) {
                      propertiesPanel.separatorText("Invalid Mesh");
                      return;
@@ -471,7 +470,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
                    propertiesPanel.separatorText(label.c_str());
                    meshInspectorUi(propertiesPanel, meshPtr);
                  },
-                 [&](keptech::PipelinePtr pipelinePtr) {
+                 [&](keptech::PipelinePtr& pipelinePtr) {
                    if (pipelinePtr == nullptr) {
                      propertiesPanel.separatorText("Invalid Material");
                      return;
@@ -482,7 +481,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
                    propertiesPanel.separatorText(label.c_str());
                    pipelineInspectorUi(propertiesPanel, *pipelinePtr);
                  },
-                 [&](keptech::TexPtr texturePtr) {
+                 [&](keptech::TexPtr& texturePtr) {
                    if (texturePtr == nullptr) {
                      propertiesPanel.separatorText("Invalid Texture");
                      return;
@@ -537,7 +536,7 @@ void MaterialEditorLayer::drawEntityProperties(
 
     if (!entity.hasAllComponents<keptech::components::Mesh>()) {
       if (ImGui::Button("Mesh")) {
-        entity.addComponent<keptech::components::Mesh>();
+        entity.addComponent<keptech::components::Mesh>(nullptr);
         ImGui::CloseCurrentPopup();
       }
     }
@@ -714,11 +713,17 @@ void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
   {
     auto combo = frame.combo("Mesh", meshName);
     for (auto& m : loadedMeshes) {
+      if (!m)
+        continue;
+
       if (combo.item(m->getDebugName().c_str(), mesh == m)) {
         mesh = m;
       }
     }
   }
+
+  if (!mesh)
+    return;
 
   frame.text("Vertices: %zu", mesh->getVertexCount());
   frame.text("Indices: %zu", mesh->getIndexCount());
@@ -727,7 +732,8 @@ void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
                                          : mesh->getIndexCount()) /
                  3);
   frame.text("Submeshes: %zu", mesh->getSubmeshes().size());
-  frame.text("Vertex Offset: %zu", mesh->getVertexOffset());
+  frame.text("Vertex Offset: %u", mesh->getVertexOffset());
+  frame.text("Index Offset: %u", mesh->getIndexOffset());
 }
 
 void MaterialEditorLayer::materialInspectorUi(
@@ -756,7 +762,7 @@ void MaterialEditorLayer::materialInspectorUi(
 
   for (auto& data : material.instanceData) {
     switch (data.index()) {
-    case static_cast<size_t>(keptech::shaders::DataType::Uint): {
+    case static_cast<size_t>(keptech::shaders::DataType::U32): {
       auto texturePtr = std::get<keptech::TexPtr>(data);
 
       {

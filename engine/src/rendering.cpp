@@ -132,6 +132,10 @@ namespace keptech {
                     .view<components::Transform, components::Mesh,
                           components::Material>();
     for (auto [entity, transform, mesh, material] : view.each()) {
+      if (!mesh || !material.pipeline) {
+        continue;
+      }
+
       if (material.pipeline->getStage() != PipelineStage::Deferred) {
         continue;
       }
@@ -141,8 +145,7 @@ namespace keptech {
       frame.graphicsCmdBuf->bindPipeline(*material.pipeline);
 
       frame.graphicsCmdBuf->bindIndexBuffer(*buffers.index.get(), 0);
-
-      uint64_t vertexAddress = buffers.vertex->getDeviceAddress();
+      frame.graphicsCmdBuf->bindVertexBuffer(0, {buffers.vertex.get()}, {0});
 
       struct InstanceData {
         glm::mat4 modelMatrix;
@@ -158,11 +161,9 @@ namespace keptech {
              &instanceData, sizeof(InstanceData));
 
       struct PushConstantData {
-        uint64_t vertexAddress;
         uint64_t instanceAddress;
         uint32_t instanceOffset;
       } pushConstantData{
-          .vertexAddress = vertexAddress,
           .instanceAddress = buffers.instance->getDeviceAddress(),
           .instanceOffset = 0,
       };

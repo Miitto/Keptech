@@ -248,6 +248,150 @@ namespace keptech::vkh {
 
       return aspectMask;
     }
+
+    vk::Format from(shaders::DataType type, vk::Format defaultFormat) {
+      using T = shaders::DataType;
+      switch (type) {
+      case T::F32:
+        return vk::Format::eR32Sfloat;
+      case T::F32_2:
+        return vk::Format::eR32G32Sfloat;
+      case T::F32_3:
+        return vk::Format::eR32G32B32Sfloat;
+      case T::F32_4:
+        return vk::Format::eR32G32B32A32Sfloat;
+      case T::U8:
+        return vk::Format::eR8Uint;
+      case T::U8_2:
+        return vk::Format::eR8G8Uint;
+      case T::U8_3:
+        return vk::Format::eR8G8B8Uint;
+      case T::U8_4:
+        return vk::Format::eR8G8B8A8Uint;
+      case T::U16:
+        return vk::Format::eR16Uint;
+      case T::U16_2:
+        return vk::Format::eR16G16Uint;
+      case T::U16_3:
+        return vk::Format::eR16G16B16Uint;
+      case T::U16_4:
+        return vk::Format::eR16G16B16A16Uint;
+      case T::U32:
+        return vk::Format::eR32Uint;
+      case T::U32_2:
+        return vk::Format::eR32G32Uint;
+      case T::U32_3:
+        return vk::Format::eR32G32B32Uint;
+      case T::U32_4:
+        return vk::Format::eR32G32B32A32Uint;
+      default:
+        return defaultFormat;
+      }
+    }
+
+    uint32_t getSize(shaders::DataType type) {
+      using T = shaders::DataType;
+      switch (type) {
+      case T::F32:
+        return 4;
+      case T::F32_2:
+        return 8;
+      case T::F32_3:
+        return 12;
+      case T::F32_4:
+        return 16;
+      case T::U8:
+        return 1;
+      case T::U8_2:
+        return 2;
+      case T::U8_3:
+        return 3;
+      case T::U8_4:
+        return 4;
+      case T::U16:
+        return 2;
+      case T::U16_2:
+        return 4;
+      case T::U16_3:
+        return 6;
+      case T::U16_4:
+        return 8;
+      case T::U32:
+        return 4;
+      case T::U32_2:
+        return 8;
+      case T::U32_3:
+        return 12;
+      case T::U32_4:
+        return 16;
+      case shaders::DataType::None:
+        return 0;
+      case shaders::DataType::Void:
+        return 0;
+      case shaders::DataType::Bool:
+        return 1;
+      case shaders::DataType::F16:
+        return 2;
+      case shaders::DataType::F64:
+        return 8;
+      case shaders::DataType::F16_2:
+        return 4;
+      case shaders::DataType::F64_2:
+        return 16;
+      case shaders::DataType::F16_3:
+        return 6;
+      case shaders::DataType::F64_3:
+        return 24;
+      case shaders::DataType::F16_4:
+        return 8;
+      case shaders::DataType::F64_4:
+        return 32;
+      case shaders::DataType::I8:
+        return 1;
+      case shaders::DataType::I16:
+        return 2;
+      case shaders::DataType::I32:
+        return 4;
+      case shaders::DataType::I64:
+        return 8;
+      case shaders::DataType::I8_2:
+        return 2;
+      case shaders::DataType::I16_2:
+        return 4;
+      case shaders::DataType::I32_2:
+        return 8;
+      case shaders::DataType::I64_2:
+        return 16;
+      case shaders::DataType::I8_3:
+        return 3;
+      case shaders::DataType::I16_3:
+        return 6;
+      case shaders::DataType::I32_3:
+        return 12;
+      case shaders::DataType::I64_3:
+        return 24;
+      case shaders::DataType::I8_4:
+        return 4;
+      case shaders::DataType::I16_4:
+        return 8;
+      case shaders::DataType::I32_4:
+        return 16;
+      case shaders::DataType::I64_4:
+        return 32;
+      case shaders::DataType::U64:
+        return 8;
+      case shaders::DataType::U64_2:
+        return 16;
+      case shaders::DataType::U64_3:
+        return 24;
+      case shaders::DataType::U64_4:
+        return 32;
+      case shaders::DataType::F32_4x4:
+        return 64;
+      case shaders::DataType::Sampler2D:
+        return 0;
+      }
+    }
   } // namespace
 
 } // namespace keptech::vkh

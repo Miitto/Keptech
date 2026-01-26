@@ -21,18 +21,23 @@ add_library(keptech::shader_processor ALIAS keptech_shader_processor)
 include(slang)
 link_slang(keptech_shader_processor PUBLIC)
 
+include(spdlog)
+link_spdlog(keptech_shader_processor PRIVATE)
+
 target_sources(keptech_shader_processor
   PUBLIC
   FILE_SET HEADERS
   BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
   PRIVATE
     src/shader_processor.cpp
+    src/printing.cpp
 )
 
 target_link_libraries(keptech_shader_processor
   PUBLIC
     keptech::shaders
 )
+link_spdlog(keptech_shader_processor PUBLIC)
 
 target_compile_definitions(keptech_shader_processor
   PRIVATE
