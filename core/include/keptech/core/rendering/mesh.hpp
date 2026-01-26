@@ -14,7 +14,7 @@ namespace keptech {
     float uvX;
     glm::vec3 normal;
     float uvY;
-    glm::vec4 color;
+    glm::vec4 color{1.f};
     glm::vec4 tangent;
 
     constexpr inline static Vertex create(glm::vec3 pos, glm::vec2 uv,

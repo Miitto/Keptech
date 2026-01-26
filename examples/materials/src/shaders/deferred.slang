@@ -55,6 +55,9 @@ VertexOutput vert(Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID) {
   output.tangent = normalize(mul(modelRotMatrix, v.tangent.xyz));
   output.bitangent = normalize(cross(output.normal, output.tangent) * v.tangent.w);
 
+  output.albedoTextureIndex = inst.albedoTextureIndex;
+  output.normalTextureIndex = inst.normalTextureIndex;
+
   return output;
 }
 

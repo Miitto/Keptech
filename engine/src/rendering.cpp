@@ -153,8 +153,8 @@ namespace keptech {
         uint32_t normalTextureIndex;
       } instanceData{
           .modelMatrix = transform.getGlobal().toMatrix(),
-          .albedoTextureIndex = 0,
-          .normalTextureIndex = 0,
+          .albedoTextureIndex = ~0u,
+          .normalTextureIndex = ~0u,
       };
 
       memcpy(static_cast<uint8_t*>(buffers.instance->getMapping()),
@@ -172,6 +172,7 @@ namespace keptech {
           *material.pipeline,
           Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex), 0,
           sizeof(PushConstantData), &pushConstantData);
+
       backend->bindGlobalDescriptorSets(
           frame.graphicsCmdBuf, *material.pipeline,
           Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex |

@@ -1,5 +1,6 @@
 #include "keptech/core/rendering/gltf/loaded.hpp"
 #include "keptech/core/fastgltf_formatting.hpp"
+#include "keptech/core/kt-logger.hpp"
 #include <fastgltf/core.hpp>
 #include <fastgltf/glm_element_traits.hpp>
 #include <keptech/core/fastgltf_formatting.hpp>
@@ -14,6 +15,11 @@ namespace keptech::gltf {
         std::vector<Mesh::Submesh> submeshes;
 
         for (auto& primitive : mesh.primitives) {
+          KT_DEBUG("{} primitive attributes:", mesh.name);
+          for (auto& attr : primitive.attributes) {
+            KT_DEBUG("{}", attr.name);
+          }
+
           Mesh::Submesh submesh{
               .indexCount = static_cast<uint32_t>(
                   asset.accessors[primitive.indicesAccessor.value()].count),
@@ -87,7 +93,7 @@ namespace keptech::gltf {
 
               fastgltf::iterateAccessorWithIndex<glm::vec4>(
                   asset, colorAccessor, [&](glm::vec4 color, size_t index) {
-                    vertices[startIndex + index].color = color;
+                    vertices[startIndex + index].color = glm::vec4(1.f);
                   });
             }
           }
