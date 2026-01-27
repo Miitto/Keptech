@@ -1,7 +1,7 @@
 #include "keptech/renderer.hpp"
 
 #include <keptech/core/kt-logger.hpp>
-#include <keptech/core/rendering/gltf/loaded.hpp>
+#include <keptech/core/rendering/gltf/data.hpp>
 
 namespace keptech {
   std::expected<Mesh, std::string> Renderer::loadMesh(const MeshData& data) {
@@ -86,7 +86,7 @@ namespace keptech {
 
   std::expected<std::vector<Mesh>, std::string>
   Renderer::loadMesh(std::string_view path) {
-    auto res = gltf::LoadedGltf::fromFile(path);
+    auto res = gltf::Data::fromFile(path);
     if (!res) {
       return std::unexpected(
           fmt::format("Failed to load glTF file '{}': {}", path, res.error()));
@@ -95,14 +95,12 @@ namespace keptech {
 
     std::vector<Mesh> meshes;
 
+    size_t requiredVertexBufferSize = 0;
+    size_t requiredIndexBufferSize = 0;
+
     for (auto& [name, meshData] : gltf.meshes) {
-      auto meshRes = loadMesh(*meshData);
-      if (!meshRes) {
-        return std::unexpected(
-            fmt::format("Failed to load mesh from glTF file '{}': {}", path,
-                        meshRes.error()));
-      }
-      meshes.emplace_back(std::move(meshRes.value()));
+      requiredVertexBufferSize += meshData->vertices.size() * sizeof(Vertex);
+      requiredIndexBufferSize += meshData->indices.size() * sizeof(uint32_t);
     }
 
     return std::move(meshes);

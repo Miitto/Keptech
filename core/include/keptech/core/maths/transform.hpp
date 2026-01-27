@@ -6,6 +6,11 @@
 namespace keptech::maths {
   class Transform {
   public:
+    Transform() = default;
+    Transform(const glm::vec3& position, const glm::quat& rotation,
+              const glm::vec3& scale)
+        : position(position), rotation(rotation), _scale(scale) {}
+
     [[nodiscard]] glm::vec3& pos() { return position; }
     [[nodiscard]] const glm::vec3& pos() const { return position; }
     [[nodiscard]] glm::quat& rot() { return rotation; }
