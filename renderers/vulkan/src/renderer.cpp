@@ -123,6 +123,38 @@ namespace keptech::vkh {
     submittedCommandBuffers[frameInfo.index].clear();
     frameInfo.perFrame->pools.resetAll();
 
+    auto& textureUpdates = textureDescriptorsToUpdate[frameInfo.index];
+    if (!textureUpdates.empty()) {
+      auto& globalDescSet = globalDescriptorSets.sets[frameInfo.index];
+      std::vector<vk::DescriptorImageInfo> imageInfos;
+      imageInfos.reserve(textureUpdates.size());
+      std::vector<vk::WriteDescriptorSet> descriptorWrites;
+      descriptorWrites.reserve(textureUpdates.size());
+      for (auto& update : textureUpdates) {
+        auto imageIndex = update->getIndex();
+
+        imageInfos.push_back({
+            .sampler = imGuiObjects->sampler,
+            .imageView = update->getImage().view,
+            .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+        });
+
+        descriptorWrites.push_back({
+            .dstSet = *globalDescSet,
+            .dstBinding = 1,
+            .dstArrayElement = imageIndex,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+            .pImageInfo = &imageInfos.back(),
+        });
+      }
+
+      VK_DEBUG("Updating {} texture descriptors for frame {}",
+               descriptorWrites.size(), frameInfo.index);
+      vkcore.device->updateDescriptorSets(descriptorWrites, {});
+      textureUpdates.clear();
+    }
+
     vk::CommandBufferAllocateInfo cmdBufAllocInfo{
         .commandPool = *frameInfo.perFrame->pools.graphics.get()->pool,
         .level = vk::CommandBufferLevel::ePrimary,

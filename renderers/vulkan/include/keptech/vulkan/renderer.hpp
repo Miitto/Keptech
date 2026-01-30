@@ -105,10 +105,10 @@ namespace keptech::vkh {
     createTexture(std::string name, glm::uvec3 size, TextureFormat format,
                   Bitflag<TextureUsage> usage, uint32_t mipLevels,
                   bool cpuAccess = false, const void* data = nullptr) final;
-
-    std::expected<TexPtr, std::string> createTexture(const core::Image& image,
-                                                     TextureUsage usage,
-                                                     bool cpuAccess = false);
+    std::expected<TexPtr, std::string>
+    createTexture(std::string name, const Image& image,
+                  Bitflag<TextureUsage> usage, uint32_t mipLevels = 1,
+                  bool cpuAccess = false) final;
 
     ImTextureRef getImGuiTextureHandle(const TexPtr& texture) final;
 
@@ -183,6 +183,10 @@ namespace keptech::vkh {
         submittedCommandBuffers;
 
     Frame frameInfo{};
+
+    std::array<std::vector<std::shared_ptr<vkh::Texture>>, MAX_FRAMES_IN_FLIGHT>
+        textureDescriptorsToUpdate;
+    size_t nextTextureIndex = 0;
   };
 
   namespace setup {

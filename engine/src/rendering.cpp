@@ -154,10 +154,26 @@ namespace keptech {
       frame.graphicsCmdBuf->bindIndexBuffer(*buffers.index.get(), 0);
       frame.graphicsCmdBuf->bindVertexBuffer(0, {buffers.vertex.get()}, {0});
 
+      uint32_t albedoTexIndex = ~0u;
+      uint32_t normalTexIndex = ~0u;
+
+      if (material->instanceData.size() >= 1) {
+        auto& albedoData = std::get<TexPtr>(material->instanceData[0]);
+        if (albedoData != nullptr) {
+          albedoTexIndex = albedoData->getIndex();
+        }
+      }
+      if (material->instanceData.size() >= 2) {
+        auto& normalData = std::get<TexPtr>(material->instanceData[1]);
+        if (normalData != nullptr) {
+          normalTexIndex = normalData->getIndex();
+        }
+      }
+
       InstanceData instanceData{
           .modelMatrix = transform.getGlobal().toMatrix(),
-          .albedoTextureIndex = ~0u,
-          .normalTextureIndex = ~0u,
+          .albedoTextureIndex = albedoTexIndex,
+          .normalTextureIndex = normalTexIndex,
       };
 
       memcpy(static_cast<uint8_t*>(buffers.instance->getMapping()) +

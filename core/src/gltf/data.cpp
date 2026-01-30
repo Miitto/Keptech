@@ -171,10 +171,16 @@ namespace keptech::gltf {
       loadedGltf.samplers.emplace_back(std::move(sampler));
     }
 
+    for (auto& bufferView : asset.bufferViews) {
+      loadedGltf.bufferViews.emplace_back(std::move(bufferView));
+    }
+
+    for (auto& buffer : asset.buffers) {
+      loadedGltf.buffers.emplace_back(std::move(buffer));
+    }
+
     std::vector<Node> nodes;
     nodes.reserve(asset.nodes.size());
-
-    KT_DEBUG("Loading {} nodes", asset.nodes.size());
 
     for (auto& node : asset.nodes) {
       auto trs = std::get<fastgltf::TRS>(node.transform);
@@ -197,8 +203,6 @@ namespace keptech::gltf {
 
     std::vector<bool> isChildNode(nodes.size(), false);
     for (auto& node : nodes) {
-      KT_DEBUG("Processing {} children for node '{}'", node.children.size(),
-               node.node.name);
       for (auto childIndex : node.node.children) {
         node.children.push_back(std::move(nodes[childIndex]));
         isChildNode[childIndex] = true;

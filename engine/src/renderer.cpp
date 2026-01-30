@@ -102,7 +102,8 @@ namespace keptech {
     auto vertexBufRes = backend->createBuffer(BufferCreateInfo{
         .name = "Vertex Buffer",
         .size = sizeof(Vertex) * 10'000,
-        .usage = BufferUsage::Vertex | BufferUsage::TransferDst,
+        .usage = BufferUsage::Vertex | BufferUsage::TransferDst |
+                 BufferUsage::TransferSrc,
         .memoryType = BufferMemoryType::GpuOnly,
     });
     if (!vertexBufRes) {
@@ -112,7 +113,8 @@ namespace keptech {
     auto indexBufRes = backend->createBuffer(BufferCreateInfo{
         .name = "Index Buffer",
         .size = sizeof(uint32_t) * 50'000,
-        .usage = BufferUsage::Index | BufferUsage::TransferDst,
+        .usage = BufferUsage::Index | BufferUsage::TransferDst |
+                 BufferUsage::TransferSrc,
         .memoryType = BufferMemoryType::GpuOnly,
     });
     if (!indexBufRes) {

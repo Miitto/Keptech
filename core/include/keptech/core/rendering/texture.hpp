@@ -55,6 +55,9 @@ namespace keptech {
     [[nodiscard]] TextureFormat getFormat() const { return format; }
     [[nodiscard]] uint32_t getMipLevels() const { return mipLevels; }
 
+    [[nodiscard]] uint32_t getIndex() const { return index; }
+    void setIndex(uint32_t idx) { index = idx; }
+
     ITexture(const ITexture&) = default;
     ITexture(ITexture&&) = default;
     ITexture& operator=(const ITexture&) = default;
@@ -82,6 +85,8 @@ namespace keptech {
     glm::vec3 size{0, 0, 0};
     TextureFormat format{TextureFormat::Undefined};
     uint32_t mipLevels{1};
+
+    uint32_t index = ~0u;
   };
 
   enum class TextureTransitionType : uint8_t {

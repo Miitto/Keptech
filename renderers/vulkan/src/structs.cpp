@@ -32,6 +32,19 @@ namespace keptech::vkh {
     };
   }
 
+  void AllocatedImage::destroy(vma::Allocator& allocator,
+                               const vk::raii::Device& d) {
+    if (image) {
+      VK_DEBUG("Destroying image");
+      allocator.destroyImage(image, alloc);
+      d.getDispatcher()->vkDestroyImageView(
+          static_cast<VkDevice>(*d), static_cast<VkImageView>(view), nullptr);
+      image = nullptr;
+      view = nullptr;
+      alloc = nullptr;
+    }
+  }
+
   std::expected<AllocatedBuffer, std::string>
   AllocatedBuffer::create(vma::Allocator& allocator,
                           const vk::BufferCreateInfo& bufInfo,
@@ -57,6 +70,7 @@ namespace keptech::vkh {
                                    const vk::BufferCreateInfo& bufInfo,
                                    const vma::AllocationCreateInfo& allocInfo,
                                    const std::optional<std::string>& name) {
+
     auto allocatedBufferRes =
         AllocatedBuffer::create(allocator, bufInfo, allocInfo);
     if (!allocatedBufferRes) {

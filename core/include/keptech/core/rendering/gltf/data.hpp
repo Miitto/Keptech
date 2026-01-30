@@ -38,6 +38,9 @@ namespace keptech::gltf {
     std::vector<fastgltf::Image> images;
     std::vector<fastgltf::Sampler> samplers;
 
+    std::vector<fastgltf::BufferView> bufferViews;
+    std::vector<fastgltf::Buffer> buffers;
+
     std::vector<Node> roots;
 
     static std::expected<Data, std::string> fromFile(std::string_view path);

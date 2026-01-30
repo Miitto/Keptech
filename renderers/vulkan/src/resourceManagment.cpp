@@ -302,9 +302,11 @@ namespace keptech::vkh {
       std::string name, glm::uvec3 size, TextureFormat format,
       Bitflag<TextureUsage> usage, uint32_t mipLevels, bool cpuAccess,
       const void* data) {
+    vk::Format vkFormat = from(format, vk::Format::eR8G8B8A8Unorm);
+
     vk::ImageCreateInfo imageCreateInfo{
         .imageType = size.z == 1 ? vk::ImageType::e2D : vk::ImageType::e3D,
-        .format = from(format, vk::Format::eR8G8B8A8Unorm),
+        .format = vkFormat,
         .extent = {.width = size.x, .height = size.y, .depth = size.z},
         .mipLevels = mipLevels,
         .arrayLayers = 1,
@@ -372,6 +374,172 @@ namespace keptech::vkh {
     );
 
     return std::make_shared<vkh::Texture>(std::move(texture));
+  }
+
+  std::expected<TexPtr, std::string>
+  RendererBackend::createTexture(std::string name, const Image& image,
+                                 Bitflag<TextureUsage> usage,
+                                 uint32_t mipLevels, bool cpuAccess) {
+    TextureFormat format = TextureFormat::RGBA8;
+
+    switch (image.getChannels()) {
+    case 1:
+      format = TextureFormat::R8;
+      break;
+
+    case 2:
+      format = TextureFormat::RG8;
+      break;
+    case 3:
+      format = TextureFormat::RGB8;
+      break;
+    default:;
+    }
+
+    auto texRes =
+        createTexture(name,
+                      glm::uvec3{static_cast<uint32_t>(image.getSize().x),
+                                 static_cast<uint32_t>(image.getSize().y), 1},
+                      format, usage, mipLevels, cpuAccess, image.getData());
+    if (!texRes) {
+      return std::unexpected(fmt::format(
+          "Failed to create texture from image: {}", texRes.error()));
+    }
+    TexPtr texPtr = std::move(texRes.value());
+    auto vkTexPtr = std::static_pointer_cast<vkh::Texture>(texPtr);
+
+    vkh::Texture& texture = *vkTexPtr;
+
+    texture.setIndex(nextTextureIndex++);
+
+    for (auto& u : textureDescriptorsToUpdate) {
+      u.push_back(vkTexPtr);
+    }
+
+    size_t pixelSize =
+        static_cast<size_t>(image.getChannels()) * (image.isHdr() ? 4 : 1);
+
+    size_t expectedSize = pixelSize * image.getSize().x * image.getSize().y;
+
+    auto bufRes = AddressedAllocatedBuffer::create(
+        vkcore.device.logical, vkcore.allocator,
+        {
+            .size = expectedSize,
+            .usage = vk::BufferUsageFlagBits::eTransferSrc |
+                     vk::BufferUsageFlagBits::eShaderDeviceAddress,
+        },
+        {
+            .flags = vma::AllocationCreateFlagBits::eMapped,
+            .usage = vma::MemoryUsage::eCpuToGpu,
+        });
+    if (!bufRes) {
+      return std::unexpected(
+          fmt::format("Failed to create staging buffer for image transfer: {}",
+                      bufRes.error()));
+    }
+
+    vk::CommandBufferAllocateInfo allocInfo{
+        .commandPool = frameInfo.perFrame->pools.compute->pool,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1,
+    };
+    VK_MAKE(cmdBufs, vkcore.device.logical.allocateCommandBuffers(allocInfo),
+            "Failed to allocate command buffer for image transfer");
+    auto& cmdBuf = cmdBufs[0];
+
+    cmdBuf.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
+
+    vk::ImageMemoryBarrier2 toWriteBarrier{
+        .dstStageMask = vk::PipelineStageFlagBits2::eCopy,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .oldLayout = vk::ImageLayout::eUndefined,
+        .newLayout = vk::ImageLayout::eTransferDstOptimal,
+        .image = texture.getImage().image,
+        .subresourceRange =
+            vk::ImageSubresourceRange{
+                .aspectMask = aspectFromFormat(texture.getFormat()),
+                .baseMipLevel = 0,
+                .levelCount = texture.getMipLevels(),
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+
+    cmdBuf.pipelineBarrier2(vk::DependencyInfo{
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &toWriteBarrier,
+    });
+
+    vk::BufferImageCopy2 copyRegion{
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource =
+            vk::ImageSubresourceLayers{
+                .aspectMask = aspectFromFormat(texture.getFormat()),
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        .imageOffset = vk::Offset3D{.x = 0, .y = 0, .z = 0},
+        .imageExtent =
+            vk::Extent3D{
+                .width = static_cast<uint32_t>(texture.getSize().x),
+                .height = static_cast<uint32_t>(texture.getSize().y),
+                .depth = static_cast<uint32_t>(texture.getSize().z),
+            },
+    };
+
+    cmdBuf.copyBufferToImage2(vk::CopyBufferToImageInfo2{
+        .srcBuffer = bufRes.value().buffer,
+        .dstImage = texture.getImage().image,
+        .dstImageLayout = vk::ImageLayout::eTransferDstOptimal,
+        .regionCount = 1,
+        .pRegions = &copyRegion,
+    });
+
+    vk::ImageMemoryBarrier2 toShaderReadBarrier{
+        .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+        .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+        .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+        .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+        .image = texture.getImage().image,
+        .subresourceRange =
+            vk::ImageSubresourceRange{
+                .aspectMask = aspectFromFormat(texture.getFormat()),
+                .baseMipLevel = 0,
+                .levelCount = texture.getMipLevels(),
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+    cmdBuf.pipelineBarrier2(vk::DependencyInfo{
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &toShaderReadBarrier,
+    });
+
+    cmdBuf.end();
+
+    BufPtr stagingBuffer =
+        std::make_shared<vkh::Buffer>(vkcore.allocator, bufRes.value());
+
+    CmdBufPtr cmdBuffer = std::make_unique<vkh::CommandBuffer>(
+        std::move(cmdBuf), CmdBufType::Compute);
+
+    std::vector<SubmitInfo> infos;
+    infos.push_back({
+        .commandBuffer = std::move(cmdBuffer),
+        .trackedBuffers = {stagingBuffer},
+        .trackedTextures = {texPtr},
+    });
+
+    submitCommandBuffers(std::move(infos));
+
+    return texPtr;
   }
 
   void RendererBackend::textureLayoutTransition(

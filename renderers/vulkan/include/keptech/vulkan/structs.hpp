@@ -49,16 +49,7 @@ namespace keptech::vkh {
            const vma::AllocationCreateInfo& allocInfo,
            vk::ImageViewCreateInfo viewInfo, bool useSameFormat = false);
 
-    void destroy(vma::Allocator& allocator, const vk::raii::Device& d) {
-      if (image) {
-        allocator.destroyImage(image, alloc);
-        d.getDispatcher()->vkDestroyImageView(
-            static_cast<VkDevice>(*d), static_cast<VkImageView>(view), nullptr);
-        image = nullptr;
-        view = nullptr;
-        alloc = nullptr;
-      }
-    }
+    void destroy(vma::Allocator& allocator, const vk::raii::Device& d);
   };
 
   struct AllocatedBuffer {

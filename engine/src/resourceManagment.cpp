@@ -1,5 +1,6 @@
 #include "keptech/renderer.hpp"
 
+#include <keptech/core/image.hpp>
 #include <keptech/core/kt-logger.hpp>
 #include <keptech/core/rendering/gltf/data.hpp>
 #include <keptech/core/rendering/gltf/scene.hpp>
@@ -165,7 +166,8 @@ namespace keptech {
       auto res = backend->createBuffer({
           .name = "Vertex Buffer",
           .size = newVertexBufferSize,
-          .usage = BufferUsage::Vertex | BufferUsage::TransferDst,
+          .usage = BufferUsage::Vertex | BufferUsage::TransferDst |
+                   BufferUsage::TransferSrc,
           .memoryType = BufferMemoryType::GpuOnly,
       });
       if (!res) {
@@ -185,7 +187,8 @@ namespace keptech {
       auto res = backend->createBuffer({
           .name = "Index Buffer",
           .size = newIndexBufferSize,
-          .usage = BufferUsage::Index | BufferUsage::TransferDst,
+          .usage = BufferUsage::Index | BufferUsage::TransferDst |
+                   BufferUsage::TransferSrc,
           .memoryType = BufferMemoryType::GpuOnly,
       });
       if (!res) {
@@ -278,17 +281,101 @@ namespace keptech {
     });
     backend->submitCommandBuffers(std::move(submitInfos));
 
+    std::vector<TexPtr> textures;
+
+    for (auto& image : gltf.images) {
+      auto imgRes = std::visit(
+          fastgltf::visitor{
+              [](auto& arg) -> std::expected<keptech::Image, std::string> {
+                KT_ERROR("Unsupported glTF image source type {}",
+                         typeid(arg).name());
+                return std::unexpected("Unsupported glTF image source.");
+              },
+              [&](fastgltf::sources::Array& array) {
+                return keptech::Image::loadFromMemory(
+                    reinterpret_cast<const uint8_t*>(array.bytes.data()),
+                    static_cast<int>(array.bytes.size()), 4);
+              },
+              [&](fastgltf::sources::URI& filePath) {
+                assert(filePath.fileByteOffset ==
+                       0); // We don't support offsets with stbi.
+                assert(filePath.uri.isLocalPath()); // We're only capable of
+                                                    // loading local files.
+
+                const std::string path(filePath.uri.path().begin(),
+                                       filePath.uri.path().end());
+                return keptech::Image::loadFromFile(path.c_str(), 4);
+              },
+              [&](fastgltf::sources::Vector& vector) {
+                return keptech::Image::loadFromMemory(
+                    reinterpret_cast<const uint8_t*>(vector.bytes.data()),
+                    static_cast<int>(vector.bytes.size()), 4);
+              },
+              [&](fastgltf::sources::BufferView& view) {
+                auto& bufferView = gltf.bufferViews[view.bufferViewIndex];
+                auto& buffer = gltf.buffers[bufferView.bufferIndex];
+
+                return std::visit(
+                    fastgltf::visitor{
+                        // We only care about VectorWithMime here, because we
+                        // specify LoadExternalBuffers, meaning all buffers
+                        // are already loaded into a vector.
+                        [](auto& arg)
+                            -> std::expected<keptech::Image, std::string> {
+                          return std::unexpected(
+                              "Unsupported glTF image source in buffer view.");
+                        },
+                        [&](fastgltf::sources::Vector& vector) {
+                          return keptech::Image::loadFromMemory(
+                              reinterpret_cast<uint8_t*>(vector.bytes.data()) +
+                                  bufferView.byteOffset,
+                              static_cast<int>(bufferView.byteLength), 4);
+                        }},
+                    buffer.data);
+              },
+          },
+          image.data);
+
+      if (!imgRes) {
+        return std::unexpected(
+            fmt::format("Failed to load glTF image: {}", imgRes.error()));
+      }
+
+      auto texRes = backend->createTexture(
+          std::string(image.name), imgRes.value(),
+          TextureUsage::Sampled | TextureUsage::TransferDst);
+      if (!texRes) {
+        return std::unexpected(fmt::format(
+            "Failed to create texture for glTF image: {}", texRes.error()));
+      }
+      textures.push_back(std::move(texRes.value()));
+    }
+
     std::vector<MaterialPtr> materials;
     for (auto& matData : gltf.materials) {
-      MaterialPtr material = std::make_shared<Material>(deferredPipeline);
+      TexPtr albedoTex = nullptr;
+      TexPtr normalTex = nullptr;
+
+      if (matData.pbrData.baseColorTexture.has_value()) {
+        albedoTex =
+            textures[matData.pbrData.baseColorTexture.value().textureIndex];
+      }
+      if (matData.normalTexture.has_value()) {
+        normalTex = textures[matData.normalTexture.value().textureIndex];
+      }
+      MaterialPtr material = std::make_shared<Material>(
+          deferredPipeline,
+          std::vector<keptech::InstanceData>{albedoTex, normalTex});
       materials.emplace_back(std::move(material));
     }
 
     if (materials.empty()) {
       KT_WARN("No materials found in glTF '{}', creating default material",
               path);
-      MaterialPtr material = std::make_shared<Material>(deferredPipeline);
-      materials.emplace_back(std::move(material));
+      MaterialPtr material = std::make_shared<Material>(
+          deferredPipeline,
+          std::vector<keptech::InstanceData>{TexPtr(), TexPtr()});
+      materials.push_back(std::move(material));
     }
 
     std::vector<gltf::Scene::Node> sceneNodes;

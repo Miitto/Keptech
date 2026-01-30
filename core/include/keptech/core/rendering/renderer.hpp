@@ -1,6 +1,7 @@
 #pragma once
 
 #include "glm/fwd.hpp"
+#include "keptech/core/image.hpp"
 #include "keptech/core/rendering/buffer.hpp"
 #include "keptech/core/rendering/commandBuffer.hpp"
 #include "keptech/core/rendering/pipeline.hpp"
@@ -33,8 +34,12 @@ namespace keptech {
 
     virtual std::expected<TexPtr, std::string>
     createTexture(std::string name, glm::uvec3 size, TextureFormat format,
-                  Bitflag<TextureUsage> usage, uint32_t mipLevels,
+                  Bitflag<TextureUsage> usage, uint32_t mipLevels = 1,
                   bool cpuAccess = false, const void* data = nullptr) = 0;
+    virtual std::expected<TexPtr, std::string>
+    createTexture(std::string name, const Image& image,
+                  Bitflag<TextureUsage> usage, uint32_t mipLevels = 1,
+                  bool cpuAccess = false) = 0;
 
     virtual ImTextureRef getImGuiTextureHandle(const TexPtr& texture) = 0;
 
@@ -63,7 +68,8 @@ namespace keptech {
 
     struct SubmitInfo {
       CmdBufPtr commandBuffer;
-      std::vector<BufPtr> trackedBuffers;
+      std::vector<BufPtr> trackedBuffers{};
+      std::vector<TexPtr> trackedTextures{};
     };
     virtual void submitCommandBuffers(std::vector<SubmitInfo>) = 0;
     virtual void endFrame(CmdBufPtr&&) = 0;
