@@ -235,4 +235,11 @@ namespace keptech {
   };
 
   using PipelinePtr = std::shared_ptr<IPipeline>;
+
+  struct Material {
+    PipelinePtr pipeline{nullptr};
+    std::vector<InstanceData> instanceData{};
+  };
+
+  using MaterialPtr = std::shared_ptr<Material>;
 } // namespace keptech

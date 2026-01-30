@@ -233,7 +233,8 @@ namespace keptech::vkh {
       return;
     }
 
-    uint64_t signalValue = ++frameInfo.perFrame->timelineValue;
+    uint64_t waitValue = frameInfo.perFrame->timelineValue++;
+    uint64_t signalValue = waitValue + 1;
 
     std::vector<SubmittedCommandBufferInfo> submittedCmdBufInfos;
     submittedCmdBufInfos.reserve(cmdBuffers.size());
@@ -250,10 +251,22 @@ namespace keptech::vkh {
 
     auto& thisFrameCmdBufs = submittedCommandBuffers[frameInfo.index];
 
-    vk::SemaphoreSubmitInfo waitInfo{
+    vk::SemaphoreSubmitInfo nextFrameWaitInfo{
         .semaphore = perFrame.imageAvailableSemaphore,
         .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
         .deviceIndex = 0,
+    };
+
+    vk::SemaphoreSubmitInfo prevSumbitWaitInfo{
+        .semaphore = perFrame.timelineSemaphore,
+        .value = waitValue,
+        .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .deviceIndex = 0,
+    };
+
+    std::array<vk::SemaphoreSubmitInfo, 2> waitInfos{
+        prevSumbitWaitInfo,
+        nextFrameWaitInfo,
     };
 
     vk::SemaphoreSubmitInfo signalInfo{
@@ -274,8 +287,8 @@ namespace keptech::vkh {
 
     vk::SubmitInfo2 submitInfo{
         .waitSemaphoreInfoCount =
-            frameInfo.imageIndex == Frame::INVALID_INDEX ? 0u : 1u,
-        .pWaitSemaphoreInfos = &waitInfo,
+            frameInfo.imageIndex == Frame::INVALID_INDEX ? 1u : 2u,
+        .pWaitSemaphoreInfos = waitInfos.data(),
         .commandBufferInfoCount = static_cast<uint32_t>(cmdBufInfos.size()),
         .pCommandBufferInfos = cmdBufInfos.data(),
         .signalSemaphoreInfoCount = 1,

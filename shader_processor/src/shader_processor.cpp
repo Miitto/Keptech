@@ -296,7 +296,7 @@ namespace keptech::shader_processor {
            .value = value});
     }
 
-    std::vector<const char*> searchPaths{KEPTECH_SHADER_DIR};
+    std::vector<const char*> searchPaths{KEPTECH_SHADER_DIR "/lib"};
 
     sessionDesc.compilerOptionEntries = compilerOptionEntries.data();
     sessionDesc.compilerOptionEntryCount =

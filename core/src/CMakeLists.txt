@@ -5,7 +5,8 @@ target_sources(${PROJECT_NAME}
   PRIVATE
     components/camera.cpp
     components/transform.cpp
-    gltf/loaded.cpp
+    gltf/data.cpp
+    gltf/scene.cpp
     layers/layerStack.cpp
     maths/transform.cpp
     events.cpp

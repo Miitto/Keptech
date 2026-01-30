@@ -10,6 +10,7 @@
 #include <keptech/core/window.hpp>
 #include <keptech/keptech.hpp>
 #include <keptech/vulkan.hpp>
+#include <memory>
 #include <utility>
 
 namespace shaders {
@@ -53,7 +54,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   SPDLOG_INFO("Created materials");
 
-  keptech::Scene scene;
+  std::unique_ptr scene = std::make_unique<keptech::Scene>();
 
   std::vector<Vertex> triangleVertices = {
       {
@@ -94,18 +95,30 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
     return std::unexpected(
         fmt::format("Failed to load monkey mesh: {}", monkeyMeshRes.error()));
   }
-  SPDLOG_INFO("Loaded monkey mesh: {}", monkeyMeshRes.value().size());
+  SPDLOG_INFO("Loaded monkey mesh");
+
+  auto bistroMeshRes =
+      renderer.loadMesh(ASSET_DIR "meshes/BistroExterior.gltf");
+  if (!bistroMeshRes) {
+    return std::unexpected(
+        fmt::format("Failed to load bistro mesh: {}", bistroMeshRes.error()));
+  }
 
   MeshPtr triangleMesh = std::make_shared<Mesh>(triangleMeshRes.value());
-  MeshPtr monkeyMesh = std::make_shared<Mesh>(monkeyMeshRes.value()[0]);
 
-  auto monkey = scene.createEntity("Monkey");
-  monkey.addComponent<keptech::components::Mesh>(monkeyMesh);
-  monkey.addComponent<keptech::components::Material>(
-      deferred, std::vector{InstanceData{TexPtr{}}});
-  monkey.addComponent<keptech::components::Transform>();
+  std::vector<MeshPtr> allMeshes{triangleMesh};
+  allMeshes.insert(allMeshes.end(), monkeyMeshRes.value().meshes.begin(),
+                   monkeyMeshRes.value().meshes.end());
+  allMeshes.insert(allMeshes.end(), bistroMeshRes.value().meshes.begin(),
+                   bistroMeshRes.value().meshes.end());
 
-  auto camera = scene.createEntity("Camera");
+  auto monkey = scene->createEntity("Monkey");
+  monkeyMeshRes->addToEcsScene(*scene, monkey.getHandle());
+
+  auto bistro = scene->createEntity("Bistro");
+  bistroMeshRes->addToEcsScene(*scene, bistro.getHandle());
+
+  auto camera = scene->createEntity("Camera");
   auto& camTransform = camera.addComponent<keptech::components::Transform>();
   auto& localTransform = camTransform.getLocalMut();
   localTransform.translate(glm::vec3(0.0f, 0.0f, 5.0f))
@@ -118,11 +131,10 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
                                                            glm::radians(90.f)});
   camComp.sizeToWindowSize(window.getRenderSize());
 
-  scene.useCamera(camera);
+  scene->useCamera(camera);
 
   layerStack.emplaceLayer<MaterialEditorLayer>(
-      renderer, std::move(scene),
-      std::vector<keptech::MeshPtr>{triangleMesh, monkeyMesh},
+      renderer, std::move(scene), std::move(allMeshes),
       std::vector{basicPipelineRes.value(), deferred});
 
   return {};

@@ -13,7 +13,7 @@ namespace keptech::cameras {
     float& getSensitivity() { return sens; }
     int& getPanButton() { return panButton; }
 
-    bool handleEvent(core::events::Event& event, core::Timestep ts) override {
+    bool handleEvent(core::events::Event& event, core::Timestep) override {
       if (!isValid())
         return false;
 
@@ -38,12 +38,12 @@ namespace keptech::cameras {
                 return false;
               }) ||
 
-          ed.dispatch<MouseMovedEvent>([this, ts](MouseMovedEvent& e) {
+          ed.dispatch<MouseMovedEvent>([this](MouseMovedEvent& e) {
             if (!panning)
               return false;
 
-            yaw += e.movement.x * ts * sens;
-            pitch += e.movement.y * ts * sens;
+            yaw += e.movement.x * sens;
+            pitch += e.movement.y * sens;
 
             if (yaw < 360)
               yaw += 360;

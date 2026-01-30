@@ -108,13 +108,13 @@ namespace {
 } // namespace
 
 MaterialEditorLayer::MaterialEditorLayer(
-    keptech::Renderer& renderer, keptech::Scene&& scene,
+    keptech::Renderer& renderer, std::unique_ptr<keptech::Scene>&& scene,
     std::vector<keptech::MeshPtr>&& meshes,
     std::vector<keptech::PipelinePtr>&& pipelines)
     : keptech::core::layers::Layer("MaterialEditorLayer"), renderer(renderer),
-      scene(std::move(scene)), orbitController(this->scene.getActiveCamera()),
+      scene(std::move(scene)), orbitController(this->scene->getActiveCamera()),
       loadedMeshes(std::move(meshes)), loadedPipelines(std::move(pipelines)) {
-  renderer.setScene(&this->scene);
+  renderer.setScene(this->scene.get());
 
   gBufferImGuiHandles.albedo =
       renderer.getImGuiTextureHandle(renderer.getGBuffers().albedo);
@@ -129,7 +129,10 @@ MaterialEditorLayer::MaterialEditorLayer(
 void MaterialEditorLayer::onUpdate(keptech::core::Timestep ts) {
   if (auto frame = keptech::gui::Frame("Stats"); frame.isOpen()) {
     double fps = static_cast<double>(1000.f / ts);
+    frame.text("Frame Time: %.2f ms", static_cast<double>(ts));
     frame.text("FPS: %.1f", fps);
+    frame.text("Draw Calls: %zu", renderer.getDrawCallCount());
+    frame.text("Triangles: %zu", renderer.getTriangleCount());
 
     frame.inputFloat("Sensitivity", orbitController.getSensitivity());
   }
@@ -267,13 +270,13 @@ void MaterialEditorLayer::addNodeToList(
   nodeMap.emplace(entity, node.get());
 
   auto transform =
-      scene.getEcs().try_get<keptech::components::Transform>(entity);
+      scene->getEcs().try_get<keptech::components::Transform>(entity);
   if (transform != nullptr && transform->getParent().getHandle() !=
                                   keptech::ecs::INVALID_ENTITY_HANDLE) {
     auto parentId = transform->getParent().getHandle();
 
     if (nodeMap.find(parentId) == nodeMap.end()) {
-      auto& nameComp = scene.getEcs().get<keptech::components::Name>(parentId);
+      auto& nameComp = scene->getEcs().get<keptech::components::Name>(parentId);
       addNodeToList(parentId, nameComp, roots, nodeMap);
     }
 
@@ -352,33 +355,33 @@ bool MaterialEditorLayer::drawSceneTreeEntityContextMenu(SceneNode& node) {
     }
 
     if (ImGui::Button("Create Child")) {
-      auto thisEntity = keptech::ecs::Entity(node.id, scene.getEcs());
+      auto thisEntity = keptech::ecs::Entity(node.id, scene->getEcs());
 
       if (!thisEntity.hasAllComponents<keptech::components::Transform>()) {
         thisEntity.addComponent<keptech::components::Transform>();
       }
 
-      auto child = scene.createEntity("Unnamed Entity");
+      auto child = scene->createEntity("Unnamed Entity");
       auto& transform = child.addComponent<keptech::components::Transform>();
-      transform.setParent(keptech::ecs::Entity(node.id, scene.getEcs()));
+      transform.setParent(keptech::ecs::Entity(node.id, scene->getEcs()));
       selectedItem = child.getHandle();
       ImGui::CloseCurrentPopup();
     }
 
     if (ImGui::Button("Create Sibling")) {
-      auto sibling = scene.createEntity("Unnamed Entity");
+      auto sibling = scene->createEntity("Unnamed Entity");
       if (node.parent != nullptr) {
         auto& transform =
             sibling.addComponent<keptech::components::Transform>();
         transform.setParent(
-            keptech::ecs::Entity(node.parent->id, scene.getEcs()));
+            keptech::ecs::Entity(node.parent->id, scene->getEcs()));
       }
       selectedItem = sibling.getHandle();
       ImGui::CloseCurrentPopup();
     }
 
     if (ImGui::Button("Delete")) {
-      keptech::ecs::Entity(node.id, scene.getEcs()).destroy();
+      keptech::ecs::Entity(node.id, scene->getEcs()).destroy();
       if (selectedItem.index() == 1) {
         keptech::ecs::EntityHandle selectedEntity =
             std::get<keptech::ecs::EntityHandle>(selectedItem);
@@ -387,7 +390,7 @@ bool MaterialEditorLayer::drawSceneTreeEntityContextMenu(SceneNode& node) {
         }
       }
       for (auto& child : node.children) {
-        auto e = keptech::ecs::Entity(child->id, scene.getEcs());
+        auto e = keptech::ecs::Entity(child->id, scene->getEcs());
         auto& transform = e.getComponents<keptech::components::Transform>();
         transform.setParent(keptech::ecs::Entity{});
       }
@@ -413,7 +416,7 @@ void MaterialEditorLayer::drawSceneTree() {
   if (ImGui::BeginPopupContextWindow()) {
 
     if (ImGui::Button("New Entity")) {
-      scene.createEntity("Unnamed Entity");
+      scene->createEntity("Unnamed Entity");
       ImGui::CloseCurrentPopup();
     }
 
@@ -424,7 +427,7 @@ void MaterialEditorLayer::drawSceneTree() {
   {
     std::unordered_map<keptech::ecs::EntityHandle, SceneNode*> nodeMap;
 
-    auto view = scene.getEcs().view<keptech::components::Name>();
+    auto view = scene->getEcs().view<keptech::components::Name>();
     for (auto [entity, name] : view.each()) {
       addNodeToList(entity, name, roots, nodeMap);
     }
@@ -501,7 +504,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
 void MaterialEditorLayer::drawEntityProperties(
     keptech::gui::Frame& propertiesPanel,
     keptech::ecs::EntityHandle selectedEntity) {
-  auto& ecs = scene.getEcs();
+  auto& ecs = scene->getEcs();
   auto entity = keptech::ecs::Entity(selectedEntity, ecs);
 
   auto transform =
@@ -573,7 +576,7 @@ void MaterialEditorLayer::refreshAssetsDirectory() {
   assetsRootDir.name = "Assets";
 
 #ifndef NDEBUG
-  printDirectory(assetsRootDir, 0);
+  // printDirectory(assetsRootDir, 0);
 #endif
 }
 
@@ -731,7 +734,6 @@ void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
              (mesh->getIndexCount() == 0 ? mesh->getVertexCount()
                                          : mesh->getIndexCount()) /
                  3);
-  frame.text("Submeshes: %zu", mesh->getSubmeshes().size());
   frame.text("Vertex Offset: %u", mesh->getVertexOffset());
   frame.text("Index Offset: %u", mesh->getIndexOffset());
 }
@@ -739,28 +741,32 @@ void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
 void MaterialEditorLayer::materialInspectorUi(
     keptech::gui::Frame& frame, keptech::components::Material& material) {
 
+  if (material == nullptr) {
+    material = std::make_shared<keptech::Material>();
+  }
+
   frame.separatorText("Material");
 
   if (ImGui::CollapsingHeader("Pipeline##header")) {
 
-    const char* pipelineName = (material.pipeline != nullptr)
-                                   ? material.pipeline->getDebugName().c_str()
+    const char* pipelineName = (material->pipeline != nullptr)
+                                   ? material->pipeline->getDebugName().c_str()
                                    : "";
 
     {
       auto combo = frame.combo("Pipeline", pipelineName);
       for (auto& p : loadedPipelines) {
-        if (combo.item(p->getDebugName().c_str(), material.pipeline == p)) {
-          material.pipeline = p;
+        if (combo.item(p->getDebugName().c_str(), material->pipeline == p)) {
+          material->pipeline = p;
         }
       }
     }
 
-    if (material.pipeline != nullptr)
-      pipelineInspectorUi(frame, *material.pipeline);
+    if (material->pipeline != nullptr)
+      pipelineInspectorUi(frame, *material->pipeline);
   }
 
-  for (auto& data : material.instanceData) {
+  for (auto& data : material->instanceData) {
     switch (data.index()) {
     case static_cast<size_t>(keptech::shaders::DataType::U32): {
       auto texturePtr = std::get<keptech::TexPtr>(data);

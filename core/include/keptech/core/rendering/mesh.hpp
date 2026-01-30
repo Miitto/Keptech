@@ -1,6 +1,5 @@
 #pragma once
 
-#include "keptech/core/slotmap.hpp"
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <memory>
@@ -31,52 +30,47 @@ namespace keptech {
 
   class Mesh {
   public:
-    struct Submesh {
-      uint32_t indexCount;
-      uint32_t indexOffset;
-    };
-
-    [[nodiscard]] const std::vector<Submesh>& getSubmeshes() const {
-      return submeshes;
-    }
-
     [[nodiscard]] uint32_t getVertexOffset() const { return vertexOffset; }
+    [[nodiscard]] size_t getIndexCount() const { return indexCount; }
     [[nodiscard]] uint32_t getIndexOffset() const { return indexOffset; }
+
+    Mesh& setVertexOffset(uint32_t offset) {
+      vertexOffset = offset;
+      return *this;
+    }
+    Mesh& setIndexOffset(uint32_t offset) {
+      indexOffset = offset;
+      return *this;
+    }
 
 #ifdef KT_ADD_RESOURCE_INFO
     std::string& getDebugName() { return name; }
     [[nodiscard]] size_t getVertexCount() const { return vertexCount; }
-    [[nodiscard]] size_t getIndexCount() const { return indexCount; }
 #endif
 
-    Mesh(uint32_t vertexOffset, uint32_t indexOffset,
-         std::vector<Submesh> submeshes
+    Mesh(uint32_t vertexOffset, uint32_t indexCount, uint32_t indexOffset
 #ifdef KT_ADD_RESOURCE_INFO
          ,
-         std::string name,
-         size_t vertexCount, // NOLINT
-         size_t indexCount
+         std::string name, size_t vertexCount
 #endif
          )
-        : vertexOffset(vertexOffset), indexOffset(indexOffset),
-          submeshes(std::move(submeshes))
+        : vertexOffset(vertexOffset), indexCount(indexCount),
+          indexOffset(indexOffset)
 #ifdef KT_ADD_RESOURCE_INFO
           ,
-          name(std::move(name)), vertexCount(vertexCount),
-          indexCount(indexCount)
+          name(std::move(name)), vertexCount(vertexCount)
 #endif
     {
     }
 
   protected:
     uint32_t vertexOffset;
+    uint32_t indexCount;
     uint32_t indexOffset;
-    std::vector<Submesh> submeshes;
 
 #ifdef KT_ADD_RESOURCE_INFO
     std::string name;
     size_t vertexCount;
-    size_t indexCount;
 #endif
   };
 
@@ -86,6 +80,5 @@ namespace keptech {
     std::string name;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices = {};
-    std::vector<Mesh::Submesh> submeshes = {};
   };
 } // namespace keptech

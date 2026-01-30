@@ -5,6 +5,7 @@
 #include "keptech/core/rendering/mesh.hpp"
 #include "keptech/core/rendering/renderer.hpp"
 #include <expected>
+#include <keptech/core/rendering/gltf/scene.hpp>
 #include <memory>
 #include <utility>
 
@@ -23,8 +24,7 @@ namespace keptech {
     void setScene(Scene* newScene) { scene = newScene; }
 
     std::expected<Mesh, std::string> loadMesh(const MeshData& data);
-    std::expected<std::vector<Mesh>, std::string>
-    loadMesh(std::string_view path);
+    std::expected<gltf::Scene, std::string> loadMesh(std::string_view path);
 
     inline std::expected<PipelinePtr, std::string>
     createPipeline(const PipelineCreateInfo& createInfo) {
@@ -45,6 +45,11 @@ namespace keptech {
 
     [[nodiscard]] const GBuffers& getGBuffers() const { return gBuffers; }
 
+#ifdef KT_ADD_RESOURCE_INFO
+    [[nodiscard]] size_t getTriangleCount() const { return triCount; }
+    [[nodiscard]] size_t getDrawCallCount() const { return drawCallCount; }
+#endif
+
     // In Engine use
   public:
     static std::expected<Renderer, std::string>
@@ -61,6 +66,12 @@ namespace keptech {
     ~Renderer();
 
   private:
+    struct InstanceData {
+      glm::mat4 modelMatrix;
+      uint32_t albedoTextureIndex;
+      uint32_t normalTextureIndex;
+    };
+
     struct Buffers {
       BufPtr cameraStaging;
       size_t vertexEnd = 0;
@@ -72,8 +83,9 @@ namespace keptech {
     };
 
     Renderer(std::unique_ptr<IRendererBackend> backend, GBuffers gBuffers,
-             Buffers&& buffers)
+             PipelinePtr&& deferredPipeline, Buffers&& buffers)
         : backend(std::move(backend)), gBuffers(std::move(gBuffers)),
+          deferredPipeline(std::move(deferredPipeline)),
           buffers(std::move(buffers)) {}
 
     void initImGui();
@@ -99,7 +111,13 @@ namespace keptech {
 
     std::unique_ptr<IRendererBackend> backend;
     GBuffers gBuffers;
+    PipelinePtr deferredPipeline;
 
     Buffers buffers;
+
+#ifdef KT_ADD_RESOURCE_INFO
+    size_t triCount = 0;
+    size_t drawCallCount = 0;
+#endif
   };
 } // namespace keptech

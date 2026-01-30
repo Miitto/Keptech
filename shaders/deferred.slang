@@ -44,7 +44,9 @@ VertexOutput vert(Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID) {
 
   Instance inst = PC.iBuffer[iid + PC.instanceOffset];
 
-  output.position = keptech::camera.worldToClip(mul(inst.modelMatrix, float4(v.position, 1.0)));
+  float4 worldPosition = mul(float4(v.position, 1.0), inst.modelMatrix);
+
+  output.position = keptech::camera.worldToClip(worldPosition);
   output.color = v.color;
   output.uvX = v.uvX;
   output.uvY = v.uvY;

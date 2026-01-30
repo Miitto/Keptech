@@ -6,8 +6,5 @@
 namespace keptech::components {
   using Mesh = MeshPtr;
 
-  struct Material {
-    PipelinePtr pipeline{nullptr};
-    std::vector<InstanceData> instanceData{};
-  };
+  using Material = MaterialPtr;
 } // namespace keptech::components

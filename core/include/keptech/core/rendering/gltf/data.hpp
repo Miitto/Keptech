@@ -10,10 +10,25 @@
 
 namespace keptech::gltf {
 
+  struct Submesh {
+    uint32_t indexCount;
+    uint32_t indexOffset;
+    uint32_t materialIndex;
+  };
+
+  struct MeshData {
+    std::string name;
+    std::vector<keptech::Vertex> vertices;
+    std::vector<uint32_t> indices;
+    std::vector<Submesh> submeshes;
+  };
+
   struct Data {
     struct Node {
       fastgltf::Node node;
       maths::Transform transform;
+      uint32_t meshIndex;
+      uint32_t materialIndex;
       std::vector<Node> children{};
     };
 

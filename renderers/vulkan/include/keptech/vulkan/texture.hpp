@@ -58,5 +58,6 @@ namespace keptech::vkh {
     vma::Allocator* allocator;
     vk::raii::Device* device;
     AllocatedImage image;
+    std::shared_ptr<vk::raii::Sampler> sampler;
   };
 } // namespace keptech::vkh

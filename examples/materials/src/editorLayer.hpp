@@ -28,13 +28,14 @@ public:
 
   enum class ActiveDebugView : uint8_t { Albedo, Normals, Depth, Final };
 
-  MaterialEditorLayer(keptech::Renderer& renderer, keptech::Scene&& scene,
+  MaterialEditorLayer(keptech::Renderer& renderer,
+                      std::unique_ptr<keptech::Scene>&& scene,
                       std::vector<keptech::MeshPtr>&& meshes,
                       std::vector<keptech::PipelinePtr>&& pipelines);
 
   static void initMeta();
 
-  keptech::Scene& getScene() { return scene; }
+  keptech::Scene& getScene() { return *scene; }
 
   void onUpdate(keptech::core::Timestep ts) override;
 
@@ -105,7 +106,7 @@ private:
   void drawLoadedAssetsPanel();
 
   keptech::Renderer& renderer;
-  keptech::Scene scene;
+  std::unique_ptr<keptech::Scene> scene;
   keptech::cameras::OrbitCameraController orbitController;
 
   SelectedItem selectedItem = std::monostate{};

@@ -8,26 +8,25 @@
 namespace keptech::gltf {
   namespace {
     void loadMeshData(fastgltf::Asset& asset, Data& gltf) {
-
+      std::vector<Vertex> vertices;
+      std::vector<uint32_t> indices;
+      std::vector<Submesh> submeshes;
       for (auto& mesh : asset.meshes) {
-        std::vector<Vertex> vertices;
-        std::vector<uint32_t> indices;
-        std::vector<Mesh::Submesh> submeshes;
+        vertices.clear();
+        indices.clear();
+        submeshes.clear();
 
         for (auto& primitive : mesh.primitives) {
-          KT_DEBUG("{} primitive attributes:", mesh.name);
-          for (auto& attr : primitive.attributes) {
-            KT_DEBUG("{}", attr.name);
-          }
-
-          Mesh::Submesh submesh{
+          Submesh submesh{
               .indexCount = static_cast<uint32_t>(
                   asset.accessors[primitive.indicesAccessor.value()].count),
               .indexOffset = static_cast<uint32_t>(indices.size()),
+              .materialIndex =
+                  static_cast<uint32_t>(primitive.materialIndex.value_or(0)),
           };
           submeshes.push_back(submesh);
 
-          size_t startIndex = indices.size();
+          size_t startIndex = vertices.size();
 
           // Indices
           {
@@ -45,8 +44,8 @@ namespace keptech::gltf {
             auto& posAccessor =
                 asset.accessors[primitive.findAttribute("POSITION")
                                     ->accessorIndex];
-            vertices.resize(std::max(vertices.size(),
-                                     static_cast<size_t>(posAccessor.count)));
+            vertices.resize(vertices.size() +
+                            static_cast<size_t>(posAccessor.count));
 
             fastgltf::iterateAccessorWithIndex<glm::vec3>(
                 asset, posAccessor, [&](glm::vec3 position, size_t index) {
@@ -175,6 +174,8 @@ namespace keptech::gltf {
     std::vector<Node> nodes;
     nodes.reserve(asset.nodes.size());
 
+    KT_DEBUG("Loading {} nodes", asset.nodes.size());
+
     for (auto& node : asset.nodes) {
       auto trs = std::get<fastgltf::TRS>(node.transform);
       glm::vec3 translation = glm::vec3(
@@ -188,20 +189,26 @@ namespace keptech::gltf {
       Node gltfNode{
           .node = node,
           .transform = transform,
+          .meshIndex =
+              static_cast<uint32_t>(node.meshIndex.value_or(UINT32_MAX)),
       };
       nodes.emplace_back(std::move(gltfNode));
     }
 
+    std::vector<bool> isChildNode(nodes.size(), false);
     for (auto& node : nodes) {
+      KT_DEBUG("Processing {} children for node '{}'", node.children.size(),
+               node.node.name);
       for (auto childIndex : node.node.children) {
         node.children.push_back(std::move(nodes[childIndex]));
+        isChildNode[childIndex] = true;
       }
     }
 
-    for (auto& node : nodes) {
+    for (size_t i = 0; i < nodes.size(); ++i) {
       // If its been moved, means it's a child
-      if (node.children.data() != nullptr) {
-        loadedGltf.roots.emplace_back(std::move(node));
+      if (!isChildNode[i]) {
+        loadedGltf.roots.emplace_back(std::move(nodes[i]));
       }
     }
 

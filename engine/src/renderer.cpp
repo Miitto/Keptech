@@ -2,6 +2,7 @@
 #include "keptech/core/window.hpp"
 #include <keptech/core/rendering/buffer.hpp>
 
+#include "shaders.inl"
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/imgui.h>
 
@@ -29,6 +30,8 @@ namespace keptech {
     }
 
     backend->preExit();
+
+    deferredPipeline.reset();
 
     gBuffers.albedo.reset();
     gBuffers.normal.reset();
@@ -131,7 +134,7 @@ namespace keptech {
 
     auto instanceBufRes = backend->createBuffer(BufferCreateInfo{
         .name = "Instance Buffer",
-        .size = (sizeof(glm::mat4) + 8) * 10,
+        .size = sizeof(InstanceData) * 10'000,
         .usage = BufferUsage::Uniform,
         .memoryType = BufferMemoryType::CpuToGpu,
     });
@@ -140,9 +143,24 @@ namespace keptech {
                                          instanceBufRes.error()));
     }
 
+    auto deferredPipelineRes = backend->createPipeline({
+        .shader = shaders::deferred,
+        .layout = {.instanceDataTypes =
+                       {
+                           shaders::DataType::U32,
+                           shaders::DataType::U32,
+                       }},
+    });
+    if (!deferredPipelineRes) {
+      return std::unexpected(
+          fmt::format("Failed to create deferred pipeline: {}",
+                      deferredPipelineRes.error()));
+    }
+
     Renderer renderer{
         std::move(backend),
         std::move(gBuffers),
+        std::move(deferredPipelineRes.value()),
         Buffers{
             .cameraStaging = std::move(cameraStagingRes.value()),
             .vertex = std::move(vertexBufRes.value()),

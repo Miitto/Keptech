@@ -7,6 +7,11 @@
 namespace keptech {
 
   void Renderer::render() {
+#ifdef KT_ADD_RESOURCE_INFO
+    triCount = 0;
+    drawCallCount = 0;
+#endif
+
     FrameData frame;
 
     auto graphicsCmdBuf_res = backend->startFrame();
@@ -131,33 +136,32 @@ namespace keptech {
     auto view = scene->getEcs()
                     .view<components::Transform, components::Mesh,
                           components::Material>();
+
+    size_t instanceOffset = 0;
     for (auto [entity, transform, mesh, material] : view.each()) {
-      if (!mesh || !material.pipeline) {
+      if (!mesh || !material || !material->pipeline) {
         continue;
       }
 
-      if (material.pipeline->getStage() != PipelineStage::Deferred) {
+      if (material->pipeline->getStage() != PipelineStage::Deferred) {
         continue;
       }
 
       transform.recalculateGlobalTransform();
 
-      frame.graphicsCmdBuf->bindPipeline(*material.pipeline);
+      frame.graphicsCmdBuf->bindPipeline(*material->pipeline);
 
       frame.graphicsCmdBuf->bindIndexBuffer(*buffers.index.get(), 0);
       frame.graphicsCmdBuf->bindVertexBuffer(0, {buffers.vertex.get()}, {0});
 
-      struct InstanceData {
-        glm::mat4 modelMatrix;
-        uint32_t albedoTextureIndex;
-        uint32_t normalTextureIndex;
-      } instanceData{
+      InstanceData instanceData{
           .modelMatrix = transform.getGlobal().toMatrix(),
           .albedoTextureIndex = ~0u,
           .normalTextureIndex = ~0u,
       };
 
-      memcpy(static_cast<uint8_t*>(buffers.instance->getMapping()),
+      memcpy(static_cast<uint8_t*>(buffers.instance->getMapping()) +
+                 (instanceOffset * sizeof(InstanceData)),
              &instanceData, sizeof(InstanceData));
 
       struct PushConstantData {
@@ -165,24 +169,29 @@ namespace keptech {
         uint32_t instanceOffset;
       } pushConstantData{
           .instanceAddress = buffers.instance->getDeviceAddress(),
-          .instanceOffset = 0,
+          .instanceOffset = static_cast<uint32_t>(instanceOffset),
       };
 
       frame.graphicsCmdBuf->writePushConstants(
-          *material.pipeline,
+          *material->pipeline,
           Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex), 0,
           sizeof(PushConstantData), &pushConstantData);
 
       backend->bindGlobalDescriptorSets(
-          frame.graphicsCmdBuf, *material.pipeline,
+          frame.graphicsCmdBuf, *material->pipeline,
           Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex |
                                          shaders::ShaderStages::Fragment));
 
-      for (auto& submesh : mesh->getSubmeshes()) {
-        frame.graphicsCmdBuf->drawIndexed(
-            submesh.indexCount, 1, submesh.indexOffset + mesh->getIndexOffset(),
-            static_cast<int32_t>(mesh->getVertexOffset()), 0);
-      }
+      frame.graphicsCmdBuf->drawIndexed(
+          mesh->getIndexCount(), 1, mesh->getIndexOffset(),
+          static_cast<int32_t>(mesh->getVertexOffset()), 0);
+
+#ifdef KT_ADD_RESOURCE_INFO
+      triCount += mesh->getIndexCount() / 3;
+      ++drawCallCount;
+#endif
+
+      ++instanceOffset;
     }
 
     frame.graphicsCmdBuf->endRendering();
