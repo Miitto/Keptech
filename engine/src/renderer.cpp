@@ -169,6 +169,36 @@ namespace keptech {
           fmt::format("Failed to create deferred pipeline: {}",
                       deferredPipelineRes.error()));
     }
+    auto transparentPipelineRes = backend->createPipeline({
+        .shader = shaders::transparent,
+        .rasterizer =
+            {
+                .cullMode = keptech::CullMode::Back,
+                .frontFace = keptech::FrontFace::CounterClockwise,
+            },
+        .blend =
+            {
+                .enableBlending = true,
+                .src = BlendFactor::SrcAlpha,
+                .dst = BlendFactor::OneMinusSrcAlpha,
+            },
+        .layout = {.instanceDataTypes =
+                       {
+                           shaders::DataType::F32_2,
+                           shaders::DataType::F32_2,
+                           shaders::DataType::F32,
+                           shaders::DataType::U32,
+                           shaders::DataType::F32_2,
+                           shaders::DataType::F32_2,
+                           shaders::DataType::F32,
+                           shaders::DataType::U32,
+                       }},
+    });
+    if (!transparentPipelineRes) {
+      return std::unexpected(
+          fmt::format("Failed to create deferred pipeline: {}",
+                      transparentPipelineRes.error()));
+    }
 
     Renderer renderer{
         std::move(backend),

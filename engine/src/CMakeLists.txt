@@ -18,4 +18,5 @@ compile_shader(${PROJECT_NAME} SPIRV
     keptech
   SOURCES
     deferred
+    transparent
 )

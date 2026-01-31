@@ -49,8 +49,7 @@ namespace keptech {
       frame.cameraData.camera = &camera;
       frame.cameraData.transform = &transform;
 
-      glm::mat4 invViewMatrix = transform.getGlobal().toMatrix(true);
-      auto cPos = transform.getGlobal().pos();
+      glm::mat4 invViewMatrix = transform.getGlobal();
       glm::mat4 viewMatrix = glm::inverse(invViewMatrix);
 
       glm::mat4 projectionMatrix = camera.getProjectionMatrix();
@@ -184,7 +183,7 @@ namespace keptech {
       }
 
       InstanceData instanceData{
-          .modelMatrix = transform.getGlobal().toMatrix(),
+          .modelMatrix = transform.getGlobal(),
           .albedoTextureIndex = albedoData,
           .normalTextureIndex = normalData,
       };

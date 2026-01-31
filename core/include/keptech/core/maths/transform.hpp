@@ -51,8 +51,6 @@ namespace keptech::maths {
       return *this;
     }
 
-    Transform& apply(const Transform& other);
-
     [[nodiscard]] glm::mat4 toMatrix(bool viewMatrix = false) const;
 
     explicit operator glm::mat4() const { return toMatrix(); }

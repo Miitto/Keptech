@@ -97,19 +97,14 @@ namespace keptech {
 
       if (node.meshIndex != UINT32_MAX) {
         auto& submeshes = meshes[node.meshIndex];
-        if (submeshes.size() == 1) {
-          sceneNode.mesh = submeshes[0].mesh;
-          sceneNode.material = materials[submeshes[0].materialIndex];
-        } else {
-          for (auto& submesh : submeshes) {
-            sceneNode.children.push_back(gltf::Scene::Node{
+        for (auto& submesh : submeshes) {
+          sceneNode.children.push_back(gltf::Scene::Node{
 #ifdef KT_ADD_RESOURCE_INFO
-                .name = submesh.mesh->getDebugName(),
+              .name = submesh.mesh->getDebugName(),
 #endif
-                .transform = maths::Transform{},
-                .mesh = submesh.mesh,
-                .material = materials[submesh.materialIndex]});
-          }
+              .transform = maths::Transform{},
+              .mesh = submesh.mesh,
+              .material = materials[submesh.materialIndex]});
         }
       }
 
@@ -403,11 +398,16 @@ namespace keptech {
             textures[gltf.textures[texInfo.textureIndex].imageIndex.value_or(
                 0)];
       }
+
+      PipelinePtr& pipeline = /*matData.alphaMode == fastgltf::AlphaMode::Blend
+                                  ? transparentPipeline
+                                  : */
+          deferredPipeline;
+
       MaterialPtr material = std::make_shared<Material>(
-          deferredPipeline,
-          std::vector<keptech::InstanceData>{
-              albedoScale, albedoOffset, albedoRotation, albedoTex, normalScale,
-              normalOffset, normalRotation, normalTex});
+          pipeline, std::vector<keptech::InstanceData>{
+                        albedoScale, albedoOffset, albedoRotation, albedoTex,
+                        normalScale, normalOffset, normalRotation, normalTex});
       materials.emplace_back(std::move(material));
     }
 

@@ -120,6 +120,7 @@ namespace keptech {
     std::unique_ptr<IRendererBackend> backend;
     GBuffers gBuffers;
     PipelinePtr deferredPipeline;
+    PipelinePtr transparentPipeline;
 
     Buffers buffers;
 

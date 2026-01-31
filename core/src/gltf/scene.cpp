@@ -11,7 +11,10 @@ namespace keptech::gltf {
                            ecs::EntityHandle parent) {
       auto entity = scene.createEntity(node.name);
       auto& transformComp = entity.addComponent<components::Transform>();
-      transformComp.getLocalMut().apply(node.transform);
+      transformComp.getLocalMut()
+          .setPosition(node.transform.pos())
+          .setRotation(node.transform.rot())
+          .setScale(node.transform.scale());
 
       if (parent != ecs::INVALID_ENTITY_HANDLE) {
         transformComp.setParent({parent, scene.getEcs()});

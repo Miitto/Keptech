@@ -51,6 +51,7 @@ namespace keptech::gltf {
                 asset, posAccessor, [&](glm::vec3 position, size_t index) {
                   Vertex vertex{};
                   vertex.position = position;
+                  vertex.position.y *= -1;
                   vertex.position.z *= -1;
                   // Can flip Y here if needed in future
                   vertices[startIndex + index] = vertex;
@@ -186,9 +187,9 @@ namespace keptech::gltf {
     for (auto& node : asset.nodes) {
       auto trs = std::get<fastgltf::TRS>(node.transform);
       glm::vec3 translation = glm::vec3(
-          trs.translation.x(), trs.translation.y(), trs.translation.z());
+          trs.translation.x(), -trs.translation.y(), -trs.translation.z());
       glm::quat rotation = glm::quat(trs.rotation.w(), trs.rotation.x(),
-                                     trs.rotation.y(), trs.rotation.z());
+                                     trs.rotation.z(), trs.rotation.y());
       glm::vec3 scale = glm::vec3(trs.scale.x(), trs.scale.y(), trs.scale.z());
 
       maths::Transform transform(translation, rotation, scale);

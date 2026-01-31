@@ -12,7 +12,7 @@ namespace keptech::gui {
 namespace keptech::components {
   class Transform {
   public:
-    void recalculateGlobalTransform();
+    bool recalculateGlobalTransform();
 
     [[nodiscard]] bool isDirty() const { return flags.has(Flags::Dirty); }
 
@@ -24,7 +24,7 @@ namespace keptech::components {
     }
 
     [[nodiscard]] const maths::Transform& getLocal() const { return local; }
-    [[nodiscard]] const maths::Transform& getGlobal() const { return global; }
+    [[nodiscard]] const glm::mat4& getGlobal() const { return global; }
 
     maths::Transform& getLocalMut() {
       flags.set(Flags::Dirty);
@@ -38,11 +38,10 @@ namespace keptech::components {
   private:
     enum class Flags : uint8_t {
       Dirty = BIT(0),
-      GlobalCoords = BIT(1),
     };
 
     maths::Transform local;
-    maths::Transform global;
+    glm::mat4 global;
     ecs::Entity parent = ecs::Entity{};
     Bitflag<Flags> flags = Flags::Dirty;
   };
