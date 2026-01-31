@@ -39,11 +39,12 @@ namespace keptech {
                                     mipLevels, cpuAccess, data);
     }
 
-    inline ImTextureRef getImGuiTextureHandle(const TexPtr& texture) {
-      return backend->getImGuiTextureHandle(texture);
+    inline void loadImGuiImageHandle(TexPtr& texture) {
+      backend->loadImGuiImageHandle(texture);
     }
 
     [[nodiscard]] const GBuffers& getGBuffers() const { return gBuffers; }
+    [[nodiscard]] GBuffers& getGBuffers() { return gBuffers; }
 
 #ifdef KT_ADD_RESOURCE_INFO
     [[nodiscard]] size_t getTriangleCount() const { return triCount; }
@@ -66,10 +67,17 @@ namespace keptech {
     ~Renderer();
 
   private:
+    struct TexData {
+      glm::vec2 uvScale{1.f, 1.f};
+      glm::vec2 uvOffset{};
+      float rotation = 0.f;
+      uint32_t texIndex = ~0u;
+    };
+
     struct InstanceData {
       glm::mat4 modelMatrix;
-      uint32_t albedoTextureIndex;
-      uint32_t normalTextureIndex;
+      TexData albedoTextureIndex;
+      TexData normalTextureIndex;
     };
 
     struct Buffers {

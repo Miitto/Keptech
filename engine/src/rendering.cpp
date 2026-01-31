@@ -154,26 +154,39 @@ namespace keptech {
       frame.graphicsCmdBuf->bindIndexBuffer(*buffers.index.get(), 0);
       frame.graphicsCmdBuf->bindVertexBuffer(0, {buffers.vertex.get()}, {0});
 
-      uint32_t albedoTexIndex = ~0u;
-      uint32_t normalTexIndex = ~0u;
+      TexData albedoData{};
+      TexData normalData{};
 
-      if (material->instanceData.size() >= 1) {
-        auto& albedoData = std::get<TexPtr>(material->instanceData[0]);
-        if (albedoData != nullptr) {
-          albedoTexIndex = albedoData->getIndex();
+      if (material->instanceData.size() >= 8) {
+        albedoData.uvScale = std::get<glm::vec2>(material->instanceData[0]);
+        albedoData.uvOffset = std::get<glm::vec2>(material->instanceData[1]);
+        albedoData.rotation = std::get<float>(material->instanceData[2]);
+        {
+          TexPtr albedoTex = std::get<TexPtr>(material->instanceData[3]);
+          if (albedoTex) {
+            albedoData.texIndex = albedoTex->getIndex();
+          }
         }
-      }
-      if (material->instanceData.size() >= 2) {
-        auto& normalData = std::get<TexPtr>(material->instanceData[1]);
-        if (normalData != nullptr) {
-          normalTexIndex = normalData->getIndex();
+
+        normalData.uvScale = std::get<glm::vec2>(material->instanceData[4]);
+        normalData.uvOffset = std::get<glm::vec2>(material->instanceData[5]);
+        normalData.rotation = std::get<float>(material->instanceData[6]);
+        {
+          TexPtr normalTex = std::get<TexPtr>(material->instanceData[7]);
+          if (normalTex) {
+            normalData.texIndex = normalTex->getIndex();
+          }
         }
+      } else {
+        KT_WARN("Material with pipeline '{}' is missing instance data for "
+                "deferred rendering pass.",
+                material->pipeline->getDebugName());
       }
 
       InstanceData instanceData{
           .modelMatrix = transform.getGlobal().toMatrix(),
-          .albedoTextureIndex = albedoTexIndex,
-          .normalTextureIndex = normalTexIndex,
+          .albedoTextureIndex = albedoData,
+          .normalTextureIndex = normalData,
       };
 
       memcpy(static_cast<uint8_t*>(buffers.instance->getMapping()) +

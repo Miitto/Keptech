@@ -111,12 +111,6 @@ private:
 
   SelectedItem selectedItem = std::monostate{};
 
-  struct gBufferImGuiHandles {
-    ImTextureRef albedo;
-    ImTextureRef normal;
-    ImTextureRef depth;
-  } gBufferImGuiHandles;
-
   std::vector<keptech::MeshPtr> loadedMeshes;
   std::vector<keptech::PipelinePtr> loadedPipelines;
 

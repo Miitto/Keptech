@@ -147,9 +147,20 @@ namespace keptech {
 
     auto deferredPipelineRes = backend->createPipeline({
         .shader = shaders::deferred,
+        .rasterizer =
+            {
+                .cullMode = keptech::CullMode::Back,
+                .frontFace = keptech::FrontFace::CounterClockwise,
+            },
         .layout = {.instanceDataTypes =
                        {
+                           shaders::DataType::F32_2,
+                           shaders::DataType::F32_2,
+                           shaders::DataType::F32,
                            shaders::DataType::U32,
+                           shaders::DataType::F32_2,
+                           shaders::DataType::F32_2,
+                           shaders::DataType::F32,
                            shaders::DataType::U32,
                        }},
     });

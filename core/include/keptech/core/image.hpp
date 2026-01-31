@@ -60,6 +60,10 @@ namespace keptech {
       bool supported = false;
     };
 
+    static void setFlipOnLoad(bool flip) {
+      stbi_set_flip_vertically_on_load(flip ? 1 : 0);
+    }
+
     bool static isFileHdr(const char* path) { return stbi_is_hdr(path) != 0; }
 
     Info static queryFile(const char* path) {

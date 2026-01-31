@@ -3,6 +3,7 @@
 #include "keptech/core/rendering/buffer.hpp"
 #include "keptech/core/rendering/commandBuffer.hpp"
 #include "keptech/core/rendering/renderer.hpp"
+#include "keptech/vulkan/buffer.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
 #include "keptech/vulkan/helpers/shader.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
@@ -110,7 +111,7 @@ namespace keptech::vkh {
                   Bitflag<TextureUsage> usage, uint32_t mipLevels = 1,
                   bool cpuAccess = false) final;
 
-    ImTextureRef getImGuiTextureHandle(const TexPtr& texture) final;
+    void loadImGuiImageHandle(TexPtr& texture) final;
 
     std::expected<CmdBufPtr, std::string> createCmdBuffer(CmdBufType) final;
 

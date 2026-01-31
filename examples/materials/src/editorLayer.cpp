@@ -116,12 +116,9 @@ MaterialEditorLayer::MaterialEditorLayer(
       loadedMeshes(std::move(meshes)), loadedPipelines(std::move(pipelines)) {
   renderer.setScene(this->scene.get());
 
-  gBufferImGuiHandles.albedo =
-      renderer.getImGuiTextureHandle(renderer.getGBuffers().albedo);
-  gBufferImGuiHandles.normal =
-      renderer.getImGuiTextureHandle(renderer.getGBuffers().normal);
-  gBufferImGuiHandles.depth =
-      renderer.getImGuiTextureHandle(renderer.getGBuffers().depth);
+  renderer.loadImGuiImageHandle(renderer.getGBuffers().albedo);
+  renderer.loadImGuiImageHandle(renderer.getGBuffers().normal);
+  renderer.loadImGuiImageHandle(renderer.getGBuffers().depth);
 
   refreshAssetsDirectory();
 }
@@ -211,13 +208,13 @@ void MaterialEditorLayer::drawViewport() {
   switch (activeDebugView) {
   case ActiveDebugView::Final:
   case ActiveDebugView::Albedo:
-    ImGui::Image(gBufferImGuiHandles.albedo, size);
+    ImGui::Image(renderer.getGBuffers().albedo->getImGuiHandle().value(), size);
     break;
   case ActiveDebugView::Normals:
-    ImGui::Image(gBufferImGuiHandles.normal, size);
+    ImGui::Image(renderer.getGBuffers().normal->getImGuiHandle().value(), size);
     break;
   case ActiveDebugView::Depth:
-    ImGui::Image(gBufferImGuiHandles.depth, size);
+    ImGui::Image(renderer.getGBuffers().depth->getImGuiHandle().value(), size);
     break;
   }
   ImGui::PopStyleVar(1);
@@ -768,14 +765,16 @@ void MaterialEditorLayer::materialInspectorUi(
 
   for (auto& data : material->instanceData) {
     switch (data.index()) {
-    case static_cast<size_t>(keptech::shaders::DataType::U32): {
+    case keptech::InstanceDataType::Texture: {
       auto texturePtr = std::get<keptech::TexPtr>(data);
 
-      {
-        auto combo =
-            frame.combo("Texture", (texturePtr != nullptr)
-                                       ? texturePtr->getDebugName().c_str()
-                                       : "Invalid");
+      if (texturePtr != nullptr) {
+        if (!texturePtr->getImGuiHandle().has_value()) {
+          renderer.loadImGuiImageHandle(texturePtr);
+        }
+        auto imgHandle = texturePtr->getImGuiHandle().value();
+        ImGui::Text("Texture: %s", texturePtr->getDebugName().c_str());
+        ImGui::Image(imgHandle, ImVec2(64.f, 64.f));
       }
 
     } break;

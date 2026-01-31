@@ -41,7 +41,7 @@ namespace keptech {
                   Bitflag<TextureUsage> usage, uint32_t mipLevels = 1,
                   bool cpuAccess = false) = 0;
 
-    virtual ImTextureRef getImGuiTextureHandle(const TexPtr& texture) = 0;
+    virtual void loadImGuiImageHandle(TexPtr& texture) = 0;
 
     virtual std::expected<PipelinePtr, std::string>
     createPipeline(PipelineCreateInfo createInfo) = 0;

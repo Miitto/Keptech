@@ -64,6 +64,13 @@ namespace keptech {
     ITexture& operator=(ITexture&&) = default;
     virtual ~ITexture() = default;
 
+    [[nodiscard]]
+
+    std::optional<ImTextureRef>& getImGuiHandle() {
+      return imguiHandle;
+    }
+    void setImGuiHandle(ImTextureRef handle) { imguiHandle = handle; }
+
 #ifdef KT_ADD_RESOURCE_INFO
     void setDebugName(const std::string& name) { debugName = name; }
     [[nodiscard]] const std::string& getDebugName() const { return debugName; }
@@ -78,15 +85,18 @@ namespace keptech {
 #endif
 
   protected:
-#ifdef KT_ADD_RESOURCE_INFO
-    std::string debugName{};
-    Bitflag<TextureUsage> usageFlags{};
-#endif
     glm::vec3 size{0, 0, 0};
     TextureFormat format{TextureFormat::Undefined};
     uint32_t mipLevels{1};
 
     uint32_t index = ~0u;
+
+    std::optional<ImTextureRef> imguiHandle = std::nullopt;
+
+#ifdef KT_ADD_RESOURCE_INFO
+    std::string debugName{};
+    Bitflag<TextureUsage> usageFlags{};
+#endif
   };
 
   enum class TextureTransitionType : uint8_t {

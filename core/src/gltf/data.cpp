@@ -51,6 +51,7 @@ namespace keptech::gltf {
                 asset, posAccessor, [&](glm::vec3 position, size_t index) {
                   Vertex vertex{};
                   vertex.position = position;
+                  vertex.position.z *= -1;
                   // Can flip Y here if needed in future
                   vertices[startIndex + index] = vertex;
                 });
@@ -79,7 +80,7 @@ namespace keptech::gltf {
               fastgltf::iterateAccessorWithIndex<glm::vec2>(
                   asset, uvAccessor, [&](glm::vec2 uv, size_t index) {
                     vertices[startIndex + index].uvX = uv.x;
-                    vertices[startIndex + index].uvY = uv.y * -1;
+                    vertices[startIndex + index].uvY = uv.y;
                   });
             }
           }

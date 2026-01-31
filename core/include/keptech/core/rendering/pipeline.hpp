@@ -133,11 +133,10 @@ namespace keptech {
 
   enum class PipelineStage : uint8_t { Deferred, Opaque, Transparent };
 
-  struct TextureIndex {
-    uint32_t index;
-  };
-
-  using InstanceData = std::variant<TexPtr>;
+  namespace InstanceDataType {
+    enum E : uint8_t { Texture, Float, Float2 };
+  }
+  using InstanceData = std::variant<TexPtr, float, glm::vec2>;
 } // namespace keptech
 
 template <>

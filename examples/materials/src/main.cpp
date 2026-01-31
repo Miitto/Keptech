@@ -97,8 +97,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
   }
   SPDLOG_INFO("Loaded monkey mesh");
 
-  auto bistroMeshRes =
-      renderer.loadMesh(ASSET_DIR "meshes/BistroExterior.gltf");
+  auto bistroMeshRes = renderer.loadMesh(ASSET_DIR "meshes/BistroExterior.glb");
   if (!bistroMeshRes) {
     return std::unexpected(
         fmt::format("Failed to load bistro mesh: {}", bistroMeshRes.error()));

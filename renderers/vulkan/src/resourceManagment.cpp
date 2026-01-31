@@ -283,8 +283,79 @@ namespace keptech::vkh {
     mat.extraInstanceDataSize = 0;
     for (auto& instanceDataType : createInfo.layout.instanceDataTypes) {
       switch (instanceDataType) {
+      case shaders::DataType::None:
+      case shaders::DataType::Void:
+        break;
+      case shaders::DataType::Bool:
+      case shaders::DataType::I8:
+      case shaders::DataType::U8:
+        mat.extraInstanceDataSize += 1;
+        break;
+      case shaders::DataType::F16:
+      case shaders::DataType::I16:
+      case shaders::DataType::U16:
+      case shaders::DataType::I8_2:
+      case shaders::DataType::U8_2:
+        mat.extraInstanceDataSize += 2;
+        break;
+      case shaders::DataType::F32:
+      case shaders::DataType::I32:
       case shaders::DataType::U32:
-        mat.extraInstanceDataSize += sizeof(uint32_t);
+      case shaders::DataType::F16_2:
+      case shaders::DataType::I16_2:
+      case shaders::DataType::U16_2:
+      case shaders::DataType::I8_4:
+      case shaders::DataType::U8_4:
+        mat.extraInstanceDataSize += 4;
+        break;
+      case shaders::DataType::F64:
+      case shaders::DataType::I64:
+      case shaders::DataType::U64:
+      case shaders::DataType::F32_2:
+      case shaders::DataType::F16_4:
+      case shaders::DataType::I32_2:
+      case shaders::DataType::I16_4:
+      case shaders::DataType::U32_2:
+      case shaders::DataType::U16_4:
+        mat.extraInstanceDataSize += 8;
+        break;
+      case shaders::DataType::F64_2:
+      case shaders::DataType::F32_4:
+      case shaders::DataType::I64_2:
+      case shaders::DataType::I32_4:
+      case shaders::DataType::U64_2:
+      case shaders::DataType::U32_4:
+        mat.extraInstanceDataSize += 16;
+        break;
+      case shaders::DataType::F16_3:
+      case shaders::DataType::I16_3:
+      case shaders::DataType::U16_3:
+        mat.extraInstanceDataSize += 6;
+        break;
+      case shaders::DataType::F32_3:
+      case shaders::DataType::I32_3:
+      case shaders::DataType::U32_3:
+        mat.extraInstanceDataSize += 12;
+        break;
+      case shaders::DataType::F64_3:
+      case shaders::DataType::I64_3:
+      case shaders::DataType::U64_3:
+        mat.extraInstanceDataSize += 24;
+        break;
+      case shaders::DataType::F64_4:
+      case shaders::DataType::I64_4:
+      case shaders::DataType::U64_4:
+        mat.extraInstanceDataSize += 32;
+        break;
+      case shaders::DataType::I8_3:
+      case shaders::DataType::U8_3:
+        mat.extraInstanceDataSize += 3;
+        break;
+      case shaders::DataType::F32_4x4:
+        mat.extraInstanceDataSize += 64;
+        break;
+      case shaders::DataType::Sampler2D:
+        mat.extraInstanceDataSize += 4; // u32 index
         break;
       }
     }
@@ -437,6 +508,8 @@ namespace keptech::vkh {
           fmt::format("Failed to create staging buffer for image transfer: {}",
                       bufRes.error()));
     }
+
+    memcpy(bufRes.value().mapping(), image.getData(), expectedSize);
 
     vk::CommandBufferAllocateInfo allocInfo{
         .commandPool = frameInfo.perFrame->pools.compute->pool,
@@ -623,13 +696,15 @@ namespace keptech::vkh {
     });
   }
 
-  ImTextureRef RendererBackend::getImGuiTextureHandle(const TexPtr& texture) {
+  void RendererBackend::loadImGuiImageHandle(TexPtr& texture) {
     vkh::Texture& vkTexture =
         *std::dynamic_pointer_cast<vkh::Texture>(texture).get();
 
-    return ImGui_ImplVulkan_AddTexture(
+    auto handle = ImGui_ImplVulkan_AddTexture(
         *imGuiObjects->sampler,
         static_cast<VkImageView>(vkTexture.getImage().view),
         static_cast<VkImageLayout>(vk::ImageLayout::eShaderReadOnlyOptimal));
+
+    texture->setImGuiHandle(handle);
   }
 } // namespace keptech::vkh

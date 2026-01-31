@@ -9,10 +9,36 @@ struct Vertex {
   float4 tangent;
 };
 
+struct Tex {
+  float2 uvScale;
+  float2 uvOffset;
+  float uvRotation;
+  uint textureIndex;
+
+  property bool valid {
+    get { return textureIndex != ~0u; }
+  }
+
+  float2 transformedUV(float2 uv) {
+      float cosRotation = cos(uvRotation);
+      float sinRotation = sin(uvRotation);
+      float2x2 rotMatrix = float2x2(
+        cosRotation, -sinRotation,
+        sinRotation, cosRotation
+      );
+      return mul(uv, rotMatrix) * uvScale + uvOffset;
+  }
+
+  float4 Sample(float2 uv) {
+    let texture = keptech::textures.getTexture(textureIndex);
+    return texture.Sample(transformedUV(uv));
+  }
+};
+
 struct Instance {
   float4x4 modelMatrix;
-  uint albedoTextureIndex;
-  uint normalTextureIndex;
+  Tex albedo;
+  Tex normal;
 };
 
 struct PushConstants {
@@ -34,8 +60,8 @@ struct VertexOutput
     float3 tangent : TANGENT0;
     float uvY : TEXCOORD1;
     float3 bitangent : BITANGENT0;
-    uint albedoTextureIndex : TEXCOORD2;
-    uint normalTextureIndex : TEXCOORD3;
+    Tex albedoTex : TEXCOORD2;
+    Tex normalTex : TEXCOORD3;
 };
 
 [shader("vertex")]
@@ -57,8 +83,8 @@ VertexOutput vert(Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID) {
   output.tangent = normalize(mul(modelRotMatrix, v.tangent.xyz));
   output.bitangent = normalize(cross(output.normal, output.tangent) * v.tangent.w);
 
-  output.albedoTextureIndex = inst.albedoTextureIndex;
-  output.normalTextureIndex = inst.normalTextureIndex;
+  output.albedoTex = inst.albedo;
+  output.normalTex = inst.normal;
 
   return output;
 }
@@ -78,13 +104,28 @@ float4 linearToSrgb(float4 color) {
 keptech::DeferredOutput frag(VertexOutput input) {
   keptech::DeferredOutput output;
 
-  if (input.albedoTextureIndex != uint(-1)) {
-    let albedoTexture = keptech::textures.getTexture(input.albedoTextureIndex);
-    input.color = albedoTexture.Sample(float2(input.uvX, input.uvY));
-  }
+  float2 uv = float2(input.uvX, input.uvY);
 
   output.albedo = input.color;
   output.normal = float4(input.normal, 1.f);
+
+  if (input.albedoTex.valid) {
+    output.albedo *= input.albedoTex.Sample(uv);
+  }
+
+  if (input.normalTex.valid) {
+    float3 normalSample = input.normalTex.Sample(uv).xyz * 2.0 - 1.0;
+
+    float3x3 TBN = float3x3(normalize(input.tangent), normalize(input.bitangent), normalize(input.normal));
+    float3 worldNormal = normalize(mul(TBN, normalSample));
+
+    output.normal = float4(worldNormal, 1.f);
+  }
+
+  if (output.albedo.a < 0.01f) {
+    discard;
+  }
+
 
   return output;
 }

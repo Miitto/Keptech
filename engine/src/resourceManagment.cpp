@@ -322,15 +322,25 @@ namespace keptech {
                         // are already loaded into a vector.
                         [](auto& arg)
                             -> std::expected<keptech::Image, std::string> {
+                          KT_ERROR(
+                              "Unsupported glTF image source buffer type {}",
+                              typeid(arg).name());
                           return std::unexpected(
                               "Unsupported glTF image source in buffer view.");
+                        },
+                        [&](fastgltf::sources::Array& array) {
+                          return keptech::Image::loadFromMemory(
+                              reinterpret_cast<uint8_t*>(array.bytes.data()) +
+                                  bufferView.byteOffset,
+                              static_cast<int>(bufferView.byteLength), 4);
                         },
                         [&](fastgltf::sources::Vector& vector) {
                           return keptech::Image::loadFromMemory(
                               reinterpret_cast<uint8_t*>(vector.bytes.data()) +
                                   bufferView.byteOffset,
                               static_cast<int>(bufferView.byteLength), 4);
-                        }},
+                        },
+                    },
                     buffer.data);
               },
           },
@@ -353,19 +363,51 @@ namespace keptech {
 
     std::vector<MaterialPtr> materials;
     for (auto& matData : gltf.materials) {
+      glm::vec2 albedoScale{1.0f, 1.0f};
+      glm::vec2 albedoOffset{0.0f, 0.0f};
+      float albedoRotation = 0.0f;
       TexPtr albedoTex = nullptr;
+
+      glm::vec2 normalScale{1.0f, 1.0f};
+      glm::vec2 normalOffset{0.0f, 0.0f};
+      float normalRotation = 0.0f;
       TexPtr normalTex = nullptr;
 
       if (matData.pbrData.baseColorTexture.has_value()) {
+        auto& texInfo = matData.pbrData.baseColorTexture.value();
+
+        if (texInfo.transform) {
+          albedoScale = {texInfo.transform->uvScale.x(),
+                         texInfo.transform->uvScale.y()};
+          albedoOffset = {texInfo.transform->uvOffset.x(),
+                          texInfo.transform->uvOffset.y()};
+          albedoRotation = texInfo.transform->rotation;
+        }
+
         albedoTex =
-            textures[matData.pbrData.baseColorTexture.value().textureIndex];
+            textures[gltf.textures[texInfo.textureIndex].imageIndex.value_or(
+                0)];
       }
       if (matData.normalTexture.has_value()) {
-        normalTex = textures[matData.normalTexture.value().textureIndex];
+        auto& texInfo = matData.normalTexture.value();
+
+        if (texInfo.transform) {
+          normalScale = {texInfo.transform->uvScale.x(),
+                         texInfo.transform->uvScale.y()};
+          normalOffset = {texInfo.transform->uvOffset.x(),
+                          texInfo.transform->uvOffset.y()};
+          normalRotation = texInfo.transform->rotation;
+        }
+
+        normalTex =
+            textures[gltf.textures[texInfo.textureIndex].imageIndex.value_or(
+                0)];
       }
       MaterialPtr material = std::make_shared<Material>(
           deferredPipeline,
-          std::vector<keptech::InstanceData>{albedoTex, normalTex});
+          std::vector<keptech::InstanceData>{
+              albedoScale, albedoOffset, albedoRotation, albedoTex, normalScale,
+              normalOffset, normalRotation, normalTex});
       materials.emplace_back(std::move(material));
     }
 
@@ -374,7 +416,9 @@ namespace keptech {
               path);
       MaterialPtr material = std::make_shared<Material>(
           deferredPipeline,
-          std::vector<keptech::InstanceData>{TexPtr(), TexPtr()});
+          std::vector<keptech::InstanceData>{glm::vec2{1.f, 1.f}, glm::vec2{},
+                                             0.f, TexPtr(), glm::vec2{1.f, 1.f},
+                                             glm::vec2{}, 0.f, TexPtr()});
       materials.push_back(std::move(material));
     }
 

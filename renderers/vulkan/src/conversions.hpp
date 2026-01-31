@@ -75,6 +75,42 @@ namespace keptech::vkh {
       }
     }
 
+    TextureFormat from(vk::Format format, TextureFormat defaultFormat) {
+      using Format = TextureFormat;
+      switch (format) {
+      case vk::Format::eR8G8B8Unorm:
+        return Format::RGB8;
+      case vk::Format::eR8G8B8A8Unorm:
+        return Format::RGBA8;
+      case vk::Format::eR8Unorm:
+        return Format::R8;
+      case vk::Format::eR16Sfloat:
+        return Format::R16F;
+      case vk::Format::eR32Sfloat:
+        return Format::R32F;
+      case vk::Format::eR8G8Unorm:
+        return Format::RG8;
+      case vk::Format::eR16G16Sfloat:
+        return Format::RG16F;
+      case vk::Format::eR32G32Sfloat:
+        return Format::RG32F;
+      case vk::Format::eR16G16B16Sfloat:
+        return Format::RGB16F;
+      case vk::Format::eR32G32B32Sfloat:
+        return Format::RGB32F;
+      case vk::Format::eR16G16B16A16Sfloat:
+        return Format::RGBA16F;
+      case vk::Format::eR32G32B32A32Sfloat:
+        return Format::RGBA32F;
+      case vk::Format::eD16Unorm:
+        return Format::Depth16;
+      case vk::Format::eD24UnormS8Uint:
+        return Format::Depth24Stencil8;
+      default:
+        return defaultFormat;
+      }
+    }
+
     vk::ImageUsageFlags from(Bitflag<TextureUsage> usage) {
       using Usage = TextureUsage;
 
@@ -247,6 +283,35 @@ namespace keptech::vkh {
       }
 
       return aspectMask;
+    }
+
+    vk::ImageAspectFlags aspectFromFormat(vk::Format format) {
+      vk::ImageAspectFlags aspectMask = vk::ImageAspectFlagBits::eColor;
+      switch (format) {
+      case vk::Format::eD16Unorm:
+        aspectMask = vk::ImageAspectFlagBits::eDepth;
+        break;
+      case vk::Format::eD24UnormS8Uint:
+        aspectMask =
+            vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+        break;
+      default:
+        break;
+      }
+
+      return aspectMask;
+    }
+
+    bool isDepthFormat(vk::Format format) {
+      switch (format) {
+      case vk::Format::eD16Unorm:
+      case vk::Format::eD24UnormS8Uint:
+      case vk::Format::eD32Sfloat:
+      case vk::Format::eD32SfloatS8Uint:
+        return true;
+      default:
+        return false;
+      }
     }
 
     vk::Format from(shaders::DataType type, vk::Format defaultFormat) {
