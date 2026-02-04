@@ -46,9 +46,9 @@ namespace keptech {
     }
   }
 
-  class ITexture {
+  class IImage {
   public:
-    ITexture(glm::uvec3 size, TextureFormat format, uint32_t mipLevels)
+    IImage(glm::uvec3 size, TextureFormat format, uint32_t mipLevels)
         : size(size), format(format), mipLevels(mipLevels) {}
 
     [[nodiscard]] glm::vec3 getSize() const { return size; }
@@ -58,11 +58,11 @@ namespace keptech {
     [[nodiscard]] uint32_t getIndex() const { return index; }
     void setIndex(uint32_t idx) { index = idx; }
 
-    ITexture(const ITexture&) = default;
-    ITexture(ITexture&&) = default;
-    ITexture& operator=(const ITexture&) = default;
-    ITexture& operator=(ITexture&&) = default;
-    virtual ~ITexture() = default;
+    IImage(const IImage&) = default;
+    IImage(IImage&&) = default;
+    IImage& operator=(const IImage&) = default;
+    IImage& operator=(IImage&&) = default;
+    virtual ~IImage() = default;
 
     [[nodiscard]]
 
@@ -78,10 +78,10 @@ namespace keptech {
       return usageFlags;
     }
 
-    ITexture(std::string name, glm::uvec3 size, TextureFormat format,
-             Bitflag<TextureUsage> usage, uint32_t mipLevels)
-        : debugName(std::move(name)), size(size), format(format),
-          usageFlags(usage), mipLevels(mipLevels) {}
+    IImage(std::string name, glm::uvec3 size, TextureFormat format,
+           Bitflag<TextureUsage> usage, uint32_t mipLevels)
+        : size(size), format(format), mipLevels(mipLevels),
+          debugName(std::move(name)), usageFlags(usage) {}
 #endif
 
   protected:
@@ -107,21 +107,42 @@ namespace keptech {
 
   struct TextureTransition {
     TextureTransitionType type;
-    ITexture* texture;
+    IImage* texture;
   };
 
-  using TexPtr = std::shared_ptr<ITexture>;
+  using ImgPtr = std::shared_ptr<IImage>;
 
-  class ImGuiTextureHandle {
+  enum class SamplerFilter : uint8_t { Nearest = 0, Linear };
+  enum class SamplerAddressMode : uint8_t { Repeat = 0, Mirror, ClampToEdge };
+
+  class ISampler {};
+
+  using SamplerPtr = std::shared_ptr<ISampler>;
+
+  class Texture {
   public:
-    ImGuiTextureHandle() : handle(nullptr) {}
-    ImGuiTextureHandle(void* imguiHandle) : handle(imguiHandle) {}
+    Texture(ImgPtr image, SamplerPtr sampler)
+        : image(std::move(image)), sampler(std::move(sampler)) {}
 
-    [[nodiscard]] ImTextureRef get() const { return handle; }
+    [[nodiscard]] const ImgPtr& getImage() const { return image; }
+    [[nodiscard]] const SamplerPtr& getSampler() const { return sampler; }
 
-  private:
-    ImTextureRef handle;
+    void setImage(ImgPtr newImage) { image = std::move(newImage); }
+    void setSampler(SamplerPtr newSampler) { sampler = std::move(newSampler); }
+
+    Texture(const Texture&) = default;
+    Texture(Texture&&) = default;
+    Texture& operator=(const Texture&) = default;
+    Texture& operator=(Texture&&) = default;
+    ~Texture() = default;
+
+  protected:
+    ImgPtr image;
+    SamplerPtr sampler;
   };
+
+  using TexPtr = std::shared_ptr<Texture>;
+
 } // namespace keptech
 
 DEFINE_BITFLAG_ENUM_OPERATORS(keptech::TextureUsage)

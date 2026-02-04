@@ -70,26 +70,32 @@ namespace keptech {
 
     auto windowSize = window.getRenderSize();
 
-    auto albedoRes = backend->createTexture(
-        "gBuffer_albedo", glm::uvec3(windowSize.x, windowSize.y, 1),
-        TextureFormat::RGBA8,
-        TextureUsage::RenderTarget | TextureUsage::Sampled, 1);
+    auto albedoRes = backend->createImage(
+        {.name = "gBuffer_albedo",
+         .size = glm::uvec3(windowSize.x, windowSize.y, 1),
+         .format = TextureFormat::RGBA8,
+         .usage = TextureUsage::RenderTarget | TextureUsage::Sampled,
+         .mipLevels = 1});
     if (!albedoRes) {
       return std::unexpected(fmt::format("Failed to create albedo G-Buffer: {}",
                                          albedoRes.error()));
     }
-    auto normalRes = backend->createTexture(
-        "gBuffer_normal", glm::uvec3(windowSize.x, windowSize.y, 1),
-        TextureFormat::RGBA8,
-        TextureUsage::RenderTarget | TextureUsage::Sampled, 1);
+    auto normalRes = backend->createImage(
+        {.name = "gBuffer_normal",
+         .size = glm::uvec3(windowSize.x, windowSize.y, 1),
+         .format = TextureFormat::RGBA8,
+         .usage = TextureUsage::RenderTarget | TextureUsage::Sampled,
+         .mipLevels = 1});
     if (!normalRes) {
       return std::unexpected(fmt::format("Failed to create normal G-Buffer: {}",
                                          normalRes.error()));
     }
-    auto depthRes = backend->createTexture(
-        "gBuffer_depth", glm::uvec3(windowSize.x, windowSize.y, 1),
-        TextureFormat::Depth16,
-        TextureUsage::DepthStencil | TextureUsage::Sampled, 1);
+    auto depthRes = backend->createImage(
+        {.name = "gBuffer_depth",
+         .size = glm::uvec3(windowSize.x, windowSize.y, 1),
+         .format = TextureFormat::Depth16,
+         .usage = TextureUsage::DepthStencil | TextureUsage::Sampled,
+         .mipLevels = 1});
     if (!depthRes) {
       return std::unexpected(
           fmt::format("Failed to create depth G-Buffer: {}", depthRes.error()));
@@ -99,7 +105,7 @@ namespace keptech {
     gBuffers.normal = std::move(normalRes.value());
     gBuffers.depth = std::move(depthRes.value());
 
-    auto vertexBufRes = backend->createBuffer(BufferCreateInfo{
+    auto vertexBufRes = backend->createBuffer({
         .name = "Vertex Buffer",
         .size = sizeof(Vertex) * 10'000,
         .usage = BufferUsage::Vertex | BufferUsage::TransferDst |

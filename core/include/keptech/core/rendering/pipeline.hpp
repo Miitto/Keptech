@@ -136,7 +136,7 @@ namespace keptech {
   namespace InstanceDataType {
     enum E : uint8_t { Texture, Float, Float2 };
   }
-  using InstanceData = std::variant<TexPtr, float, glm::vec2>;
+  using InstanceData = std::variant<ImgPtr, float, glm::vec2>;
 } // namespace keptech
 
 template <>

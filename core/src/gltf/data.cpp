@@ -67,6 +67,7 @@ namespace keptech::gltf {
               fastgltf::iterateAccessorWithIndex<glm::vec3>(
                   asset, normalAccessor, [&](glm::vec3 normal, size_t index) {
                     normal.y *= -1;
+                    normal.z *= -1;
                     vertices[startIndex + index].normal = normal;
                   });
             }
@@ -94,7 +95,7 @@ namespace keptech::gltf {
 
               fastgltf::iterateAccessorWithIndex<glm::vec4>(
                   asset, colorAccessor, [&](glm::vec4 color, size_t index) {
-                    vertices[startIndex + index].color = glm::vec4(1.f);
+                    vertices[startIndex + index].color = color;
                   });
             }
           }
@@ -108,6 +109,7 @@ namespace keptech::gltf {
               fastgltf::iterateAccessorWithIndex<glm::vec4>(
                   asset, tangentAccessor, [&](glm::vec4 tangent, size_t index) {
                     tangent.y *= -1;
+                    tangent.z *= -1;
                     vertices[startIndex + index].tangent = tangent;
                   });
             }

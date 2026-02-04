@@ -6,7 +6,6 @@ set(KT_GNU_WARNINGS
   -Wsign-conversion
   -Wshadow
   -Wnon-virtual-dtor
-  -Wold-style-cast
   -Wcast-align
   -Woverloaded-virtual
   -Wnull-dereference
@@ -14,6 +13,7 @@ set(KT_GNU_WARNINGS
   -Wformat=2
   -Wno-c++17-extensions
   -Wno-format-security
+  -Wno-old-style-cast
 )
 
 set(KT_MSVC_WARNINGS

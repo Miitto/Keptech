@@ -161,7 +161,7 @@ namespace keptech {
         albedoData.uvOffset = std::get<glm::vec2>(material->instanceData[1]);
         albedoData.rotation = std::get<float>(material->instanceData[2]);
         {
-          TexPtr albedoTex = std::get<TexPtr>(material->instanceData[3]);
+          ImgPtr albedoTex = std::get<ImgPtr>(material->instanceData[3]);
           if (albedoTex) {
             albedoData.texIndex = albedoTex->getIndex();
           }
@@ -171,7 +171,7 @@ namespace keptech {
         normalData.uvOffset = std::get<glm::vec2>(material->instanceData[5]);
         normalData.rotation = std::get<float>(material->instanceData[6]);
         {
-          TexPtr normalTex = std::get<TexPtr>(material->instanceData[7]);
+          ImgPtr normalTex = std::get<ImgPtr>(material->instanceData[7]);
           if (normalTex) {
             normalData.texIndex = normalTex->getIndex();
           }

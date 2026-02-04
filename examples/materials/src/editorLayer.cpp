@@ -481,7 +481,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
                    propertiesPanel.separatorText(label.c_str());
                    pipelineInspectorUi(propertiesPanel, *pipelinePtr);
                  },
-                 [&](keptech::TexPtr& texturePtr) {
+                 [&](keptech::ImgPtr& texturePtr) {
                    if (texturePtr == nullptr) {
                      propertiesPanel.separatorText("Invalid Texture");
                      return;
@@ -766,7 +766,7 @@ void MaterialEditorLayer::materialInspectorUi(
   for (auto& data : material->instanceData) {
     switch (data.index()) {
     case keptech::InstanceDataType::Texture: {
-      auto texturePtr = std::get<keptech::TexPtr>(data);
+      auto texturePtr = std::get<keptech::ImgPtr>(data);
 
       if (texturePtr != nullptr) {
         if (!texturePtr->getImGuiHandle().has_value()) {

@@ -102,16 +102,16 @@ namespace keptech::vkh {
     std::expected<PipelinePtr, std::string>
     createPipeline(PipelineCreateInfo createInfo) final;
 
-    std::expected<TexPtr, std::string>
-    createTexture(std::string name, glm::uvec3 size, TextureFormat format,
-                  Bitflag<TextureUsage> usage, uint32_t mipLevels,
-                  bool cpuAccess = false, const void* data = nullptr) final;
-    std::expected<TexPtr, std::string>
-    createTexture(std::string name, const Image& image,
-                  Bitflag<TextureUsage> usage, uint32_t mipLevels = 1,
-                  bool cpuAccess = false) final;
+    std::expected<std::vector<ImgPtr>, std::string>
+    createImages(const std::vector<ImageCreateInfo>& imageInfos) final;
 
-    void loadImGuiImageHandle(TexPtr& texture) final;
+    std::expected<std::vector<ImgPtr>, std::string>
+    createImages(const std::vector<ImageUploadInfo>& imageInfos) final;
+
+    std::expected<SamplerPtr, std::string>
+    createSampler(const SamplerCreateInfo&) final;
+
+    void loadImGuiImageHandle(ImgPtr& texture) final;
 
     std::expected<CmdBufPtr, std::string> createCmdBuffer(CmdBufType) final;
 

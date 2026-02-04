@@ -4,19 +4,19 @@
 #include "keptech/vulkan/structs.hpp"
 
 namespace keptech::vkh {
-  class Texture final : public keptech::ITexture {
+  class Texture final : public keptech::IImage {
   public:
     AllocatedImage& getImage() { return image; }
 
     Texture(vma::Allocator& allocator, vk::raii::Device& device,
             AllocatedImage image, glm::uvec3 size, TextureFormat format,
             Bitflag<TextureUsage> usage, uint32_t mipLevels)
-        : ITexture(size, format, mipLevels), allocator(&allocator),
+        : IImage(size, format, mipLevels), allocator(&allocator),
           device(&device), image(image) {}
 
     Texture(const Texture&) = delete;
     Texture(Texture&& o) noexcept
-        : ITexture(o.size, o.format, o.mipLevels), allocator(o.allocator),
+        : IImage(o.size, o.format, o.mipLevels), allocator(o.allocator),
           device(o.device), image(o.image) {
       o.allocator = nullptr;
 #ifdef KT_ADD_RESOURCE_INFO
@@ -50,7 +50,7 @@ namespace keptech::vkh {
     Texture(vma::Allocator& allocator, vk::raii::Device& device,
             AllocatedImage image, glm::uvec3 size, TextureFormat format,
             uint32_t mipLevels, std::string name, Bitflag<TextureUsage> usage)
-        : ITexture(std::move(name), size, format, usage, mipLevels),
+        : IImage(std::move(name), size, format, usage, mipLevels),
           allocator(&allocator), device(&device), image(image) {}
 #endif
 
@@ -59,5 +59,17 @@ namespace keptech::vkh {
     vk::raii::Device* device;
     AllocatedImage image;
     std::shared_ptr<vk::raii::Sampler> sampler;
+  };
+
+  class Sampler final : public keptech::ISampler {
+  public:
+    Sampler(vk::raii::Sampler&& sampler) : sampler(std::move(sampler)) {}
+
+    [[nodiscard]] const vk::raii::Sampler& getVkSampler() const {
+      return sampler;
+    }
+
+  private:
+    vk::raii::Sampler sampler;
   };
 } // namespace keptech::vkh

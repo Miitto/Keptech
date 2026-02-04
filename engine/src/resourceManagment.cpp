@@ -276,7 +276,11 @@ namespace keptech {
     });
     backend->submitCommandBuffers(std::move(submitInfos));
 
-    std::vector<TexPtr> textures;
+    std::vector<Image> imageData;
+    imageData.reserve(gltf.images.size());
+
+    std::vector<IRendererBackend::ImageUploadInfo> imageUploadInfos;
+    imageUploadInfos.reserve(gltf.images.size());
 
     for (auto& image : gltf.images) {
       auto imgRes = std::visit(
@@ -346,27 +350,34 @@ namespace keptech {
             fmt::format("Failed to load glTF image: {}", imgRes.error()));
       }
 
-      auto texRes = backend->createTexture(
-          std::string(image.name), imgRes.value(),
-          TextureUsage::Sampled | TextureUsage::TransferDst);
-      if (!texRes) {
-        return std::unexpected(fmt::format(
-            "Failed to create texture for glTF image: {}", texRes.error()));
-      }
-      textures.push_back(std::move(texRes.value()));
+      imageData.push_back(std::move(imgRes.value()));
+
+      imageUploadInfos.push_back(IRendererBackend::ImageUploadInfo{
+          .name = std::string(image.name),
+          .image = imageData.back(),
+          .usage = TextureUsage::Sampled | TextureUsage::TransferDst});
     }
+
+    auto imagesRes = backend->createImages(imageUploadInfos);
+    if (!imagesRes) {
+      return std::unexpected(
+          fmt::format("Failed to create glTF images: {}", imagesRes.error()));
+    }
+    imageData.clear(); // Free image data memory after upload.
+
+    std::vector<ImgPtr> textures = std::move(imagesRes.value());
 
     std::vector<MaterialPtr> materials;
     for (auto& matData : gltf.materials) {
       glm::vec2 albedoScale{1.0f, 1.0f};
       glm::vec2 albedoOffset{0.0f, 0.0f};
       float albedoRotation = 0.0f;
-      TexPtr albedoTex = nullptr;
+      ImgPtr albedoTex = nullptr;
 
       glm::vec2 normalScale{1.0f, 1.0f};
       glm::vec2 normalOffset{0.0f, 0.0f};
       float normalRotation = 0.0f;
-      TexPtr normalTex = nullptr;
+      ImgPtr normalTex = nullptr;
 
       if (matData.pbrData.baseColorTexture.has_value()) {
         auto& texInfo = matData.pbrData.baseColorTexture.value();
@@ -417,8 +428,8 @@ namespace keptech {
       MaterialPtr material = std::make_shared<Material>(
           deferredPipeline,
           std::vector<keptech::InstanceData>{glm::vec2{1.f, 1.f}, glm::vec2{},
-                                             0.f, TexPtr(), glm::vec2{1.f, 1.f},
-                                             glm::vec2{}, 0.f, TexPtr()});
+                                             0.f, ImgPtr(), glm::vec2{1.f, 1.f},
+                                             glm::vec2{}, 0.f, ImgPtr()});
       materials.push_back(std::move(material));
     }
 

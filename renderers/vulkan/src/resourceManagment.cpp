@@ -369,147 +369,37 @@ namespace keptech::vkh {
     return ptr;
   }
 
-  std::expected<TexPtr, std::string> RendererBackend::createTexture(
-      std::string name, glm::uvec3 size, TextureFormat format,
-      Bitflag<TextureUsage> usage, uint32_t mipLevels, bool cpuAccess,
-      const void* data) {
-    vk::Format vkFormat = from(format, vk::Format::eR8G8B8A8Unorm);
+  std::expected<std::vector<ImgPtr>, std::string>
+  RendererBackend::createImages(const std::vector<ImageCreateInfo>& infos) {
+    std::vector<ImgPtr> images;
+    images.reserve(infos.size());
 
-    vk::ImageCreateInfo imageCreateInfo{
-        .imageType = size.z == 1 ? vk::ImageType::e2D : vk::ImageType::e3D,
-        .format = vkFormat,
-        .extent = {.width = size.x, .height = size.y, .depth = size.z},
-        .mipLevels = mipLevels,
-        .arrayLayers = 1,
-        .samples = vk::SampleCountFlagBits::e1,
-        .tiling =
-            cpuAccess ? vk::ImageTiling::eLinear : vk::ImageTiling::eOptimal,
-        .usage = from(usage),
-        .sharingMode = vk::SharingMode::eExclusive,
-        .initialLayout = vk::ImageLayout::eUndefined,
-    };
+    size_t stagingBufferSize = 0;
+    for (auto& info : infos) {
+      if (info.data == nullptr)
+        continue;
+      size_t pixelSize = componentsSize(info.format, TextureFormat::RGBA8);
 
-    vma::AllocationCreateInfo allocCreateInfo =
-        cpuAccess
-            ? vma::AllocationCreateInfo{.usage = vma::MemoryUsage::eCpuToGpu}
-            : vma::AllocationCreateInfo{
-                  .usage = vma::MemoryUsage::eGpuOnly,
-                  .requiredFlags = vk::MemoryPropertyFlagBits::eDeviceLocal};
-
-    auto imageViewCreateInfo = vk::ImageViewCreateInfo{
-        .viewType =
-            size.z == 1 ? vk::ImageViewType::e2D : vk::ImageViewType::e3D,
-        .format = imageCreateInfo.format,
-        .subresourceRange =
-            {
-                .aspectMask = aspectFromFormat(format),
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-    };
-
-    VKH_MAKE(img,
-             AllocatedImage::create(vkcore.allocator, vkcore.device.logical,
-                                    imageCreateInfo, allocCreateInfo,
-                                    imageViewCreateInfo, true),
-             "Failed to create texture image");
-
-#ifndef NDEBUG
-    VkImage vkImage = img.image;
-    VkImageView vkImageView = img.view;
-    vkcore.device.logical.setDebugUtilsObjectNameEXT(
-        vk::DebugUtilsObjectNameInfoEXT{
-            .objectType = vk::ObjectType::eImage,
-            .objectHandle = reinterpret_cast<uint64_t>(vkImage),
-            .pObjectName = name.c_str(),
-        });
-
-    std::string viewName = name + "_view";
-
-    vkcore.device.logical.setDebugUtilsObjectNameEXT(
-        vk::DebugUtilsObjectNameInfoEXT{
-            .objectType = vk::ObjectType::eImageView,
-            .objectHandle = reinterpret_cast<uint64_t>(vkImageView),
-            .pObjectName = viewName.c_str(),
-        });
-#endif
-
-    vkh::Texture texture(vkcore.allocator, vkcore.device.logical, img, size,
-                         format, mipLevels
-#ifdef KT_ADD_RESOURCE_INFO
-                         ,
-                         name, usage
-#endif
-    );
-
-    return std::make_shared<vkh::Texture>(std::move(texture));
-  }
-
-  std::expected<TexPtr, std::string>
-  RendererBackend::createTexture(std::string name, const Image& image,
-                                 Bitflag<TextureUsage> usage,
-                                 uint32_t mipLevels, bool cpuAccess) {
-    TextureFormat format = TextureFormat::RGBA8;
-
-    switch (image.getChannels()) {
-    case 1:
-      format = TextureFormat::R8;
-      break;
-
-    case 2:
-      format = TextureFormat::RG8;
-      break;
-    case 3:
-      format = TextureFormat::RGB8;
-      break;
-    default:;
+      stagingBufferSize += pixelSize * info.size.x * info.size.y;
     }
 
-    auto texRes =
-        createTexture(name,
-                      glm::uvec3{static_cast<uint32_t>(image.getSize().x),
-                                 static_cast<uint32_t>(image.getSize().y), 1},
-                      format, usage, mipLevels, cpuAccess, image.getData());
-    if (!texRes) {
-      return std::unexpected(fmt::format(
-          "Failed to create texture from image: {}", texRes.error()));
+    AddressedAllocatedBuffer stagingBuf;
+    if (stagingBufferSize > 0) {
+      VKH_MAKE(b,
+               AddressedAllocatedBuffer::create(
+                   vkcore.device.logical, vkcore.allocator,
+                   {
+                       .size = stagingBufferSize,
+                       .usage = vk::BufferUsageFlagBits::eTransferSrc |
+                                vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                   },
+                   {
+                       .flags = vma::AllocationCreateFlagBits::eMapped,
+                       .usage = vma::MemoryUsage::eCpuToGpu,
+                   }),
+               "Failed to create staging buffer for image transfer");
+      stagingBuf = std::move(b);
     }
-    TexPtr texPtr = std::move(texRes.value());
-    auto vkTexPtr = std::static_pointer_cast<vkh::Texture>(texPtr);
-
-    vkh::Texture& texture = *vkTexPtr;
-
-    texture.setIndex(nextTextureIndex++);
-
-    for (auto& u : textureDescriptorsToUpdate) {
-      u.push_back(vkTexPtr);
-    }
-
-    size_t pixelSize =
-        static_cast<size_t>(image.getChannels()) * (image.isHdr() ? 4 : 1);
-
-    size_t expectedSize = pixelSize * image.getSize().x * image.getSize().y;
-
-    auto bufRes = AddressedAllocatedBuffer::create(
-        vkcore.device.logical, vkcore.allocator,
-        {
-            .size = expectedSize,
-            .usage = vk::BufferUsageFlagBits::eTransferSrc |
-                     vk::BufferUsageFlagBits::eShaderDeviceAddress,
-        },
-        {
-            .flags = vma::AllocationCreateFlagBits::eMapped,
-            .usage = vma::MemoryUsage::eCpuToGpu,
-        });
-    if (!bufRes) {
-      return std::unexpected(
-          fmt::format("Failed to create staging buffer for image transfer: {}",
-                      bufRes.error()));
-    }
-
-    memcpy(bufRes.value().mapping(), image.getData(), expectedSize);
 
     vk::CommandBufferAllocateInfo allocInfo{
         .commandPool = frameInfo.perFrame->pools.compute->pool,
@@ -524,95 +414,250 @@ namespace keptech::vkh {
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    vk::ImageMemoryBarrier2 toWriteBarrier{
-        .dstStageMask = vk::PipelineStageFlagBits2::eCopy,
-        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
-        .oldLayout = vk::ImageLayout::eUndefined,
-        .newLayout = vk::ImageLayout::eTransferDstOptimal,
-        .image = texture.getImage().image,
-        .subresourceRange =
-            vk::ImageSubresourceRange{
-                .aspectMask = aspectFromFormat(texture.getFormat()),
-                .baseMipLevel = 0,
-                .levelCount = texture.getMipLevels(),
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-    };
+    size_t currentStagingOffset = 0;
 
-    cmdBuf.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &toWriteBarrier,
-    });
+    for (auto& info : infos) {
+      vk::Format vkFormat = from(info.format, vk::Format::eR8G8B8A8Unorm);
 
-    vk::BufferImageCopy2 copyRegion{
-        .bufferOffset = 0,
-        .bufferRowLength = 0,
-        .bufferImageHeight = 0,
-        .imageSubresource =
-            vk::ImageSubresourceLayers{
-                .aspectMask = aspectFromFormat(texture.getFormat()),
-                .mipLevel = 0,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-        .imageOffset = vk::Offset3D{.x = 0, .y = 0, .z = 0},
-        .imageExtent =
-            vk::Extent3D{
-                .width = static_cast<uint32_t>(texture.getSize().x),
-                .height = static_cast<uint32_t>(texture.getSize().y),
-                .depth = static_cast<uint32_t>(texture.getSize().z),
-            },
-    };
+      vk::ImageCreateInfo imageCreateInfo{
+          .imageType =
+              info.size.z == 1 ? vk::ImageType::e2D : vk::ImageType::e3D,
+          .format = vkFormat,
+          .extent = {.width = info.size.x,
+                     .height = info.size.y,
+                     .depth = info.size.z},
+          .mipLevels = info.mipLevels,
+          .arrayLayers = 1,
+          .samples = vk::SampleCountFlagBits::e1,
+          .tiling = vk::ImageTiling::eOptimal,
+          .usage = from(info.usage),
+          .sharingMode = vk::SharingMode::eExclusive,
+          .initialLayout = vk::ImageLayout::eUndefined,
+      };
 
-    cmdBuf.copyBufferToImage2(vk::CopyBufferToImageInfo2{
-        .srcBuffer = bufRes.value().buffer,
-        .dstImage = texture.getImage().image,
-        .dstImageLayout = vk::ImageLayout::eTransferDstOptimal,
-        .regionCount = 1,
-        .pRegions = &copyRegion,
-    });
+      vma::AllocationCreateInfo allocCreateInfo =
 
-    vk::ImageMemoryBarrier2 toShaderReadBarrier{
-        .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
-        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-        .dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader,
-        .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
-        .oldLayout = vk::ImageLayout::eTransferDstOptimal,
-        .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-        .image = texture.getImage().image,
-        .subresourceRange =
-            vk::ImageSubresourceRange{
-                .aspectMask = aspectFromFormat(texture.getFormat()),
-                .baseMipLevel = 0,
-                .levelCount = texture.getMipLevels(),
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-    };
-    cmdBuf.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &toShaderReadBarrier,
-    });
+          vma::AllocationCreateInfo{
+              .usage = vma::MemoryUsage::eGpuOnly,
+              .requiredFlags = vk::MemoryPropertyFlagBits::eDeviceLocal};
+
+      auto imageViewCreateInfo = vk::ImageViewCreateInfo{
+          .viewType = info.size.z == 1 ? vk::ImageViewType::e2D
+                                       : vk::ImageViewType::e3D,
+          .format = imageCreateInfo.format,
+          .subresourceRange =
+              {
+                  .aspectMask = aspectFromFormat(info.format),
+                  .baseMipLevel = 0,
+                  .levelCount = 1,
+                  .baseArrayLayer = 0,
+                  .layerCount = 1,
+              },
+      };
+
+      VKH_MAKE(img,
+               AllocatedImage::create(vkcore.allocator, vkcore.device.logical,
+                                      imageCreateInfo, allocCreateInfo,
+                                      imageViewCreateInfo, true),
+               "Failed to create texture image");
+
+#ifndef NDEBUG
+      VkImage vkImage = img.image;
+      VkImageView vkImageView = img.view;
+      vkcore.device.logical.setDebugUtilsObjectNameEXT(
+          vk::DebugUtilsObjectNameInfoEXT{
+              .objectType = vk::ObjectType::eImage,
+              .objectHandle = reinterpret_cast<uint64_t>(vkImage),
+              .pObjectName = info.name.c_str(),
+          });
+
+      std::string viewName = info.name + "_view";
+
+      vkcore.device.logical.setDebugUtilsObjectNameEXT(
+          vk::DebugUtilsObjectNameInfoEXT{
+              .objectType = vk::ObjectType::eImageView,
+              .objectHandle = reinterpret_cast<uint64_t>(vkImageView),
+              .pObjectName = viewName.c_str(),
+          });
+#endif
+
+      std::shared_ptr ptr = std::make_shared<vkh::Texture>(
+          vkcore.allocator, vkcore.device.logical, img, info.size, info.format,
+          info.mipLevels
+#ifdef KT_ADD_RESOURCE_INFO
+          ,
+          info.name, info.usage
+#endif
+      );
+
+      ptr->setIndex(nextTextureIndex++);
+      for (auto& u : textureDescriptorsToUpdate) {
+        u.push_back(ptr);
+      }
+
+      images.push_back(ptr);
+
+      if (info.data == nullptr) {
+        VK_DEBUG("Image '{}' has no data to upload, skipping upload step",
+                 info.name);
+        continue;
+      }
+
+      size_t pixelSize = componentsSize(info.format, TextureFormat::RGBA8);
+
+      size_t imgSize = pixelSize * info.size.x * info.size.y * info.size.z;
+
+      VK_DEBUG("Offset: {}, Size: {}, Pixel Size: {}", currentStagingOffset,
+               imgSize, pixelSize);
+
+      memcpy(stagingBuf.mapping() + currentStagingOffset, info.data, imgSize);
+
+      vk::ImageMemoryBarrier2 toWriteBarrier{
+          .dstStageMask = vk::PipelineStageFlagBits2::eCopy,
+          .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+          .oldLayout = vk::ImageLayout::eUndefined,
+          .newLayout = vk::ImageLayout::eTransferDstOptimal,
+          .image = ptr->getImage().image,
+          .subresourceRange =
+              vk::ImageSubresourceRange{
+                  .aspectMask = aspectFromFormat(info.format),
+                  .baseMipLevel = 0,
+                  .levelCount = info.mipLevels,
+                  .baseArrayLayer = 0,
+                  .layerCount = 1,
+              },
+      };
+      cmdBuf.pipelineBarrier2(vk::DependencyInfo{
+          .imageMemoryBarrierCount = 1,
+          .pImageMemoryBarriers = &toWriteBarrier,
+      });
+
+      vk::BufferImageCopy2 copyRegion{
+          .bufferOffset = currentStagingOffset,
+          .bufferRowLength = 0,
+          .bufferImageHeight = 0,
+          .imageSubresource =
+              vk::ImageSubresourceLayers{
+                  .aspectMask = aspectFromFormat(info.format),
+                  .mipLevel = 0,
+                  .baseArrayLayer = 0,
+                  .layerCount = 1,
+              },
+          .imageOffset = vk::Offset3D{.x = 0, .y = 0, .z = 0},
+          .imageExtent =
+              vk::Extent3D{
+                  .width = static_cast<uint32_t>(info.size.x),
+                  .height = static_cast<uint32_t>(info.size.y),
+                  .depth = static_cast<uint32_t>(info.size.z),
+              },
+      };
+
+      cmdBuf.copyBufferToImage2(vk::CopyBufferToImageInfo2{
+          .srcBuffer = stagingBuf.buffer,
+          .dstImage = ptr->getImage().image,
+          .dstImageLayout = vk::ImageLayout::eTransferDstOptimal,
+          .regionCount = 1,
+          .pRegions = &copyRegion,
+      });
+
+      vk::ImageMemoryBarrier2 toShaderReadBarrier{
+          .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
+          .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+          .dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+          .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+          .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+          .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+          .image = ptr->getImage().image,
+          .subresourceRange =
+              vk::ImageSubresourceRange{
+                  .aspectMask = aspectFromFormat(info.format),
+                  .baseMipLevel = 0,
+                  .levelCount = info.mipLevels,
+                  .baseArrayLayer = 0,
+                  .layerCount = 1,
+              },
+      };
+      cmdBuf.pipelineBarrier2(vk::DependencyInfo{
+          .imageMemoryBarrierCount = 1,
+          .pImageMemoryBarriers = &toShaderReadBarrier,
+      });
+
+      currentStagingOffset += imgSize;
+    }
 
     cmdBuf.end();
 
-    BufPtr stagingBuffer =
-        std::make_shared<vkh::Buffer>(vkcore.allocator, bufRes.value());
+    BufPtr buf = std::make_shared<vkh::Buffer>(vkcore.allocator, stagingBuf);
 
     CmdBufPtr cmdBuffer = std::make_unique<vkh::CommandBuffer>(
         std::move(cmdBuf), CmdBufType::Compute);
 
-    std::vector<SubmitInfo> infos;
-    infos.push_back({
+    std::vector<SubmitInfo> submitInfos;
+    submitInfos.push_back({
         .commandBuffer = std::move(cmdBuffer),
-        .trackedBuffers = {stagingBuffer},
-        .trackedTextures = {texPtr},
+        .trackedBuffers = {buf},
+        .trackedTextures = images,
     });
 
-    submitCommandBuffers(std::move(infos));
+    submitCommandBuffers(std::move(submitInfos));
 
-    return texPtr;
+    return std::move(images);
+  }
+
+  std::expected<std::vector<ImgPtr>, std::string>
+  RendererBackend::createImages(const std::vector<ImageUploadInfo>& infos) {
+    std::vector<ImageCreateInfo> createInfos;
+    createInfos.reserve(infos.size());
+
+    for (auto& info : infos) {
+      TextureFormat format = TextureFormat::RGBA8;
+      switch (info.image.getChannels()) {
+      case 1:
+        format = TextureFormat::R8;
+        break;
+      case 2:
+        format = TextureFormat::RG8;
+        break;
+      case 3:
+        format = TextureFormat::RGB8;
+        break;
+      default:;
+      }
+
+      ImageCreateInfo createInfo{
+          .name = info.name,
+          .size = {info.image.getSize().x, info.image.getSize().y, 1.f},
+          .format = format,
+          .usage = info.usage,
+          .mipLevels = info.mipLevels,
+          .data = info.image.getData(),
+      };
+      createInfos.push_back(createInfo);
+    }
+
+    return createImages(createInfos);
+  }
+
+  std::expected<SamplerPtr, std::string>
+  RendererBackend::createSampler(const SamplerCreateInfo& info) {
+    vk::SamplerCreateInfo samplerInfo{
+        .magFilter = from(info.magFilter),
+        .minFilter = from(info.minFilter),
+        .mipmapMode = fromMip(info.mipmapFilter),
+        .addressModeU = from(info.addressModeU),
+        .addressModeV = from(info.addressModeV),
+        .addressModeW = from(info.addressModeW),
+        .anisotropyEnable = info.enableAnisotropy ? VK_TRUE : VK_FALSE,
+        .maxAnisotropy = info.anisotropyLevel,
+        .borderColor = vk::BorderColor::eIntOpaqueBlack,
+        .unnormalizedCoordinates = VK_FALSE,
+        .compareEnable = VK_FALSE,
+    };
+
+    VK_MAKE(sampler, vkcore.device.logical.createSampler(samplerInfo),
+            "Failed to create texture sampler");
+
+    return std::make_shared<vkh::Sampler>(std::move(sampler));
   }
 
   void RendererBackend::textureLayoutTransition(
@@ -696,7 +741,7 @@ namespace keptech::vkh {
     });
   }
 
-  void RendererBackend::loadImGuiImageHandle(TexPtr& texture) {
+  void RendererBackend::loadImGuiImageHandle(ImgPtr& texture) {
     vkh::Texture& vkTexture =
         *std::dynamic_pointer_cast<vkh::Texture>(texture).get();
 

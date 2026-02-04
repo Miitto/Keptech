@@ -13,9 +13,9 @@ namespace keptech {
   class Scene;
 
   struct GBuffers {
-    TexPtr albedo;
-    TexPtr normal;
-    TexPtr depth;
+    ImgPtr albedo;
+    ImgPtr normal;
+    ImgPtr depth;
   };
 
   class Renderer {
@@ -31,15 +31,12 @@ namespace keptech {
       return backend->createPipeline(createInfo);
     }
 
-    inline std::expected<TexPtr, std::string>
-    createTexture(std::string name, glm::uvec3 size, TextureFormat format,
-                  Bitflag<TextureUsage> usage, uint32_t mipLevels,
-                  bool cpuAccess = false, const void* data = nullptr) {
-      return backend->createTexture(std::move(name), size, format, usage,
-                                    mipLevels, cpuAccess, data);
+    inline std::expected<ImgPtr, std::string>
+    createImage(const IRendererBackend::ImageCreateInfo& info) {
+      return backend->createImage(info);
     }
 
-    inline void loadImGuiImageHandle(TexPtr& texture) {
+    inline void loadImGuiImageHandle(ImgPtr& texture) {
       backend->loadImGuiImageHandle(texture);
     }
 

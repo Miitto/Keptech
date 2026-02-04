@@ -314,6 +314,38 @@ namespace keptech::vkh {
       }
     }
 
+    size_t componentsSize(TextureFormat format, TextureFormat defaultFormat) {
+      switch (format) {
+      case TextureFormat::Undefined:
+        return 0;
+      case TextureFormat::R8:
+        return 1;
+      case TextureFormat::RG8:
+      case TextureFormat::R16F:
+      case TextureFormat::Depth16:
+        return 2;
+      case TextureFormat::RGB8:
+        return 3;
+      case TextureFormat::RGBA8:
+      case TextureFormat::R32F:
+      case TextureFormat::RG16F:
+      case TextureFormat::Depth24Stencil8:
+        return 4;
+      case TextureFormat::Default:
+        return componentsSize(defaultFormat, defaultFormat);
+      case TextureFormat::RG32F:
+      case TextureFormat::RGBA16F:
+        return 8;
+      case TextureFormat::RGB16F:
+        return 6;
+      case TextureFormat::RGB32F:
+        return 12;
+      case TextureFormat::RGBA32F:
+        return 16;
+        break;
+      }
+    }
+
     vk::Format from(shaders::DataType type, vk::Format defaultFormat) {
       using T = shaders::DataType;
       switch (type) {
@@ -457,6 +489,19 @@ namespace keptech::vkh {
         return 0;
       }
     }
+
+    vk::Filter from(SamplerFilter filter) {
+      return static_cast<vk::Filter>(filter);
+    }
+
+    vk::SamplerAddressMode from(SamplerAddressMode mode) {
+      return static_cast<vk::SamplerAddressMode>(mode);
+    }
+
+    vk::SamplerMipmapMode fromMip(SamplerFilter mode) {
+      return static_cast<vk::SamplerMipmapMode>(mode);
+    }
+
   } // namespace
 
 } // namespace keptech::vkh

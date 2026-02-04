@@ -32,16 +32,61 @@ namespace keptech {
     virtual std::expected<BufPtr, std::string>
     createBuffer(const BufferCreateInfo&) = 0;
 
-    virtual std::expected<TexPtr, std::string>
-    createTexture(std::string name, glm::uvec3 size, TextureFormat format,
-                  Bitflag<TextureUsage> usage, uint32_t mipLevels = 1,
-                  bool cpuAccess = false, const void* data = nullptr) = 0;
-    virtual std::expected<TexPtr, std::string>
-    createTexture(std::string name, const Image& image,
-                  Bitflag<TextureUsage> usage, uint32_t mipLevels = 1,
-                  bool cpuAccess = false) = 0;
+    struct ImageCreateInfo {
+      std::string name;
+      glm::uvec3 size;
+      TextureFormat format;
+      Bitflag<TextureUsage> usage;
+      uint32_t mipLevels = 1;
+      const void* data = nullptr;
+    };
 
-    virtual void loadImGuiImageHandle(TexPtr& texture) = 0;
+    struct ImageUploadInfo {
+      std::string name;
+      const Image& image;
+      Bitflag<TextureUsage> usage;
+      uint32_t mipLevels = 1;
+    };
+
+    std::expected<ImgPtr, std::string>
+    createImage(const ImageCreateInfo& info) {
+      auto result = createImages({info});
+      if (!result) {
+        return std::unexpected(result.error());
+      }
+      return std::move(result).value().front();
+    }
+    virtual std::expected<std::vector<ImgPtr>, std::string>
+    createImages(const std::vector<ImageCreateInfo>& imageInfos) = 0;
+
+    virtual std::expected<ImgPtr, std::string>
+    createImage(const ImageUploadInfo& info) {
+      auto result = createImages({info});
+      if (!result) {
+        return std::unexpected(result.error());
+      }
+      return std::move(result).value().front();
+    }
+
+    virtual std::expected<std::vector<ImgPtr>, std::string>
+    createImages(const std::vector<ImageUploadInfo>& imageInfos) = 0;
+
+    struct SamplerCreateInfo {
+      std::string name;
+      SamplerFilter magFilter = SamplerFilter::Linear;
+      SamplerFilter minFilter = SamplerFilter::Linear;
+      SamplerAddressMode addressModeU = SamplerAddressMode::Repeat;
+      SamplerAddressMode addressModeV = SamplerAddressMode::Repeat;
+      SamplerAddressMode addressModeW = SamplerAddressMode::Repeat;
+      bool enableAnisotropy = false;
+      float anisotropyLevel = 1.f;
+      SamplerFilter mipmapFilter = SamplerFilter::Linear;
+    };
+
+    virtual std::expected<SamplerPtr, std::string>
+    createSampler(const SamplerCreateInfo&) = 0;
+
+    virtual void loadImGuiImageHandle(ImgPtr& texture) = 0;
 
     virtual std::expected<PipelinePtr, std::string>
     createPipeline(PipelineCreateInfo createInfo) = 0;
@@ -69,7 +114,7 @@ namespace keptech {
     struct SubmitInfo {
       CmdBufPtr commandBuffer;
       std::vector<BufPtr> trackedBuffers{};
-      std::vector<TexPtr> trackedTextures{};
+      std::vector<ImgPtr> trackedTextures{};
     };
     virtual void submitCommandBuffers(std::vector<SubmitInfo>) = 0;
     virtual void endFrame(CmdBufPtr&&) = 0;

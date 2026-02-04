@@ -19,14 +19,14 @@ namespace keptech {
   };
 
   struct RenderingColorAttachmentInfo {
-    ITexture* texture = nullptr;
+    IImage* texture = nullptr;
     glm::vec4 clearColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
     AttachmentLoadOp loadOp = AttachmentLoadOp::Load;
     AttachmentStoreOp storeOp = AttachmentStoreOp::Store;
   };
 
   struct RenderingDepthStencilAttachmentInfo {
-    ITexture* texture = nullptr;
+    IImage* texture = nullptr;
     float clearDepth = 1.0f;
     uint32_t clearStencil = 0;
     AttachmentLoadOp loadOp = AttachmentLoadOp::Load;

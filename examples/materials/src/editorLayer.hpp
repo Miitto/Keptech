@@ -24,7 +24,7 @@ class MaterialEditorLayer : public keptech::core::layers::Layer {
 public:
   using SelectedItem =
       std::variant<std::monostate, keptech::ecs::EntityHandle, keptech::MeshPtr,
-                   keptech::PipelinePtr, keptech::TexPtr>;
+                   keptech::PipelinePtr, keptech::ImgPtr>;
 
   enum class ActiveDebugView : uint8_t { Albedo, Normals, Depth, Final };
 
