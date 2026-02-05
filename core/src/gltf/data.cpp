@@ -26,6 +26,18 @@ namespace keptech::gltf {
           };
           submeshes.push_back(submesh);
 
+          size_t baseColorTexIndex = 0;
+          if (primitive.materialIndex.has_value()) {
+            auto& material = asset.materials[primitive.materialIndex.value()];
+            if (material.pbrData.baseColorTexture.has_value()) {
+              auto& texInfo = material.pbrData.baseColorTexture.value();
+              if (texInfo.transform &&
+                  texInfo.transform->texCoordIndex.has_value()) {
+                baseColorTexIndex = texInfo.transform->texCoordIndex.value();
+              }
+            }
+          }
+
           size_t startIndex = vertices.size();
 
           // Indices
@@ -35,8 +47,9 @@ namespace keptech::gltf {
             indices.reserve(indices.size() + indicesAccessor.count);
 
             fastgltf::iterateAccessor<uint32_t>(
-                asset, indicesAccessor,
-                [&](uint32_t index) { indices.push_back(index); });
+                asset, indicesAccessor, [&](uint32_t index) {
+                  indices.push_back(static_cast<uint32_t>(startIndex) + index);
+                });
           }
 
           // Positions
@@ -75,7 +88,8 @@ namespace keptech::gltf {
 
           // UVs
           {
-            auto uvs = primitive.findAttribute("TEXCOORD_0");
+            auto uvs = primitive.findAttribute(
+                fmt::format("TEXCOORD_{}", baseColorTexIndex));
             if (uvs != primitive.attributes.end()) {
               auto& uvAccessor = asset.accessors[uvs->accessorIndex];
 
