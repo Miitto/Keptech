@@ -53,10 +53,13 @@ namespace keptech::vkh {
     }
 
     vk::RenderingAttachmentInfo depthAttachmentInfo{
-        .imageView = static_cast<vk::ImageView>(
-            dynamic_cast<vkh::Texture*>(info.depthAttachment.texture)
-                ->getImage()
-                .view),
+        .imageView =
+            info.depthAttachment.texture == nullptr
+                ? nullptr
+                : static_cast<vk::ImageView>(
+                      dynamic_cast<vkh::Texture*>(info.depthAttachment.texture)
+                          ->getImage()
+                          .view),
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
         .loadOp = from(info.depthAttachment.loadOp),
         .storeOp = from(info.depthAttachment.storeOp),
@@ -144,6 +147,11 @@ namespace keptech::vkh {
     }
 
     cmd.bindVertexBuffers(firstBinding, vkBuffers, offsets);
+  }
+
+  void CommandBuffer::draw(uint32_t vertexCount, uint32_t instanceCount,
+                           uint32_t firstVertex, uint32_t firstInstance) {
+    cmd.draw(vertexCount, instanceCount, firstVertex, firstInstance);
   }
 
   void CommandBuffer::drawIndexed(uint32_t indexCount, uint32_t instanceCount,

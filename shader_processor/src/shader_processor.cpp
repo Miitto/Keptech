@@ -454,6 +454,11 @@ namespace keptech::shader_processor {
           std::cout << "Auto detecting deferred rendering mode for shader '"
                     << name << "'\n";
           shader.mode = keptech::shaders::RenderingMode::Deferred;
+        } else if (returnTypeName == "keptech.DeferredLightingOutput") {
+          std::cout
+              << "Auto detecting deferred lighting rendering mode for shader '"
+              << name << "'\n";
+          shader.mode = keptech::shaders::RenderingMode::DeferredLighting;
         } else if (returnTypeName == "vector<float,4>") {
           std::cout << "Auto detecting forward rendering mode for shader '"
                     << name << "'\n";

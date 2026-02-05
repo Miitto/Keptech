@@ -120,6 +120,7 @@ namespace keptech {
     virtual void endFrame(CmdBufPtr&&) = 0;
 
     virtual void initImGui() = 0;
+    virtual void shutdownImGui() = 0;
 
     virtual void preExit() = 0;
 

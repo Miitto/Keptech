@@ -42,8 +42,10 @@ namespace keptech::vkh {
       return *this;
     }
     ~Texture() final {
-      if (allocator)
+      if (allocator) {
         image.destroy(*allocator, *device);
+        allocator = nullptr;
+      }
     }
 
 #ifdef KT_ADD_RESOURCE_INFO

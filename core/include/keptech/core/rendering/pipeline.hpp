@@ -109,8 +109,6 @@ namespace keptech {
   enum class VertexInputRate : uint8_t { Vertex, Instance };
 
   struct LayoutConfig {
-    bool useVertexBuffer = true;
-    bool useModelMatrix = true;
     std::vector<SetLayout> setLayouts{};
     std::vector<PushConstantRange> pushConstantRanges{};
     std::vector<uint32_t> vertexInstanceBindings{};
@@ -131,7 +129,12 @@ namespace keptech {
     struct PipelineHandleDifferentiator {};
   } // namespace _priv
 
-  enum class PipelineStage : uint8_t { Deferred, Opaque, Transparent };
+  enum class PipelineStage : uint8_t {
+    Deferred,
+    Opaque,
+    Transparent,
+    DeferredLighting
+  };
 
   namespace InstanceDataType {
     enum E : uint8_t { Texture, Float, Float2 };
@@ -155,6 +158,9 @@ struct fmt::formatter<keptech::PipelineStage>
       break;
     case S::Transparent:
       name = "Transparent";
+      break;
+    case keptech::PipelineStage::DeferredLighting:
+      name = "Deferred Lighting";
       break;
     }
     return fmt::formatter<std::string_view>::format(name, ctx);

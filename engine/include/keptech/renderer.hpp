@@ -18,6 +18,11 @@ namespace keptech {
     ImgPtr depth;
   };
 
+  struct LightingBuffers {
+    ImgPtr diffuse;
+    ImgPtr specular;
+  };
+
   class Renderer {
     // End user use
   public:
@@ -43,10 +48,18 @@ namespace keptech {
     [[nodiscard]] const GBuffers& getGBuffers() const { return gBuffers; }
     [[nodiscard]] GBuffers& getGBuffers() { return gBuffers; }
 
+    LightingBuffers& getLightingBuffers() { return lightingBuffers; }
+    [[nodiscard]] const LightingBuffers& getLightingBuffers() const {
+      return lightingBuffers;
+    }
+
 #ifdef KT_ADD_RESOURCE_INFO
     [[nodiscard]] size_t getTriangleCount() const { return triCount; }
     [[nodiscard]] size_t getDrawCallCount() const { return drawCallCount; }
 #endif
+
+    PipelinePtr& getDeferredPipeline() { return deferredPipeline; }
+    PipelinePtr& getPointLightPipeline() { return pointLightPipeline; }
 
     // In Engine use
   public:
@@ -71,10 +84,26 @@ namespace keptech {
       uint32_t texIndex = ~0u;
     };
 
+    struct DeferredPushConstantData {
+      uint64_t instanceAddress;
+      uint32_t instanceOffset;
+    };
+
     struct InstanceData {
       glm::mat4 modelMatrix;
       TexData albedoTextureIndex;
       TexData normalTextureIndex;
+    };
+
+    struct GBufferImageIndexData {
+      uint32_t albedoIndex;
+      uint32_t normalIndex;
+      uint32_t depthIndex;
+    };
+
+    struct PointLightPushConstantData {
+      glm::vec4 positionAndRadius;
+      glm::vec4 colorAndIntensity;
     };
 
     struct Buffers {
@@ -88,9 +117,12 @@ namespace keptech {
     };
 
     Renderer(std::unique_ptr<IRendererBackend> backend, GBuffers gBuffers,
-             PipelinePtr&& deferredPipeline, Buffers&& buffers)
+             LightingBuffers lightingBuffers, PipelinePtr&& deferredPipeline,
+             PipelinePtr&& pointLightPipeline, Buffers&& buffers)
         : backend(std::move(backend)), gBuffers(std::move(gBuffers)),
+          lightingBuffers(std::move(lightingBuffers)),
           deferredPipeline(std::move(deferredPipeline)),
+          pointLightPipeline(std::move(pointLightPipeline)),
           buffers(std::move(buffers)) {}
 
     void initImGui();
@@ -107,6 +139,7 @@ namespace keptech {
 
     void drawDeferredPass(const FrameData&);
     void drawLightingPass(const FrameData&);
+    void drawPointLights(const FrameData&);
     void combineDeferredPass(const FrameData&);
     void drawForwardPass(const FrameData&);
     void drawTransparentPass(const FrameData&);
@@ -116,8 +149,9 @@ namespace keptech {
 
     std::unique_ptr<IRendererBackend> backend;
     GBuffers gBuffers;
+    LightingBuffers lightingBuffers;
     PipelinePtr deferredPipeline;
-    PipelinePtr transparentPipeline;
+    PipelinePtr pointLightPipeline;
 
     Buffers buffers;
 

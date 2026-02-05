@@ -12,7 +12,7 @@
 
 namespace {
   void vmaLog(std::string_view str) {
-    VK_DEBUG("VMA: {}", str);
+    VK_TRACE("VMA: {}", str);
     // For break
   }
   void vmaMemLeak(std::string_view str) {

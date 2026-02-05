@@ -27,6 +27,10 @@ namespace keptech::gltf {
         entity.addComponent<components::Material>(node.material);
       }
 
+      if (node.pointLight.has_value()) {
+        entity.addComponent<components::PointLight>(node.pointLight.value());
+      }
+
       for (auto& child : node.children) {
         addNodeToEcsScene(child, scene, entity.getHandle());
       }

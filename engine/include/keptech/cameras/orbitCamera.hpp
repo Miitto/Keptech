@@ -43,7 +43,7 @@ namespace keptech::cameras {
               return false;
 
             yaw += e.movement.x * sens;
-            pitch -= e.movement.y * sens;
+            pitch += e.movement.y * sens;
 
             if (yaw < 360)
               yaw += 360;

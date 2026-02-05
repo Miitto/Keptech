@@ -135,6 +135,7 @@ namespace keptech::vkh {
     void present();
 
     void initImGui() final;
+    void shutdownImGui() final;
 
     void preExit() final;
 

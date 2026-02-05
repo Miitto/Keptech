@@ -18,12 +18,14 @@ int main() {
 
   bool exitCleanly = false;
   {
+    KT_DEBUG("Creating renderer");
     std::expected<Renderer, std::string> rendererRes =
         Renderer::create(info.renderer, window);
     if (!rendererRes) {
       KT_CRITICAL("Failed to create renderer: {}", rendererRes.error());
       return -1;
     }
+    KT_DEBUG("Renderer created successfully");
 
     Renderer renderer = std::move(rendererRes.value());
 

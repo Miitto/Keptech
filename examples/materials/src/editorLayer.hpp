@@ -26,7 +26,14 @@ public:
       std::variant<std::monostate, keptech::ecs::EntityHandle, keptech::MeshPtr,
                    keptech::PipelinePtr, keptech::ImgPtr>;
 
-  enum class ActiveDebugView : uint8_t { Albedo, Normals, Depth, Final };
+  enum class ActiveDebugView : uint8_t {
+    Albedo,
+    Normals,
+    Depth,
+    Diffuse,
+    Specular,
+    Final
+  };
 
   MaterialEditorLayer(keptech::Renderer& renderer,
                       std::unique_ptr<keptech::Scene>&& scene,
@@ -55,6 +62,9 @@ public:
 
   void cameraInspectorUi(keptech::gui::Frame& frame,
                          keptech::components::Camera& camera);
+
+  void pointLightInspectorUi(keptech::gui::Frame& frame,
+                             keptech::components::PointLight& light);
 
   struct SceneNode {
     keptech::ecs::EntityHandle id;

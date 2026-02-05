@@ -15,9 +15,14 @@ namespace keptech::shaders {
     Fragment = BIT(1),
     Compute = BIT(2),
   };
-  enum class RenderingMode : uint8_t { Deferred, Forward, Custom };
+  enum class RenderingMode : uint8_t {
+    Deferred,
+    Forward,
+    DeferredLighting,
+    Custom,
+  };
 
-  enum class DataType {
+  enum class DataType : uint8_t {
     None,
     Void,
     Bool,

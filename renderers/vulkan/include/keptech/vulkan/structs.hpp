@@ -47,7 +47,8 @@ namespace keptech::vkh {
     create(vma::Allocator& allocator, const vk::raii::Device& device,
            const vk::ImageCreateInfo& imgInfo,
            const vma::AllocationCreateInfo& allocInfo,
-           vk::ImageViewCreateInfo viewInfo, bool useSameFormat = false);
+           vk::ImageViewCreateInfo viewInfo, bool useSameFormat = false,
+           std::optional<std::string> name = std::nullopt);
 
     void destroy(vma::Allocator& allocator, const vk::raii::Device& d);
   };

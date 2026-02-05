@@ -27,8 +27,9 @@ namespace keptech::gltf {
     struct Node {
       fastgltf::Node node;
       maths::Transform transform;
-      uint32_t meshIndex;
-      uint32_t materialIndex;
+      uint32_t meshIndex = ~0u;
+      uint32_t materialIndex = ~0u;
+      uint32_t lightIndex = ~0u;
       std::vector<Node> children{};
     };
 
@@ -40,6 +41,8 @@ namespace keptech::gltf {
 
     std::vector<fastgltf::BufferView> bufferViews;
     std::vector<fastgltf::Buffer> buffers;
+
+    std::vector<fastgltf::Light> lights;
 
     std::vector<Node> roots;
 

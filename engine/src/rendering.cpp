@@ -40,11 +40,16 @@ namespace keptech {
         return;
       }
 
+      // Quickly blitz through and recalc all the transforms so we don't have to
+      // worry about it later.
+      scene->getEcs().view<components::Transform>().each(
+          [](components::Transform& transform) {
+            transform.recalculateGlobalTransform();
+          });
+
       auto [camera, transform] =
           activeCameraEntity
               .getComponents<components::Camera, components::Transform>();
-
-      transform.recalculateGlobalTransform();
 
       frame.cameraData.camera = &camera;
       frame.cameraData.transform = &transform;
@@ -137,6 +142,12 @@ namespace keptech {
                           components::Material>();
 
     size_t instanceOffset = 0;
+
+    frame.graphicsCmdBuf->bindIndexBuffer(*buffers.index.get(), 0);
+    frame.graphicsCmdBuf->bindVertexBuffer(0, {buffers.vertex.get()}, {0});
+
+    IPipeline* lastPipeline = nullptr;
+
     for (auto [entity, transform, mesh, material] : view.each()) {
       if (!mesh || !material || !material->pipeline) {
         continue;
@@ -146,12 +157,14 @@ namespace keptech {
         continue;
       }
 
-      transform.recalculateGlobalTransform();
-
-      frame.graphicsCmdBuf->bindPipeline(*material->pipeline);
-
-      frame.graphicsCmdBuf->bindIndexBuffer(*buffers.index.get(), 0);
-      frame.graphicsCmdBuf->bindVertexBuffer(0, {buffers.vertex.get()}, {0});
+      if (material->pipeline.get() != lastPipeline) {
+        frame.graphicsCmdBuf->bindPipeline(*material->pipeline);
+        backend->bindGlobalDescriptorSets(
+            frame.graphicsCmdBuf, *material->pipeline,
+            Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex |
+                                           shaders::ShaderStages::Fragment));
+        lastPipeline = material->pipeline.get();
+      }
 
       TexData albedoData{};
       TexData normalData{};
@@ -192,10 +205,7 @@ namespace keptech {
                  (instanceOffset * sizeof(InstanceData)),
              &instanceData, sizeof(InstanceData));
 
-      struct PushConstantData {
-        uint64_t instanceAddress;
-        uint32_t instanceOffset;
-      } pushConstantData{
+      DeferredPushConstantData pushConstantData{
           .instanceAddress = buffers.instance->getDeviceAddress(),
           .instanceOffset = static_cast<uint32_t>(instanceOffset),
       };
@@ -203,12 +213,7 @@ namespace keptech {
       frame.graphicsCmdBuf->writePushConstants(
           *material->pipeline,
           Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex), 0,
-          sizeof(PushConstantData), &pushConstantData);
-
-      backend->bindGlobalDescriptorSets(
-          frame.graphicsCmdBuf, *material->pipeline,
-          Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex |
-                                         shaders::ShaderStages::Fragment));
+          sizeof(DeferredPushConstantData), &pushConstantData);
 
       frame.graphicsCmdBuf->drawIndexed(
           mesh->getIndexCount(), 1, mesh->getIndexOffset(),
@@ -242,7 +247,105 @@ namespace keptech {
         });
   }
 
-  void Renderer::drawLightingPass(const FrameData& frame) {}
+  void Renderer::drawLightingPass(const FrameData& frame) {
+    backend->textureLayoutTransition(
+        frame.graphicsCmdBuf,
+        {
+            TextureTransition{
+                .type = TextureTransitionType::UndefinedToRenderable,
+                .texture = lightingBuffers.diffuse.get(),
+            },
+            TextureTransition{
+                .type = TextureTransitionType::UndefinedToRenderable,
+                .texture = lightingBuffers.specular.get(),
+            },
+        });
+
+    CommandBufferBeginRenderingInfo info{
+        .renderAreaExtent =
+            {
+                lightingBuffers.diffuse->getSize().x,
+                lightingBuffers.diffuse->getSize().y,
+            },
+        .colorAttachments =
+            {
+                {
+                    .texture = lightingBuffers.diffuse.get(),
+                    .loadOp = AttachmentLoadOp::Clear,
+                },
+                {
+                    .texture = lightingBuffers.specular.get(),
+                    .loadOp = AttachmentLoadOp::Clear,
+                },
+            },
+    };
+    frame.graphicsCmdBuf->beginRendering(info);
+    frame.graphicsCmdBuf->setViewport(
+        glm::vec2(0.0f, 0.0f),
+        glm::vec2(gBuffers.albedo->getSize().x, gBuffers.albedo->getSize().y));
+    frame.graphicsCmdBuf->setScissor(
+        glm::ivec2(0, 0),
+        glm::uvec2(gBuffers.albedo->getSize().x, gBuffers.albedo->getSize().y));
+
+    drawPointLights(frame);
+
+    frame.graphicsCmdBuf->endRendering();
+    backend->textureLayoutTransition(
+        frame.graphicsCmdBuf,
+        {
+            TextureTransition{
+                .type = TextureTransitionType::RenderableToShaderRead,
+                .texture = lightingBuffers.diffuse.get(),
+            },
+            TextureTransition{
+                .type = TextureTransitionType::RenderableToShaderRead,
+                .texture = lightingBuffers.specular.get(),
+            },
+        });
+  }
+
+  void Renderer::drawPointLights(const FrameData& frame) {
+    auto view =
+        scene->getEcs().view<components::Transform, components::PointLight>();
+
+    frame.graphicsCmdBuf->bindPipeline(*pointLightPipeline);
+    backend->bindGlobalDescriptorSets(
+        frame.graphicsCmdBuf, *pointLightPipeline,
+        Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex |
+                                       shaders::ShaderStages::Fragment));
+
+    GBufferImageIndexData gBufferIndices{
+        .albedoIndex = gBuffers.albedo->getIndex(),
+        .normalIndex = gBuffers.normal->getIndex(),
+        .depthIndex = gBuffers.depth->getIndex(),
+    };
+
+    frame.graphicsCmdBuf->writePushConstants(
+        *pointLightPipeline,
+        shaders::ShaderStages::Vertex | shaders::ShaderStages::Fragment,
+        sizeof(PointLightPushConstantData), sizeof(GBufferImageIndexData),
+        &gBufferIndices);
+
+    for (auto [entity, transform, pointLight] : view.each()) {
+      glm::vec4 position = transform.getGlobal()[3];
+      position.w = pointLight.radius;
+      struct PointLightData {
+        glm::vec4 positionAndRadius;
+        glm::vec4 colorAndIntensity;
+      } pointLightData{
+          .positionAndRadius = position,
+          .colorAndIntensity =
+              glm::vec4(pointLight.color, pointLight.intensity),
+      };
+
+      frame.graphicsCmdBuf->writePushConstants(
+          *pointLightPipeline,
+          shaders::ShaderStages::Vertex | shaders::ShaderStages::Fragment, 0,
+          sizeof(PointLightData), &pointLightData);
+
+      frame.graphicsCmdBuf->draw(36);
+    }
+  }
 
   void Renderer::combineDeferredPass(const FrameData& frame) {}
 

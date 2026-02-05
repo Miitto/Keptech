@@ -24,15 +24,17 @@ namespace keptech::components {
       float near = params.common.planes.near;
       float far = params.common.planes.far;
       projectionMatrix = glm::perspectiveLH_ZO(fovY, aspect, near, far);
-      return;
+      break;
     }
     case ProjectionType::PerspectiveInfinite: {
       float fovY = params.perspective.fovY;
       float aspect = params.common.aspectRatio;
       float near = params.common.planes.near;
       projectionMatrix = glm::infinitePerspectiveLH_ZO(fovY, aspect, near);
-      return;
+      break;
     }
     }
+
+    projectionMatrix[1][1] *= -1; // Flip Y to get +Y as up in world coords
   }
 } // namespace keptech::components

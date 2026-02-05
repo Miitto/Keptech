@@ -8,10 +8,14 @@ namespace keptech::vkh {
                          const vk::raii::Device& device,
                          const vk::ImageCreateInfo& imgInfo,
                          const vma::AllocationCreateInfo& allocInfo,
-                         vk::ImageViewCreateInfo viewInfo, bool useSameFormat) {
+                         vk::ImageViewCreateInfo viewInfo, bool useSameFormat,
+                         std::optional<std::string> name) {
     vma::AllocationInfo aInfo = {};
     VMA_MAKE(image, allocator.createImage(imgInfo, allocInfo, aInfo),
              "Failed to create allocated image");
+
+    if (name.has_value())
+      allocator.setAllocationName(image.second, name->c_str());
 
     viewInfo.image = image.first;
     if (useSameFormat) {
@@ -35,7 +39,6 @@ namespace keptech::vkh {
   void AllocatedImage::destroy(vma::Allocator& allocator,
                                const vk::raii::Device& d) {
     if (image) {
-      VK_DEBUG("Destroying image");
       allocator.destroyImage(image, alloc);
       d.getDispatcher()->vkDestroyImageView(
           static_cast<VkDevice>(*d), static_cast<VkImageView>(view), nullptr);

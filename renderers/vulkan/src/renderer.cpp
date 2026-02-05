@@ -500,6 +500,11 @@ namespace keptech::vkh {
 
   void RendererBackend::preExit() { vkcore.device.logical.waitIdle(); }
 
+  void RendererBackend::shutdownImGui() {
+    ImGui_ImplVulkan_Shutdown();
+    VK_DEBUG("Shut down ImGui Vulkan backend");
+  }
+
   RendererBackend::~RendererBackend() {
     if (moveGuard.moved()) {
       return;
@@ -509,7 +514,10 @@ namespace keptech::vkh {
 
     cameraBuffer.destroy(vkcore.allocator);
 
-    ImGui_ImplVulkan_Shutdown();
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+      submittedCommandBuffers[i].clear();
+      textureDescriptorsToUpdate[i].clear();
+    }
 
     vkcore.allocator.destroy();
 

@@ -19,4 +19,5 @@ compile_shader(${PROJECT_NAME} SPIRV
   SOURCES
     deferred
     transparent
+    pointLight
 )

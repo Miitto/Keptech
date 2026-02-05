@@ -34,26 +34,6 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
                         keptech::Renderer& renderer) {
   MaterialEditorLayer::initMeta();
 
-  auto basicPipelineRes = renderer.createPipeline({
-      .shader = ::shaders::basic,
-  });
-  if (!basicPipelineRes) {
-    return std::unexpected(fmt::format("Failed to create basic material: {}",
-                                       basicPipelineRes.error()));
-  }
-
-  auto deferredPipelineRes = renderer.createPipeline({
-      .shader = ::shaders::deferred,
-      .layout = {.instanceDataTypes = {shaders::DataType::U32}},
-  });
-  if (!deferredPipelineRes) {
-    return std::unexpected(fmt::format("Failed to create basic material: {}",
-                                       deferredPipelineRes.error()));
-  }
-  auto& deferred = deferredPipelineRes.value();
-
-  SPDLOG_INFO("Created materials");
-
   std::unique_ptr scene = std::make_unique<keptech::Scene>();
 
   std::vector<Vertex> triangleVertices = {
@@ -134,7 +114,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   layerStack.emplaceLayer<MaterialEditorLayer>(
       renderer, std::move(scene), std::move(allMeshes),
-      std::vector{basicPipelineRes.value(), deferred});
+      std::vector<keptech::PipelinePtr>{renderer.getDeferredPipeline()});
 
   return {};
 }

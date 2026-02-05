@@ -87,7 +87,8 @@ namespace keptech {
     gltf::Scene::Node
     processNode(const gltf::Data::Node& node,
                 const std::vector<std::vector<Submesh>>& meshes,
-                const std::vector<MaterialPtr>& materials) {
+                const std::vector<MaterialPtr>& materials,
+                const std::vector<fastgltf::Light>& lights) {
       gltf::Scene::Node sceneNode{
           .name = std::string(node.node.name),
           .transform = node.transform,
@@ -108,8 +109,22 @@ namespace keptech {
         }
       }
 
+      if (node.lightIndex != ~0u) {
+        auto& color = lights[node.lightIndex].color;
+        KT_INFO("Node '{}' has a point light with color ({}, {}, {}) and "
+                "intensity {}",
+                sceneNode.name, color.x(), color.y(), color.z(),
+                lights[node.lightIndex].intensity);
+
+        sceneNode.pointLight = components::PointLight{
+            .color = {color.x(), color.y(), color.z()},
+            .intensity = lights[node.lightIndex].intensity,
+        };
+      }
+
       for (auto& child : node.children) {
-        sceneNode.children.push_back(processNode(child, meshes, materials));
+        sceneNode.children.push_back(
+            processNode(child, meshes, materials, lights));
       }
 
       return sceneNode;
@@ -437,7 +452,7 @@ namespace keptech {
     sceneNodes.reserve(gltf.roots.size());
 
     for (auto& node : gltf.roots) {
-      sceneNodes.push_back(processNode(node, meshes, materials));
+      sceneNodes.push_back(processNode(node, meshes, materials, gltf.lights));
     }
 
     gltf::Scene scene{

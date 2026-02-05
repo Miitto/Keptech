@@ -1,6 +1,7 @@
 #include "editorLayer.hpp"
 
 #include "imgui.h"
+#include "keptech/core/components/lights.hpp"
 #include "keptech/core/components/transform.hpp"
 #include "keptech/ecs/entity.hpp"
 #include <filesystem>
@@ -38,6 +39,15 @@ void forwardCompInspectorUi<keptech::components::Camera>(
 }
 
 template <>
+void forwardCompInspectorUi<keptech::components::PointLight>(
+    MaterialEditorLayer* layer, keptech::gui::Frame* frame,
+    keptech::ecs::EntityHandle entity) {
+  auto& comp =
+      layer->getScene().getEcs().get<keptech::components::PointLight>(entity);
+  layer->pointLightInspectorUi(*frame, comp);
+}
+
+template <>
 struct fmt::formatter<MaterialEditorLayer::ActiveDebugView>
     : fmt::formatter<std::string_view> {
   template <typename FormatContext>
@@ -57,6 +67,12 @@ struct fmt::formatter<MaterialEditorLayer::ActiveDebugView>
     case MaterialEditorLayer::ActiveDebugView::Final:
       name = "Final";
       break;
+    case MaterialEditorLayer::ActiveDebugView::Diffuse:
+      name = "Diffuse";
+      break;
+    case MaterialEditorLayer::ActiveDebugView::Specular:
+      name = "Specular";
+      break;
     }
     return formatter<std::string_view>::format(name, ctx);
   }
@@ -74,6 +90,7 @@ void MaterialEditorLayer::initMeta() {
   metaFunc<keptech::components::Mesh>();
   metaFunc<keptech::components::Material>();
   metaFunc<keptech::components::Camera>();
+  metaFunc<keptech::components::PointLight>();
 }
 
 namespace {
@@ -119,6 +136,8 @@ MaterialEditorLayer::MaterialEditorLayer(
   renderer.loadImGuiImageHandle(renderer.getGBuffers().albedo);
   renderer.loadImGuiImageHandle(renderer.getGBuffers().normal);
   renderer.loadImGuiImageHandle(renderer.getGBuffers().depth);
+  renderer.loadImGuiImageHandle(renderer.getLightingBuffers().diffuse);
+  renderer.loadImGuiImageHandle(renderer.getLightingBuffers().specular);
 
   refreshAssetsDirectory();
 }
@@ -187,13 +206,15 @@ void MaterialEditorLayer::drawGui() {
 
 void MaterialEditorLayer::drawViewport() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(1.f, 0.2f, 1.0f, 1.0f));
   auto gamePanel = keptech::gui::Frame("Game", nullptr,
                                        ImGuiWindowFlags_NoDecoration |
                                            ImGuiWindowFlags_NoMove |
                                            ImGuiWindowFlags_NoScrollbar);
+  ImGui::PopStyleVar(1);
+  ImGui::PopStyleColor(1);
 
   if (!gamePanel.isOpen()) {
-    ImGui::PopStyleVar(1);
     return;
   }
 
@@ -216,8 +237,15 @@ void MaterialEditorLayer::drawViewport() {
   case ActiveDebugView::Depth:
     ImGui::Image(renderer.getGBuffers().depth->getImGuiHandle().value(), size);
     break;
+  case ActiveDebugView::Diffuse:
+    ImGui::Image(
+        renderer.getLightingBuffers().diffuse->getImGuiHandle().value(), size);
+    break;
+  case ActiveDebugView::Specular:
+    ImGui::Image(
+        renderer.getLightingBuffers().specular->getImGuiHandle().value(), size);
+    break;
   }
-  ImGui::PopStyleVar(1);
 }
 
 void MaterialEditorLayer::drawToolbar() {
@@ -251,6 +279,12 @@ void MaterialEditorLayer::drawToolbar() {
   }
   if (combo.item("Depth", activeDebugView == ActiveDebugView::Depth)) {
     activeDebugView = ActiveDebugView::Depth;
+  }
+  if (combo.item("Diffuse", activeDebugView == ActiveDebugView::Diffuse)) {
+    activeDebugView = ActiveDebugView::Diffuse;
+  }
+  if (combo.item("Specular", activeDebugView == ActiveDebugView::Specular)) {
+    activeDebugView = ActiveDebugView::Specular;
   }
 }
 
@@ -548,33 +582,20 @@ void MaterialEditorLayer::drawEntityProperties(
       }
     }
 
+    if (!entity.hasAllComponents<keptech::components::PointLight>()) {
+      if (ImGui::Button("Point Light")) {
+        entity.addComponent<keptech::components::PointLight>();
+        ImGui::CloseCurrentPopup();
+      }
+    }
+
     ImGui::EndPopup();
   }
 }
 
-#ifndef NDEBUG
-namespace {
-  void printDirectory(const MaterialEditorLayer::Directory& dir, size_t depth) {
-    std::string indent(depth * 2, ' ');
-    SPDLOG_INFO("{}{}", indent, dir.name);
-    for (auto& d : dir.directories)
-      printDirectory(d, depth + 1);
-
-    std::string fileIndent((depth + 1) * 2, ' ');
-    for (const auto& file : dir.files) {
-      SPDLOG_INFO("{}{}", fileIndent, file.name);
-    }
-  }
-} // namespace
-#endif
-
 void MaterialEditorLayer::refreshAssetsDirectory() {
   assetsRootDir = parseDirectory(ASSET_DIR);
   assetsRootDir.name = "Assets";
-
-#ifndef NDEBUG
-  // printDirectory(assetsRootDir, 0);
-#endif
 }
 
 void MaterialEditorLayer::drawAssetsDirectory(keptech::gui::Frame& frame,
@@ -811,4 +832,13 @@ void MaterialEditorLayer::cameraInspectorUi(keptech::gui::Frame& frame,
     if (frame.inputFloat("FovY", fovY)) {
     }
   }
+}
+
+void MaterialEditorLayer::pointLightInspectorUi(
+    keptech::gui::Frame& frame, keptech::components::PointLight& light) {
+  frame.separatorText("Point Light");
+
+  ImGui::InputFloat("Radius", &light.radius);
+  ImGui::SliderFloat("Intensity", &light.intensity, 0.1f, 100.f);
+  ImGui::ColorEdit3("Color", &light.color.x);
 }

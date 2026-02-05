@@ -64,9 +64,6 @@ namespace keptech::gltf {
                 asset, posAccessor, [&](glm::vec3 position, size_t index) {
                   Vertex vertex{};
                   vertex.position = position;
-                  vertex.position.y *= -1;
-                  vertex.position.z *= -1;
-                  // Can flip Y here if needed in future
                   vertices[startIndex + index] = vertex;
                 });
           }
@@ -79,8 +76,6 @@ namespace keptech::gltf {
 
               fastgltf::iterateAccessorWithIndex<glm::vec3>(
                   asset, normalAccessor, [&](glm::vec3 normal, size_t index) {
-                    normal.y *= -1;
-                    normal.z *= -1;
                     vertices[startIndex + index].normal = normal;
                   });
             }
@@ -122,8 +117,6 @@ namespace keptech::gltf {
 
               fastgltf::iterateAccessorWithIndex<glm::vec4>(
                   asset, tangentAccessor, [&](glm::vec4 tangent, size_t index) {
-                    tangent.y *= -1;
-                    tangent.z *= -1;
                     vertices[startIndex + index].tangent = tangent;
                   });
             }
@@ -197,15 +190,19 @@ namespace keptech::gltf {
       loadedGltf.buffers.emplace_back(std::move(buffer));
     }
 
+    for (auto& light : asset.lights) {
+      loadedGltf.lights.emplace_back(std::move(light));
+    }
+
     std::vector<Node> nodes;
     nodes.reserve(asset.nodes.size());
 
     for (auto& node : asset.nodes) {
       auto trs = std::get<fastgltf::TRS>(node.transform);
       glm::vec3 translation = glm::vec3(
-          trs.translation.x(), -trs.translation.y(), -trs.translation.z());
+          trs.translation.x(), trs.translation.y(), trs.translation.z());
       glm::quat rotation = glm::quat(trs.rotation.w(), trs.rotation.x(),
-                                     trs.rotation.z(), trs.rotation.y());
+                                     trs.rotation.y(), trs.rotation.z());
       glm::vec3 scale = glm::vec3(trs.scale.x(), trs.scale.y(), trs.scale.z());
 
       maths::Transform transform(translation, rotation, scale);
@@ -216,6 +213,11 @@ namespace keptech::gltf {
           .meshIndex =
               static_cast<uint32_t>(node.meshIndex.value_or(UINT32_MAX)),
       };
+
+      if (node.lightIndex.has_value()) {
+        gltfNode.lightIndex = static_cast<uint32_t>(node.lightIndex.value());
+      }
+
       nodes.emplace_back(std::move(gltfNode));
     }
 

@@ -93,6 +93,10 @@ namespace keptech::vkh {
       createInfo.attachments = deferredPipelineAttachmentConfig();
       break;
     }
+    case shaders::RenderingMode::DeferredLighting: {
+      createInfo.attachments = {
+          .colorFormats = {TextureFormat::RGBA16F, TextureFormat::RGBA16F}};
+    } break;
     case shaders::RenderingMode::Forward:
       // TODO: Implement forward / transparent attechment defaults
       break;
@@ -107,6 +111,10 @@ namespace keptech::vkh {
           .blendEnable = createInfo.blend.enableBlending,
           .srcColorBlendFactor = from(createInfo.blend.src),
           .dstColorBlendFactor = from(createInfo.blend.dst),
+          .colorBlendOp = vk::BlendOp::eAdd,
+          .srcAlphaBlendFactor = vk::BlendFactor::eOne,
+          .dstAlphaBlendFactor = vk::BlendFactor::eZero,
+          .alphaBlendOp = vk::BlendOp::eAdd,
           .colorWriteMask =
               vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
               vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
@@ -190,37 +198,6 @@ namespace keptech::vkh {
       config.layout.pushConstantRanges.push_back(range);
     }
 
-    vk::DeviceSize offset = 0;
-    if (createInfo.layout.useVertexBuffer) {
-      offset += sizeof(vk::DeviceAddress);
-    }
-    if (createInfo.layout.useModelMatrix) {
-      offset += sizeof(vk::DeviceAddress) * 2;
-    }
-    if (offset != 0) {
-      auto pcSet = std::ranges::find_if(
-          config.layout.pushConstantRanges,
-          [](const vk::PushConstantRange& range) {
-            return (range.stageFlags | vk::ShaderStageFlagBits::eVertex) !=
-                   vk::ShaderStageFlags{};
-          });
-
-      if (pcSet == config.layout.pushConstantRanges.end()) {
-        vk::PushConstantRange range{
-            .stageFlags = vk::ShaderStageFlagBits::eVertex,
-            .offset = 0,
-            .size = static_cast<uint32_t>(offset),
-        };
-        config.layout.pushConstantRanges.push_back(range);
-      } else {
-        pcSet->size += static_cast<uint32_t>(offset);
-        ++pcSet;
-        for (; pcSet != config.layout.pushConstantRanges.end(); ++pcSet) {
-          pcSet->offset += static_cast<uint32_t>(offset);
-        }
-      }
-    }
-
     config.layout.setLayouts.push_back(globalDescriptorSets.layout);
 
     // TODO: User Descriptor sets
@@ -230,13 +207,6 @@ namespace keptech::vkh {
     VK_MAKE(pipelineLayout,
             vkcore.device.logical.createPipelineLayout(vkLayoutInfo),
             "Failed to create pipeline layout");
-
-    auto vkConfig = config.build();
-    vkConfig.layout = *pipelineLayout;
-
-    VK_MAKE(pipeline,
-            vkcore.device.logical.createGraphicsPipeline(nullptr, vkConfig),
-            "Failed to create graphics pipeline");
 
 #ifndef NDEBUG
     std::string layoutName =
@@ -249,7 +219,16 @@ namespace keptech::vkh {
             .objectHandle = reinterpret_cast<uint64_t>(vkPipelineLayout),
             .pObjectName = layoutName.c_str(),
         });
+#endif
 
+    auto vkConfig = config.build();
+    vkConfig.layout = *pipelineLayout;
+
+    VK_MAKE(pipeline,
+            vkcore.device.logical.createGraphicsPipeline(nullptr, vkConfig),
+            "Failed to create graphics pipeline");
+
+#ifndef NDEBUG
     VkPipeline vkPipeline = *pipeline;
     vkcore.device.logical.setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
@@ -268,16 +247,23 @@ namespace keptech::vkh {
     mat.setName(createInfo.shader.name);
     mat.setRenderingMode(createInfo.shader.mode);
 #endif
-    if (createInfo.shader.mode == shaders::RenderingMode::Deferred) {
+    switch (createInfo.shader.mode) {
+    case shaders::RenderingMode::Deferred:
       mat.setStage(PipelineStage::Deferred);
-    } else if (createInfo.shader.mode == shaders::RenderingMode::Forward) {
+      break;
+    case shaders::RenderingMode::Forward:
       if (createInfo.blend.enableBlending) {
         mat.setStage(PipelineStage::Transparent);
       } else {
         mat.setStage(PipelineStage::Opaque);
       }
-    } else {
+      break;
+    case shaders::RenderingMode::DeferredLighting:
+      mat.setStage(PipelineStage::DeferredLighting);
+      break;
+    case shaders::RenderingMode::Custom:
       return std::unexpected("Unsupported shader rendering mode");
+      break;
     }
 
     mat.extraInstanceDataSize = 0;
@@ -362,7 +348,7 @@ namespace keptech::vkh {
 
     mat.getInstanceDataTypes() = std::move(createInfo.layout.instanceDataTypes);
 
-    VK_INFO("Created material '{}'", createInfo.shader.name);
+    VK_DEBUG("Created material '{}'", createInfo.shader.name);
 
     std::shared_ptr ptr = std::make_shared<LoadedPipeline>(std::move(mat));
 
@@ -458,7 +444,7 @@ namespace keptech::vkh {
       VKH_MAKE(img,
                AllocatedImage::create(vkcore.allocator, vkcore.device.logical,
                                       imageCreateInfo, allocCreateInfo,
-                                      imageViewCreateInfo, true),
+                                      imageViewCreateInfo, true, info.name),
                "Failed to create texture image");
 
 #ifndef NDEBUG
@@ -495,20 +481,16 @@ namespace keptech::vkh {
         u.push_back(ptr);
       }
 
-      images.push_back(ptr);
+      ImgPtr imgPtr = ptr;
+      images.push_back(std::move(imgPtr));
 
       if (info.data == nullptr) {
-        VK_DEBUG("Image '{}' has no data to upload, skipping upload step",
-                 info.name);
         continue;
       }
 
       size_t pixelSize = componentsSize(info.format, TextureFormat::RGBA8);
 
       size_t imgSize = pixelSize * info.size.x * info.size.y * info.size.z;
-
-      VK_DEBUG("Offset: {}, Size: {}, Pixel Size: {}", currentStagingOffset,
-               imgSize, pixelSize);
 
       memcpy(stagingBuf.mapping() + currentStagingOffset, info.data, imgSize);
 
