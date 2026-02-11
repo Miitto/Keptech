@@ -1,8 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <spdlog/fmt/bundled/format.h>
+#include <string>
 #include <vector>
 
 #ifndef BIT
@@ -80,11 +82,12 @@ namespace keptech::shaders {
   };
 
   struct Shader {
-    const char* name;
-    std::span<const uint8_t> code;
+    std::string name;
+    std::optional<std::string> file = std::nullopt;
+    std::vector<uint8_t> code;
     RenderingMode mode;
-    std::span<const ShaderStage> stages;
-    std::span<const std::span<const DataType>> vertexLayout;
+    std::vector<ShaderStage> stages;
+    std::vector<std::vector<DataType>> vertexLayout;
   };
 } // namespace keptech::shaders
 

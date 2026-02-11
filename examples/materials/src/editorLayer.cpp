@@ -4,7 +4,9 @@
 #include "keptech/core/components/lights.hpp"
 #include "keptech/core/components/transform.hpp"
 #include "keptech/ecs/entity.hpp"
+#include "keptech/shader_processor/shader_processor.hpp"
 #include <filesystem>
+#include <fstream>
 #include <imgui/misc/cpp/imgui_stdlib.h>
 
 #include <spdlog/fmt/bundled/format.h>
@@ -139,6 +141,7 @@ MaterialEditorLayer::MaterialEditorLayer(
   renderer.loadImGuiImageHandle(renderer.getLightingBuffers().diffuse);
   renderer.loadImGuiImageHandle(renderer.getLightingBuffers().specular);
 
+  keptech::shader_processor::init();
   refreshAssetsDirectory();
 }
 
@@ -816,6 +819,80 @@ void MaterialEditorLayer::pipelineInspectorUi(keptech::gui::Frame& frame,
     bool checked = (pipeline.getStage() != S::Opaque);
     if (ImGui::Checkbox("Transparent", &checked)) {
       pipeline.setStage(checked ? S::Transparent : S::Opaque);
+    }
+  }
+
+  if (frame.button("Reload")) {
+    auto info = pipeline.getCreateInfo();
+
+    if (!info.shader.file.has_value()) {
+      SPDLOG_WARN(
+          "Pipeline shader does not have an associated file. Cannot reload.");
+      return;
+    }
+
+    std::ifstream inputStream(info.shader.file.value());
+    auto size = std::filesystem::file_size(info.shader.file.value());
+    std::string source(size, '\0');
+    inputStream.read(source.data(), static_cast<std::streamsize>(size));
+
+    keptech::shader_processor::SessionConfig config{
+        .optimizationLevel =
+            keptech::shader_processor::OptimizationLevel::Debug,
+    };
+
+    keptech::shader_processor::CompilerSession session(config);
+
+    auto [inputModule, inputDiag] =
+        session.loadModule(info.shader.name.c_str(), source);
+    if (!inputModule) {
+      SPDLOG_ERROR("Failed to load input module.\n{}",
+                   inputDiag->getBufferPointer());
+      return;
+    }
+    if (inputDiag) {
+      SPDLOG_WARN("Shader module load diagnostics:\n{}",
+                  inputDiag->getBufferPointer());
+    }
+
+    auto [program, diag] = session.link();
+    if (!program.valid()) {
+      SPDLOG_ERROR("Failed to link program.\n{}",
+                   diag ? diag->getBufferPointer() : "No diagnostics");
+      return;
+    }
+    if (diag) {
+      SPDLOG_WARN("Shader link diagnostics:\n{}", diag->getBufferPointer());
+    }
+
+    auto res = program.toShader(info.shader.name.c_str());
+    if (!res) {
+      SPDLOG_ERROR("Failed to convert program to shader: {}", res.error());
+      return;
+    }
+
+    auto& shader = res.value();
+
+    shader.file = info.shader.file;
+
+    keptech::PipelineCreateInfo newInfo{
+        .shader = std::move(shader),
+        .attachments = info.attachments,
+        .topology = info.topology,
+        .rasterizer = info.rasterizer,
+        .blend = info.blend,
+        .depth = info.depth,
+        .layout = info.layout,
+    };
+
+    auto newPipeline = renderer.createPipeline(newInfo);
+    if (newPipeline) {
+      keptech::IPipeline* np = newPipeline->get();
+      pipeline = *np;
+      SPDLOG_INFO("{} Pipeline reloaded successfully.",
+                  pipeline.getDebugName());
+    } else {
+      SPDLOG_ERROR("Failed to create new pipeline: {}", newPipeline.error());
     }
   }
 }

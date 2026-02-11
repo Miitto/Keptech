@@ -53,14 +53,7 @@ namespace keptech::shader_processor {
       return program->getLayout();
     }
 
-    struct ShaderResources {
-      std::vector<shaders::ShaderStage> stages;
-      std::vector<std::vector<shaders::DataType>> vertexLayout;
-      std::vector<std::span<const shaders::DataType>> vertexLayoutSpans;
-      Slang::ComPtr<slang::IBlob> code;
-    };
-    [[nodiscard]] std::expected<
-        std::pair<keptech::shaders::Shader, ShaderResources>, std::string>
+    [[nodiscard]] std::expected<keptech::shaders::Shader, std::string>
     toShader(const char* name) const;
 
   private:

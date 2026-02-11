@@ -394,8 +394,7 @@ namespace keptech::shader_processor {
     return {.spirv = std::move(spirvBlob), .diagnostics = std::move(diagBlob)};
   }
 
-  std::expected<std::pair<keptech::shaders::Shader, Program::ShaderResources>,
-                std::string>
+  std::expected<keptech::shaders::Shader, std::string>
   Program::toShader(const char* name) const {
     auto [kernel, diag] = getCode();
     if (diag) {
@@ -406,17 +405,18 @@ namespace keptech::shader_processor {
           "Failed to get SPIR-V code for shader.");
     }
 
+    std::vector<uint8_t> code(kernel->getBufferSize());
+    memcpy(code.data(), kernel->getBufferPointer(), kernel->getBufferSize());
+
     keptech::shaders::Shader shader = {
         .name = name,
-        .code = std::span<const uint8_t>(
-            static_cast<const uint8_t*>(kernel->getBufferPointer()),
-            kernel->getBufferSize()),
+        .code = std::move(code),
     };
     auto layout = program->getLayout();
 
     auto entryPointCount = layout->getEntryPointCount();
-    std::vector<keptech::shaders::ShaderStage> stages;
-    stages.reserve(entryPointCount);
+
+    shader.stages.reserve(entryPointCount);
 
     std::vector<std::vector<keptech::shaders::DataType>> vertexLayout;
 
@@ -472,28 +472,15 @@ namespace keptech::shader_processor {
       case shaders::ShaderStages::Compute:
         break;
       }
-      stages.push_back(keptech::shaders::ShaderStage{
+      shader.stages.push_back(keptech::shaders::ShaderStage{
           .name = entryPoint->getName(), .stage = stage});
     }
 
-    shader.stages = std::span<const keptech::shaders::ShaderStage>(
-        stages.data(), stages.size());
-
-    std::vector<std::span<const keptech::shaders::DataType>> vertexLayoutSpans;
-    vertexLayoutSpans.reserve(vertexLayout.size());
+    shader.vertexLayout.reserve(vertexLayout.size());
     for (auto& layoutEntry : vertexLayout) {
-      vertexLayoutSpans.emplace_back(layoutEntry.data(), layoutEntry.size());
+      shader.vertexLayout.emplace_back(std::move(layoutEntry));
     }
 
-    shader.vertexLayout =
-        std::span<std::span<const keptech::shaders::DataType>>(
-            vertexLayoutSpans.data(), vertexLayoutSpans.size());
-
-    return std::move(std::make_pair(
-        shader,
-        ShaderResources{.stages = std::move(stages),
-                        .vertexLayout = std::move(vertexLayout),
-                        .vertexLayoutSpans = std::move(vertexLayoutSpans),
-                        .code = std::move(kernel)}));
+    return std::move(shader);
   }
 } // namespace keptech::shader_processor

@@ -234,39 +234,31 @@ namespace keptech::vkh {
         vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::ePipeline,
             .objectHandle = reinterpret_cast<uint64_t>(vkPipeline),
-            .pObjectName = createInfo.shader.name,
+            .pObjectName = createInfo.shader.name.c_str(),
         });
 #endif
 
-    LoadedPipeline mat{
-        .pipeline = std::move(pipeline),
-        .pipelineLayout = std::move(pipelineLayout),
-    };
-
-#ifdef KT_ADD_RESOURCE_INFO
-    mat.setName(createInfo.shader.name);
-    mat.setRenderingMode(createInfo.shader.mode);
-#endif
+    PipelineStage stage = PipelineStage::Deferred;
     switch (createInfo.shader.mode) {
     case shaders::RenderingMode::Deferred:
-      mat.setStage(PipelineStage::Deferred);
+      stage = PipelineStage::Deferred;
       break;
     case shaders::RenderingMode::Forward:
       if (createInfo.blend.enableBlending) {
-        mat.setStage(PipelineStage::Transparent);
+        stage = PipelineStage::Transparent;
       } else {
-        mat.setStage(PipelineStage::Opaque);
+        stage = PipelineStage::Opaque;
       }
       break;
     case shaders::RenderingMode::DeferredLighting:
-      mat.setStage(PipelineStage::DeferredLighting);
+      stage = PipelineStage::DeferredLighting;
       break;
     case shaders::RenderingMode::Custom:
       return std::unexpected("Unsupported shader rendering mode");
       break;
     }
 
-    mat.extraInstanceDataSize = 0;
+    uint32_t extraInstanceDataSize = 0;
     for (auto& instanceDataType : createInfo.layout.instanceDataTypes) {
       switch (instanceDataType) {
       case shaders::DataType::None:
@@ -275,14 +267,14 @@ namespace keptech::vkh {
       case shaders::DataType::Bool:
       case shaders::DataType::I8:
       case shaders::DataType::U8:
-        mat.extraInstanceDataSize += 1;
+        extraInstanceDataSize += 1;
         break;
       case shaders::DataType::F16:
       case shaders::DataType::I16:
       case shaders::DataType::U16:
       case shaders::DataType::I8_2:
       case shaders::DataType::U8_2:
-        mat.extraInstanceDataSize += 2;
+        extraInstanceDataSize += 2;
         break;
       case shaders::DataType::F32:
       case shaders::DataType::I32:
@@ -292,7 +284,7 @@ namespace keptech::vkh {
       case shaders::DataType::U16_2:
       case shaders::DataType::I8_4:
       case shaders::DataType::U8_4:
-        mat.extraInstanceDataSize += 4;
+        extraInstanceDataSize += 4;
         break;
       case shaders::DataType::F64:
       case shaders::DataType::I64:
@@ -303,7 +295,7 @@ namespace keptech::vkh {
       case shaders::DataType::I16_4:
       case shaders::DataType::U32_2:
       case shaders::DataType::U16_4:
-        mat.extraInstanceDataSize += 8;
+        extraInstanceDataSize += 8;
         break;
       case shaders::DataType::F64_2:
       case shaders::DataType::F32_4:
@@ -311,42 +303,50 @@ namespace keptech::vkh {
       case shaders::DataType::I32_4:
       case shaders::DataType::U64_2:
       case shaders::DataType::U32_4:
-        mat.extraInstanceDataSize += 16;
+        extraInstanceDataSize += 16;
         break;
       case shaders::DataType::F16_3:
       case shaders::DataType::I16_3:
       case shaders::DataType::U16_3:
-        mat.extraInstanceDataSize += 6;
+        extraInstanceDataSize += 6;
         break;
       case shaders::DataType::F32_3:
       case shaders::DataType::I32_3:
       case shaders::DataType::U32_3:
-        mat.extraInstanceDataSize += 12;
+        extraInstanceDataSize += 12;
         break;
       case shaders::DataType::F64_3:
       case shaders::DataType::I64_3:
       case shaders::DataType::U64_3:
-        mat.extraInstanceDataSize += 24;
+        extraInstanceDataSize += 24;
         break;
       case shaders::DataType::F64_4:
       case shaders::DataType::I64_4:
       case shaders::DataType::U64_4:
-        mat.extraInstanceDataSize += 32;
+        extraInstanceDataSize += 32;
         break;
       case shaders::DataType::I8_3:
       case shaders::DataType::U8_3:
-        mat.extraInstanceDataSize += 3;
+        extraInstanceDataSize += 3;
         break;
       case shaders::DataType::F32_4x4:
-        mat.extraInstanceDataSize += 64;
+        extraInstanceDataSize += 64;
         break;
       case shaders::DataType::Sampler2D:
-        mat.extraInstanceDataSize += 4; // u32 index
+        extraInstanceDataSize += 4; // u32 index
         break;
       }
     }
 
-    mat.getInstanceDataTypes() = std::move(createInfo.layout.instanceDataTypes);
+    LoadedPipeline mat(
+        std::move(pipeline), std::move(pipelineLayout), extraInstanceDataSize,
+        stage, std::move(createInfo.layout.instanceDataTypes)
+#ifdef KT_ADD_RESOURCE_INFO
+                   ,
+        createInfo.shader.name, createInfo.shader.mode, createInfo
+#endif
+
+    );
 
     VK_DEBUG("Created material '{}'", createInfo.shader.name);
 

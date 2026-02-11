@@ -116,7 +116,7 @@ namespace keptech {
   };
 
   struct PipelineCreateInfo {
-    const keptech::shaders::Shader& shader; // NOLINT
+    keptech::shaders::Shader shader;
     AttachmentConfig attachments = {};
     Topology topology = Topology::TriangleList;
     RasterizerConfig rasterizer = {};
@@ -228,12 +228,32 @@ namespace keptech {
     [[nodiscard]] shaders::RenderingMode getRenderingMode() const {
       return mode;
     }
+
+    [[nodiscard]] const PipelineCreateInfo& getCreateInfo() const {
+      return createInfo;
+    }
 #endif
+
+    IPipeline(PipelineStage stage,
+              std::vector<shaders::DataType> instanceDataTypes
+#ifdef KT_ADD_RESOURCE_INFO
+              ,
+              std::string name, shaders::RenderingMode mode,
+              PipelineCreateInfo createInfo
+#endif
+              )
+        :
+#ifdef KT_ADD_RESOURCE_INFO
+          name(std::move(name)), mode(mode), createInfo(std::move(createInfo)),
+#endif
+          stage(stage), instanceDataTypes(std::move(instanceDataTypes)) {
+    }
 
   protected:
 #ifdef KT_ADD_RESOURCE_INFO
     std::string name;
     shaders::RenderingMode mode;
+    PipelineCreateInfo createInfo;
 #endif
     PipelineStage stage;
     std::vector<shaders::DataType> instanceDataTypes = {};

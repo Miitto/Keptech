@@ -4,7 +4,7 @@ set_property(CACHE RENDERER_LOG_LEVEL PROPERTY STRINGS ${RENDERER_LOG_LEVEL_OPTI
 
 add_executable(materials)
 
-target_link_libraries(materials PRIVATE keptech::keptech)
+target_link_libraries(materials PRIVATE keptech::keptech keptech::shader_processor)
 
 target_sources(materials
   PRIVATE

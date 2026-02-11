@@ -70,15 +70,18 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  auto& [shader, codeOwner] = res.value();
+  auto& shader = res.value();
+
+  shader.file = inputFile;
 
   std::ofstream out(outputFile);
 
   out << "#pragma once\n\n#include <keptech/shaders/shader.h>\n";
 
-  out << "constexpr const unsigned char " << name << "_source[] = {";
+  out << "keptech::shaders::Shader " << name << "{ .name = \"" << name
+      << "\",\n .file = \"" << inputFile << "\",\n .code = {\n";
   for (size_t i = 0; i < shader.code.size(); ++i) {
-    if (i % 12 == 0) {
+    if (i % 96 == 0) {
       out << "\n    ";
     }
     out << "0x" << std::hex << static_cast<uint32_t>(shader.code[i]);
@@ -86,42 +89,27 @@ int main(int argc, char** argv) {
       out << ", ";
     }
   }
-  out << "};\nconstexpr keptech::shaders::ShaderStage " << name
-      << "_stages[] = {";
+  out << "\n},\n .mode = static_cast<keptech::shaders::RenderingMode>("
+      << std::dec << static_cast<uint32_t>(shader.mode) << "),\n .stages = {\n";
 
   for (auto& stage : shader.stages) {
     out << "{.name = \"" << stage.name
         << "\", .stage = static_cast<keptech::shaders::ShaderStages>("
-        << static_cast<uint32_t>(stage.stage) << ")},\n";
+        << std::dec << static_cast<uint32_t>(stage.stage) << ")},\n";
   }
 
-  for (int i = 0; i < shader.vertexLayout.size(); ++i) {
-    auto& param = shader.vertexLayout[i];
-    out << "};\nconstexpr keptech::shaders::DataType " << name
-        << "_vertexLayout" << std::dec << i << "[] = {\n";
-    for (auto& type : param) {
-      out << "    static_cast<keptech::shaders::DataType>("
+  out << "\n},\n .vertexLayout = {\n";
+
+  for (auto& layout : shader.vertexLayout) {
+    out << "{\n";
+    for (auto& type : layout) {
+      out << "    static_cast<keptech::shaders::DataType>(" << std::dec
           << static_cast<uint32_t>(type) << "),\n";
     }
+    out << "},\n";
   }
 
-  out << "};\nconstexpr std::span<const "
-         "keptech::shaders::DataType> "
-      << name << "_vertexLayout[] = {\n";
-  for (int i = 0; i < shader.vertexLayout.size(); ++i) {
-    out << "    std::span<const keptech::shaders::DataType>(" << name
-        << "_vertexLayout" << std::dec << i << ", "
-        << shader.vertexLayout[i].size() << "),\n";
-  }
-
-  out << "};\nconstexpr keptech::shaders::Shader " << name << "{ .name = \""
-      << name << "\",\n .code = std::span(" << name << "_source, " << std::dec
-      << shader.code.size()
-      << "),\n.mode = static_cast<keptech::shaders::RenderingMode>("
-      << static_cast<uint32_t>(shader.mode) << "),\n .stages = std::span("
-      << name << "_stages, " << std::dec << shader.stages.size()
-      << "),\n .vertexLayout = std::span(" << name << "_vertexLayout, "
-      << std::dec << shader.vertexLayout.size() << "),};\n";
+  out << "},\n};\n";
 
   return 0;
 }

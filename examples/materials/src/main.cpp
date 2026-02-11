@@ -15,7 +15,6 @@
 
 namespace shaders {
 #include "shaders/basic.h"
-#include "shaders/deferred.h"
 } // namespace shaders
 
 constexpr int WINDOW_WIDTH = 1280;
