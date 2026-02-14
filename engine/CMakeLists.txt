@@ -25,7 +25,7 @@ target_link_libraries(${PROJECT_NAME}
     keptech::core
 )
 
-if(KEPTECH_RENDERER STREQUAL "Vulkan")
+if(ENABLE_VULKAN)
   target_link_libraries(${PROJECT_NAME}
     PUBLIC
       keptech::vulkan

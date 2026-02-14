@@ -55,6 +55,11 @@ namespace keptech {
     } break;
 #endif
     }
+
+    if (!backend) {
+      return std::unexpected("Failed to create renderer backend");
+    }
+
     {
 
       auto windowSize = window.getRenderSize();

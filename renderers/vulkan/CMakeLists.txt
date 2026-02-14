@@ -31,7 +31,7 @@ target_link_libraries(${PROJECT_NAME}
 
 target_compile_definitions(${PROJECT_NAME}
   PUBLIC
-    KEPTECH_RENDERER_VULKAN
+    KEPTECH_RENDERER_VULKAN=1
     KEPTECH_RENDERER_NAMESPACE=keptech::vkh
     KEPTECH_RENDERER=keptech::vkh::Renderer
     MAX_FRAMES_IN_FLIGHT=2
