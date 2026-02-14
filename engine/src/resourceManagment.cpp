@@ -116,14 +116,20 @@ namespace keptech {
 
       if (node.meshIndex != UINT32_MAX) {
         auto& submeshes = meshes[node.meshIndex];
-        for (auto& submesh : submeshes) {
-          sceneNode.children.push_back(gltf::Scene::Node{
+
+        if (submeshes.size() == 1) {
+          sceneNode.mesh = submeshes[0].mesh;
+          sceneNode.material = materials[submeshes[0].materialIndex];
+        } else {
+          for (auto& submesh : submeshes) {
+            sceneNode.children.push_back(gltf::Scene::Node{
 #ifdef KT_ADD_RESOURCE_INFO
-              .name = submesh.mesh->getDebugName(),
+                .name = submesh.mesh->getDebugName(),
 #endif
-              .transform = maths::Transform{},
-              .mesh = submesh.mesh,
-              .material = materials[submesh.materialIndex]});
+                .transform = maths::Transform{},
+                .mesh = submesh.mesh,
+                .material = materials[submesh.materialIndex]});
+          }
         }
       }
 
