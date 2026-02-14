@@ -189,6 +189,10 @@ namespace keptech {
       auto newVertexBufferSize =
           buffers.vertex->getSize() + requiredVertexBufferSize;
 
+      KT_DEBUG("Reallocating vertex buffer from {} bytes to {} bytes to fit "
+               "glTF data",
+               buffers.vertex->getSize(), newVertexBufferSize);
+
       auto res = backend->createBuffer({
           .name = "Vertex Buffer",
           .size = newVertexBufferSize,
@@ -210,6 +214,11 @@ namespace keptech {
     if (buffers.indexEnd + requiredIndexBufferSize > buffers.index->getSize()) {
       auto newIndexBufferSize =
           buffers.index->getSize() + requiredIndexBufferSize;
+
+      KT_DEBUG("Reallocating index buffer from {} bytes to {} bytes to fit "
+               "glTF data",
+               buffers.index->getSize(), newIndexBufferSize);
+
       auto res = backend->createBuffer({
           .name = "Index Buffer",
           .size = newIndexBufferSize,

@@ -360,22 +360,26 @@ namespace keptech::vkh {
     std::vector<ImgPtr> images;
     images.reserve(infos.size());
 
-    size_t stagingBufferSize = 0;
+    for (auto& info : infos) {
+      if (info.data == nullptr)
+        continue;
+    }
+
+    std::vector<AddressedAllocatedBuffer> stagingBuffers;
+    stagingBuffers.reserve(infos.size());
+
     for (auto& info : infos) {
       if (info.data == nullptr)
         continue;
       size_t pixelSize = componentsSize(info.format, TextureFormat::RGBA8);
 
-      stagingBufferSize += pixelSize * info.size.x * info.size.y;
-    }
+      size_t sz = pixelSize * info.size.x * info.size.y * info.size.z;
 
-    AddressedAllocatedBuffer stagingBuf;
-    if (stagingBufferSize > 0) {
       VKH_MAKE(b,
                AddressedAllocatedBuffer::create(
                    vkcore.device.logical, vkcore.allocator,
                    {
-                       .size = stagingBufferSize,
+                       .size = sz,
                        .usage = vk::BufferUsageFlagBits::eTransferSrc |
                                 vk::BufferUsageFlagBits::eShaderDeviceAddress,
                    },
@@ -384,7 +388,7 @@ namespace keptech::vkh {
                        .usage = vma::MemoryUsage::eCpuToGpu,
                    }),
                "Failed to create staging buffer for image transfer");
-      stagingBuf = std::move(b);
+      stagingBuffers.emplace_back(b);
     }
 
     vk::CommandBufferAllocateInfo allocInfo{
@@ -400,7 +404,7 @@ namespace keptech::vkh {
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    size_t currentStagingOffset = 0;
+    size_t stagingIndex = 0;
 
     for (auto& info : infos) {
       vk::Format vkFormat = from(info.format, vk::Format::eR8G8B8A8Unorm);
@@ -492,7 +496,8 @@ namespace keptech::vkh {
 
       size_t imgSize = pixelSize * info.size.x * info.size.y * info.size.z;
 
-      memcpy(stagingBuf.mapping() + currentStagingOffset, info.data, imgSize);
+      auto& stagingBuf = stagingBuffers[stagingIndex++];
+      memcpy(stagingBuf.mapping(), info.data, imgSize);
 
       vk::ImageMemoryBarrier2 toWriteBarrier{
           .dstStageMask = vk::PipelineStageFlagBits2::eCopy,
@@ -515,7 +520,7 @@ namespace keptech::vkh {
       });
 
       vk::BufferImageCopy2 copyRegion{
-          .bufferOffset = currentStagingOffset,
+          .bufferOffset = 0,
           .bufferRowLength = 0,
           .bufferImageHeight = 0,
           .imageSubresource =
@@ -563,13 +568,17 @@ namespace keptech::vkh {
           .imageMemoryBarrierCount = 1,
           .pImageMemoryBarriers = &toShaderReadBarrier,
       });
-
-      currentStagingOffset += imgSize;
     }
 
     cmdBuf.end();
 
-    BufPtr buf = std::make_shared<vkh::Buffer>(vkcore.allocator, stagingBuf);
+    std::vector<BufPtr> bufs;
+    bufs.reserve(stagingBuffers.size());
+
+    for (auto& stagingBuf : stagingBuffers) {
+      auto buffer = std::make_shared<vkh::Buffer>(vkcore.allocator, stagingBuf);
+      bufs.push_back(buffer);
+    }
 
     CmdBufPtr cmdBuffer = std::make_unique<vkh::CommandBuffer>(
         std::move(cmdBuf), CmdBufType::Compute);
@@ -577,7 +586,7 @@ namespace keptech::vkh {
     std::vector<SubmitInfo> submitInfos;
     submitInfos.push_back({
         .commandBuffer = std::move(cmdBuffer),
-        .trackedBuffers = {buf},
+        .trackedBuffers = std::move(bufs),
         .trackedTextures = images,
     });
 
