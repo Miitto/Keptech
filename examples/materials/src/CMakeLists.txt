@@ -21,7 +21,9 @@ add_subdirectory(shaders)
 include(keptech_warnings)
 KT_SETUP_WARNINGS(materials)
 
-add_custom_command(TARGET materials POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:materials> $<TARGET_RUNTIME_DLLS:materials>
-  COMMAND_EXPAND_LISTS
-)
+if (NOT SDL3_FOUND)
+  add_custom_command(TARGET materials POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:materials> $<TARGET_RUNTIME_DLLS:materials>
+    COMMAND_EXPAND_LISTS
+  )
+endif()

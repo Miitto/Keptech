@@ -24,41 +24,57 @@ namespace keptech {
 
     size_t vertexSize = data.vertices.size() * sizeof(Vertex);
     size_t indexSize = data.indices.size() * sizeof(uint32_t);
-    size_t totalSize = vertexSize + indexSize;
 
-    BufferCreateInfo stagingBufInfo{
-        .name = fmt::format("Staging Buffer for Mesh '{}'", data.name),
-        .size = totalSize,
+    BufferCreateInfo vertexStagingBufInfo{
+        .name = fmt::format("Vertex staging Buffer for Mesh '{}'", data.name),
+        .size = vertexSize,
+        .usage = BufferUsage::TransferSrc,
+        .memoryType = BufferMemoryType::CpuToGpu,
+    };
+    BufferCreateInfo indexStagingBufInfo{
+        .name = fmt::format("Index staging Buffer for Mesh '{}'", data.name),
+        .size = indexSize,
         .usage = BufferUsage::TransferSrc,
         .memoryType = BufferMemoryType::CpuToGpu,
     };
 
-    auto stagingBufRes = backend->createBuffer(stagingBufInfo);
-    if (!stagingBufRes) {
+    auto vertexStagingBufRes = backend->createBuffer(vertexStagingBufInfo);
+    if (!vertexStagingBufRes) {
       return std::unexpected(
           fmt::format("Failed to create staging buffer for mesh loading: {}",
-                      stagingBufRes.error()));
+                      vertexStagingBufRes.error()));
     }
 
-    auto& stagingBuf = stagingBufRes.value();
+    auto indexStagingBufRes = backend->createBuffer(indexStagingBufInfo);
+    if (!indexStagingBufRes) {
+      return std::unexpected(
+          fmt::format("Failed to create staging buffer for mesh loading: {}",
+                      indexStagingBufRes.error()));
+    }
 
-    uint8_t* mapping = static_cast<uint8_t*>(stagingBuf->getMapping());
+    auto& vertexStagingBuf = vertexStagingBufRes.value();
+    auto& indexStagingBuf = indexStagingBufRes.value();
 
-    memcpy(mapping, data.vertices.data(), vertexSize);
-    mapping += vertexSize;
-    memcpy(mapping, data.indices.data(), indexSize);
+    uint8_t* vertexMapping =
+        static_cast<uint8_t*>(vertexStagingBuf->getMapping());
+    uint8_t* indexMapping =
+        static_cast<uint8_t*>(indexStagingBuf->getMapping());
+
+    memcpy(vertexMapping, data.vertices.data(), vertexSize);
+    memcpy(indexMapping, data.indices.data(), indexSize);
 
     cmdBuf->begin();
-    cmdBuf->copyBufferToBuffer(*stagingBuf.get(), *buffers.vertex.get(),
+    cmdBuf->copyBufferToBuffer(*vertexStagingBuf.get(), *buffers.vertex.get(),
                                vertexSize, 0, buffers.vertexEnd);
-    cmdBuf->copyBufferToBuffer(*stagingBuf.get(), *buffers.index.get(),
-                               indexSize, vertexSize, buffers.indexEnd);
+    cmdBuf->copyBufferToBuffer(*indexStagingBuf.get(), *buffers.index.get(),
+                               indexSize, 0, buffers.indexEnd);
     cmdBuf->end();
 
     std::vector<IRendererBackend::SubmitInfo> submitInfos;
     submitInfos.push_back(IRendererBackend::SubmitInfo{
         .commandBuffer = std::move(cmdBuf),
-        .trackedBuffers = {stagingBuf, buffers.vertex, buffers.index},
+        .trackedBuffers = {vertexStagingBuf, indexStagingBuf, buffers.vertex,
+                           buffers.index},
     });
     backend->submitCommandBuffers(std::move(submitInfos));
 
