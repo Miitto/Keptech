@@ -1,9 +1,11 @@
 #include "keptech/renderer.hpp"
 
+#include <execution>
 #include <keptech/core/image.hpp>
 #include <keptech/core/kt-logger.hpp>
 #include <keptech/core/rendering/gltf/data.hpp>
 #include <keptech/core/rendering/gltf/scene.hpp>
+#include <ranges>
 
 namespace keptech {
   std::expected<Mesh, std::string> Renderer::loadMesh(const MeshData& data) {
@@ -317,86 +319,88 @@ namespace keptech {
     backend->submitCommandBuffers(std::move(submitInfos));
 
     std::vector<Image> imageData;
-    imageData.reserve(gltf.images.size());
+    imageData.resize(gltf.images.size());
 
     std::vector<IRendererBackend::ImageUploadInfo> imageUploadInfos;
-    imageUploadInfos.reserve(gltf.images.size());
+    imageUploadInfos.resize(gltf.images.size());
 
-    for (auto& image : gltf.images) {
-      auto imgRes = std::visit(
-          fastgltf::visitor{
-              [](auto& arg) -> std::expected<keptech::Image, std::string> {
-                KT_ERROR("Unsupported glTF image source type {}",
-                         typeid(arg).name());
-                return std::unexpected("Unsupported glTF image source.");
+    auto enumView = std::views::enumerate(gltf.images);
+
+    auto visitor = fastgltf::visitor{
+        [](auto& arg) -> std::expected<keptech::Image, std::string> {
+          KT_ERROR("Unsupported glTF image source type {}", typeid(arg).name());
+          return std::unexpected("Unsupported glTF image source.");
+        },
+        [&](fastgltf::sources::Array& array) {
+          return keptech::Image::loadFromMemory(
+              reinterpret_cast<const uint8_t*>(array.bytes.data()),
+              static_cast<int>(array.bytes.size()), 4);
+        },
+        [&](fastgltf::sources::URI& filePath) {
+          assert(filePath.fileByteOffset ==
+                 0); // We don't support offsets with stbi.
+          assert(filePath.uri.isLocalPath()); // We're only capable of
+                                              // loading local files.
+
+          const std::string path(filePath.uri.path().begin(),
+                                 filePath.uri.path().end());
+          return keptech::Image::loadFromFile(path.c_str(), 4);
+        },
+        [&](fastgltf::sources::Vector& vector) {
+          return keptech::Image::loadFromMemory(
+              reinterpret_cast<const uint8_t*>(vector.bytes.data()),
+              static_cast<int>(vector.bytes.size()), 4);
+        },
+        [&](fastgltf::sources::BufferView view) {
+          auto& bufferView = gltf.bufferViews[view.bufferViewIndex];
+          auto& buffer = gltf.buffers[bufferView.bufferIndex];
+
+          return std::visit(
+              fastgltf::visitor{
+                  // We only care about VectorWithMime here, because
+                  // we
+                  // specify LoadExternalBuffers, meaning all buffers
+                  // are already loaded into a vector.
+                  [](auto& arg) -> std::expected<keptech::Image, std::string> {
+                    KT_ERROR("Unsupported glTF image source buffer "
+                             "type {}",
+                             typeid(arg).name());
+                    return std::unexpected("Unsupported glTF image "
+                                           "source in buffer view.");
+                  },
+                  [&](fastgltf::sources::Array& array) {
+                    return keptech::Image::loadFromMemory(
+                        reinterpret_cast<uint8_t*>(array.bytes.data()) +
+                            bufferView.byteOffset,
+                        static_cast<int>(bufferView.byteLength), 4);
+                  },
+                  [&](fastgltf::sources::Vector& vector) {
+                    return keptech::Image::loadFromMemory(
+                        reinterpret_cast<uint8_t*>(vector.bytes.data()) +
+                            bufferView.byteOffset,
+                        static_cast<int>(bufferView.byteLength), 4);
+                  },
               },
-              [&](fastgltf::sources::Array& array) {
-                return keptech::Image::loadFromMemory(
-                    reinterpret_cast<const uint8_t*>(array.bytes.data()),
-                    static_cast<int>(array.bytes.size()), 4);
-              },
-              [&](fastgltf::sources::URI& filePath) {
-                assert(filePath.fileByteOffset ==
-                       0); // We don't support offsets with stbi.
-                assert(filePath.uri.isLocalPath()); // We're only capable of
-                                                    // loading local files.
+              buffer.data);
+        },
+    };
 
-                const std::string path(filePath.uri.path().begin(),
-                                       filePath.uri.path().end());
-                return keptech::Image::loadFromFile(path.c_str(), 4);
-              },
-              [&](fastgltf::sources::Vector& vector) {
-                return keptech::Image::loadFromMemory(
-                    reinterpret_cast<const uint8_t*>(vector.bytes.data()),
-                    static_cast<int>(vector.bytes.size()), 4);
-              },
-              [&](fastgltf::sources::BufferView& view) {
-                auto& bufferView = gltf.bufferViews[view.bufferViewIndex];
-                auto& buffer = gltf.buffers[bufferView.bufferIndex];
+    std::for_each(std::execution::par_unseq, enumView.begin(), enumView.end(),
+                  [&](const std::tuple<size_t, fastgltf::Image&>& pair) {
+                    const auto& [idx, img] = pair;
 
-                return std::visit(
-                    fastgltf::visitor{
-                        // We only care about VectorWithMime here, because we
-                        // specify LoadExternalBuffers, meaning all buffers
-                        // are already loaded into a vector.
-                        [](auto& arg)
-                            -> std::expected<keptech::Image, std::string> {
-                          KT_ERROR(
-                              "Unsupported glTF image source buffer type {}",
-                              typeid(arg).name());
-                          return std::unexpected(
-                              "Unsupported glTF image source in buffer view.");
-                        },
-                        [&](fastgltf::sources::Array& array) {
-                          return keptech::Image::loadFromMemory(
-                              reinterpret_cast<uint8_t*>(array.bytes.data()) +
-                                  bufferView.byteOffset,
-                              static_cast<int>(bufferView.byteLength), 4);
-                        },
-                        [&](fastgltf::sources::Vector& vector) {
-                          return keptech::Image::loadFromMemory(
-                              reinterpret_cast<uint8_t*>(vector.bytes.data()) +
-                                  bufferView.byteOffset,
-                              static_cast<int>(bufferView.byteLength), 4);
-                        },
-                    },
-                    buffer.data);
-              },
-          },
-          image.data);
+                    auto imgRes = std::visit(visitor, img.data);
 
-      if (!imgRes) {
-        return std::unexpected(
-            fmt::format("Failed to load glTF image: {}", imgRes.error()));
-      }
+                    KT_ASSERT(imgRes, "Failed to load glTF image '{}': {}",
+                              img.name, imgRes.error());
 
-      imageData.push_back(std::move(imgRes.value()));
-
-      imageUploadInfos.push_back(IRendererBackend::ImageUploadInfo{
-          .name = std::string(image.name),
-          .image = imageData.back(),
-          .usage = TextureUsage::Sampled | TextureUsage::TransferDst});
-    }
+                    imageData[idx] = std::move(imgRes.value());
+                    imageUploadInfos[idx] = IRendererBackend::ImageUploadInfo{
+                        .name = std::string(img.name),
+                        .image = &imageData[idx],
+                        .usage =
+                            TextureUsage::Sampled | TextureUsage::TransferDst};
+                  });
 
     auto imagesRes = backend->createImages(imageUploadInfos);
     if (!imagesRes) {

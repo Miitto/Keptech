@@ -60,6 +60,18 @@
 #define KT_CRITICAL(...) (void)0
 #endif
 
+#ifndef NDEBUG
+#define KT_ASSERT(cond, ...)                                                   \
+  if (!(cond)) {                                                               \
+    keptech::core::logger->log(                                                \
+        spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION},               \
+        spdlog::level::critical, "Assertion failed: " __VA_ARGS__);            \
+    std::abort();                                                              \
+  }
+#else
+#define KT_ASSERT(cond, ...) (void)0
+#endif
+
 namespace keptech::core {
   extern const std::shared_ptr<spdlog::logger> logger;
 } // namespace keptech::core

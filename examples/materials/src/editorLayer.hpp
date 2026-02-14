@@ -15,11 +15,6 @@
 
 class MaterialEditorLayer;
 
-template <typename Comp>
-void forwardCompInspectorUi(MaterialEditorLayer* layer,
-                            keptech::gui::Frame* frame,
-                            keptech::ecs::EntityHandle entity);
-
 class MaterialEditorLayer : public keptech::core::layers::Layer {
 public:
   using SelectedItem =
@@ -52,19 +47,18 @@ public:
       return;
   }
 
-  void meshInspectorUi(keptech::gui::Frame& frame,
-                       keptech::components::Mesh& ro);
+  void inspectorUi(keptech::gui::Frame& frame, keptech::components::Mesh& ro);
 
-  void materialInspectorUi(keptech::gui::Frame& frame,
-                           keptech::components::Material& ro);
+  void inspectorUi(keptech::gui::Frame& frame,
+                   keptech::components::Material& ro);
 
-  void pipelineInspectorUi(keptech::gui::Frame& frame, keptech::IPipeline& ro);
+  void inspectorUi(keptech::gui::Frame& frame, keptech::IPipeline& ro);
 
-  void cameraInspectorUi(keptech::gui::Frame& frame,
-                         keptech::components::Camera& camera);
+  void inspectorUi(keptech::gui::Frame& frame,
+                   keptech::components::Camera& camera);
 
-  void pointLightInspectorUi(keptech::gui::Frame& frame,
-                             keptech::components::PointLight& light);
+  void inspectorUi(keptech::gui::Frame& frame,
+                   keptech::components::PointLight& light);
 
   struct SceneNode {
     keptech::ecs::EntityHandle id;
@@ -128,3 +122,11 @@ private:
 
   ActiveDebugView activeDebugView = ActiveDebugView::Final;
 };
+
+template <typename Comp>
+void forwardCompInspectorUi(MaterialEditorLayer* layer,
+                            keptech::gui::Frame* frame,
+                            keptech::ecs::EntityHandle entity) {
+  auto& comp = layer->getScene().getEcs().get<Comp>(entity);
+  layer->inspectorUi(*frame, comp);
+}

@@ -602,7 +602,7 @@ namespace keptech::vkh {
 
     for (auto& info : infos) {
       TextureFormat format = TextureFormat::RGBA8;
-      switch (info.image.getChannels()) {
+      switch (info.image->getChannels()) {
       case 1:
         format = TextureFormat::R8;
         break;
@@ -617,11 +617,11 @@ namespace keptech::vkh {
 
       ImageCreateInfo createInfo{
           .name = info.name,
-          .size = {info.image.getSize().x, info.image.getSize().y, 1.f},
+          .size = {info.image->getSize().x, info.image->getSize().y, 1.f},
           .format = format,
           .usage = info.usage,
           .mipLevels = info.mipLevels,
-          .data = info.image.getData(),
+          .data = info.image->getData(),
       };
       createInfos.push_back(createInfo);
     }

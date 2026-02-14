@@ -12,44 +12,6 @@
 #include <spdlog/fmt/bundled/format.h>
 
 template <>
-void forwardCompInspectorUi<keptech::components::Mesh>(
-    MaterialEditorLayer* layer, keptech::gui::Frame* frame,
-    keptech::ecs::EntityHandle entity) {
-  auto& comp =
-      layer->getScene().getEcs().get<keptech::components::Mesh>(entity);
-  layer->meshInspectorUi(*frame, comp);
-}
-
-template <>
-void forwardCompInspectorUi<keptech::components::Material>(
-    MaterialEditorLayer* layer, keptech::gui::Frame* frame,
-    keptech::ecs::EntityHandle entity) {
-
-  auto& comp =
-      layer->getScene().getEcs().get<keptech::components::Material>(entity);
-  layer->materialInspectorUi(*frame, comp);
-}
-
-template <>
-void forwardCompInspectorUi<keptech::components::Camera>(
-    MaterialEditorLayer* layer, keptech::gui::Frame* frame,
-    keptech::ecs::EntityHandle entity) {
-
-  auto& comp =
-      layer->getScene().getEcs().get<keptech::components::Camera>(entity);
-  layer->cameraInspectorUi(*frame, comp);
-}
-
-template <>
-void forwardCompInspectorUi<keptech::components::PointLight>(
-    MaterialEditorLayer* layer, keptech::gui::Frame* frame,
-    keptech::ecs::EntityHandle entity) {
-  auto& comp =
-      layer->getScene().getEcs().get<keptech::components::PointLight>(entity);
-  layer->pointLightInspectorUi(*frame, comp);
-}
-
-template <>
 struct fmt::formatter<MaterialEditorLayer::ActiveDebugView>
     : fmt::formatter<std::string_view> {
   template <typename FormatContext>
@@ -209,12 +171,13 @@ void MaterialEditorLayer::drawGui() {
 
 void MaterialEditorLayer::drawViewport() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(1.f, 0.2f, 1.0f, 1.0f));
   auto gamePanel = keptech::gui::Frame("Game", nullptr,
                                        ImGuiWindowFlags_NoDecoration |
                                            ImGuiWindowFlags_NoMove |
                                            ImGuiWindowFlags_NoScrollbar);
-  ImGui::PopStyleVar(1);
+  ImGui::PopStyleVar(2);
   ImGui::PopStyleColor(1);
 
   if (!gamePanel.isOpen()) {
@@ -505,7 +468,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
                    auto label =
                        fmt::format("Mesh: {}", meshPtr->getDebugName());
                    propertiesPanel.separatorText(label.c_str());
-                   meshInspectorUi(propertiesPanel, meshPtr);
+                   inspectorUi(propertiesPanel, meshPtr);
                  },
                  [&](keptech::PipelinePtr& pipelinePtr) {
                    if (pipelinePtr == nullptr) {
@@ -516,7 +479,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
                    auto label =
                        fmt::format("Pipeline: {}", pipelinePtr->getDebugName());
                    propertiesPanel.separatorText(label.c_str());
-                   pipelineInspectorUi(propertiesPanel, *pipelinePtr);
+                   inspectorUi(propertiesPanel, *pipelinePtr);
                  },
                  [&](keptech::ImgPtr& texturePtr) {
                    if (texturePtr == nullptr) {
@@ -728,8 +691,8 @@ void MaterialEditorLayer::drawLoadedAssetsPanel() {
   }
 }
 
-void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
-                                          keptech::components::Mesh& mesh) {
+void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
+                                      keptech::components::Mesh& mesh) {
   frame.separatorText("Mesh");
 
   const char* meshName = (mesh != nullptr) ? mesh->getDebugName().c_str() : "";
@@ -759,8 +722,8 @@ void MaterialEditorLayer::meshInspectorUi(keptech::gui::Frame& frame,
   frame.text("Index Offset: %u", mesh->getIndexOffset());
 }
 
-void MaterialEditorLayer::materialInspectorUi(
-    keptech::gui::Frame& frame, keptech::components::Material& material) {
+void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
+                                      keptech::components::Material& material) {
 
   if (material == nullptr) {
     material = std::make_shared<keptech::Material>();
@@ -784,7 +747,7 @@ void MaterialEditorLayer::materialInspectorUi(
     }
 
     if (material->pipeline != nullptr)
-      pipelineInspectorUi(frame, *material->pipeline);
+      inspectorUi(frame, *material->pipeline);
   }
 
   for (auto& data : material->instanceData) {
@@ -808,8 +771,8 @@ void MaterialEditorLayer::materialInspectorUi(
   }
 }
 
-void MaterialEditorLayer::pipelineInspectorUi(keptech::gui::Frame& frame,
-                                              keptech::IPipeline& pipeline) {
+void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
+                                      keptech::IPipeline& pipeline) {
 
   auto stageStr = fmt::format("Stage: {}", pipeline.getStage());
   frame.text(stageStr.c_str());
@@ -897,22 +860,27 @@ void MaterialEditorLayer::pipelineInspectorUi(keptech::gui::Frame& frame,
   }
 }
 
-void MaterialEditorLayer::cameraInspectorUi(keptech::gui::Frame& frame,
-                                            keptech::components::Camera& cam) {
+void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
+                                      keptech::components::Camera& cam) {
   frame.separatorText("Camera");
 
-  auto& params = cam.getParams();
+  auto params = cam.getParams();
 
   if (cam.isPerspective()) {
-    float fovY = params.perspective.fovY;
+    float fovY = glm::degrees(params.perspective.fovY);
 
     if (frame.inputFloat("FovY", fovY)) {
+      params.perspective.fovY = glm::radians(fovY);
+      cam.setPerspective(static_cast<keptech::components::PerspectiveType>(
+                             cam.getProjectionType()),
+                         params.perspective);
+      cam.recalculateProjectionMatrix();
     }
   }
 }
 
-void MaterialEditorLayer::pointLightInspectorUi(
-    keptech::gui::Frame& frame, keptech::components::PointLight& light) {
+void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
+                                      keptech::components::PointLight& light) {
   frame.separatorText("Point Light");
 
   ImGui::InputFloat("Radius", &light.radius);

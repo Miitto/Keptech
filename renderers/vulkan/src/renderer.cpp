@@ -104,14 +104,22 @@ namespace keptech::vkh {
     vk::Result res = vk::Result::eTimeout;
     uint64_t waitValue = frameInfo.perFrame->timelineValue;
 
+    bool logged = false;
     while (res = vkcore.device->waitSemaphores(
                vk::SemaphoreWaitInfo{
                    .semaphoreCount = 1,
                    .pSemaphores = &*frameInfo.perFrame->timelineSemaphore,
                    .pValues = &waitValue,
                },
-               UINT64_MAX),
+               0),
            res == vk::Result::eTimeout) {
+      if (!logged)
+        VK_DEBUG("Waiting for timeline semaphore for frame {} (value {})",
+                 frameInfo.index, waitValue);
+      logged = true;
+
+      using namespace std::chrono_literals;
+      std::this_thread::sleep_for(100ms);
     }
 
     if (res != vk::Result::eSuccess) {

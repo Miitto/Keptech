@@ -43,7 +43,7 @@ namespace keptech {
 
     struct ImageUploadInfo {
       std::string name;
-      const Image& image;
+      const Image* image;
       Bitflag<TextureUsage> usage;
       uint32_t mipLevels = 1;
     };
