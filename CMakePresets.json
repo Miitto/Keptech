@@ -30,19 +30,6 @@
       }
     },
     {
-      "name": "windows-clang",
-      "inherits": "windows",
-      "hidden": true,
-      "displayName": "Windows-only configuration",
-      "description": "This build is only available on Windows",
-      "generator": "Ninja Multi-Config",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "cmake/toolchain/windows/Windows.Clang.toolchain.cmake",
-        "CMAKE_VS_VERSION_RANGE": "[16.0,18.0)",
-        "CMAKE_VS_VERSION_PRERELEASE": "ON"
-      }
-    },
-    {
       "name": "windows-msvc-x64",
       "inherits": "windows-msvc",
       "displayName": "Configure for 'windows-msvc-x64'",
@@ -171,10 +158,6 @@
     {
       "name": "windows-msvc-host",
       "configurePreset": "windows-msvc-host"
-    },
-    {
-      "name": "windows-clang-x64",
-      "configurePreset": "windows-clang-x64"
     },
     {
       "name": "clang-x64",
