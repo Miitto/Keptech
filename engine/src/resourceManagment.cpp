@@ -467,7 +467,7 @@ namespace keptech {
       PipelinePtr& pipeline = /*matData.alphaMode == fastgltf::AlphaMode::Blend
                                   ? transparentPipeline
                                   : */
-          deferredPipeline;
+          pipelines.deferred;
 
       MaterialPtr material = std::make_shared<Material>(
           pipeline, std::vector<keptech::InstanceData>{
@@ -480,7 +480,7 @@ namespace keptech {
       KT_WARN("No materials found in glTF '{}', creating default material",
               path);
       MaterialPtr material = std::make_shared<Material>(
-          deferredPipeline,
+          pipelines.deferred,
           std::vector<keptech::InstanceData>{glm::vec2{1.f, 1.f}, glm::vec2{},
                                              0.f, ImgPtr(), glm::vec2{1.f, 1.f},
                                              glm::vec2{}, 0.f, ImgPtr()});

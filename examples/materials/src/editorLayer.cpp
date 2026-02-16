@@ -103,6 +103,10 @@ MaterialEditorLayer::MaterialEditorLayer(
   renderer.loadImGuiImageHandle(renderer.getLightingBuffers().diffuse);
   renderer.loadImGuiImageHandle(renderer.getLightingBuffers().specular);
 
+  auto& rendererPipelines = renderer.getPipelines();
+  loadedPipelines.push_back(rendererPipelines.deferred);
+  loadedPipelines.push_back(rendererPipelines.pointLight);
+
   keptech::shader_processor::init();
   refreshAssetsDirectory();
 }

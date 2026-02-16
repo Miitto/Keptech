@@ -229,8 +229,10 @@ namespace keptech {
               .diffuse = std::move(diffuseRes.value()),
               .specular = std::move(specularRes.value()),
           },
-          std::move(deferredPipelineRes.value()),
-          std::move(pointLightPipelineRes.value()),
+          Pipelines{
+              .deferred = std::move(deferredPipelineRes.value()),
+              .pointLight = std::move(pointLightPipelineRes.value()),
+          },
           Buffers{
               .cameraStaging = std::move(cameraStagingRes.value()),
               .vertex = std::move(vertexBufRes.value()),

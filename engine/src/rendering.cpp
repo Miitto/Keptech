@@ -308,9 +308,9 @@ namespace keptech {
     auto view =
         scene->getEcs().view<components::Transform, components::PointLight>();
 
-    frame.graphicsCmdBuf->bindPipeline(*pointLightPipeline);
+    frame.graphicsCmdBuf->bindPipeline(*pipelines.pointLight);
     backend->bindGlobalDescriptorSets(
-        frame.graphicsCmdBuf, *pointLightPipeline,
+        frame.graphicsCmdBuf, *pipelines.pointLight,
         Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex |
                                        shaders::ShaderStages::Fragment));
 
@@ -321,7 +321,7 @@ namespace keptech {
     };
 
     frame.graphicsCmdBuf->writePushConstants(
-        *pointLightPipeline,
+        *pipelines.pointLight,
         shaders::ShaderStages::Vertex | shaders::ShaderStages::Fragment,
         sizeof(PointLightPushConstantData), sizeof(GBufferImageIndexData),
         &gBufferIndices);
@@ -339,7 +339,7 @@ namespace keptech {
       };
 
       frame.graphicsCmdBuf->writePushConstants(
-          *pointLightPipeline,
+          *pipelines.pointLight,
           shaders::ShaderStages::Vertex | shaders::ShaderStages::Fragment, 0,
           sizeof(PointLightData), &pointLightData);
 

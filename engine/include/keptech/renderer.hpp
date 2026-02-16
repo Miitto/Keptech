@@ -58,8 +58,13 @@ namespace keptech {
     [[nodiscard]] size_t getDrawCallCount() const { return drawCallCount; }
 #endif
 
-    PipelinePtr& getDeferredPipeline() { return deferredPipeline; }
-    PipelinePtr& getPointLightPipeline() { return pointLightPipeline; }
+    struct Pipelines {
+      PipelinePtr deferred;
+      PipelinePtr pointLight;
+    };
+
+    Pipelines& getPipelines() { return pipelines; }
+    [[nodiscard]] const Pipelines& getPipelines() const { return pipelines; }
 
     // In Engine use
   public:
@@ -117,13 +122,11 @@ namespace keptech {
     };
 
     Renderer(std::unique_ptr<IRendererBackend> backend, GBuffers gBuffers,
-             LightingBuffers lightingBuffers, PipelinePtr&& deferredPipeline,
-             PipelinePtr&& pointLightPipeline, Buffers&& buffers)
+             LightingBuffers lightingBuffers, Pipelines&& pipelines,
+             Buffers&& buffers)
         : backend(std::move(backend)), gBuffers(std::move(gBuffers)),
           lightingBuffers(std::move(lightingBuffers)),
-          deferredPipeline(std::move(deferredPipeline)),
-          pointLightPipeline(std::move(pointLightPipeline)),
-          buffers(std::move(buffers)) {}
+          pipelines(std::move(pipelines)), buffers(std::move(buffers)) {}
 
     void initImGui();
 
@@ -150,8 +153,8 @@ namespace keptech {
     std::unique_ptr<IRendererBackend> backend;
     GBuffers gBuffers;
     LightingBuffers lightingBuffers;
-    PipelinePtr deferredPipeline;
-    PipelinePtr pointLightPipeline;
+
+    Pipelines pipelines;
 
     Buffers buffers;
 

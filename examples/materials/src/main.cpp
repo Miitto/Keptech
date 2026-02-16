@@ -35,63 +35,15 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   std::unique_ptr scene = std::make_unique<keptech::Scene>();
 
-  std::vector<Vertex> triangleVertices = {
-      {
-          .position = {-0.5f, -0.5f, 0.0f},
-          .uvX = 0.f,
-          .normal = {0.0f, 0.0f, 1.0f},
-          .uvY = 0.f,
-          .color = {1.0f, 0.0f, 0.0f, 1.0f},
-          .tangent = {1.0f, 0.0f, 0.0f, 1.0f},
-      },
-      {
-          .position = {0.5f, -0.5f, 0.0f},
-          .uvX = 1.f,
-          .normal = {0.0f, 0.0f, 1.0f},
-          .uvY = 0.f,
-          .color = {0.0f, 1.0f, 0.0f, 1.0f},
-          .tangent = {1.0f, 0.0f, 0.0f, 1.0f},
-      },
-      {
-          .position = {0.0f, 0.5f, 0.0f},
-          .uvX = 0.5f,
-          .normal = {0.0f, 0.0f, 1.0f},
-          .uvY = 1.f,
-          .color = {0.0f, 0.0f, 1.0f, 1.0f},
-          .tangent = {1.0f, 0.0f, 0.0f, 1.0f},
-      },
-  };
-
-  auto triangleMeshRes = renderer.loadMesh(
-      {.name = "Triangle", .vertices = triangleVertices, .indices = {0, 1, 2}});
-  if (!triangleMeshRes) {
-    return std::unexpected(fmt::format("Failed to create triangle mesh: {}",
-                                       triangleMeshRes.error()));
-  }
-
-  auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
-  if (!monkeyMeshRes) {
-    return std::unexpected(
-        fmt::format("Failed to load monkey mesh: {}", monkeyMeshRes.error()));
-  }
-  SPDLOG_INFO("Loaded monkey mesh");
-
   auto bistroMeshRes = renderer.loadMesh(ASSET_DIR "meshes/BistroExterior.glb");
   if (!bistroMeshRes) {
     return std::unexpected(
         fmt::format("Failed to load bistro mesh: {}", bistroMeshRes.error()));
   }
 
-  MeshPtr triangleMesh = std::make_shared<Mesh>(triangleMeshRes.value());
-
-  std::vector<MeshPtr> allMeshes{triangleMesh};
-  allMeshes.insert(allMeshes.end(), monkeyMeshRes.value().meshes.begin(),
-                   monkeyMeshRes.value().meshes.end());
+  std::vector<MeshPtr> allMeshes{};
   allMeshes.insert(allMeshes.end(), bistroMeshRes.value().meshes.begin(),
                    bistroMeshRes.value().meshes.end());
-
-  auto monkey = scene->createEntity("Monkey");
-  monkeyMeshRes->addToEcsScene(*scene, monkey.getHandle());
 
   auto bistro = scene->createEntity("Bistro");
   bistroMeshRes->addToEcsScene(*scene, bistro.getHandle());
@@ -113,7 +65,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
 
   layerStack.emplaceLayer<MaterialEditorLayer>(
       renderer, std::move(scene), std::move(allMeshes),
-      std::vector<keptech::PipelinePtr>{renderer.getDeferredPipeline()});
+      std::vector<keptech::PipelinePtr>{});
 
   return {};
 }
