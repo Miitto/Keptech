@@ -395,7 +395,7 @@ namespace keptech {
         },
     };
 
-    std::for_each(std::execution::par_unseq, enumView.begin(), enumView.end(),
+    std::for_each(std::execution::par, enumView.begin(), enumView.end(),
                   [&](const std::tuple<size_t, fastgltf::Image&>& pair) {
                     const auto& [idx, img] = pair;
 
