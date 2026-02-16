@@ -213,9 +213,11 @@ namespace keptech {
             fmt::format("Failed to upsize vertex buffer for glTF loading: {}",
                         res.error()));
       }
-      cmdBuf->copyBufferToBuffer(*buffers.vertex.get(), *res.value().get(),
-                                 buffers.vertexEnd, 0, 0);
-      trackedBuffers.push_back(res.value());
+      if (buffers.vertexEnd > 0) {
+        cmdBuf->copyBufferToBuffer(*buffers.vertex.get(), *res.value().get(),
+                                   buffers.vertexEnd, 0, 0);
+        trackedBuffers.push_back(res.value());
+      }
       buffers.vertex = std::move(res.value());
     }
 
@@ -238,9 +240,11 @@ namespace keptech {
         return std::unexpected(fmt::format(
             "Failed to upsize index buffer for glTF loading: {}", res.error()));
       }
-      cmdBuf->copyBufferToBuffer(*buffers.index.get(), *res.value().get(),
-                                 buffers.indexEnd, 0, 0);
-      trackedBuffers.push_back(res.value());
+      if (buffers.indexEnd > 0) {
+        cmdBuf->copyBufferToBuffer(*buffers.index.get(), *res.value().get(),
+                                   buffers.indexEnd, 0, 0);
+        trackedBuffers.push_back(res.value());
+      }
       buffers.index = std::move(res.value());
     }
 
