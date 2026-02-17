@@ -181,14 +181,18 @@ namespace keptech {
       requiredIndexBufferSize += meshData.indices.size() * sizeof(uint32_t);
     }
 
-    KT_DEBUG("Loading glTF '{}' with {} meshes requiring {} bytes of "
-             "vertex buffer and {} bytes of index buffer",
+    size_t requiredMaterialBufferSize =
+        gltf.materials.size() * sizeof(DeferredMaterialData);
+
+    KT_DEBUG("Loading glTF '{}' with {} meshes. Vertices: {}, Indices: {}, "
+             "Materials: {}",
              path, gltf.meshes.size(), requiredVertexBufferSize,
-             requiredIndexBufferSize);
+             requiredIndexBufferSize, requiredMaterialBufferSize);
 
     std::vector<BufPtr> trackedBuffers{
         buffers.vertex,
         buffers.index,
+        buffers.material,
     };
 
     if (buffers.vertexEnd + requiredVertexBufferSize >
@@ -248,7 +252,37 @@ namespace keptech {
       buffers.index = std::move(res.value());
     }
 
-    size_t totalSize = requiredVertexBufferSize + requiredIndexBufferSize;
+    if (buffers.materialEnd + requiredMaterialBufferSize >
+        buffers.material->getSize()) {
+      auto newMaterialBufferSize =
+          buffers.material->getSize() + requiredMaterialBufferSize;
+
+      KT_DEBUG("Reallocating material buffer from {} bytes to {} bytes to fit "
+               "glTF data",
+               buffers.material->getSize(), newMaterialBufferSize);
+
+      auto res = backend->createBuffer({
+          .name = "Material Buffer",
+          .size = newMaterialBufferSize,
+          .usage = BufferUsage::Uniform | BufferUsage::TransferDst |
+                   BufferUsage::TransferSrc,
+          .memoryType = BufferMemoryType::GpuOnly,
+      });
+      if (!res) {
+        return std::unexpected(
+            fmt::format("Failed to upsize material buffer for glTF loading: {}",
+                        res.error()));
+      }
+      if (buffers.materialEnd > 0) {
+        cmdBuf->copyBufferToBuffer(*buffers.material.get(), *res.value().get(),
+                                   buffers.materialEnd, 0, 0);
+        trackedBuffers.push_back(res.value());
+      }
+      buffers.material = std::move(res.value());
+    }
+
+    size_t totalSize = requiredVertexBufferSize + requiredIndexBufferSize +
+                       requiredMaterialBufferSize;
 
     BufferCreateInfo stagingBufInfo{
         .name = fmt::format("Staging Buffer for glTF '{}'", path),
@@ -277,6 +311,8 @@ namespace keptech {
 
     uint8_t* vertexMapping = static_cast<uint8_t*>(stagingBuf.getMapping());
     uint8_t* indexMapping = vertexMapping + requiredVertexBufferSize;
+    uint8_t* materialMapping =
+        vertexMapping + requiredVertexBufferSize + requiredIndexBufferSize;
     for (auto& meshData : gltf.meshes) {
 
       size_t vertexSize = meshData.vertices.size() * sizeof(Vertex);
@@ -319,14 +355,6 @@ namespace keptech {
     cmdBuf->copyBufferToBuffer(stagingBuf, *buffers.index.get(),
                                requiredIndexBufferSize,
                                requiredVertexBufferSize, startIndexEnd);
-    cmdBuf->end();
-
-    std::vector<IRendererBackend::SubmitInfo> submitInfos;
-    submitInfos.push_back(IRendererBackend::SubmitInfo{
-        .commandBuffer = std::move(cmdBuf),
-        .trackedBuffers = {stagingBufPtr, buffers.vertex, buffers.index},
-    });
-    backend->submitCommandBuffers(std::move(submitInfos));
 
     std::vector<Image> imageData;
     imageData.resize(gltf.images.size());
@@ -422,29 +450,52 @@ namespace keptech {
     std::vector<ImgPtr> textures = std::move(imagesRes.value());
 
     std::vector<MaterialPtr> materials;
+    size_t materialOffset = buffers.materialEnd;
     for (auto& matData : gltf.materials) {
-      glm::vec2 albedoScale{1.0f, 1.0f};
-      glm::vec2 albedoOffset{0.0f, 0.0f};
-      float albedoRotation = 0.0f;
-      ImgPtr albedoTex = nullptr;
-
-      glm::vec2 normalScale{1.0f, 1.0f};
-      glm::vec2 normalOffset{0.0f, 0.0f};
-      float normalRotation = 0.0f;
-      ImgPtr normalTex = nullptr;
+      struct Data {
+        glm::vec4 albedoColor{matData.pbrData.baseColorFactor.x(),
+                              matData.pbrData.baseColorFactor.y(),
+                              matData.pbrData.baseColorFactor.z(),
+                              matData.pbrData.baseColorFactor.w()};
+        ImgPtr albedoTex;
+        glm::vec2 albedoScale{1.f, 1.f};
+        glm::vec2 albedoOffset;
+        float albedoRotation;
+        ImgPtr normalTex;
+        glm::vec2 normalScale{1.f, 1.f};
+        glm::vec2 normalOffset;
+        float normalRotation;
+        glm::vec3 emissiveColor{matData.emissiveFactor.x(),
+                                matData.emissiveFactor.y(),
+                                matData.emissiveFactor.z()};
+        ImgPtr emissiveTex;
+        glm::vec2 emissiveScale{1.f, 1.f};
+        glm::vec2 emissiveOffset;
+        float emissiveRotation;
+        float metallic = matData.pbrData.metallicFactor;
+        float roughness = matData.pbrData.roughnessFactor;
+        ImgPtr metallicRoughnessTex;
+        glm::vec2 metallicRoughnessScale{1.f, 1.f};
+        glm::vec2 metallicRoughnessOffset;
+        float metallicRoughnessRotation;
+        ImgPtr ao;
+        glm::vec2 aoScale{1.f, 1.f};
+        glm::vec2 aoOffset;
+        float aoRotation;
+      } data{};
 
       if (matData.pbrData.baseColorTexture.has_value()) {
         auto& texInfo = matData.pbrData.baseColorTexture.value();
 
         if (texInfo.transform) {
-          albedoScale = {texInfo.transform->uvScale.x(),
-                         texInfo.transform->uvScale.y()};
-          albedoOffset = {texInfo.transform->uvOffset.x(),
-                          texInfo.transform->uvOffset.y()};
-          albedoRotation = texInfo.transform->rotation;
+          data.albedoScale = {texInfo.transform->uvScale.x(),
+                              texInfo.transform->uvScale.y()};
+          data.albedoOffset = {texInfo.transform->uvOffset.x(),
+                               texInfo.transform->uvOffset.y()};
+          data.albedoRotation = texInfo.transform->rotation;
         }
 
-        albedoTex =
+        data.albedoTex =
             textures[gltf.textures[texInfo.textureIndex].imageIndex.value_or(
                 0)];
       }
@@ -452,40 +503,173 @@ namespace keptech {
         auto& texInfo = matData.normalTexture.value();
 
         if (texInfo.transform) {
-          normalScale = {texInfo.transform->uvScale.x(),
-                         texInfo.transform->uvScale.y()};
-          normalOffset = {texInfo.transform->uvOffset.x(),
-                          texInfo.transform->uvOffset.y()};
-          normalRotation = texInfo.transform->rotation;
+          data.normalScale = {texInfo.transform->uvScale.x(),
+                              texInfo.transform->uvScale.y()};
+          data.normalOffset = {texInfo.transform->uvOffset.x(),
+                               texInfo.transform->uvOffset.y()};
+          data.normalRotation = texInfo.transform->rotation;
         }
 
-        normalTex =
+        data.normalTex =
             textures[gltf.textures[texInfo.textureIndex].imageIndex.value_or(
                 0)];
       }
 
-      PipelinePtr& pipeline = /*matData.alphaMode == fastgltf::AlphaMode::Blend
-                                  ? transparentPipeline
-                                  : */
-          pipelines.deferred;
+      if (matData.emissiveTexture.has_value()) {
+        auto& texInfo = matData.emissiveTexture.value();
 
-      MaterialPtr material = std::make_shared<Material>(
-          pipeline, std::vector<keptech::InstanceData>{
-                        albedoScale, albedoOffset, albedoRotation, albedoTex,
-                        normalScale, normalOffset, normalRotation, normalTex});
+        if (texInfo.transform) {
+          data.emissiveScale = {texInfo.transform->uvScale.x(),
+                                texInfo.transform->uvScale.y()};
+          data.emissiveOffset = {texInfo.transform->uvOffset.x(),
+                                 texInfo.transform->uvOffset.y()};
+          data.emissiveRotation = texInfo.transform->rotation;
+        }
+
+        data.emissiveTex =
+            textures[gltf.textures[texInfo.textureIndex].imageIndex.value_or(
+                0)];
+      }
+
+      if (matData.pbrData.metallicRoughnessTexture.has_value()) {
+        auto& texInfo = matData.pbrData.metallicRoughnessTexture.value();
+
+        if (texInfo.transform) {
+          data.metallicRoughnessScale = {texInfo.transform->uvScale.x(),
+                                         texInfo.transform->uvScale.y()};
+          data.metallicRoughnessOffset = {texInfo.transform->uvOffset.x(),
+                                          texInfo.transform->uvOffset.y()};
+          data.metallicRoughnessRotation = texInfo.transform->rotation;
+        }
+
+        data.metallicRoughnessTex =
+            textures[gltf.textures[texInfo.textureIndex].imageIndex.value_or(
+                0)];
+      }
+
+      if (matData.occlusionTexture.has_value()) {
+        auto& texInfo = matData.occlusionTexture.value();
+
+        if (texInfo.transform) {
+          data.aoScale = {texInfo.transform->uvScale.x(),
+                          texInfo.transform->uvScale.y()};
+          data.aoOffset = {texInfo.transform->uvOffset.x(),
+                           texInfo.transform->uvOffset.y()};
+          data.aoRotation = texInfo.transform->rotation;
+        }
+
+        data.ao =
+            textures[gltf.textures[texInfo.textureIndex].imageIndex.value_or(
+                0)];
+      }
+
+      DeferredMaterialData gpuData{
+          .albedoColor = data.albedoColor,
+          .emissiveColor = data.emissiveColor,
+          .metallic = data.metallic,
+          .albedo =
+              {
+                  .uvScale = data.albedoScale,
+                  .uvOffset = data.albedoOffset,
+                  .rotation = data.albedoRotation,
+                  .texIndex = data.albedoTex ? data.albedoTex->getIndex() : ~0u,
+              },
+          .bump =
+              {
+                  .uvScale = data.normalScale,
+                  .uvOffset = data.normalOffset,
+                  .rotation = data.normalRotation,
+                  .texIndex = data.normalTex ? data.normalTex->getIndex() : ~0u,
+              },
+          .emissive =
+              {
+                  .uvScale = data.emissiveScale,
+                  .uvOffset = data.emissiveOffset,
+                  .rotation = data.emissiveRotation,
+                  .texIndex =
+                      data.emissiveTex ? data.emissiveTex->getIndex() : ~0u,
+              },
+          .metallicRoughness =
+              {
+                  .uvScale = data.metallicRoughnessScale,
+                  .uvOffset = data.metallicRoughnessOffset,
+                  .rotation = data.metallicRoughnessRotation,
+                  .texIndex = data.metallicRoughnessTex
+                                  ? data.metallicRoughnessTex->getIndex()
+                                  : ~0u,
+              },
+          .ao =
+              {
+                  .uvScale = data.aoScale,
+                  .uvOffset = data.aoOffset,
+                  .rotation = data.aoRotation,
+                  .texIndex = data.ao ? data.ao->getIndex() : ~0u,
+              },
+          .roughness = data.roughness,
+      };
+
+      memcpy(materialMapping, &gpuData, sizeof(DeferredMaterialData));
+      materialMapping += sizeof(DeferredMaterialData);
+
+      PipelinePtr& pipeline = pipelines.deferred;
+
+      MaterialPtr material =
+          std::make_shared<Material>(pipeline,
+                                     std::vector<keptech::MaterialData>{
+                                         data.albedoColor,
+                                         data.emissiveColor,
+                                         data.metallic,
+                                         data.albedoScale,
+                                         data.albedoOffset,
+                                         data.albedoRotation,
+                                         data.albedoTex,
+                                         data.normalScale,
+                                         data.normalOffset,
+                                         data.normalRotation,
+                                         data.normalTex,
+                                         data.metallicRoughnessScale,
+                                         data.metallicRoughnessOffset,
+                                         data.metallicRoughnessRotation,
+                                         data.metallicRoughnessTex,
+                                         data.emissiveScale,
+                                         data.emissiveOffset,
+                                         data.emissiveRotation,
+                                         data.emissiveTex,
+                                         data.aoScale,
+                                         data.aoOffset,
+                                         data.aoRotation,
+                                         data.ao,
+                                         data.roughness,
+                                     },
+                                     materialOffset);
+
+      materialOffset += sizeof(DeferredMaterialData);
       materials.emplace_back(std::move(material));
     }
 
     if (materials.empty()) {
-      KT_WARN("No materials found in glTF '{}', creating default material",
-              path);
-      MaterialPtr material = std::make_shared<Material>(
-          pipelines.deferred,
-          std::vector<keptech::InstanceData>{glm::vec2{1.f, 1.f}, glm::vec2{},
-                                             0.f, ImgPtr(), glm::vec2{1.f, 1.f},
-                                             glm::vec2{}, 0.f, ImgPtr()});
-      materials.push_back(std::move(material));
+      KT_WARN("No materials found in glTF '{}', using default material", path);
+      materials.push_back(defaultMaterial);
     }
+
+    if (requiredMaterialBufferSize > 0) {
+      cmdBuf->copyBufferToBuffer(
+          stagingBuf, *buffers.material.get(), requiredMaterialBufferSize,
+          requiredVertexBufferSize + requiredIndexBufferSize,
+          buffers.materialEnd);
+    }
+
+    buffers.materialEnd += requiredMaterialBufferSize;
+
+    cmdBuf->end();
+
+    std::vector<IRendererBackend::SubmitInfo> submitInfos;
+    submitInfos.push_back(IRendererBackend::SubmitInfo{
+        .commandBuffer = std::move(cmdBuf),
+        .trackedBuffers = {stagingBufPtr, buffers.vertex, buffers.index,
+                           buffers.material},
+    });
+    backend->submitCommandBuffers(std::move(submitInfos));
 
     std::vector<gltf::Scene::Node> sceneNodes;
     sceneNodes.reserve(gltf.roots.size());

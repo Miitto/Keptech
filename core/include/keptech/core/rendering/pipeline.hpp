@@ -139,7 +139,7 @@ namespace keptech {
   namespace InstanceDataType {
     enum E : uint8_t { Texture, Float, Float2 };
   }
-  using InstanceData = std::variant<ImgPtr, float, glm::vec2>;
+  using MaterialData = std::variant<ImgPtr, float, glm::vec2>;
 } // namespace keptech
 
 template <>
@@ -263,7 +263,8 @@ namespace keptech {
 
   struct Material {
     PipelinePtr pipeline{nullptr};
-    std::vector<InstanceData> instanceData{};
+    std::vector<MaterialData> data{};
+    size_t offset = ~0u;
   };
 
   using MaterialPtr = std::shared_ptr<Material>;

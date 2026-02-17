@@ -15,6 +15,8 @@ namespace keptech {
   struct GBuffers {
     ImgPtr albedo;
     ImgPtr normal;
+    ImgPtr emissiveAo;
+    ImgPtr metallicRoughness;
     ImgPtr depth;
   };
 
@@ -98,17 +100,18 @@ namespace keptech {
     struct DeferredPushConstantData {
       uint64_t instanceAddress;
       uint32_t instanceOffset;
+      uint64_t materialAddress;
     };
 
     struct InstanceData {
       glm::mat4 modelMatrix;
-      TexData albedoTextureIndex;
-      TexData normalTextureIndex;
     };
 
     struct GBufferImageIndexData {
       uint32_t albedoIndex;
       uint32_t normalIndex;
+      uint32_t emissiveAoIndex;
+      uint32_t metallicRoughnessIndex;
       uint32_t depthIndex;
     };
 
@@ -122,23 +125,46 @@ namespace keptech {
       glm::vec4 colorAndIntensity;
     };
 
+    struct GPUTex {
+      glm::vec2 uvScale{1.f, 1.f};
+      glm::vec2 uvOffset{};
+      float rotation = 0.f;
+      uint32_t texIndex = ~0u;
+    };
+
+    struct DeferredMaterialData {
+      glm::vec4 albedoColor;
+      glm::vec3 emissiveColor;
+      float metallic;
+      GPUTex albedo;
+      GPUTex bump;
+      GPUTex emissive;
+      GPUTex metallicRoughness;
+      GPUTex ao;
+      float roughness;
+    };
+
     struct Buffers {
       BufPtr cameraStaging;
-      size_t vertexEnd = 0;
       BufPtr vertex;
-      size_t indexEnd = 0;
       BufPtr index;
-      size_t instanceEnd = 0;
       BufPtr instance;
+      BufPtr material;
+      size_t vertexEnd = 0;
+      size_t indexEnd = 0;
+      size_t instanceEnd = 0;
+      size_t materialEnd = sizeof(DeferredMaterialData);
     };
 
     Renderer(std::unique_ptr<IRendererBackend> backend, GBuffers gBuffers,
              LightingBuffers lightingBuffers, ImgPtr lightCompinedBuffer,
-             Pipelines&& pipelines, Buffers&& buffers)
+             Pipelines&& pipelines, Buffers&& buffers,
+             MaterialPtr&& defaultMaterial)
         : backend(std::move(backend)), gBuffers(std::move(gBuffers)),
           lightingBuffers(std::move(lightingBuffers)),
           lightCombinedBuffer(std::move(lightCompinedBuffer)),
-          pipelines(std::move(pipelines)), buffers(std::move(buffers)) {}
+          pipelines(std::move(pipelines)), buffers(std::move(buffers)),
+          defaultMaterial(std::move(defaultMaterial)) {}
 
     void initImGui();
 
@@ -170,6 +196,8 @@ namespace keptech {
     Pipelines pipelines;
 
     Buffers buffers;
+
+    MaterialPtr defaultMaterial;
 
 #ifdef KT_ADD_RESOURCE_INFO
     size_t triCount = 0;

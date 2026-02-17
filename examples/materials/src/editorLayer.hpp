@@ -24,6 +24,8 @@ public:
   enum class ActiveDebugView : uint8_t {
     Albedo,
     Normals,
+    EmissiveAo,
+    MetallicRoughness,
     Depth,
     Diffuse,
     Specular,

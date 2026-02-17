@@ -20,6 +20,8 @@ struct PointLightPC {
 struct GBufferIndices {
   uint albedoIndex;
   uint normalIndex;
+  uint emissiveAoIndex;
+  uint metallicRoughnessIndex;
   uint depthIndex;
 };
 

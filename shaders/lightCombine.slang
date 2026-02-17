@@ -20,6 +20,8 @@ v2f vert(uint vid: SV_VertexID) {
 struct GBufferIndices {
   uint albedoIndex;
   uint normalIndex;
+  uint emissiveAoIndex;
+  uint metallicRoughnessIndex;
   uint depthIndex;
 };
 
@@ -34,12 +36,15 @@ float4 frag(v2f input, uniform GBufferIndices gBufferIndices,
   float2 uv = input.uv;
 
   let albedoTex = keptech::textures.getTexture(gBufferIndices.albedoIndex);
+  let emissiveAoTex =
+      keptech::textures.getTexture(gBufferIndices.emissiveAoIndex);
   let diffuseTex =
       keptech::textures.getTexture(lightBufferIndices.diffuseIndex);
   let specularTex =
       keptech::textures.getTexture(lightBufferIndices.specularIndex);
 
   float3 albedo = albedoTex.Sample(uv).rgb;
+  float4 emissiveAo = emissiveAoTex.Sample(uv);
   float3 diffuseLight = diffuseTex.Sample(uv).rgb;
   float3 specularLight = specularTex.Sample(uv).rgb;
 
@@ -48,6 +53,9 @@ float4 frag(v2f input, uniform GBufferIndices gBufferIndices,
   float3 color = albedo * ambientLight;
   color += albedo * diffuseLight;
   color += specularLight;
+
+  color *= emissiveAo.a;
+  color += emissiveAo.rgb;
 
   return float4(color, 1.0);
 }

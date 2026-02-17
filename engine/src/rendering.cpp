@@ -1,5 +1,6 @@
 #include "keptech/core/components/renderObject.hpp"
 #include "keptech/renderer.hpp"
+#include "keptech/shaders/shader.h"
 #include <keptech/core/kt-logger.hpp>
 #include <keptech/core/rendering/commandBuffer.hpp>
 #include <keptech/core/scene.hpp>
@@ -105,6 +106,14 @@ namespace keptech {
             },
             TextureTransition{
                 .type = TextureTransitionType::UndefinedToRenderable,
+                .texture = gBuffers.emissiveAo.get(),
+            },
+            TextureTransition{
+                .type = TextureTransitionType::UndefinedToRenderable,
+                .texture = gBuffers.metallicRoughness.get(),
+            },
+            TextureTransition{
+                .type = TextureTransitionType::UndefinedToRenderable,
                 .texture = gBuffers.depth.get(),
             },
         });
@@ -115,17 +124,22 @@ namespace keptech {
                 gBuffers.albedo->getSize().x,
                 gBuffers.albedo->getSize().y,
             },
-        .colorAttachments =
-            {
-                {
-                    .texture = gBuffers.albedo.get(),
-                    .loadOp = AttachmentLoadOp::Clear,
-                },
-                {
-                    .texture = gBuffers.normal.get(),
-                    .loadOp = AttachmentLoadOp::Clear,
-                },
-            },
+        .colorAttachments = {{
+                                 .texture = gBuffers.albedo.get(),
+                                 .loadOp = AttachmentLoadOp::Clear,
+                             },
+                             {
+                                 .texture = gBuffers.normal.get(),
+                                 .loadOp = AttachmentLoadOp::Clear,
+                             },
+                             {
+                                 .texture = gBuffers.emissiveAo.get(),
+                                 .loadOp = AttachmentLoadOp::Clear,
+                             },
+                             {
+                                 .texture = gBuffers.metallicRoughness.get(),
+                                 .loadOp = AttachmentLoadOp::Clear,
+                             }},
         .depthAttachment =
             {
                 .texture = gBuffers.depth.get(),
@@ -170,39 +184,8 @@ namespace keptech {
         lastPipeline = material->pipeline.get();
       }
 
-      TexData albedoData{};
-      TexData normalData{};
-
-      if (material->instanceData.size() >= 8) {
-        albedoData.uvScale = std::get<glm::vec2>(material->instanceData[0]);
-        albedoData.uvOffset = std::get<glm::vec2>(material->instanceData[1]);
-        albedoData.rotation = std::get<float>(material->instanceData[2]);
-        {
-          ImgPtr albedoTex = std::get<ImgPtr>(material->instanceData[3]);
-          if (albedoTex) {
-            albedoData.texIndex = albedoTex->getIndex();
-          }
-        }
-
-        normalData.uvScale = std::get<glm::vec2>(material->instanceData[4]);
-        normalData.uvOffset = std::get<glm::vec2>(material->instanceData[5]);
-        normalData.rotation = std::get<float>(material->instanceData[6]);
-        {
-          ImgPtr normalTex = std::get<ImgPtr>(material->instanceData[7]);
-          if (normalTex) {
-            normalData.texIndex = normalTex->getIndex();
-          }
-        }
-      } else {
-        KT_WARN("Material with pipeline '{}' is missing instance data for "
-                "deferred rendering pass.",
-                material->pipeline->getDebugName());
-      }
-
       InstanceData instanceData{
           .modelMatrix = transform.getGlobal(),
-          .albedoTextureIndex = albedoData,
-          .normalTextureIndex = normalData,
       };
 
       memcpy(static_cast<uint8_t*>(buffers.instance->getMapping()) +
@@ -212,12 +195,15 @@ namespace keptech {
       DeferredPushConstantData pushConstantData{
           .instanceAddress = buffers.instance->getDeviceAddress(),
           .instanceOffset = static_cast<uint32_t>(instanceOffset),
+          .materialAddress =
+              buffers.material->getDeviceAddress() + material->offset,
       };
 
       frame.graphicsCmdBuf->writePushConstants(
           *material->pipeline,
-          Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex), 0,
-          sizeof(DeferredPushConstantData), &pushConstantData);
+          Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Vertex |
+                                         shaders::ShaderStages::Fragment),
+          0, sizeof(DeferredPushConstantData), &pushConstantData);
 
       frame.graphicsCmdBuf->drawIndexed(
           mesh->getIndexCount(), 1, mesh->getIndexOffset(),
@@ -243,6 +229,14 @@ namespace keptech {
             TextureTransition{
                 .type = TextureTransitionType::RenderableToShaderRead,
                 .texture = gBuffers.normal.get(),
+            },
+            TextureTransition{
+                .type = TextureTransitionType::RenderableToShaderRead,
+                .texture = gBuffers.emissiveAo.get(),
+            },
+            TextureTransition{
+                .type = TextureTransitionType::RenderableToShaderRead,
+                .texture = gBuffers.metallicRoughness.get(),
             },
             TextureTransition{
                 .type = TextureTransitionType::RenderableToShaderRead,
@@ -321,6 +315,8 @@ namespace keptech {
     GBufferImageIndexData gBufferIndices{
         .albedoIndex = gBuffers.albedo->getIndex(),
         .normalIndex = gBuffers.normal->getIndex(),
+        .emissiveAoIndex = gBuffers.emissiveAo->getIndex(),
+        .metallicRoughnessIndex = gBuffers.metallicRoughness->getIndex(),
         .depthIndex = gBuffers.depth->getIndex(),
     };
 
@@ -387,6 +383,8 @@ namespace keptech {
     GBufferImageIndexData gBufferIndices{
         .albedoIndex = gBuffers.albedo->getIndex(),
         .normalIndex = gBuffers.normal->getIndex(),
+        .emissiveAoIndex = gBuffers.emissiveAo->getIndex(),
+        .metallicRoughnessIndex = gBuffers.metallicRoughness->getIndex(),
         .depthIndex = gBuffers.depth->getIndex(),
     };
 

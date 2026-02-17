@@ -25,6 +25,12 @@ struct fmt::formatter<MaterialEditorLayer::ActiveDebugView>
     case MaterialEditorLayer::ActiveDebugView::Normals:
       name = "Normals";
       break;
+    case MaterialEditorLayer::ActiveDebugView::EmissiveAo:
+      name = "Emissive + AO";
+      break;
+    case MaterialEditorLayer::ActiveDebugView::MetallicRoughness:
+      name = "Metallic + Roughness";
+      break;
     case MaterialEditorLayer::ActiveDebugView::Depth:
       name = "Depth";
       break;
@@ -99,6 +105,8 @@ MaterialEditorLayer::MaterialEditorLayer(
 
   renderer.loadImGuiImageHandle(renderer.getGBuffers().albedo);
   renderer.loadImGuiImageHandle(renderer.getGBuffers().normal);
+  renderer.loadImGuiImageHandle(renderer.getGBuffers().emissiveAo);
+  renderer.loadImGuiImageHandle(renderer.getGBuffers().metallicRoughness);
   renderer.loadImGuiImageHandle(renderer.getGBuffers().depth);
   renderer.loadImGuiImageHandle(renderer.getLightingBuffers().diffuse);
   renderer.loadImGuiImageHandle(renderer.getLightingBuffers().specular);
@@ -208,6 +216,15 @@ void MaterialEditorLayer::drawViewport() {
   case ActiveDebugView::Normals:
     ImGui::Image(renderer.getGBuffers().normal->getImGuiHandle().value(), size);
     break;
+  case ActiveDebugView::EmissiveAo:
+    ImGui::Image(renderer.getGBuffers().emissiveAo->getImGuiHandle().value(),
+                 size);
+    break;
+  case ActiveDebugView::MetallicRoughness:
+    ImGui::Image(
+        renderer.getGBuffers().metallicRoughness->getImGuiHandle().value(),
+        size);
+    break;
   case ActiveDebugView::Depth:
     ImGui::Image(renderer.getGBuffers().depth->getImGuiHandle().value(), size);
     break;
@@ -250,6 +267,14 @@ void MaterialEditorLayer::drawToolbar() {
   }
   if (combo.item("Normals", activeDebugView == ActiveDebugView::Normals)) {
     activeDebugView = ActiveDebugView::Normals;
+  }
+  if (combo.item("Emissive + AO",
+                 activeDebugView == ActiveDebugView::EmissiveAo)) {
+    activeDebugView = ActiveDebugView::EmissiveAo;
+  }
+  if (combo.item("Metallic + Roughness",
+                 activeDebugView == ActiveDebugView::MetallicRoughness)) {
+    activeDebugView = ActiveDebugView::MetallicRoughness;
   }
   if (combo.item("Depth", activeDebugView == ActiveDebugView::Depth)) {
     activeDebugView = ActiveDebugView::Depth;
@@ -758,7 +783,7 @@ void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
       inspectorUi(frame, material->pipeline);
   }
 
-  for (auto& data : material->instanceData) {
+  for (auto& data : material->data) {
     switch (data.index()) {
     case keptech::InstanceDataType::Texture: {
       auto texturePtr = std::get<keptech::ImgPtr>(data);

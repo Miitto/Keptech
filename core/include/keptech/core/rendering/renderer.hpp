@@ -146,6 +146,7 @@ namespace keptech {
   [[nodiscard]] inline AttachmentConfig deferredPipelineAttachmentConfig() {
     using ac = AttachmentConfig;
     using F = TextureFormat;
-    return ac{.colorFormats = {F::RGBA8, F::RGBA8}, .depthFormat = F::Depth16};
+    return ac{.colorFormats = {F::RGBA8, F::RGBA8, F::RGBA8, F::RG8},
+              .depthFormat = F::Depth16};
   }
 } // namespace keptech
