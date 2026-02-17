@@ -66,9 +66,12 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
   auto pointLight = scene->createEntity("Point Light");
   auto& lightTransform =
       pointLight.addComponent<keptech::components::Transform>();
-  lightTransform.getLocalMut().translate(glm::vec3(-5.0f, 2.0f, 5.0f));
+  lightTransform.getLocalMut().translate(glm::vec3(-70.0f, 70.0f, -10.0f));
   pointLight.addComponent<keptech::components::PointLight>(
-      keptech::components::PointLight{.radius = 10.f});
+      keptech::components::PointLight{
+          .color = {1.f, 0.985f, 0.95f},
+          .radius = 500.f,
+      });
 
   layerStack.emplaceLayer<MaterialEditorLayer>(
       renderer, std::move(scene), std::move(allMeshes),

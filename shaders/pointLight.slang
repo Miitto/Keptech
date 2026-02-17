@@ -63,8 +63,6 @@ keptech::DeferredLightingOutput frag(v2f input, uniform PointLightPC light,
   float4 invClip = keptech::camera.clipToWorld(float4(ndc, 1.0));
   float3 world = invClip.xyz / invClip.w;
 
-  output.specular = float4(world, 1.0);
-
   let toLight = lightPos - world;
 
   float dist = length(toLight);
@@ -72,10 +70,10 @@ keptech::DeferredLightingOutput frag(v2f input, uniform PointLightPC light,
   float attenuation = 1.0 - clamp(dist / light.radius, 0.0, 1.0);
 
   if (attenuation == 0.0) {
-    // discard;
+    discard;
   }
 
-  let normal = normalize(normalSample.xyz);
+  let normal = normalize(normalSample.xyz * 2.0 - 1.0);
 
   let incident = normalize(toLight);
   let viewDir = normalize(keptech::camera.position - world);
@@ -88,7 +86,7 @@ keptech::DeferredLightingOutput frag(v2f input, uniform PointLightPC light,
   let specFactor = pow(rFactor, 60.0);
 
   output.diffuse = float4(radiance * lambert, 1.0);
-  // output.specular = float4(radiance * specFactor * 0.33, 1.0);
+  output.specular = float4(radiance * specFactor * 0.33, 1.0);
 
   return output;
 }

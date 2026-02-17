@@ -126,5 +126,7 @@ keptech::DeferredOutput frag(VertexOutput input) {
     discard;
   }
 
+  output.normal = output.normal * 0.5f + 0.5f;
+
   return output;
 }

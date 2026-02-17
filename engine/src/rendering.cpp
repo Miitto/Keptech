@@ -285,11 +285,11 @@ namespace keptech {
     };
     frame.graphicsCmdBuf->beginRendering(info);
     frame.graphicsCmdBuf->setViewport(
-        glm::vec2(0.0f, 0.0f),
-        glm::vec2(gBuffers.albedo->getSize().x, gBuffers.albedo->getSize().y));
+        glm::vec2(0.0f, 0.0f), glm::vec2(lightingBuffers.diffuse->getSize().x,
+                                         lightingBuffers.diffuse->getSize().y));
     frame.graphicsCmdBuf->setScissor(
-        glm::ivec2(0, 0),
-        glm::uvec2(gBuffers.albedo->getSize().x, gBuffers.albedo->getSize().y));
+        glm::ivec2(0, 0), glm::uvec2(lightingBuffers.diffuse->getSize().x,
+                                     lightingBuffers.diffuse->getSize().y));
 
     drawPointLights(frame);
 
@@ -351,7 +351,73 @@ namespace keptech {
     }
   }
 
-  void Renderer::combineDeferredPass(const FrameData& frame) {}
+  void Renderer::combineDeferredPass(const FrameData& frame) {
+    backend->textureLayoutTransition(
+        frame.graphicsCmdBuf,
+        {TextureTransition{
+            .type = TextureTransitionType::UndefinedToRenderable,
+            .texture = lightCombinedBuffer.get(),
+        }});
+
+    CommandBufferBeginRenderingInfo info{
+        .renderAreaExtent =
+            {
+                lightCombinedBuffer->getSize().x,
+                lightCombinedBuffer->getSize().y,
+            },
+        .colorAttachments = {{
+            .texture = lightCombinedBuffer.get(),
+            .loadOp = AttachmentLoadOp::DontCare,
+        }},
+    };
+
+    frame.graphicsCmdBuf->beginRendering(info);
+    frame.graphicsCmdBuf->setViewport(
+        glm::vec2(0.0f, 0.0f), glm::vec2(lightCombinedBuffer->getSize().x,
+                                         lightCombinedBuffer->getSize().y));
+    frame.graphicsCmdBuf->setScissor(
+        glm::ivec2(0, 0), glm::uvec2(lightCombinedBuffer->getSize().x,
+                                     lightCombinedBuffer->getSize().y));
+
+    frame.graphicsCmdBuf->bindPipeline(*pipelines.combineDeferred);
+    backend->bindGlobalDescriptorSets(
+        frame.graphicsCmdBuf, *pipelines.combineDeferred,
+        Bitflag<shaders::ShaderStages>(shaders::ShaderStages::Fragment));
+
+    GBufferImageIndexData gBufferIndices{
+        .albedoIndex = gBuffers.albedo->getIndex(),
+        .normalIndex = gBuffers.normal->getIndex(),
+        .depthIndex = gBuffers.depth->getIndex(),
+    };
+
+    LightBufferImageIndexData lData{
+        .diffuseIndex = lightingBuffers.diffuse->getIndex(),
+        .specularIndex = lightingBuffers.specular->getIndex(),
+    };
+
+    struct CombinePushConstantData {
+      GBufferImageIndexData gBufferIndices;
+      LightBufferImageIndexData lightBufferIndices;
+    } pushConstantData{
+        .gBufferIndices = gBufferIndices,
+        .lightBufferIndices = lData,
+    };
+
+    frame.graphicsCmdBuf->writePushConstants(
+        *pipelines.combineDeferred, shaders::ShaderStages::Fragment, 0,
+        sizeof(CombinePushConstantData), &pushConstantData);
+
+    frame.graphicsCmdBuf->draw(3);
+
+    frame.graphicsCmdBuf->endRendering();
+
+    backend->textureLayoutTransition(
+        frame.graphicsCmdBuf,
+        {TextureTransition{
+            .type = TextureTransitionType::RenderableToShaderRead,
+            .texture = lightCombinedBuffer.get(),
+        }});
+  }
 
   void Renderer::drawForwardPass(const FrameData& frame) {}
 

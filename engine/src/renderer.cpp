@@ -116,6 +116,17 @@ namespace keptech {
             "Failed to create specular light buffer: {}", specularRes.error()));
       }
 
+      auto combinedRes = backend->createImage(
+          {.name = "combinedLightBuffer",
+           .size = glm::uvec3(windowSize.x, windowSize.y, 1),
+           .format = TextureFormat::RGBA16F,
+           .usage = TextureUsage::RenderTarget | TextureUsage::Sampled,
+           .mipLevels = 1});
+      if (!combinedRes) {
+        return std::unexpected(fmt::format(
+            "Failed to create combined light buffer: {}", combinedRes.error()));
+      }
+
       auto vertexBufRes = backend->createBuffer({
           .name = "Vertex Buffer",
           .size = sizeof(Vertex) * 10'000,
@@ -218,6 +229,22 @@ namespace keptech {
                         pointLightPipelineRes.error()));
       }
 
+      auto lightCombinePipelineRes = backend->createPipeline({
+          .shader = shaders::lightCombine,
+          .attachments = {.colorFormats = {keptech::TextureFormat::RGBA16F}},
+          .layout = {.pushConstantRanges = {PushConstantRange{
+                         .offset = 0,
+                         .size = sizeof(GBufferImageIndexData) +
+                                 sizeof(LightBufferImageIndexData),
+                         .stages = shaders::ShaderStages::Fragment,
+                     }}},
+      });
+      if (!lightCombinePipelineRes) {
+        return std::unexpected(
+            fmt::format("Failed to create light combine pipeline: {}",
+                        lightCombinePipelineRes.error()));
+      }
+
       Renderer renderer{
           std::move(backend),
           {
@@ -229,9 +256,11 @@ namespace keptech {
               .diffuse = std::move(diffuseRes.value()),
               .specular = std::move(specularRes.value()),
           },
+          std::move(combinedRes.value()),
           Pipelines{
               .deferred = std::move(deferredPipelineRes.value()),
               .pointLight = std::move(pointLightPipelineRes.value()),
+              .combineDeferred = std::move(lightCombinePipelineRes.value()),
           },
           Buffers{
               .cameraStaging = std::move(cameraStagingRes.value()),

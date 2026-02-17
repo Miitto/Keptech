@@ -1,6 +1,7 @@
 module keptech;
 
 __include camera;
+__include fullscreen;
 
 public namespace keptech {
 [[vk::binding(0, 0)]]

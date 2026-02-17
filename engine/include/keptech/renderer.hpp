@@ -53,6 +53,11 @@ namespace keptech {
       return lightingBuffers;
     }
 
+    ImgPtr& getCombinedLightBuffer() { return lightCombinedBuffer; }
+    [[nodiscard]] const ImgPtr& getCombinedLightBuffer() const {
+      return lightCombinedBuffer;
+    }
+
 #ifdef KT_ADD_RESOURCE_INFO
     [[nodiscard]] size_t getTriangleCount() const { return triCount; }
     [[nodiscard]] size_t getDrawCallCount() const { return drawCallCount; }
@@ -61,6 +66,7 @@ namespace keptech {
     struct Pipelines {
       PipelinePtr deferred;
       PipelinePtr pointLight;
+      PipelinePtr combineDeferred;
     };
 
     Pipelines& getPipelines() { return pipelines; }
@@ -106,6 +112,11 @@ namespace keptech {
       uint32_t depthIndex;
     };
 
+    struct LightBufferImageIndexData {
+      uint32_t diffuseIndex;
+      uint32_t specularIndex;
+    };
+
     struct PointLightPushConstantData {
       glm::vec4 positionAndRadius;
       glm::vec4 colorAndIntensity;
@@ -122,10 +133,11 @@ namespace keptech {
     };
 
     Renderer(std::unique_ptr<IRendererBackend> backend, GBuffers gBuffers,
-             LightingBuffers lightingBuffers, Pipelines&& pipelines,
-             Buffers&& buffers)
+             LightingBuffers lightingBuffers, ImgPtr lightCompinedBuffer,
+             Pipelines&& pipelines, Buffers&& buffers)
         : backend(std::move(backend)), gBuffers(std::move(gBuffers)),
           lightingBuffers(std::move(lightingBuffers)),
+          lightCombinedBuffer(std::move(lightCompinedBuffer)),
           pipelines(std::move(pipelines)), buffers(std::move(buffers)) {}
 
     void initImGui();
@@ -153,6 +165,7 @@ namespace keptech {
     std::unique_ptr<IRendererBackend> backend;
     GBuffers gBuffers;
     LightingBuffers lightingBuffers;
+    ImgPtr lightCombinedBuffer;
 
     Pipelines pipelines;
 

@@ -102,6 +102,7 @@ MaterialEditorLayer::MaterialEditorLayer(
   renderer.loadImGuiImageHandle(renderer.getGBuffers().depth);
   renderer.loadImGuiImageHandle(renderer.getLightingBuffers().diffuse);
   renderer.loadImGuiImageHandle(renderer.getLightingBuffers().specular);
+  renderer.loadImGuiImageHandle(renderer.getCombinedLightBuffer());
 
   auto& rendererPipelines = renderer.getPipelines();
   loadedPipelines.push_back(rendererPipelines.deferred);
@@ -198,6 +199,9 @@ void MaterialEditorLayer::drawViewport() {
 
   switch (activeDebugView) {
   case ActiveDebugView::Final:
+    ImGui::Image(renderer.getCombinedLightBuffer()->getImGuiHandle().value(),
+                 size);
+    break;
   case ActiveDebugView::Albedo:
     ImGui::Image(renderer.getGBuffers().albedo->getImGuiHandle().value(), size);
     break;

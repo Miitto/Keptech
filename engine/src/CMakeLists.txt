@@ -20,4 +20,5 @@ compile_shader(${PROJECT_NAME} SPIRV
     deferred
     transparent
     pointLight
+    lightCombine
 )

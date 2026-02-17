@@ -98,7 +98,10 @@ namespace keptech::vkh {
           .colorFormats = {TextureFormat::RGBA16F, TextureFormat::RGBA16F}};
     } break;
     case shaders::RenderingMode::Forward:
-      // TODO: Implement forward / transparent attechment defaults
+      if (createInfo.attachments.colorFormats.empty()) {
+        createInfo.attachments.colorFormats.push_back(
+            from(getSwapchainImageFormat(), TextureFormat::RGBA8));
+      }
       break;
     case shaders::RenderingMode::Custom:
       break;
