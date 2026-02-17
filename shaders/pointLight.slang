@@ -34,7 +34,9 @@ v2f vert(uint vid: SV_VertexID, uniform PointLightPC light) {
   float3 vertPos = CUBE_VERTS[CUBE_INDICES[vid]];
   float3 scaledPos = vertPos * light.radius;
 
-  float4 worldPos = float4(scaledPos + light.position, 1.0);
+  float3 lightPos = light.position;
+
+  float4 worldPos = float4(scaledPos + lightPos, 1.0);
 
   output.position = keptech::camera.worldToClip(worldPos);
 
@@ -55,26 +57,27 @@ keptech::DeferredLightingOutput frag(v2f input, uniform PointLightPC light,
   let normalSample = normalTex.Sample(uv);
   float depth = depthTex.Sample(uv).r;
 
+  float3 lightPos = light.position;
+
   float3 ndc = { uv * 2.0 - 1.0, depth };
   float4 invClip = keptech::camera.clipToWorld(float4(ndc, 1.0));
   float3 world = invClip.xyz / invClip.w;
 
-  let toLight = light.position - world;
+  output.specular = float4(world, 1.0);
+
+  let toLight = lightPos - world;
 
   float dist = length(toLight);
 
   float attenuation = 1.0 - clamp(dist / light.radius, 0.0, 1.0);
 
-  output.diffuse = float4(world, 1.0);
-  output.specular = float4(depth, attenuation, dist, 1.0);
-
   if (attenuation == 0.0) {
     // discard;
   }
 
-  let normal = normalize(normalSample.xyz * 2.0 - 1.0);
+  let normal = normalize(normalSample.xyz);
 
-  let incident = normalize(world - light.position);
+  let incident = normalize(toLight);
   let viewDir = normalize(keptech::camera.position - world);
   let halfDir = normalize(incident + viewDir);
 
@@ -85,7 +88,7 @@ keptech::DeferredLightingOutput frag(v2f input, uniform PointLightPC light,
   let specFactor = pow(rFactor, 60.0);
 
   output.diffuse = float4(radiance * lambert, 1.0);
-  output.specular = float4(radiance * specFactor * 0.33, 1.0);
+  // output.specular = float4(radiance * specFactor * 0.33, 1.0);
 
   return output;
 }
