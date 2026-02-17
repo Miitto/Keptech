@@ -76,8 +76,8 @@ VertexOutput vert(Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID) {
 
   float3x3 modelRotMatrix = (float3x3)inst.modelMatrix;
 
-  output.normal = normalize(mul(modelRotMatrix, v.normal));
-  output.tangent = normalize(mul(modelRotMatrix, v.tangent.xyz));
+  output.normal = normalize(mul(v.normal, modelRotMatrix));
+  output.tangent = normalize(mul(v.tangent.xyz, modelRotMatrix));
   output.bitangent =
       normalize(cross(output.normal, output.tangent) * v.tangent.w);
 
@@ -117,7 +117,7 @@ keptech::DeferredOutput frag(VertexOutput input) {
     float3x3 TBN =
         float3x3(normalize(input.tangent), normalize(input.bitangent),
                  normalize(input.normal));
-    float3 worldNormal = normalize(mul(TBN, normalSample));
+    float3 worldNormal = normalize(mul(normalSample, TBN));
 
     output.normal = float4(worldNormal, 1.f);
   }
