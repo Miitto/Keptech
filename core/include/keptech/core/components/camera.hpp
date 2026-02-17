@@ -24,6 +24,7 @@ namespace keptech::components {
       glm::mat4 invProjectionMatrix;
       glm::mat4 invViewMatrix;
       glm::mat4 invViewProjectionMatrix;
+      glm::vec2 viewportSize;
     };
 
     struct Params {

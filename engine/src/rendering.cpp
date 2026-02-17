@@ -62,6 +62,9 @@ namespace keptech {
       glm::mat4 invProjectionMatrix = glm::inverse(projectionMatrix);
       glm::mat4 invViewProjectionMatrix = invViewMatrix * invProjectionMatrix;
 
+      glm::vec2 viewportSize = {camera.getViewport().width,
+                                camera.getViewport().height};
+
       components::Camera::Uniforms uniforms{
           .projectionMatrix = projectionMatrix,
           .viewMatrix = viewMatrix,
@@ -69,6 +72,7 @@ namespace keptech {
           .invProjectionMatrix = invProjectionMatrix,
           .invViewMatrix = invViewMatrix,
           .invViewProjectionMatrix = invViewProjectionMatrix,
+          .viewportSize = viewportSize,
       };
 
       memcpy(buffers.cameraStaging->getMapping(), &uniforms,

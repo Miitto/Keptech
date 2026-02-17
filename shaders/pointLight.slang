@@ -25,53 +25,67 @@ struct GBufferIndices {
 
 struct v2f {
   float4 position : SV_Position;
-  float3 worldPos;
 };
 
 [shader("vertex")]
 v2f vert(uint vid: SV_VertexID, uniform PointLightPC light) {
   v2f output;
 
-  float4 vertPos = float4(CUBE_VERTS[CUBE_INDICES[vid]], 1.0);
+  float3 vertPos = CUBE_VERTS[CUBE_INDICES[vid]];
+  float3 scaledPos = vertPos * light.radius;
 
-  float4 worldPos = (vertPos * light.radius) + float4(light.position, 1.0);
+  float4 worldPos = float4(scaledPos + light.position, 1.0);
 
   output.position = keptech::camera.worldToClip(worldPos);
-  output.worldPos = worldPos.xyz;
 
   return output;
 }
 
 [shader("pixel")]
 keptech::DeferredLightingOutput frag(v2f input, uniform PointLightPC light,
-                                     uniform GBufferIndices gBufferIndices) {
+                                     uniform GBufferIndices gBufferIndices,
+                                     float4 fragCoord: SV_Position) {
   keptech::DeferredLightingOutput output;
 
-  let ndcPos = input.position / input.position.w;
-  let uv = (ndcPos.xy + 1.0) * 0.5;
+  float2 uv = fragCoord.xy / keptech::camera.viewportSize;
 
   let normalTex = keptech::textures.getTexture(gBufferIndices.normalIndex);
   let depthTex = keptech::textures.getTexture(gBufferIndices.depthIndex);
+
   let normalSample = normalTex.Sample(uv);
-  let depthSample = depthTex.Sample(uv).r;
+  float depth = depthTex.Sample(uv).r;
 
-  let color = light.color * light.intensity;
+  float3 ndc = { uv * 2.0 - 1.0, depth };
+  float4 invClip = keptech::camera.clipToWorld(float4(ndc, 1.0));
+  float3 world = invClip.xyz / invClip.w;
 
-  let toLight = light.position - input.worldPos;
-  let toLightDistSq = dot(toLight, toLight);
+  let toLight = light.position - world;
 
-  let radiusSq = light.radius * light.radius;
+  float dist = length(toLight);
 
-  let falloff = max(1.0 - (toLightDistSq / radiusSq), 0.f);
+  float attenuation = 1.0 - clamp(dist / light.radius, 0.0, 1.0);
+
+  output.diffuse = float4(world, 1.0);
+  output.specular = float4(depth, attenuation, dist, 1.0);
+
+  if (attenuation == 0.0) {
+    // discard;
+  }
 
   let normal = normalize(normalSample.xyz * 2.0 - 1.0);
 
-  let inDir = max(dot(normal, normalize(toLight)), 0.0);
+  let incident = normalize(world - light.position);
+  let viewDir = normalize(keptech::camera.position - world);
+  let halfDir = normalize(incident + viewDir);
 
-  let diffuse = color * inDir * falloff;
+  let radiance = light.color * light.intensity * attenuation;
 
-  output.diffuse = float4(diffuse, 1.0);
-  output.specular = float4(0.0, 0.0, 0.0, 1.0);
+  let lambert = clamp(dot(normal, incident), 0.0, 1.0);
+  let rFactor = pow(clamp(dot(normal, halfDir), 0.0, 1.0), 16.0);
+  let specFactor = pow(rFactor, 60.0);
+
+  output.diffuse = float4(radiance * lambert, 1.0);
+  output.specular = float4(radiance * specFactor * 0.33, 1.0);
 
   return output;
 }

@@ -483,7 +483,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
                    auto label =
                        fmt::format("Pipeline: {}", pipelinePtr->getDebugName());
                    propertiesPanel.separatorText(label.c_str());
-                   inspectorUi(propertiesPanel, *pipelinePtr);
+                   inspectorUi(propertiesPanel, pipelinePtr);
                  },
                  [&](keptech::ImgPtr& texturePtr) {
                    if (texturePtr == nullptr) {
@@ -751,7 +751,7 @@ void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
     }
 
     if (material->pipeline != nullptr)
-      inspectorUi(frame, *material->pipeline);
+      inspectorUi(frame, material->pipeline);
   }
 
   for (auto& data : material->instanceData) {
@@ -776,21 +776,22 @@ void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
 }
 
 void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
-                                      keptech::IPipeline& pipeline) {
+                                      keptech::PipelinePtr& pipeline) {
 
-  auto stageStr = fmt::format("Stage: {}", pipeline.getStage());
+  auto stageStr = fmt::format("Stage: {}", pipeline->getStage());
   frame.text(stageStr.c_str());
 
   using S = keptech::PipelineStage;
-  if (pipeline.getRenderingMode() == keptech::shaders::RenderingMode::Forward) {
-    bool checked = (pipeline.getStage() != S::Opaque);
+  if (pipeline->getRenderingMode() ==
+      keptech::shaders::RenderingMode::Forward) {
+    bool checked = (pipeline->getStage() != S::Opaque);
     if (ImGui::Checkbox("Transparent", &checked)) {
-      pipeline.setStage(checked ? S::Transparent : S::Opaque);
+      pipeline->setStage(checked ? S::Transparent : S::Opaque);
     }
   }
 
   if (frame.button("Reload")) {
-    auto info = pipeline.getCreateInfo();
+    auto info = pipeline->getCreateInfo();
 
     if (!info.shader.file.has_value()) {
       SPDLOG_WARN(
@@ -814,22 +815,23 @@ void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
         session.loadModule(info.shader.name.c_str(), source);
     if (!inputModule) {
       SPDLOG_ERROR("Failed to load input module.\n{}",
-                   inputDiag->getBufferPointer());
+                   (char*)inputDiag->getBufferPointer());
       return;
     }
     if (inputDiag) {
       SPDLOG_WARN("Shader module load diagnostics:\n{}",
-                  inputDiag->getBufferPointer());
+                  (char*)inputDiag->getBufferPointer());
     }
 
     auto [program, diag] = session.link();
     if (!program.valid()) {
       SPDLOG_ERROR("Failed to link program.\n{}",
-                   diag ? diag->getBufferPointer() : "No diagnostics");
+                   diag ? (char*)diag->getBufferPointer() : "No diagnostics");
       return;
     }
     if (diag) {
-      SPDLOG_WARN("Shader link diagnostics:\n{}", diag->getBufferPointer());
+      SPDLOG_WARN("Shader link diagnostics:\n{}",
+                  (char*)diag->getBufferPointer());
     }
 
     auto res = program.toShader(info.shader.name.c_str());
@@ -855,9 +857,9 @@ void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
     auto newPipeline = renderer.createPipeline(newInfo);
     if (newPipeline) {
       keptech::IPipeline* np = newPipeline->get();
-      pipeline = *np;
+      *pipeline = *np;
       SPDLOG_INFO("{} Pipeline reloaded successfully.",
-                  pipeline.getDebugName());
+                  pipeline->getDebugName());
     } else {
       SPDLOG_ERROR("Failed to create new pipeline: {}", newPipeline.error());
     }

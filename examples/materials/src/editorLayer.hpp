@@ -52,7 +52,7 @@ public:
   void inspectorUi(keptech::gui::Frame& frame,
                    keptech::components::Material& ro);
 
-  void inspectorUi(keptech::gui::Frame& frame, keptech::IPipeline& ro);
+  void inspectorUi(keptech::gui::Frame& frame, keptech::PipelinePtr& ro);
 
   void inspectorUi(keptech::gui::Frame& frame,
                    keptech::components::Camera& camera);
