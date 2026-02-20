@@ -669,36 +669,48 @@ namespace keptech::vkh {
       vk::AccessFlags2 srcAccessMask;
       vk::AccessFlags2 dstAccessMask;
 
+      bool isDepth = isDepthFormat(texture->getFormat());
+
+      vk::PipelineStageFlags2 depthStages =
+          vk::PipelineStageFlagBits2::eEarlyFragmentTests |
+          vk::PipelineStageFlagBits2::eLateFragmentTests;
+
+      vk::AccessFlags2 depthAccess =
+          vk::AccessFlagBits2::eDepthStencilAttachmentRead |
+          vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+
+      vk::PipelineStageFlags2 colorStages =
+          vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+      vk::AccessFlags2 colorAccess = vk::AccessFlagBits2::eColorAttachmentRead |
+                                     vk::AccessFlagBits2::eColorAttachmentWrite;
+
       switch (transition.type) {
       case TextureTransitionType::UndefinedToRenderable:
         oldLayout = vk::ImageLayout::eUndefined;
-        newLayout = isDepthFormat(texture->getFormat())
-                        ? vk::ImageLayout::eDepthAttachmentOptimal
-                        : vk::ImageLayout::eColorAttachmentOptimal;
+        newLayout = isDepth ? vk::ImageLayout::eDepthAttachmentOptimal
+                            : vk::ImageLayout::eColorAttachmentOptimal;
         srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
-        dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+        dstStageMask = isDepth ? depthStages : colorStages;
         srcAccessMask = vk::AccessFlagBits2::eNone;
-        dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+        dstAccessMask = isDepth ? depthAccess : colorAccess;
         break;
       case TextureTransitionType::RenderableToShaderRead:
-        oldLayout = isDepthFormat(texture->getFormat())
-                        ? vk::ImageLayout::eDepthAttachmentOptimal
-                        : vk::ImageLayout::eColorAttachmentOptimal;
+        oldLayout = isDepth ? vk::ImageLayout::eDepthAttachmentOptimal
+                            : vk::ImageLayout::eColorAttachmentOptimal;
         newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+        srcStageMask = isDepth ? depthStages : colorStages;
         dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader;
-        srcAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+        srcAccessMask = isDepth ? depthAccess : colorAccess;
         dstAccessMask = vk::AccessFlagBits2::eShaderRead;
         break;
       case TextureTransitionType::ShaderReadToRenderable:
         oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        newLayout = isDepthFormat(texture->getFormat())
-                        ? vk::ImageLayout::eDepthAttachmentOptimal
-                        : vk::ImageLayout::eColorAttachmentOptimal;
+        newLayout = isDepth ? vk::ImageLayout::eDepthAttachmentOptimal
+                            : vk::ImageLayout::eColorAttachmentOptimal;
         srcStageMask = vk::PipelineStageFlagBits2::eFragmentShader;
-        dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+        dstStageMask = isDepth ? depthStages : colorStages;
         srcAccessMask = vk::AccessFlagBits2::eShaderRead;
-        dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+        dstAccessMask = isDepth ? depthAccess : colorAccess;
         break;
       default:
         VK_ERROR("Unknown texture transition type");
