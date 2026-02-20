@@ -10,3 +10,4 @@ __output/
 out/
 
 imgui.ini
+*.cap
