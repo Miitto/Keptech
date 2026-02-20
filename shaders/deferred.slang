@@ -128,7 +128,7 @@ keptech::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
 
   if (mat.metallicRoughness.valid) {
     float4 metallicRoughnessSample = mat.metallicRoughness.Sample(uv);
-    output.metallicRoughness.r *= metallicRoughnessSample.r;
+    output.metallicRoughness.r *= metallicRoughnessSample.b;
     output.metallicRoughness.g *= metallicRoughnessSample.g;
   }
 

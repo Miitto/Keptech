@@ -2,19 +2,19 @@ module keptech;
 
 __include camera;
 __include fullscreen;
+__include lighting;
+__include textures;
+__include maths;
 
 public namespace keptech {
 [[vk::binding(0, 0)]]
 public ConstantBuffer<keptech::Camera> camera : register(b0);
 
-public struct TexData {
-  Sampler2D textures[];
-
-  public Sampler2D getTexture(int index) { return textures[index]; }
-};
-
 [[vk::binding(1, 0)]]
 public ConstantBuffer<TexData> textures;
+
+[[vk::binding(2, 0)]]
+public ConstantBuffer<CubeMapData> cubeMaps;
 
 public struct DeferredOutput {
   public float4 albedo : SV_Target0;
@@ -27,15 +27,4 @@ public struct DeferredLightingOutput {
   public float4 diffuse : SV_Target0;
   public float4 specular : SV_Target1;
 };
-
-static const float SRGB_TO_LINEAR_FACTOR = 2.2;
-static const float LINEAR_TO_SRGB_FACTOR = 1.0 / SRGB_TO_LINEAR_FACTOR;
-
-public float4 srgbToLinear(float4 color) {
-  return float4(pow(color.rgb, float3(SRGB_TO_LINEAR_FACTOR)), color.a);
-}
-
-public float4 linearToSrgb(float4 color) {
-  return float4(pow(color.rgb, float3(LINEAR_TO_SRGB_FACTOR)), color.a);
-}
 }

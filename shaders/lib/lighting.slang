@@ -1,0 +1,78 @@
+implementing keptech;
+
+namespace keptech {
+public struct PointLight {
+  public float3 position;
+  public float radius;
+  public float3 color;
+  public float intensity;
+};
+
+public float calculatePointLightOcclusion(float3 fragPos, PointLight light,
+                                          Optional<uint> shadowMapIndex) {
+  float3 worldToLight = fragPos - light.position;
+
+  float shadow = 1.0f;
+
+  if (shadowMapIndex.hasValue) {
+  let shadowMap = keptech::cubeMaps.getTexture(shadowMapIndex.value);
+  float depthCenter = shadowMap.Sample(worldToLight).r;
+
+  float offset = 1.0f / 4096.0f; // assuming 2048x2048 shadow map resolution
+
+  float depthRight =
+      shadowMap.Sample(worldToLight + float3(offset, 0.0, 0.0)).r;
+  float depthLeft =
+      shadowMap.Sample(worldToLight + float3(-offset, 0.0, 0.0)).r;
+  float depthUp = shadowMap.Sample(worldToLight + float3(0.0, offset, 0.0)).r;
+  float depthDown =
+      shadowMap.Sample(worldToLight + float3(0.0, -offset, 0.0)).r;
+  float depth =
+      1.0 - (depthCenter + depthRight + depthLeft + depthUp + depthDown) / 5.0;
+
+  depth *= light.radius;
+
+  float currentDepth = length(worldToLight);
+
+  float bias = 0.05;
+  float shadow = currentDepth - bias > depth ? 0.0 : 1.0;
+  }
+  return shadow;
+}
+
+public float DistributionGGX(float3 N, float3 H, float roughness) {
+  float a = roughness * roughness;
+  float a2 = a * a;
+  float NdotH = max(dot(N, H), 0.0);
+  float NdotH2 = NdotH * NdotH;
+
+  float num = a2;
+  float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+  denom = PI * denom * denom;
+
+  return num / denom;
+}
+
+public float3 fresnelSchlick(float cosTheta, float3 F0) {
+  return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+public float GeometrySchlickGGX(float NdotV, float roughness) {
+  float r = (roughness + 1.0);
+  float k = (r * r) / 8.0;
+
+  float num = NdotV;
+  float denom = NdotV * (1.0 - k) + k;
+
+  return num / denom;
+}
+
+public float GeometrySmith(float3 N, float3 V, float3 L, float roughness) {
+  float NdotV = max(dot(N, V), 0.0);
+  float NdotL = max(dot(N, L), 0.0);
+  float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+  float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+
+  return ggx1 * ggx2;
+}
+}

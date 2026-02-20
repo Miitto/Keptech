@@ -1,4 +1,5 @@
 #include "keptech/core/components/renderObject.hpp"
+#include "keptech/core/rendering/pipeline.hpp"
 #include "keptech/renderer.hpp"
 #include "keptech/shaders/shader.h"
 #include <keptech/core/kt-logger.hpp>
@@ -138,6 +139,7 @@ namespace keptech {
                              },
                              {
                                  .texture = gBuffers.metallicRoughness.get(),
+                                 .clearColor = glm::vec4(1.f, 1.f, 0.f, 1.f),
                                  .loadOp = AttachmentLoadOp::Clear,
                              }},
         .depthAttachment =
@@ -329,10 +331,7 @@ namespace keptech {
     for (auto [entity, transform, pointLight] : view.each()) {
       glm::vec4 position = transform.getGlobal()[3];
       position.w = pointLight.radius;
-      struct PointLightData {
-        glm::vec4 positionAndRadius;
-        glm::vec4 colorAndIntensity;
-      } pointLightData{
+      PointLightPushConstantData pointLightData{
           .positionAndRadius = position,
           .colorAndIntensity =
               glm::vec4(pointLight.color, pointLight.intensity),
@@ -341,7 +340,7 @@ namespace keptech {
       frame.graphicsCmdBuf->writePushConstants(
           *pipelines.pointLight,
           shaders::ShaderStages::Vertex | shaders::ShaderStages::Fragment, 0,
-          sizeof(PointLightData), &pointLightData);
+          sizeof(PointLightPushConstantData), &pointLightData);
 
       frame.graphicsCmdBuf->draw(36);
     }
