@@ -75,6 +75,7 @@ namespace keptech::gltf {
 
                 fastgltf::iterateAccessorWithIndex<glm::vec3>(
                     asset, posAccessor, [&](glm::vec3 position, size_t index) {
+                      position.x = -position.x;
                       Vertex vertex{};
                       vertex.position = position;
                       vertices[startIndex + index] = vertex;
@@ -91,6 +92,7 @@ namespace keptech::gltf {
                   fastgltf::iterateAccessorWithIndex<glm::vec3>(
                       asset, normalAccessor,
                       [&](glm::vec3 normal, size_t index) {
+                        normal.x = -normal.x;
                         vertices[startIndex + index].normal = normal;
                       });
                 }
@@ -134,6 +136,8 @@ namespace keptech::gltf {
                   fastgltf::iterateAccessorWithIndex<glm::vec4>(
                       asset, tangentAccessor,
                       [&](glm::vec4 tangent, size_t index) {
+                        tangent.x = -tangent.x;
+                        tangent.w = -tangent.w; // Flip handedness
                         vertices[startIndex + index].tangent = tangent;
                       });
                 }
@@ -217,9 +221,13 @@ namespace keptech::gltf {
     for (auto& node : asset.nodes) {
       auto trs = std::get<fastgltf::TRS>(node.transform);
       glm::vec3 translation = glm::vec3(
-          trs.translation.x(), trs.translation.y(), trs.translation.z());
-      glm::quat rotation = glm::quat(trs.rotation.w(), trs.rotation.x(),
-                                     trs.rotation.y(), trs.rotation.z());
+          -trs.translation.x(), trs.translation.y(), trs.translation.z());
+      glm::quat backwardRotation =
+          glm::quat(trs.rotation.w(), trs.rotation.x(), trs.rotation.y(),
+                    trs.rotation.z());
+      glm::vec3 euler = glm::eulerAngles(backwardRotation);
+      euler.z = -euler.z;
+      glm::quat rotation = glm::quat(euler);
       glm::vec3 scale = glm::vec3(trs.scale.x(), trs.scale.y(), trs.scale.z());
 
       maths::Transform transform(translation, rotation, scale);

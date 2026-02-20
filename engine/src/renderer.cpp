@@ -202,7 +202,7 @@ namespace keptech {
           .rasterizer =
               {
                   .cullMode = keptech::CullMode::Back,
-                  .frontFace = keptech::FrontFace::Clockwise,
+                  .frontFace = keptech::FrontFace::CounterClockwise,
               },
           .layout =
               {
