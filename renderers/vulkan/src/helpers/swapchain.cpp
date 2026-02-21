@@ -155,12 +155,10 @@ namespace keptech::vkh {
     }
 
     if (result == vk::Result::eSuboptimalKHR) {
-      VK_WARN("Swapchain is suboptimal, consider recreating it.");
       return AcquireResult(index, State::Suboptimal);
     }
 
     if (result == vk::Result::eErrorOutOfDateKHR) {
-      VK_WARN("Swapchain is out of date, recreate it.");
       return AcquireResult(index, State::OutOfDate);
     }
 

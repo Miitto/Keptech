@@ -464,11 +464,11 @@ namespace keptech::vkh {
 
 #ifndef NDEBUG
     if (result == vk::Result::eErrorOutOfDateKHR) {
-      VK_WARN("Swapchain is out of date during present");
+      VK_DEBUG("Swapchain is out of date during present");
     } else if (result == vk::Result::eSuboptimalKHR) {
-      VK_WARN("Swapchain is suboptimal during present");
+      VK_DEBUG("Swapchain is suboptimal during present");
     } else if (frameInfo.suboptimalSwapchain) {
-      VK_WARN("Swapchain was suboptimal at image aquire");
+      VK_DEBUG("Swapchain was suboptimal at image aquire");
     }
 #endif
 

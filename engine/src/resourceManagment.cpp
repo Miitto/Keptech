@@ -1,6 +1,8 @@
 #include "keptech/renderer.hpp"
 
+#include <cstdint>
 #include <execution>
+#include <iterator>
 #include <keptech/core/image.hpp>
 #include <keptech/core/kt-logger.hpp>
 #include <keptech/core/rendering/gltf/data.hpp>
@@ -12,14 +14,16 @@ namespace keptech {
     if (data.vertices.empty() || data.indices.empty()) {
       return std::unexpected("Mesh data contains no vertices or indices.");
     }
-
-    auto cmdBufRes = backend->createCmdBuffer(CmdBufType::Compute);
+    auto cmdBufRes = m.backend->createCmdBuffer(CmdBufType::Compute);
     if (!cmdBufRes) {
       return std::unexpected(
           fmt::format("Failed to create command buffer for mesh loading: {}",
                       cmdBufRes.error()));
     }
     CmdBufPtr cmdBuf = std::move(cmdBufRes.value());
+    cmdBuf->begin();
+
+    std::vector<BufPtr> trackedBuffers{m.buffers.vertex, m.buffers.index};
 
     KT_DEBUG("Loading mesh '{}' with {} vertices and {} indices", data.name,
              data.vertices.size(), data.indices.size());
@@ -27,61 +31,116 @@ namespace keptech {
     size_t vertexSize = data.vertices.size() * sizeof(Vertex);
     size_t indexSize = data.indices.size() * sizeof(uint32_t);
 
-    BufferCreateInfo vertexStagingBufInfo{
-        .name = fmt::format("Vertex staging Buffer for Mesh '{}'", data.name),
-        .size = vertexSize,
-        .usage = BufferUsage::TransferSrc,
-        .memoryType = BufferMemoryType::CpuToGpu,
-    };
-    BufferCreateInfo indexStagingBufInfo{
-        .name = fmt::format("Index staging Buffer for Mesh '{}'", data.name),
-        .size = indexSize,
-        .usage = BufferUsage::TransferSrc,
-        .memoryType = BufferMemoryType::CpuToGpu,
-    };
+    size_t requiredVertexBufferSize = m.buffers.vertexEnd + vertexSize;
+    size_t requiredIndexBufferSize = m.buffers.indexEnd + indexSize;
 
-    auto vertexStagingBufRes = backend->createBuffer(vertexStagingBufInfo);
-    if (!vertexStagingBufRes) {
-      return std::unexpected(
-          fmt::format("Failed to create staging buffer for mesh loading: {}",
-                      vertexStagingBufRes.error()));
+    if (requiredVertexBufferSize > m.buffers.vertex->getSize()) {
+
+      KT_DEBUG("Reallocating vertex buffer from {} bytes to {} bytes to fit "
+               "glTF data",
+               m.buffers.vertex->getSize(), requiredVertexBufferSize);
+
+      auto res = m.backend->createBuffer({
+          .name = "Vertex Buffer",
+          .size = requiredVertexBufferSize,
+          .usage = BufferUsage::Vertex | BufferUsage::TransferDst |
+                   BufferUsage::TransferSrc,
+          .memoryType = BufferMemoryType::PreferDevice,
+          .map = BufferMapType::SeqWrite,
+      });
+      if (!res) {
+        return std::unexpected(
+            fmt::format("Failed to upsize vertex buffer for glTF loading: {}",
+                        res.error()));
+      }
+      if (m.buffers.vertexEnd > 0) {
+        cmdBuf->copyBufferToBuffer(*m.buffers.vertex.get(), *res.value().get(),
+                                   m.buffers.vertexEnd, 0, 0);
+        trackedBuffers.push_back(res.value());
+      }
+      m.buffers.vertex = std::move(res.value());
     }
 
-    auto indexStagingBufRes = backend->createBuffer(indexStagingBufInfo);
-    if (!indexStagingBufRes) {
-      return std::unexpected(
-          fmt::format("Failed to create staging buffer for mesh loading: {}",
-                      indexStagingBufRes.error()));
+    if (requiredIndexBufferSize > m.buffers.index->getSize()) {
+      KT_DEBUG("Reallocating index buffer from {} bytes to {} bytes to fit "
+               "glTF data",
+               m.buffers.index->getSize(), requiredIndexBufferSize);
+
+      auto res = m.backend->createBuffer({
+          .name = "Index Buffer",
+          .size = requiredIndexBufferSize,
+          .usage = BufferUsage::Index | BufferUsage::TransferDst |
+                   BufferUsage::TransferSrc,
+          .memoryType = BufferMemoryType::PreferDevice,
+          .map = BufferMapType::SeqWrite,
+      });
+      if (!res) {
+        return std::unexpected(fmt::format(
+            "Failed to upsize index buffer for glTF loading: {}", res.error()));
+      }
+      if (m.buffers.indexEnd > 0) {
+        cmdBuf->copyBufferToBuffer(*m.buffers.index.get(), *res.value().get(),
+                                   m.buffers.indexEnd, 0, 0);
+        trackedBuffers.push_back(res.value());
+      }
+      m.buffers.index = std::move(res.value());
     }
 
-    auto& vertexStagingBuf = vertexStagingBufRes.value();
-    auto& indexStagingBuf = indexStagingBufRes.value();
+    BufPtr vertexBuf = m.buffers.vertex;
+    BufPtr indexBuf = m.buffers.index;
+
+    size_t vertexOffset = m.buffers.vertexEnd;
+    size_t indexOffset = m.buffers.indexEnd;
+
+    bool needCopy = m.buffers.vertex->getMapping() == nullptr ||
+                    m.buffers.index->getMapping() == nullptr;
+
+    if (needCopy) {
+      size_t totalSize = vertexSize + indexSize;
+      BufferCreateInfo stagingBufInfo{
+          .name = fmt::format("Staging Buffer for Mesh '{}'", data.name),
+          .size = totalSize,
+          .usage = BufferUsage::TransferSrc,
+          .map = BufferMapType::SeqWrite,
+      };
+      auto stagingBufRes = m.backend->createBuffer(stagingBufInfo);
+      if (!stagingBufRes) {
+        return std::unexpected(
+            fmt::format("Failed to create staging buffer for mesh loading: {}",
+                        stagingBufRes.error()));
+      }
+      vertexBuf = std::move(stagingBufRes.value());
+      indexBuf = vertexBuf;
+      trackedBuffers.push_back(vertexBuf);
+      vertexOffset = 0;
+      indexOffset = vertexSize;
+    }
 
     uint8_t* vertexMapping =
-        static_cast<uint8_t*>(vertexStagingBuf->getMapping());
+        static_cast<uint8_t*>(vertexBuf->getMapping()) + vertexOffset;
     uint8_t* indexMapping =
-        static_cast<uint8_t*>(indexStagingBuf->getMapping());
+        static_cast<uint8_t*>(indexBuf->getMapping()) + indexOffset;
 
     memcpy(vertexMapping, data.vertices.data(), vertexSize);
     memcpy(indexMapping, data.indices.data(), indexSize);
 
-    cmdBuf->begin();
-    cmdBuf->copyBufferToBuffer(*vertexStagingBuf.get(), *buffers.vertex.get(),
-                               vertexSize, 0, buffers.vertexEnd);
-    cmdBuf->copyBufferToBuffer(*indexStagingBuf.get(), *buffers.index.get(),
-                               indexSize, 0, buffers.indexEnd);
+    if (needCopy) {
+      cmdBuf->copyBufferToBuffer(*vertexBuf.get(), *m.buffers.vertex.get(),
+                                 vertexSize, vertexOffset, m.buffers.vertexEnd);
+      cmdBuf->copyBufferToBuffer(*indexBuf.get(), *m.buffers.index.get(),
+                                 indexSize, indexOffset, m.buffers.indexEnd);
+    }
     cmdBuf->end();
 
     std::vector<IRendererBackend::SubmitInfo> submitInfos;
     submitInfos.push_back(IRendererBackend::SubmitInfo{
         .commandBuffer = std::move(cmdBuf),
-        .trackedBuffers = {vertexStagingBuf, indexStagingBuf, buffers.vertex,
-                           buffers.index},
+        .trackedBuffers = std::move(trackedBuffers),
     });
-    backend->submitCommandBuffers(std::move(submitInfos));
+    m.backend->submitCommandBuffers(std::move(submitInfos));
 
-    Mesh mesh(buffers.vertexEnd / sizeof(Vertex), data.indices.size(),
-              buffers.indexEnd / sizeof(uint32_t)
+    Mesh mesh(m.buffers.vertexEnd / sizeof(Vertex), data.indices.size(),
+              m.buffers.indexEnd / sizeof(uint32_t)
 #ifdef KT_ADD_RESOURCE_INFO
                   ,
               data.name, data.vertices.size()
@@ -90,8 +149,8 @@ namespace keptech {
 
     KT_DEBUG("Created mesh at offset {}", mesh.getVertexOffset());
 
-    buffers.vertexEnd += vertexSize;
-    buffers.indexEnd += indexSize;
+    m.buffers.vertexEnd += vertexSize;
+    m.buffers.indexEnd += indexSize;
 
     return mesh;
   }
@@ -157,7 +216,7 @@ namespace keptech {
 
   std::expected<gltf::Scene, std::string>
   Renderer::loadMesh(std::string_view path) {
-    auto cmdBufRes = backend->createCmdBuffer(CmdBufType::Compute);
+    auto cmdBufRes = m.backend->createCmdBuffer(CmdBufType::Compute);
     if (!cmdBufRes) {
       return std::unexpected(
           fmt::format("Failed to create command buffer for mesh loading: {}",
@@ -190,131 +249,170 @@ namespace keptech {
              requiredIndexBufferSize, requiredMaterialBufferSize);
 
     std::vector<BufPtr> trackedBuffers{
-        buffers.vertex,
-        buffers.index,
-        buffers.material,
+        m.buffers.vertex,
+        m.buffers.index,
+        m.buffers.material,
     };
 
-    if (buffers.vertexEnd + requiredVertexBufferSize >
-        buffers.vertex->getSize()) {
+    if (m.buffers.vertexEnd + requiredVertexBufferSize >
+        m.buffers.vertex->getSize()) {
 
       auto newVertexBufferSize =
-          buffers.vertex->getSize() + requiredVertexBufferSize;
+          m.buffers.vertex->getSize() + requiredVertexBufferSize;
 
       KT_DEBUG("Reallocating vertex buffer from {} bytes to {} bytes to fit "
                "glTF data",
-               buffers.vertex->getSize(), newVertexBufferSize);
+               m.buffers.vertex->getSize(), newVertexBufferSize);
 
-      auto res = backend->createBuffer({
+      auto res = m.backend->createBuffer({
           .name = "Vertex Buffer",
           .size = newVertexBufferSize,
           .usage = BufferUsage::Vertex | BufferUsage::TransferDst |
                    BufferUsage::TransferSrc,
-          .memoryType = BufferMemoryType::GpuOnly,
+          .memoryType = BufferMemoryType::PreferDevice,
+          .map = BufferMapType::SeqWrite,
       });
       if (!res) {
         return std::unexpected(
             fmt::format("Failed to upsize vertex buffer for glTF loading: {}",
                         res.error()));
       }
-      if (buffers.vertexEnd > 0) {
-        cmdBuf->copyBufferToBuffer(*buffers.vertex.get(), *res.value().get(),
-                                   buffers.vertexEnd, 0, 0);
+      if (m.buffers.vertexEnd > 0) {
+        cmdBuf->copyBufferToBuffer(*m.buffers.vertex.get(), *res.value().get(),
+                                   m.buffers.vertexEnd, 0, 0);
         trackedBuffers.push_back(res.value());
       }
-      buffers.vertex = std::move(res.value());
+      m.buffers.vertex = std::move(res.value());
     }
 
-    if (buffers.indexEnd + requiredIndexBufferSize > buffers.index->getSize()) {
+    if (m.buffers.indexEnd + requiredIndexBufferSize >
+        m.buffers.index->getSize()) {
       auto newIndexBufferSize =
-          buffers.index->getSize() + requiredIndexBufferSize;
+          m.buffers.index->getSize() + requiredIndexBufferSize;
 
       KT_DEBUG("Reallocating index buffer from {} bytes to {} bytes to fit "
                "glTF data",
-               buffers.index->getSize(), newIndexBufferSize);
+               m.buffers.index->getSize(), newIndexBufferSize);
 
-      auto res = backend->createBuffer({
+      auto res = m.backend->createBuffer({
           .name = "Index Buffer",
           .size = newIndexBufferSize,
           .usage = BufferUsage::Index | BufferUsage::TransferDst |
                    BufferUsage::TransferSrc,
-          .memoryType = BufferMemoryType::GpuOnly,
+          .memoryType = BufferMemoryType::PreferDevice,
+          .map = BufferMapType::SeqWrite,
       });
       if (!res) {
         return std::unexpected(fmt::format(
             "Failed to upsize index buffer for glTF loading: {}", res.error()));
       }
-      if (buffers.indexEnd > 0) {
-        cmdBuf->copyBufferToBuffer(*buffers.index.get(), *res.value().get(),
-                                   buffers.indexEnd, 0, 0);
+      if (m.buffers.indexEnd > 0) {
+        cmdBuf->copyBufferToBuffer(*m.buffers.index.get(), *res.value().get(),
+                                   m.buffers.indexEnd, 0, 0);
         trackedBuffers.push_back(res.value());
       }
-      buffers.index = std::move(res.value());
+      m.buffers.index = std::move(res.value());
     }
 
-    if (buffers.materialEnd + requiredMaterialBufferSize >
-        buffers.material->getSize()) {
+    if (m.buffers.materialEnd + requiredMaterialBufferSize >
+        m.buffers.material->getSize()) {
       auto newMaterialBufferSize =
-          buffers.material->getSize() + requiredMaterialBufferSize;
+          m.buffers.material->getSize() + requiredMaterialBufferSize;
 
       KT_DEBUG("Reallocating material buffer from {} bytes to {} bytes to fit "
                "glTF data",
-               buffers.material->getSize(), newMaterialBufferSize);
+               m.buffers.material->getSize(), newMaterialBufferSize);
 
-      auto res = backend->createBuffer({
+      auto res = m.backend->createBuffer({
           .name = "Material Buffer",
           .size = newMaterialBufferSize,
           .usage = BufferUsage::Uniform | BufferUsage::TransferDst |
                    BufferUsage::TransferSrc,
-          .memoryType = BufferMemoryType::GpuOnly,
+          .memoryType = BufferMemoryType::PreferDevice,
+          .map = BufferMapType::SeqWrite,
       });
       if (!res) {
         return std::unexpected(
             fmt::format("Failed to upsize material buffer for glTF loading: {}",
                         res.error()));
       }
-      if (buffers.materialEnd > 0) {
-        cmdBuf->copyBufferToBuffer(*buffers.material.get(), *res.value().get(),
-                                   buffers.materialEnd, 0, 0);
+      if (m.buffers.materialEnd > 0) {
+        cmdBuf->copyBufferToBuffer(*m.buffers.material.get(),
+                                   *res.value().get(), m.buffers.materialEnd, 0,
+                                   0);
         trackedBuffers.push_back(res.value());
       }
-      buffers.material = std::move(res.value());
+      m.buffers.material = std::move(res.value());
     }
 
-    size_t totalSize = requiredVertexBufferSize + requiredIndexBufferSize +
-                       requiredMaterialBufferSize;
+    BufPtr vertexBuf = m.buffers.vertex;
+    BufPtr indexBuf = m.buffers.index;
+    BufPtr materialBuf = m.buffers.material;
 
-    BufferCreateInfo stagingBufInfo{
-        .name = fmt::format("Staging Buffer for glTF '{}'", path),
-        .size = totalSize,
-        .usage = BufferUsage::TransferSrc,
-        .memoryType = BufferMemoryType::CpuToGpu,
-    };
-    auto stagingBufRes = backend->createBuffer(stagingBufInfo);
-    if (!stagingBufRes) {
-      return std::unexpected(
-          fmt::format("Failed to create staging buffer for glTF loading: {}",
-                      stagingBufRes.error()));
+    bool needCopyVertex = vertexBuf->getMapping() == nullptr;
+    bool needCopyIndex = indexBuf->getMapping() == nullptr;
+    bool needCopyMaterial = materialBuf->getMapping() == nullptr;
+
+    size_t vertexOffset = m.buffers.vertexEnd;
+    size_t indexOffset = m.buffers.indexEnd;
+    size_t materialOffset = m.buffers.materialEnd;
+
+    size_t totalSize = 0;
+    if (needCopyVertex) {
+      vertexOffset = 0;
+      totalSize += requiredVertexBufferSize;
     }
-    auto stagingBufPtr = std::move(stagingBufRes.value());
+    if (needCopyIndex) {
+      indexOffset = needCopyVertex ? requiredVertexBufferSize : 0;
+      totalSize += requiredIndexBufferSize;
+    }
+    if (needCopyMaterial) {
+      materialOffset =
+          indexOffset + (needCopyIndex ? requiredIndexBufferSize : 0);
+      totalSize += requiredMaterialBufferSize;
+    }
 
-    trackedBuffers.push_back(stagingBufPtr);
+    if (totalSize > 0) {
+      BufferCreateInfo stagingBufInfo{
+          .name = fmt::format("Staging Buffer for glTF '{}'", path),
+          .size = totalSize,
+          .usage = BufferUsage::TransferSrc,
+          .map = BufferMapType::SeqWrite,
+      };
+      auto stagingBufRes = m.backend->createBuffer(stagingBufInfo);
+      if (!stagingBufRes) {
+        return std::unexpected(
+            fmt::format("Failed to create staging buffer for glTF loading: {}",
+                        stagingBufRes.error()));
+      }
+      auto stagingBufPtr = std::move(stagingBufRes.value());
 
-    auto& stagingBuf = *stagingBufPtr;
+      trackedBuffers.push_back(stagingBufPtr);
+      if (needCopyVertex) {
+        vertexBuf = stagingBufPtr;
+      }
+      if (needCopyIndex) {
+        indexBuf = stagingBufPtr;
+      }
+      if (needCopyMaterial) {
+        materialBuf = stagingBufPtr;
+      }
+    }
 
     std::vector<std::vector<Submesh>> meshes;
 
-    size_t startVertexEnd = buffers.vertexEnd;
-    size_t startIndexEnd = buffers.indexEnd;
+    size_t startVertexEnd = m.buffers.vertexEnd;
+    size_t startIndexEnd = m.buffers.indexEnd;
 
     std::vector<MeshPtr> allMeshes;
 
-    uint8_t* vertexMapping = static_cast<uint8_t*>(stagingBuf.getMapping());
-    uint8_t* indexMapping = vertexMapping + requiredVertexBufferSize;
+    uint8_t* vertexMapping =
+        static_cast<uint8_t*>(vertexBuf->getMapping()) + vertexOffset;
+    uint8_t* indexMapping =
+        static_cast<uint8_t*>(indexBuf->getMapping()) + indexOffset;
     uint8_t* materialMapping =
-        vertexMapping + requiredVertexBufferSize + requiredIndexBufferSize;
+        static_cast<uint8_t*>(materialBuf->getMapping()) + materialOffset;
     for (auto& meshData : gltf.meshes) {
-
       size_t vertexSize = meshData.vertices.size() * sizeof(Vertex);
       size_t indexSize = meshData.indices.size() * sizeof(uint32_t);
 
@@ -326,8 +424,8 @@ namespace keptech {
       std::vector<Submesh> submeshes;
       submeshes.reserve(meshData.submeshes.size());
       size_t i = 0;
-      uint32_t vEnd = buffers.vertexEnd / sizeof(Vertex);
-      uint32_t iEnd = buffers.indexEnd / sizeof(uint32_t);
+      uint32_t vEnd = m.buffers.vertexEnd / sizeof(Vertex);
+      uint32_t iEnd = m.buffers.indexEnd / sizeof(uint32_t);
       for (auto& submeshData : meshData.submeshes) {
         MeshPtr submesh = std::make_shared<Mesh>(
             vEnd, submeshData.indexCount, iEnd + submeshData.indexOffset
@@ -344,17 +442,22 @@ namespace keptech {
         ++i;
       }
 
-      buffers.vertexEnd += vertexSize;
-      buffers.indexEnd += indexSize;
+      m.buffers.vertexEnd += vertexSize;
+      m.buffers.indexEnd += indexSize;
 
       meshes.emplace_back(std::move(submeshes));
     }
 
-    cmdBuf->copyBufferToBuffer(stagingBuf, *buffers.vertex.get(),
-                               requiredVertexBufferSize, 0, startVertexEnd);
-    cmdBuf->copyBufferToBuffer(stagingBuf, *buffers.index.get(),
-                               requiredIndexBufferSize,
-                               requiredVertexBufferSize, startIndexEnd);
+    if (needCopyVertex) {
+      cmdBuf->copyBufferToBuffer(*vertexBuf.get(), *m.buffers.vertex.get(),
+                                 requiredVertexBufferSize, vertexOffset,
+                                 startVertexEnd);
+    }
+    if (needCopyIndex) {
+      cmdBuf->copyBufferToBuffer(*indexBuf.get(), *m.buffers.index.get(),
+                                 requiredIndexBufferSize, indexOffset,
+                                 startIndexEnd);
+    }
 
     std::vector<Image> imageData;
     imageData.resize(gltf.images.size());
@@ -440,7 +543,7 @@ namespace keptech {
                             TextureUsage::Sampled | TextureUsage::TransferDst};
                   });
 
-    auto imagesRes = backend->createImages(imageUploadInfos);
+    auto imagesRes = m.backend->createImages(imageUploadInfos);
     if (!imagesRes) {
       return std::unexpected(
           fmt::format("Failed to create glTF images: {}", imagesRes.error()));
@@ -450,7 +553,7 @@ namespace keptech {
     std::vector<ImgPtr> textures = std::move(imagesRes.value());
 
     std::vector<MaterialPtr> materials;
-    size_t materialOffset = buffers.materialEnd;
+    size_t startMaterialOffset = m.buffers.materialEnd;
     for (auto& matData : gltf.materials) {
       struct Data {
         glm::vec4 albedoColor{matData.pbrData.baseColorFactor.x(),
@@ -611,7 +714,7 @@ namespace keptech {
       memcpy(materialMapping, &gpuData, sizeof(DeferredMaterialData));
       materialMapping += sizeof(DeferredMaterialData);
 
-      PipelinePtr& pipeline = pipelines.deferred;
+      PipelinePtr& pipeline = m.pipelines.deferred;
 
       MaterialPtr material =
           std::make_shared<Material>(pipeline,
@@ -641,35 +744,31 @@ namespace keptech {
                                          data.ao,
                                          data.roughness,
                                      },
-                                     materialOffset);
+                                     m.buffers.materialEnd);
 
-      materialOffset += sizeof(DeferredMaterialData);
+      m.buffers.materialEnd += sizeof(DeferredMaterialData);
       materials.emplace_back(std::move(material));
     }
 
     if (materials.empty()) {
       KT_WARN("No materials found in glTF '{}', using default material", path);
-      materials.push_back(defaultMaterial);
+      materials.push_back(m.defaultMaterial);
     }
 
-    if (requiredMaterialBufferSize > 0) {
-      cmdBuf->copyBufferToBuffer(
-          stagingBuf, *buffers.material.get(), requiredMaterialBufferSize,
-          requiredVertexBufferSize + requiredIndexBufferSize,
-          buffers.materialEnd);
+    if (needCopyMaterial && requiredMaterialBufferSize > 0) {
+      cmdBuf->copyBufferToBuffer(*materialBuf.get(), *m.buffers.material.get(),
+                                 requiredMaterialBufferSize, materialOffset,
+                                 startMaterialOffset);
     }
-
-    buffers.materialEnd += requiredMaterialBufferSize;
 
     cmdBuf->end();
 
     std::vector<IRendererBackend::SubmitInfo> submitInfos;
     submitInfos.push_back(IRendererBackend::SubmitInfo{
         .commandBuffer = std::move(cmdBuf),
-        .trackedBuffers = {stagingBufPtr, buffers.vertex, buffers.index,
-                           buffers.material},
+        .trackedBuffers = std::move(trackedBuffers),
     });
-    backend->submitCommandBuffers(std::move(submitInfos));
+    m.backend->submitCommandBuffers(std::move(submitInfos));
 
     std::vector<gltf::Scene::Node> sceneNodes;
     sceneNodes.reserve(gltf.roots.size());

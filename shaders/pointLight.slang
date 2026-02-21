@@ -74,7 +74,7 @@ keptech::DeferredLightingOutput frag(v2f input,
 
   float3 radiance = light.color * light.intensity * attenuation;
 
-  let normal = normalize(normalSample.xyz * 2.0 - 1.0);
+  let normal = normalize(normalSample.xyz);
 
   let incident = normalize(toLight);
   let viewDir = normalize(keptech::camera.position - world);
@@ -111,5 +111,4 @@ keptech::DeferredLightingOutput frag(v2f input,
 
   return output;
 }
-
 

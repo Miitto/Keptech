@@ -28,41 +28,43 @@ namespace keptech {
   class Renderer {
     // End user use
   public:
-    void setScene(Scene* newScene) { scene = newScene; }
+    void setScene(Scene* newScene) { m.scene = newScene; }
 
     std::expected<Mesh, std::string> loadMesh(const MeshData& data);
     std::expected<gltf::Scene, std::string> loadMesh(std::string_view path);
 
     inline std::expected<PipelinePtr, std::string>
-    createPipeline(const PipelineCreateInfo& createInfo) {
-      return backend->createPipeline(createInfo);
+    createPipeline(PipelineCreateInfo createInfo) {
+      preprocessPipelineCreateInfo(createInfo, m.textureFormats, *m.backend);
+
+      return m.backend->createPipeline(std::move(createInfo));
     }
 
     inline std::expected<ImgPtr, std::string>
     createImage(const IRendererBackend::ImageCreateInfo& info) {
-      return backend->createImage(info);
+      return m.backend->createImage(info);
     }
 
     inline void loadImGuiImageHandle(ImgPtr& texture) {
-      backend->loadImGuiImageHandle(texture);
+      m.backend->loadImGuiImageHandle(texture);
     }
 
-    [[nodiscard]] const GBuffers& getGBuffers() const { return gBuffers; }
-    [[nodiscard]] GBuffers& getGBuffers() { return gBuffers; }
+    [[nodiscard]] const GBuffers& getGBuffers() const { return m.gBuffers; }
+    [[nodiscard]] GBuffers& getGBuffers() { return m.gBuffers; }
 
-    LightingBuffers& getLightingBuffers() { return lightingBuffers; }
+    LightingBuffers& getLightingBuffers() { return m.lightingBuffers; }
     [[nodiscard]] const LightingBuffers& getLightingBuffers() const {
-      return lightingBuffers;
+      return m.lightingBuffers;
     }
 
-    ImgPtr& getCombinedLightBuffer() { return lightCombinedBuffer; }
+    ImgPtr& getCombinedLightBuffer() { return m.lightCombinedBuffer; }
     [[nodiscard]] const ImgPtr& getCombinedLightBuffer() const {
-      return lightCombinedBuffer;
+      return m.lightCombinedBuffer;
     }
 
 #ifdef KT_ADD_RESOURCE_INFO
-    [[nodiscard]] size_t getTriangleCount() const { return triCount; }
-    [[nodiscard]] size_t getDrawCallCount() const { return drawCallCount; }
+    [[nodiscard]] size_t getTriangleCount() const { return m.triCount; }
+    [[nodiscard]] size_t getDrawCallCount() const { return m.drawCallCount; }
 #endif
 
     struct Pipelines {
@@ -71,8 +73,8 @@ namespace keptech {
       PipelinePtr combineDeferred;
     };
 
-    Pipelines& getPipelines() { return pipelines; }
-    [[nodiscard]] const Pipelines& getPipelines() const { return pipelines; }
+    Pipelines& getPipelines() { return m.pipelines; }
+    [[nodiscard]] const Pipelines& getPipelines() const { return m.pipelines; }
 
     // In Engine use
   public:
@@ -89,7 +91,75 @@ namespace keptech {
     Renderer& operator=(Renderer&&) = default;
     ~Renderer();
 
+    struct TextureFormats {
+      TextureFormat albedo = TextureFormat::RGBA8UNorm;
+      TextureFormat normal = TextureFormat::RGBA16F;
+      TextureFormat emissiveAo = TextureFormat::RGBA8UNorm;
+      TextureFormat metallicRoughness = TextureFormat::RG8UNorm;
+      TextureFormat depth = TextureFormat::Depth32F;
+      TextureFormat diffuse = TextureFormat::RGBA16F;
+      TextureFormat specular = TextureFormat::RGBA16F;
+      TextureFormat combined = TextureFormat::RGBA16F;
+    };
+
+    [[nodiscard]] const TextureFormats& getTextureFormats() const {
+      return m.textureFormats;
+    }
+    static inline void
+    preprocessPipelineCreateInfo(PipelineCreateInfo& createInfo,
+                                 const TextureFormats& formats,
+                                 const IRendererBackend& backend) {
+      switch (createInfo.shader.mode) {
+      case shaders::RenderingMode::Deferred: {
+        createInfo.attachments = AttachmentConfig{
+            .colorFormats =
+                {
+                    formats.albedo,
+                    formats.normal,
+                    formats.emissiveAo,
+                    formats.metallicRoughness,
+                },
+            .depthFormat = formats.depth,
+        };
+        break;
+      }
+      case shaders::RenderingMode::DeferredLighting: {
+        createInfo.attachments = {
+            .colorFormats = {formats.diffuse, formats.specular},
+        };
+      } break;
+      case shaders::RenderingMode::Forward:
+        if (createInfo.attachments.colorFormats.empty()) {
+          createInfo.attachments.colorFormats.push_back(
+              backend.backbufferFormat());
+        }
+        break;
+      case shaders::RenderingMode::Custom:
+        break;
+      }
+    }
+
   private:
+    void initImGui();
+
+    struct CameraData {
+      components::Transform* transform = nullptr;
+      components::Camera* camera = nullptr;
+    };
+
+    struct FrameData {
+      CmdBufPtr graphicsCmdBuf;
+      CameraData cameraData;
+    };
+
+    void drawDeferredPass(const FrameData&);
+    void drawLightingPass(const FrameData&);
+    void drawPointLights(const FrameData&);
+    void combineDeferredPass(const FrameData&);
+    void drawForwardPass(const FrameData&);
+    void drawTransparentPass(const FrameData&);
+    void drawUIPass(const FrameData&);
+
     struct TexData {
       glm::vec2 uvScale{1.f, 1.f};
       glm::vec2 uvOffset{};
@@ -156,52 +226,29 @@ namespace keptech {
       size_t materialEnd = sizeof(DeferredMaterialData);
     };
 
-    Renderer(std::unique_ptr<IRendererBackend> backend, GBuffers gBuffers,
-             LightingBuffers lightingBuffers, ImgPtr lightCompinedBuffer,
-             Pipelines&& pipelines, Buffers&& buffers,
-             MaterialPtr&& defaultMaterial)
-        : backend(std::move(backend)), gBuffers(std::move(gBuffers)),
-          lightingBuffers(std::move(lightingBuffers)),
-          lightCombinedBuffer(std::move(lightCompinedBuffer)),
-          pipelines(std::move(pipelines)), buffers(std::move(buffers)),
-          defaultMaterial(std::move(defaultMaterial)) {}
+    struct Members {
+      Scene* scene = nullptr;
 
-    void initImGui();
+      std::unique_ptr<IRendererBackend> backend;
+      TextureFormats textureFormats;
 
-    struct CameraData {
-      components::Transform* transform = nullptr;
-      components::Camera* camera = nullptr;
-    };
+      GBuffers gBuffers;
+      LightingBuffers lightingBuffers;
+      ImgPtr lightCombinedBuffer;
 
-    struct FrameData {
-      CmdBufPtr graphicsCmdBuf;
-      CameraData cameraData;
-    };
+      Renderer::Pipelines pipelines;
 
-    void drawDeferredPass(const FrameData&);
-    void drawLightingPass(const FrameData&);
-    void drawPointLights(const FrameData&);
-    void combineDeferredPass(const FrameData&);
-    void drawForwardPass(const FrameData&);
-    void drawTransparentPass(const FrameData&);
-    void drawUIPass(const FrameData&);
+      Buffers buffers;
 
-    Scene* scene = nullptr;
-
-    std::unique_ptr<IRendererBackend> backend;
-    GBuffers gBuffers;
-    LightingBuffers lightingBuffers;
-    ImgPtr lightCombinedBuffer;
-
-    Pipelines pipelines;
-
-    Buffers buffers;
-
-    MaterialPtr defaultMaterial;
+      MaterialPtr defaultMaterial;
 
 #ifdef KT_ADD_RESOURCE_INFO
-    size_t triCount = 0;
-    size_t drawCallCount = 0;
+      size_t triCount = 0;
+      size_t drawCallCount = 0;
 #endif
+    };
+
+    Members m;
+    Renderer(Members&& m) : m(std::move(m)) {}
   };
 } // namespace keptech

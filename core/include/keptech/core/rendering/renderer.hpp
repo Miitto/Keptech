@@ -98,6 +98,10 @@ namespace keptech {
     textureLayoutTransition(const CmdBufPtr&,
                             const std::vector<TextureTransition>&) = 0;
 
+    [[nodiscard]] virtual bool
+    canRenderToFormat(TextureFormat format) const = 0;
+
+    [[nodiscard]] virtual TextureFormat backbufferFormat() const = 0;
     virtual void newFrame() = 0;
 
     /// Do work necessary at the start of the frame, such as transitioning the
@@ -142,11 +146,4 @@ namespace keptech {
         { a.render() } -> std::same_as<void>;
         { T::getName() } -> std::same_as<const char*>;
       };
-
-  [[nodiscard]] inline AttachmentConfig deferredPipelineAttachmentConfig() {
-    using ac = AttachmentConfig;
-    using F = TextureFormat;
-    return ac{.colorFormats = {F::RGBA8, F::RGBA8, F::RGBA8, F::RG8},
-              .depthFormat = F::Depth16};
-  }
 } // namespace keptech

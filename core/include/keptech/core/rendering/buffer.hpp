@@ -21,16 +21,24 @@ namespace keptech {
   };
 
   enum class BufferMemoryType : uint8_t {
-    GpuOnly = 0,
-    CpuToGpu,
-    GpuToCpu,
+    Auto,
+    PreferDevice,
+    PreferHost,
+  };
+
+  enum class BufferMapType : uint8_t {
+    None = 0,
+    SeqWrite = BIT(0),
+    Random = BIT(1),
+    AllowTransferInstead = BIT(2),
   };
 
   struct BufferCreateInfo {
     std::optional<std::string> name = std::nullopt;
     size_t size = 0;
     Bitflag<BufferUsage> usage = BufferUsage::None;
-    BufferMemoryType memoryType = BufferMemoryType::GpuOnly;
+    BufferMemoryType memoryType = BufferMemoryType::Auto;
+    Bitflag<BufferMapType> map = BufferMapType::None;
   };
 
   class IBuffer {
@@ -66,7 +74,7 @@ namespace keptech {
 #ifdef KT_ADD_RESOURCE_INFO
     std::string debugName = "";
     Bitflag<BufferUsage> usageFlags = BufferUsage::None;
-    BufferMemoryType memoryType = BufferMemoryType::GpuOnly;
+    BufferMemoryType memoryType = BufferMemoryType::Auto;
 #endif
     size_t size = 0;
   };
@@ -81,3 +89,4 @@ namespace keptech {
 } // namespace keptech
 
 DEFINE_BITFLAG_ENUM_OPERATORS(keptech::BufferUsage)
+DEFINE_BITFLAG_ENUM_OPERATORS(keptech::BufferMapType)

@@ -118,6 +118,9 @@ namespace keptech::vkh {
     void textureLayoutTransition(const CmdBufPtr&,
                                  const std::vector<TextureTransition>&) final;
 
+    [[nodiscard]] bool canRenderToFormat(TextureFormat format) const final;
+    [[nodiscard]] TextureFormat backbufferFormat() const;
+
     void newFrame() final;
 
     std::expected<CmdBufPtr, std::string> startFrame() final;

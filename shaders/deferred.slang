@@ -136,7 +136,7 @@ keptech::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
     output.emissiveAo.a = mat.ao.Sample(uv).r;
   }
 
-  output.normal = output.normal * 0.5f + 0.5f;
+  output.normal = output.normal;
 
   return output;
 }

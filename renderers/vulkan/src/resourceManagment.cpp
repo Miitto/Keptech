@@ -24,6 +24,20 @@
 #include "conversions.hpp"
 
 namespace keptech::vkh {
+  bool RendererBackend::canRenderToFormat(TextureFormat format) const {
+    vk::Format vkFormat = from(format);
+    auto formatProps = vkcore.device.physical.getFormatProperties(vkFormat);
+    return ((formatProps.optimalTilingFeatures &
+             vk::FormatFeatureFlagBits::eColorAttachment) |
+            (formatProps.optimalTilingFeatures &
+             vk::FormatFeatureFlagBits::eDepthStencilAttachment)) !=
+           vk::FormatFeatureFlags{};
+  }
+
+  TextureFormat RendererBackend::backbufferFormat() const {
+    return from(getSwapchainImageFormat());
+  }
+
   std::expected<BufPtr, std::string>
   RendererBackend::createBuffer(const BufferCreateInfo& createInfo) {
     vk::BufferCreateInfo bufInfo{
@@ -33,10 +47,18 @@ namespace keptech::vkh {
         .sharingMode = vk::SharingMode::eExclusive,
     };
 
+    vma::AllocationCreateFlags allocFlags = {};
+    if (createInfo.map.has(BufferMapType::SeqWrite))
+      allocFlags |= vma::AllocationCreateFlagBits::eHostAccessSequentialWrite |
+                    vma::AllocationCreateFlagBits::eMapped;
+    if (createInfo.map.has(BufferMapType::Random))
+      allocFlags |= vma::AllocationCreateFlagBits::eHostAccessRandom |
+                    vma::AllocationCreateFlagBits::eMapped;
+    if (createInfo.map.has(BufferMapType::AllowTransferInstead))
+      allocFlags |=
+          vma::AllocationCreateFlagBits::eHostAccessAllowTransferInstead;
     vma::AllocationCreateInfo allocInfo{
-        .flags = createInfo.memoryType == BufferMemoryType::CpuToGpu
-                     ? vma::AllocationCreateFlagBits::eMapped
-                     : vma::AllocationCreateFlags{},
+        .flags = allocFlags,
         .usage = from(createInfo.memoryType),
     };
 
@@ -88,28 +110,8 @@ namespace keptech::vkh {
 
     config.shaders = shaderStages;
 
-    switch (createInfo.shader.mode) {
-    case shaders::RenderingMode::Deferred: {
-      createInfo.attachments = deferredPipelineAttachmentConfig();
-      break;
-    }
-    case shaders::RenderingMode::DeferredLighting: {
-      createInfo.attachments = {
-          .colorFormats = {TextureFormat::RGBA16F, TextureFormat::RGBA16F}};
-    } break;
-    case shaders::RenderingMode::Forward:
-      if (createInfo.attachments.colorFormats.empty()) {
-        createInfo.attachments.colorFormats.push_back(
-            from(getSwapchainImageFormat(), TextureFormat::RGBA8));
-      }
-      break;
-    case shaders::RenderingMode::Custom:
-      break;
-    }
-
     for (auto& colorFormat : createInfo.attachments.colorFormats) {
-      config.rendering.colorAttachmentFormats.push_back(
-          from(colorFormat, getSwapchainImageFormat()));
+      config.rendering.colorAttachmentFormats.push_back(from(colorFormat));
       config.blendAttachments.push_back(vk::PipelineColorBlendAttachmentState{
           .blendEnable = createInfo.blend.enableBlending,
           .srcColorBlendFactor = from(createInfo.blend.src),
@@ -125,9 +127,9 @@ namespace keptech::vkh {
     }
 
     config.rendering.depthAttachmentFormat =
-        from(createInfo.attachments.depthFormat, vk::Format::eD16Unorm);
+        from(createInfo.attachments.depthFormat);
     config.rendering.stencilAttachmentFormat =
-        from(createInfo.attachments.stencilFormat, vk::Format::eUndefined);
+        from(createInfo.attachments.stencilFormat);
 
     // Input Assembly
     config.inputAssembly.topology = from(createInfo.topology);
@@ -155,7 +157,7 @@ namespace keptech::vkh {
         vk::VertexInputAttributeDescription attrDesc{
             .location = location++,
             .binding = binding,
-            .format = from(type, vk::Format::eUndefined),
+            .format = from(type),
             .offset = voffset,
         };
         vertexAttributes.push_back(attrDesc);
@@ -374,7 +376,7 @@ namespace keptech::vkh {
     for (auto& info : infos) {
       if (info.data == nullptr)
         continue;
-      size_t pixelSize = componentsSize(info.format, TextureFormat::RGBA8);
+      size_t pixelSize = componentsSize(info.format);
 
       size_t sz = pixelSize * info.size.x * info.size.y * info.size.z;
 
@@ -388,8 +390,9 @@ namespace keptech::vkh {
                    },
                    {
                        .flags = vma::AllocationCreateFlagBits::eMapped,
-                       .usage = vma::MemoryUsage::eCpuToGpu,
-                   }),
+                       .usage = vma::MemoryUsage::eAuto,
+                   },
+                   fmt::format("Staging buffer for image '{}'", info.name)),
                "Failed to create staging buffer for image transfer");
       stagingBuffers.emplace_back(b);
     }
@@ -410,7 +413,7 @@ namespace keptech::vkh {
     size_t stagingIndex = 0;
 
     for (auto& info : infos) {
-      vk::Format vkFormat = from(info.format, vk::Format::eR8G8B8A8Unorm);
+      vk::Format vkFormat = from(info.format);
 
       vk::ImageCreateInfo imageCreateInfo{
           .imageType =
@@ -495,7 +498,7 @@ namespace keptech::vkh {
         continue;
       }
 
-      size_t pixelSize = componentsSize(info.format, TextureFormat::RGBA8);
+      size_t pixelSize = componentsSize(info.format);
 
       size_t imgSize = pixelSize * info.size.x * info.size.y * info.size.z;
 
@@ -604,16 +607,16 @@ namespace keptech::vkh {
     createInfos.reserve(infos.size());
 
     for (auto& info : infos) {
-      TextureFormat format = TextureFormat::RGBA8;
+      TextureFormat format = TextureFormat::RGBA8UNorm;
       switch (info.image->getChannels()) {
       case 1:
-        format = TextureFormat::R8;
+        format = TextureFormat::R8UNorm;
         break;
       case 2:
-        format = TextureFormat::RG8;
+        format = TextureFormat::RG8UNorm;
         break;
       case 3:
-        format = TextureFormat::RGB8;
+        format = TextureFormat::RGB8UNorm;
         break;
       default:;
       }
@@ -670,51 +673,57 @@ namespace keptech::vkh {
       vk::AccessFlags2 dstAccessMask;
 
       bool isDepth = isDepthFormat(texture->getFormat());
+      bool isStencil = isStencilFormat(texture->getFormat());
 
-      vk::PipelineStageFlags2 depthStages =
-          vk::PipelineStageFlagBits2::eEarlyFragmentTests |
-          vk::PipelineStageFlagBits2::eLateFragmentTests;
+      vk::ImageLayout layout = vk::ImageLayout::eUndefined;
+      vk::PipelineStageFlags2 stages{};
+      vk::AccessFlags2 access{};
 
-      vk::AccessFlags2 depthAccess =
-          vk::AccessFlagBits2::eDepthStencilAttachmentRead |
-          vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+      if (isDepth || isStencil) {
+        stages |= vk::PipelineStageFlagBits2::eEarlyFragmentTests |
+                  vk::PipelineStageFlagBits2::eLateFragmentTests;
+        access |= vk::AccessFlagBits2::eDepthStencilAttachmentRead |
+                  vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
 
-      vk::PipelineStageFlags2 colorStages =
-          vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-      vk::AccessFlags2 colorAccess = vk::AccessFlagBits2::eColorAttachmentRead |
-                                     vk::AccessFlagBits2::eColorAttachmentWrite;
+        if (isDepth && isStencil) {
+          layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        } else if (isDepth) {
+          layout = vk::ImageLayout::eDepthAttachmentOptimal;
+        } else {
+          layout = vk::ImageLayout::eStencilAttachmentOptimal;
+        }
+      } else {
+        stages |= vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+        access |= vk::AccessFlagBits2::eColorAttachmentRead |
+                  vk::AccessFlagBits2::eColorAttachmentWrite;
+        layout = vk::ImageLayout::eColorAttachmentOptimal;
+      }
 
       switch (transition.type) {
       case TextureTransitionType::UndefinedToRenderable:
         oldLayout = vk::ImageLayout::eUndefined;
-        newLayout = isDepth ? vk::ImageLayout::eDepthAttachmentOptimal
-                            : vk::ImageLayout::eColorAttachmentOptimal;
+        newLayout = layout;
         srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
-        dstStageMask = isDepth ? depthStages : colorStages;
+        dstStageMask = stages;
         srcAccessMask = vk::AccessFlagBits2::eNone;
-        dstAccessMask = isDepth ? depthAccess : colorAccess;
+        dstAccessMask = access;
         break;
       case TextureTransitionType::RenderableToShaderRead:
-        oldLayout = isDepth ? vk::ImageLayout::eDepthAttachmentOptimal
-                            : vk::ImageLayout::eColorAttachmentOptimal;
+        oldLayout = layout;
         newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        srcStageMask = isDepth ? depthStages : colorStages;
+        srcStageMask = stages;
         dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader;
-        srcAccessMask = isDepth ? depthAccess : colorAccess;
+        srcAccessMask = access;
         dstAccessMask = vk::AccessFlagBits2::eShaderRead;
         break;
       case TextureTransitionType::ShaderReadToRenderable:
         oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        newLayout = isDepth ? vk::ImageLayout::eDepthAttachmentOptimal
-                            : vk::ImageLayout::eColorAttachmentOptimal;
+        newLayout = layout;
         srcStageMask = vk::PipelineStageFlagBits2::eFragmentShader;
-        dstStageMask = isDepth ? depthStages : colorStages;
+        dstStageMask = stages;
         srcAccessMask = vk::AccessFlagBits2::eShaderRead;
-        dstAccessMask = isDepth ? depthAccess : colorAccess;
+        dstAccessMask = access;
         break;
-      default:
-        VK_ERROR("Unknown texture transition type");
-        continue;
       }
 
       vk::ImageMemoryBarrier2 barrier{

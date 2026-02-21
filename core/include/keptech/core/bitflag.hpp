@@ -91,6 +91,10 @@ namespace keptech {
       return (flags & static_cast<Underlying>(flag)) != 0;
     }
 
+    constexpr inline bool intersects(Bitflag<T> flag) const {
+      return (flags & flag.flags) != 0;
+    }
+
     constexpr inline Bitflag& clear(T flag) {
       flags &= ~static_cast<Underlying>(flag);
       return *this;

@@ -1,5 +1,7 @@
 #include <keptech/vulkan/structs.hpp>
 
+#include <spdlog/fmt/bundled/ranges.h>
+
 #include "macros.hpp"
 
 namespace keptech::vkh {
@@ -60,6 +62,26 @@ namespace keptech::vkh {
     if (name.has_value())
       allocator.setAllocationName(buffer.second, name->c_str());
 
+#ifndef NDEBUG
+    auto props = allocator.getAllocationMemoryProperties(buffer.second);
+    bool isHostVisible = (props & vk::MemoryPropertyFlagBits::eHostVisible) !=
+                         vk::MemoryPropertyFlags();
+    bool deviceLocal = (props & vk::MemoryPropertyFlagBits::eDeviceLocal) !=
+                       vk::MemoryPropertyFlags();
+    bool mapped = aInfo.pMappedData != nullptr;
+
+    std::vector<std::string> flags;
+    if (isHostVisible)
+      flags.emplace_back("Host Visible");
+    if (deviceLocal)
+      flags.emplace_back("Device Local");
+    if (mapped)
+      flags.emplace_back("Mapped");
+
+    VK_DEBUG("Created buffer [{}] with size {} bytes. {}", name.value_or(""),
+             aInfo.size, fmt::join(flags, ", "));
+#endif
+
     return AllocatedBuffer{
         .buffer = buffer.first,
         .alloc = buffer.second,
@@ -75,13 +97,10 @@ namespace keptech::vkh {
                                    const std::optional<std::string>& name) {
 
     auto allocatedBufferRes =
-        AllocatedBuffer::create(allocator, bufInfo, allocInfo);
+        AllocatedBuffer::create(allocator, bufInfo, allocInfo, name);
     if (!allocatedBufferRes) {
       return std::unexpected(allocatedBufferRes.error());
     }
-
-    if (name.has_value())
-      allocator.setAllocationName(allocatedBufferRes->alloc, name->c_str());
 
     return fromAllocatedBuffer(device, *allocatedBufferRes);
   }

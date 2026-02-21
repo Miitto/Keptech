@@ -4,7 +4,9 @@
 #include "keptech/core/rendering/buffer.hpp"
 #include "keptech/core/rendering/pipeline.hpp"
 #include "keptech/core/rendering/texture.hpp"
+#include "vk-logger.hpp"
 #include <keptech/shaders/shader.h>
+#include <system_error>
 #include <vk_mem_alloc.hpp>
 #include <vulkan/vulkan.hpp>
 
@@ -37,78 +39,88 @@ namespace keptech::vkh {
       return flags;
     }
 
-    vk::Format from(TextureFormat format, vk::Format defaultFormat) {
-      using Format = TextureFormat;
+    vk::Format from(TextureFormat format) {
+#define C(_KT, _VK)                                                            \
+  case TextureFormat::_KT:                                                     \
+    return vk::Format::_VK
+
       switch (format) {
-      case Format::RGB8:
-        return vk::Format::eR8G8B8Unorm;
-      case Format::RGBA8:
-        return vk::Format::eR8G8B8A8Unorm;
-      case Format::Default:
-        return defaultFormat;
-      case Format::Undefined:
+        C(Undefined, eUndefined);
+        C(R8UNorm, eR8Unorm);
+        C(R8SNorm, eR8Snorm);
+        C(R16UNorm, eR16Unorm);
+        C(R16SNorm, eR16Snorm);
+        C(RG8UNorm, eR8G8Unorm);
+        C(RG8SNorm, eR8G8Snorm);
+        C(RG16UNorm, eR16G16Unorm);
+        C(RG16SNorm, eR16G16Snorm);
+        C(RGB8UNorm, eR8G8B8Unorm);
+        C(RGB8SNorm, eR8G8B8Snorm);
+        C(RGB16UNorm, eR16G16B16Unorm);
+        C(RGB16SNorm, eR16G16B16Snorm);
+        C(RGBA8UNorm, eR8G8B8A8Unorm);
+        C(RGBA8SNorm, eR8G8B8A8Snorm);
+        C(RGBA16UNorm, eR16G16B16A16Unorm);
+        C(R16F, eR16Sfloat);
+        C(RG16F, eR16G16Sfloat);
+        C(RGB16F, eR16G16B16Sfloat);
+        C(RGBA16F, eR16G16B16A16Sfloat);
+        C(R32F, eR32Sfloat);
+        C(RG32F, eR32G32Sfloat);
+        C(RGB32F, eR32G32B32Sfloat);
+        C(RGBA32F, eR32G32B32A32Sfloat);
+        C(Depth16, eD16Unorm);
+        C(Depth32F, eD32Sfloat);
+        C(Depth24Stencil8, eD24UnormS8Uint);
+        C(Depth32FStencil8, eD32SfloatS8Uint);
+        C(Stencil8, eS8Uint);
+      case TextureFormat::Depth24:
         return vk::Format::eUndefined;
-      case Format::R8:
-        return vk::Format::eR8Unorm;
-      case Format::R16F:
-        return vk::Format::eR16Sfloat;
-      case Format::R32F:
-        return vk::Format::eR32Sfloat;
-      case Format::RG8:
-        return vk::Format::eR8G8Unorm;
-      case Format::RG16F:
-        return vk::Format::eR16G16Sfloat;
-      case Format::RG32F:
-        return vk::Format::eR32G32Sfloat;
-      case Format::RGB16F:
-        return vk::Format::eR16G16B16Sfloat;
-      case Format::RGB32F:
-        return vk::Format::eR32G32B32Sfloat;
-      case Format::RGBA16F:
-        return vk::Format::eR16G16B16A16Sfloat;
-      case Format::RGBA32F:
-        return vk::Format::eR32G32B32A32Sfloat;
-      case Format::Depth16:
-        return vk::Format::eD16Unorm;
-      case Format::Depth24Stencil8:
-        return vk::Format::eD24UnormS8Uint;
       }
+#undef C
     }
 
-    TextureFormat from(vk::Format format, TextureFormat defaultFormat) {
-      using Format = TextureFormat;
+    TextureFormat from(vk::Format format) {
+#define C(_KT, _VK)                                                            \
+  case vk::Format::_VK:                                                        \
+    return TextureFormat::_KT
+
       switch (format) {
-      case vk::Format::eR8G8B8Unorm:
-        return Format::RGB8;
-      case vk::Format::eR8G8B8A8Unorm:
-        return Format::RGBA8;
-      case vk::Format::eR8Unorm:
-        return Format::R8;
-      case vk::Format::eR16Sfloat:
-        return Format::R16F;
-      case vk::Format::eR32Sfloat:
-        return Format::R32F;
-      case vk::Format::eR8G8Unorm:
-        return Format::RG8;
-      case vk::Format::eR16G16Sfloat:
-        return Format::RG16F;
-      case vk::Format::eR32G32Sfloat:
-        return Format::RG32F;
-      case vk::Format::eR16G16B16Sfloat:
-        return Format::RGB16F;
-      case vk::Format::eR32G32B32Sfloat:
-        return Format::RGB32F;
-      case vk::Format::eR16G16B16A16Sfloat:
-        return Format::RGBA16F;
-      case vk::Format::eR32G32B32A32Sfloat:
-        return Format::RGBA32F;
-      case vk::Format::eD16Unorm:
-        return Format::Depth16;
-      case vk::Format::eD24UnormS8Uint:
-        return Format::Depth24Stencil8;
+        C(Undefined, eUndefined);
+        C(R8UNorm, eR8Unorm);
+        C(R8SNorm, eR8Snorm);
+        C(R16UNorm, eR16Unorm);
+        C(R16SNorm, eR16Snorm);
+        C(RG8UNorm, eR8G8Unorm);
+        C(RG8SNorm, eR8G8Snorm);
+        C(RG16UNorm, eR16G16Unorm);
+        C(RG16SNorm, eR16G16Snorm);
+        C(RGB8UNorm, eR8G8B8Unorm);
+        C(RGB8SNorm, eR8G8B8Snorm);
+        C(RGB16UNorm, eR16G16B16Unorm);
+        C(RGB16SNorm, eR16G16B16Snorm);
+        C(RGBA8UNorm, eR8G8B8A8Unorm);
+        C(RGBA8SNorm, eR8G8B8A8Snorm);
+        C(RGBA16UNorm, eR16G16B16A16Unorm);
+        C(R16F, eR16Sfloat);
+        C(RG16F, eR16G16Sfloat);
+        C(RGB16F, eR16G16B16Sfloat);
+        C(RGBA16F, eR16G16B16A16Sfloat);
+        C(R32F, eR32Sfloat);
+        C(RG32F, eR32G32Sfloat);
+        C(RGB32F, eR32G32B32Sfloat);
+        C(RGBA32F, eR32G32B32A32Sfloat);
+        C(Depth16, eD16Unorm);
+        C(Depth32F, eD32Sfloat);
+        C(Depth24Stencil8, eD24UnormS8Uint);
+        C(Depth32FStencil8, eD32SfloatS8Uint);
+        C(Stencil8, eS8Uint);
       default:
-        return defaultFormat;
+        VK_WARN("Unsupported Vulkan format: {}. Returning Undefined.",
+                vk::to_string(format));
+        return TextureFormat::Undefined;
       }
+#undef C
     }
 
     vk::ImageUsageFlags from(Bitflag<TextureUsage> usage) {
@@ -259,12 +271,13 @@ namespace keptech::vkh {
 
     vma::MemoryUsage from(BufferMemoryType memoryType) {
       switch (memoryType) {
-      case BufferMemoryType::GpuOnly:
-        return vma::MemoryUsage::eGpuOnly;
-      case BufferMemoryType::CpuToGpu:
-        return vma::MemoryUsage::eCpuToGpu;
-      case BufferMemoryType::GpuToCpu:
-        return vma::MemoryUsage::eGpuToCpu;
+      case BufferMemoryType::Auto:
+        return vma::MemoryUsage::eAuto;
+      case BufferMemoryType::PreferDevice:
+        return vma::MemoryUsage::eAutoPreferDevice;
+      case BufferMemoryType::PreferHost:
+        return vma::MemoryUsage::eAutoPreferHost;
+        break;
       }
     }
 
@@ -272,11 +285,17 @@ namespace keptech::vkh {
       vk::ImageAspectFlags aspectMask = vk::ImageAspectFlagBits::eColor;
       switch (format) {
       case TextureFormat::Depth16:
+      case TextureFormat::Depth24:
+      case TextureFormat::Depth32F:
         aspectMask = vk::ImageAspectFlagBits::eDepth;
         break;
       case TextureFormat::Depth24Stencil8:
+      case TextureFormat::Depth32FStencil8:
         aspectMask =
             vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+        break;
+      case TextureFormat::Stencil8:
+        aspectMask = vk::ImageAspectFlagBits::eStencil;
         break;
       default:
         break;
@@ -289,11 +308,16 @@ namespace keptech::vkh {
       vk::ImageAspectFlags aspectMask = vk::ImageAspectFlagBits::eColor;
       switch (format) {
       case vk::Format::eD16Unorm:
+      case vk::Format::eD32Sfloat:
         aspectMask = vk::ImageAspectFlagBits::eDepth;
         break;
       case vk::Format::eD24UnormS8Uint:
+      case vk::Format::eD32SfloatS8Uint:
         aspectMask =
             vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+        break;
+      case vk::Format::eS8Uint:
+        aspectMask = vk::ImageAspectFlagBits::eStencil;
         break;
       default:
         break;
@@ -314,39 +338,52 @@ namespace keptech::vkh {
       }
     }
 
-    size_t componentsSize(TextureFormat format, TextureFormat defaultFormat) {
+    size_t componentsSize(TextureFormat format) {
       switch (format) {
       case TextureFormat::Undefined:
         return 0;
-      case TextureFormat::R8:
+      case TextureFormat::R8UNorm:
+      case TextureFormat::R8SNorm:
+      case TextureFormat::Stencil8:
         return 1;
-      case TextureFormat::RG8:
+      case TextureFormat::R16UNorm:
+      case TextureFormat::R16SNorm:
+      case TextureFormat::RG8UNorm:
+      case TextureFormat::RG8SNorm:
       case TextureFormat::R16F:
       case TextureFormat::Depth16:
         return 2;
-      case TextureFormat::RGB8:
+      case TextureFormat::RGB8UNorm:
+      case TextureFormat::RGB8SNorm:
+      case TextureFormat::Depth24:
         return 3;
-      case TextureFormat::RGBA8:
-      case TextureFormat::R32F:
+      case TextureFormat::RG16UNorm:
+      case TextureFormat::RG16SNorm:
+      case TextureFormat::RGBA8UNorm:
+      case TextureFormat::RGBA8SNorm:
       case TextureFormat::RG16F:
+      case TextureFormat::R32F:
+      case TextureFormat::Depth32F:
       case TextureFormat::Depth24Stencil8:
         return 4;
-      case TextureFormat::Default:
-        return componentsSize(defaultFormat, defaultFormat);
-      case TextureFormat::RG32F:
-      case TextureFormat::RGBA16F:
-        return 8;
+      case TextureFormat::Depth32FStencil8:
+        return 5;
+      case TextureFormat::RGB16UNorm:
+      case TextureFormat::RGB16SNorm:
       case TextureFormat::RGB16F:
         return 6;
+      case TextureFormat::RGBA16UNorm:
+      case TextureFormat::RGBA16F:
+      case TextureFormat::RG32F:
+        return 8;
       case TextureFormat::RGB32F:
         return 12;
       case TextureFormat::RGBA32F:
         return 16;
-        break;
       }
     }
 
-    vk::Format from(shaders::DataType type, vk::Format defaultFormat) {
+    vk::Format from(shaders::DataType type) {
       using T = shaders::DataType;
       switch (type) {
       case T::F32:
@@ -381,8 +418,71 @@ namespace keptech::vkh {
         return vk::Format::eR32G32B32Uint;
       case T::U32_4:
         return vk::Format::eR32G32B32A32Uint;
-      default:
-        return defaultFormat;
+      case shaders::DataType::None:
+      case shaders::DataType::Void:
+        return vk::Format::eUndefined;
+      case shaders::DataType::Bool:
+        return vk::Format::eR8Uint;
+      case shaders::DataType::F16:
+        return vk::Format::eR16Sfloat;
+      case shaders::DataType::F64:
+        return vk::Format::eR64Sfloat;
+      case shaders::DataType::F16_2:
+        return vk::Format::eR16G16Sfloat;
+      case shaders::DataType::F64_2:
+        return vk::Format::eR64G64Sfloat;
+      case shaders::DataType::F16_3:
+        return vk::Format::eR16G16B16Sfloat;
+      case shaders::DataType::F64_3:
+        return vk::Format::eR64G64B64Sfloat;
+      case shaders::DataType::F16_4:
+        return vk::Format::eR16G16B16A16Sfloat;
+      case shaders::DataType::F64_4:
+        return vk::Format::eR64G64B64A64Sfloat;
+      case shaders::DataType::I8:
+        return vk::Format::eR8Sint;
+      case shaders::DataType::I16:
+        return vk::Format::eR16Sint;
+      case shaders::DataType::I32:
+        return vk::Format::eR32Sint;
+      case shaders::DataType::I64:
+        return vk::Format::eR64Sint;
+      case shaders::DataType::I8_2:
+        return vk::Format::eR8G8Sint;
+      case shaders::DataType::I16_2:
+        return vk::Format::eR16G16Sint;
+      case shaders::DataType::I32_2:
+        return vk::Format::eR32G32Sint;
+      case shaders::DataType::I64_2:
+        return vk::Format::eR64G64Sint;
+      case shaders::DataType::I8_3:
+        return vk::Format::eR8G8B8Sint;
+      case shaders::DataType::I16_3:
+        return vk::Format::eR16G16B16Sint;
+      case shaders::DataType::I32_3:
+        return vk::Format::eR32G32B32Sint;
+      case shaders::DataType::I64_3:
+        return vk::Format::eR64G64B64Sint;
+      case shaders::DataType::I8_4:
+        return vk::Format::eR8G8B8A8Sint;
+      case shaders::DataType::I16_4:
+        return vk::Format::eR16G16B16A16Sint;
+      case shaders::DataType::I32_4:
+        return vk::Format::eR32G32B32A32Sint;
+      case shaders::DataType::I64_4:
+        return vk::Format::eR64G64B64A64Sint;
+      case shaders::DataType::U64:
+        return vk::Format::eR64Uint;
+      case shaders::DataType::U64_2:
+        return vk::Format::eR64G64Uint;
+      case shaders::DataType::U64_3:
+        return vk::Format::eR64G64B64Uint;
+      case shaders::DataType::U64_4:
+        return vk::Format::eR64G64B64A64Uint;
+      case shaders::DataType::F32_4x4:
+        return vk::Format::eR32G32B32A32Sfloat;
+      case shaders::DataType::Sampler2D:
+        return vk::Format::eUndefined;
       }
     }
 
@@ -422,7 +522,6 @@ namespace keptech::vkh {
       case T::U32_4:
         return 16;
       case shaders::DataType::None:
-        return 0;
       case shaders::DataType::Void:
         return 0;
       case shaders::DataType::Bool:

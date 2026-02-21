@@ -19,27 +19,55 @@ namespace keptech {
   };
   enum class TextureFormat : uint8_t {
     Undefined = 0,
-    Default,
-    R8,
+    R8UNorm,
+    R8SNorm,
+    R16UNorm,
+    R16SNorm,
+    RG8UNorm,
+    RG8SNorm,
+    RG16UNorm,
+    RG16SNorm,
+    RGB8UNorm,
+    RGB8SNorm,
+    RGB16UNorm,
+    RGB16SNorm,
+    RGBA8UNorm,
+    RGBA8SNorm,
+    RGBA16UNorm,
     R16F,
-    R32F,
-    RG8,
     RG16F,
-    RG32F,
-    RGB8,
     RGB16F,
-    RGB32F,
-    RGBA8,
     RGBA16F,
+    R32F,
+    RG32F,
+    RGB32F,
     RGBA32F,
     Depth16,
+    Depth24,
+    Depth32F,
     Depth24Stencil8,
+    Depth32FStencil8,
+    Stencil8,
   };
 
   inline bool isDepthFormat(TextureFormat format) {
     switch (format) {
     case TextureFormat::Depth16:
+    case TextureFormat::Depth24:
     case TextureFormat::Depth24Stencil8:
+    case TextureFormat::Depth32F:
+    case TextureFormat::Depth32FStencil8:
+      return true;
+    default:
+      return false;
+    }
+  }
+
+  inline bool isStencilFormat(TextureFormat format) {
+    switch (format) {
+    case TextureFormat::Stencil8:
+    case TextureFormat::Depth24Stencil8:
+    case TextureFormat::Depth32FStencil8:
       return true;
     default:
       return false;
@@ -154,56 +182,44 @@ struct fmt::formatter<keptech::TextureFormat>
   auto format(const keptech::TextureFormat format, FormatContext& ctx) const {
     using F = keptech::TextureFormat;
     std::string_view name = "";
+#define C(_NAME)                                                               \
+  case F::_NAME:                                                               \
+    name = #_NAME;                                                             \
+    break
+
     switch (format) {
-    case F::Undefined:
-      name = "Undefined";
-      break;
-    case F::Default:
-      name = "Default";
-      break;
-    case F::R8:
-      name = "R8";
-      break;
-    case F::R16F:
-      name = "R16F";
-      break;
-    case F::R32F:
-      name = "R32F";
-      break;
-    case F::RG8:
-      name = "RG8";
-      break;
-    case F::RG16F:
-      name = "RG16F";
-      break;
-    case F::RG32F:
-      name = "RG32F";
-      break;
-    case F::RGB8:
-      name = "RGB8";
-      break;
-    case F::RGB16F:
-      name = "RGB16F";
-      break;
-    case F::RGB32F:
-      name = "RGB32F";
-      break;
-    case F::RGBA8:
-      name = "RGBA8";
-      break;
-    case F::RGBA16F:
-      name = "RGBA16F";
-      break;
-    case F::RGBA32F:
-      name = "RGBA32F";
-      break;
-    case F::Depth16:
-      name = "Depth16";
-      break;
-    case F::Depth24Stencil8:
-      name = "Depth24Stencil8";
-      break;
+      C(Undefined);
+      C(R8UNorm);
+      C(R8SNorm);
+      C(R16UNorm);
+      C(R16SNorm);
+      C(RG8UNorm);
+      C(RG8SNorm);
+      C(RG16UNorm);
+      C(RG16SNorm);
+      C(RGB8UNorm);
+      C(RGB8SNorm);
+      C(RGB16UNorm);
+      C(RGB16SNorm);
+      C(RGBA8UNorm);
+      C(RGBA8SNorm);
+      C(RGBA16UNorm);
+      C(R16F);
+      C(RG16F);
+      C(RGB16F);
+      C(RGBA16F);
+      C(R32F);
+      C(RG32F);
+      C(RGB32F);
+      C(RGBA32F);
+      C(Depth16);
+      C(Depth24);
+      C(Depth32F);
+      C(Depth24Stencil8);
+      C(Depth32FStencil8);
+      C(Stencil8);
     }
+#undef C
     return fmt::formatter<std::string_view>::format(name, ctx);
   }
 };
