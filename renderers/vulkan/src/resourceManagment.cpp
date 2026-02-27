@@ -380,20 +380,23 @@ namespace keptech::vkh {
 
       size_t sz = pixelSize * info.size.x * info.size.y * info.size.z;
 
-      VKH_MAKE(b,
-               AddressedAllocatedBuffer::create(
-                   vkcore.device.logical, vkcore.allocator,
-                   {
-                       .size = sz,
-                       .usage = vk::BufferUsageFlagBits::eTransferSrc |
-                                vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                   },
-                   {
-                       .flags = vma::AllocationCreateFlagBits::eMapped,
-                       .usage = vma::MemoryUsage::eAuto,
-                   },
-                   fmt::format("Staging buffer for image '{}'", info.name)),
-               "Failed to create staging buffer for image transfer");
+      VKH_MAKE(
+          b,
+          AddressedAllocatedBuffer::create(
+              vkcore.device.logical, vkcore.allocator,
+              {
+                  .size = sz,
+                  .usage = vk::BufferUsageFlagBits::eTransferSrc |
+                           vk::BufferUsageFlagBits::eShaderDeviceAddress,
+              },
+              {
+                  .flags =
+                      vma::AllocationCreateFlagBits::eMapped |
+                      vma::AllocationCreateFlagBits::eHostAccessSequentialWrite,
+                  .usage = vma::MemoryUsage::eAuto,
+              },
+              fmt::format("Staging buffer for image '{}'", info.name)),
+          "Failed to create staging buffer for image transfer");
       stagingBuffers.emplace_back(b);
     }
 
@@ -434,8 +437,8 @@ namespace keptech::vkh {
       vma::AllocationCreateInfo allocCreateInfo =
 
           vma::AllocationCreateInfo{
-              .usage = vma::MemoryUsage::eGpuOnly,
-              .requiredFlags = vk::MemoryPropertyFlagBits::eDeviceLocal};
+              .usage = vma::MemoryUsage::eAutoPreferDevice,
+          };
 
       auto imageViewCreateInfo = vk::ImageViewCreateInfo{
           .viewType = info.size.z == 1 ? vk::ImageViewType::e2D
