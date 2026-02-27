@@ -102,6 +102,8 @@ private:
   /// Returns true if the node was deleted
   bool drawSceneTreeEntityContextMenu(SceneNode& node);
 
+  bool reloadShader(keptech::PipelinePtr& pipeline);
+
   void drawSelectedProperties();
   void drawEntityProperties(keptech::gui::Frame& frame,
                             keptech::ecs::EntityHandle entity);
