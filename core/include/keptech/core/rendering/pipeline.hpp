@@ -249,6 +249,14 @@ namespace keptech {
           stage(stage), instanceDataTypes(std::move(instanceDataTypes)) {
     }
 
+    virtual void replace(IPipeline& other) {
+      createInfo = std::move(other.createInfo);
+    }
+
+    IPipeline& operator=(IPipeline&&) = default;
+    IPipeline(IPipeline&&) = default;
+    virtual ~IPipeline() = default;
+
   protected:
 #ifdef KT_ADD_RESOURCE_INFO
     std::string name;

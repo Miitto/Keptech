@@ -36,5 +36,13 @@ namespace keptech::vkh {
           pipelineLayout(std::move(pipelineLayout)),
           extraInstanceDataSize(extraInstanceDataSize) {
     }
+
+    void replace(IPipeline& other) final {
+      IPipeline::replace(other);
+      auto& otherPipeline = static_cast<LoadedPipeline&>(other);
+      pipeline = std::move(otherPipeline.pipeline);
+      pipelineLayout = std::move(otherPipeline.pipelineLayout);
+      extraInstanceDataSize = otherPipeline.extraInstanceDataSize;
+    }
   };
 } // namespace keptech::vkh

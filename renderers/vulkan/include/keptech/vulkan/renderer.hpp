@@ -119,7 +119,9 @@ namespace keptech::vkh {
                                  const std::vector<TextureTransition>&) final;
 
     [[nodiscard]] bool canRenderToFormat(TextureFormat format) const final;
-    [[nodiscard]] TextureFormat backbufferFormat() const;
+    [[nodiscard]] TextureFormat backbufferFormat() const final;
+
+    void waitIdle() final { vkcore.device.logical.waitIdle(); }
 
     void newFrame() final;
 

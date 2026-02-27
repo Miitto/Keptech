@@ -104,6 +104,8 @@ namespace keptech {
     [[nodiscard]] virtual TextureFormat backbufferFormat() const = 0;
     virtual void newFrame() = 0;
 
+    virtual void waitIdle() = 0;
+
     /// Do work necessary at the start of the frame, such as transitioning the
     /// swapchain image. Creates the main graphics command buffer for the frame.
     virtual std::expected<CmdBufPtr, std::string> startFrame() = 0;

@@ -917,7 +917,8 @@ bool MaterialEditorLayer::reloadShader(keptech::PipelinePtr& pipeline) {
 
   auto newPipeline = renderer.createPipeline(newInfo);
   if (newPipeline.has_value()) {
-    pipeline.swap(newPipeline.value());
+    renderer.waitIdle();
+    pipeline->replace(*newPipeline.value());
     SPDLOG_INFO("{} Pipeline reloaded successfully.", pipeline->getDebugName());
   } else {
     SPDLOG_ERROR("Failed to create new pipeline: {}", newPipeline.error());

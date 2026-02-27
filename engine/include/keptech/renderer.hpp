@@ -76,6 +76,8 @@ namespace keptech {
     Pipelines& getPipelines() { return m.pipelines; }
     [[nodiscard]] const Pipelines& getPipelines() const { return m.pipelines; }
 
+    void waitIdle() { m.backend->waitIdle(); }
+
     // In Engine use
   public:
     static std::expected<Renderer, std::string>
