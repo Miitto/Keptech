@@ -30,11 +30,13 @@ namespace keptech::vkh {
         .size = size,
         .usage = vk::BufferUsageFlagBits::eTransferDst |
                  vk::BufferUsageFlagBits::eUniformBuffer,
-        .sharingMode = vk::SharingMode::eExclusive,
     };
 
     vma::AllocationCreateInfo allocInfo{
-        .usage = vma::MemoryUsage::eGpuOnly,
+        .flags = vma::AllocationCreateFlagBits::eHostAccessSequentialWrite |
+                 vma::AllocationCreateFlagBits::eMapped |
+                 vma::AllocationCreateFlagBits::eHostAccessAllowTransferInstead,
+        .usage = vma::MemoryUsage::eAutoPreferDevice,
     };
 
     VKH_MAKE(cameraBuffer,
@@ -45,6 +47,11 @@ namespace keptech::vkh {
     VKH_MAKE(globalDescriptorSets,
              createGlobalDescriptors(vkcore.device.logical),
              "Failed to create global descriptor sets.");
+    Limits limits{
+        .minUniformBufferOffsetAlignment =
+            vkcore.device.physical.getProperties()
+                .limits.minUniformBufferOffsetAlignment,
+    };
 
     size_t offset = 0;
     for (auto& set : globalDescriptorSets.sets) {
@@ -60,13 +67,19 @@ namespace keptech::vkh {
       writer.update(vkcore.device.logical, *set);
 
       offset += sizeof(components::Camera::Uniforms);
-      offset = maths::roundToAlignment(offset, 256);
+      offset = maths::roundToAlignment(offset,
+                                       limits.minUniformBufferOffsetAlignment);
     }
 
     VK_DEBUG("Vulkan renderer created successfully.");
 
-    RendererBackend r{window, std::move(vkcore), cameraBuffer,
-                      std::move(globalDescriptorSets)};
+    RendererBackend r{{
+        .window = &window,
+        .vkcore = std::move(vkcore),
+        .limits = limits,
+        .cameraBuffer = cameraBuffer,
+        .globalDescriptorSets = std::move(globalDescriptorSets),
+    }};
 
     return std::move(r);
   }

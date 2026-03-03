@@ -1,6 +1,7 @@
 #include "keptech/app.hpp"
 #include "keptech/core/gui.h"
 
+#include "keptech/input.hpp"
 #include <expected>
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/imgui.h>
@@ -68,6 +69,34 @@ int main() {
       }
     };
 
+    auto& input = Input::get();
+    auto inputProcessEvent = [&](SDL_Event& event) {
+      switch (event.type) {
+      case SDL_EVENT_KEY_DOWN: {
+        if (event.key.repeat)
+          break;
+        uint32_t key = event.key.key;
+        input.registerKeyPress(key);
+      } break;
+      case SDL_EVENT_KEY_UP: {
+        if (event.key.repeat)
+          break;
+        uint32_t key = event.key.key;
+        input.registerKeyRelease(key);
+      } break;
+      case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+        uint32_t button = event.button.button;
+        input.registerMouseButtonPress(button);
+      } break;
+      case SDL_EVENT_MOUSE_BUTTON_UP: {
+        uint32_t button = event.button.button;
+        input.registerMouseButtonRelease(button);
+      } break;
+      default: {
+      } break;
+      }
+    };
+
     auto now = std::chrono::high_resolution_clock::now();
 
     keptech::core::window::Event event;
@@ -82,13 +111,15 @@ int main() {
 
       now = newTime;
       while (window.pollEvent(event)) {
-        auto eventPtr = keptech::core::events::sdlEventToKeptechEvent(event);
         ImGui_ImplSDL3_ProcessEvent(&event);
         if ((io.WantCaptureKeyboard && isKeyboardEvent(event)) ||
             (io.WantCaptureMouse && isMouseEvent(event))) {
           KT_TRACE("Event sent to ImGui");
           continue;
         }
+        inputProcessEvent(event);
+
+        auto eventPtr = keptech::core::events::sdlEventToKeptechEvent(event);
         if (eventPtr.get() == nullptr) {
           continue;
         }
@@ -108,6 +139,8 @@ int main() {
       keptech::gui::Frame::processInputPassthrough();
 
       renderer.render();
+
+      input.endFrame();
 
       KT_TRACE("Frame complete");
     }

@@ -36,7 +36,8 @@ namespace keptech {
       return true;
     }
 
-    virtual bool handleEvent(core::events::Event& event, core::Timestep ts) = 0;
+    virtual bool handleEvent(core::events::Event& event, Timestep ts) = 0;
+    virtual void update(Timestep) {}
 
   protected:
     ecs::Entity cameraEntity{};

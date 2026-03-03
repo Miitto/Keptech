@@ -26,7 +26,7 @@
 namespace keptech::vkh {
   bool RendererBackend::canRenderToFormat(TextureFormat format) const {
     vk::Format vkFormat = from(format);
-    auto formatProps = vkcore.device.physical.getFormatProperties(vkFormat);
+    auto formatProps = m.vkcore.device.physical.getFormatProperties(vkFormat);
     return ((formatProps.optimalTilingFeatures &
              vk::FormatFeatureFlagBits::eColorAttachment) |
             (formatProps.optimalTilingFeatures &
@@ -62,8 +62,8 @@ namespace keptech::vkh {
         .usage = from(createInfo.memoryType),
     };
 
-    auto vkRes = AddressedAllocatedBuffer::create(vkcore.device.logical,
-                                                  vkcore.allocator, bufInfo,
+    auto vkRes = AddressedAllocatedBuffer::create(m.vkcore.device.logical,
+                                                  m.vkcore.allocator, bufInfo,
                                                   allocInfo, createInfo.name);
     if (!vkRes) {
       return std::unexpected(
@@ -73,7 +73,7 @@ namespace keptech::vkh {
 #ifndef NDEBUG
     if (createInfo.name.has_value()) {
       VkBuffer vkBuffer = vkRes.value().buffer;
-      vkcore.device.logical.setDebugUtilsObjectNameEXT(
+      m.vkcore.device.logical.setDebugUtilsObjectNameEXT(
           vk::DebugUtilsObjectNameInfoEXT{
               .objectType = vk::ObjectType::eBuffer,
               .objectHandle = reinterpret_cast<uint64_t>(vkBuffer),
@@ -83,7 +83,7 @@ namespace keptech::vkh {
 #endif
 
     auto buffer =
-        std::make_shared<vkh::Buffer>(vkcore.allocator, vkRes.value());
+        std::make_shared<vkh::Buffer>(m.vkcore.allocator, vkRes.value());
 
     return buffer;
   }
@@ -95,7 +95,7 @@ namespace keptech::vkh {
     std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
 
     VKH_MAKE(shaderModule,
-             Shader::create(vkcore.device.logical, createInfo.shader.code),
+             Shader::create(m.vkcore.device.logical, createInfo.shader.code),
              "Failed to create shader module");
 
     for (auto& stage : createInfo.shader.stages) {
@@ -203,14 +203,14 @@ namespace keptech::vkh {
       config.layout.pushConstantRanges.push_back(range);
     }
 
-    config.layout.setLayouts.push_back(globalDescriptorSets.layout);
+    config.layout.setLayouts.push_back(m.globalDescriptorSets.layout);
 
     // TODO: User Descriptor sets
 
     auto vkLayoutInfo = config.layout.build();
 
     VK_MAKE(pipelineLayout,
-            vkcore.device.logical.createPipelineLayout(vkLayoutInfo),
+            m.vkcore.device.logical.createPipelineLayout(vkLayoutInfo),
             "Failed to create pipeline layout");
 
 #ifndef NDEBUG
@@ -218,7 +218,7 @@ namespace keptech::vkh {
         fmt::format("{}_pipeline_layout", createInfo.shader.name);
 
     VkPipelineLayout vkPipelineLayout = *pipelineLayout;
-    vkcore.device.logical.setDebugUtilsObjectNameEXT(
+    m.vkcore.device.logical.setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::ePipelineLayout,
             .objectHandle = reinterpret_cast<uint64_t>(vkPipelineLayout),
@@ -230,12 +230,12 @@ namespace keptech::vkh {
     vkConfig.layout = *pipelineLayout;
 
     VK_MAKE(pipeline,
-            vkcore.device.logical.createGraphicsPipeline(nullptr, vkConfig),
+            m.vkcore.device.logical.createGraphicsPipeline(nullptr, vkConfig),
             "Failed to create graphics pipeline");
 
 #ifndef NDEBUG
     VkPipeline vkPipeline = *pipeline;
-    vkcore.device.logical.setDebugUtilsObjectNameEXT(
+    m.vkcore.device.logical.setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::ePipeline,
             .objectHandle = reinterpret_cast<uint64_t>(vkPipeline),
@@ -383,7 +383,7 @@ namespace keptech::vkh {
       VKH_MAKE(
           b,
           AddressedAllocatedBuffer::create(
-              vkcore.device.logical, vkcore.allocator,
+              m.vkcore.device.logical, m.vkcore.allocator,
               {
                   .size = sz,
                   .usage = vk::BufferUsageFlagBits::eTransferSrc |
@@ -401,11 +401,11 @@ namespace keptech::vkh {
     }
 
     vk::CommandBufferAllocateInfo allocInfo{
-        .commandPool = frameInfo.perFrame->pools.compute->pool,
+        .commandPool = m.frameInfo.perFrame->pools.compute->pool,
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = 1,
     };
-    VK_MAKE(cmdBufs, vkcore.device.logical.allocateCommandBuffers(allocInfo),
+    VK_MAKE(cmdBufs, m.vkcore.device.logical.allocateCommandBuffers(allocInfo),
             "Failed to allocate command buffer for image transfer");
     auto& cmdBuf = cmdBufs[0];
 
@@ -455,15 +455,15 @@ namespace keptech::vkh {
       };
 
       VKH_MAKE(img,
-               AllocatedImage::create(vkcore.allocator, vkcore.device.logical,
-                                      imageCreateInfo, allocCreateInfo,
-                                      imageViewCreateInfo, true, info.name),
+               AllocatedImage::create(
+                   m.vkcore.allocator, m.vkcore.device.logical, imageCreateInfo,
+                   allocCreateInfo, imageViewCreateInfo, true, info.name),
                "Failed to create texture image");
 
 #ifndef NDEBUG
       VkImage vkImage = img.image;
       VkImageView vkImageView = img.view;
-      vkcore.device.logical.setDebugUtilsObjectNameEXT(
+      m.vkcore.device.logical.setDebugUtilsObjectNameEXT(
           vk::DebugUtilsObjectNameInfoEXT{
               .objectType = vk::ObjectType::eImage,
               .objectHandle = reinterpret_cast<uint64_t>(vkImage),
@@ -472,7 +472,7 @@ namespace keptech::vkh {
 
       std::string viewName = info.name + "_view";
 
-      vkcore.device.logical.setDebugUtilsObjectNameEXT(
+      m.vkcore.device.logical.setDebugUtilsObjectNameEXT(
           vk::DebugUtilsObjectNameInfoEXT{
               .objectType = vk::ObjectType::eImageView,
               .objectHandle = reinterpret_cast<uint64_t>(vkImageView),
@@ -481,16 +481,16 @@ namespace keptech::vkh {
 #endif
 
       std::shared_ptr ptr = std::make_shared<vkh::Texture>(
-          vkcore.allocator, vkcore.device.logical, img, info.size, info.format,
-          info.mipLevels
+          m.vkcore.allocator, m.vkcore.device.logical, img, info.size,
+          info.format, info.mipLevels
 #ifdef KT_ADD_RESOURCE_INFO
           ,
           info.name, info.usage
 #endif
       );
 
-      ptr->setIndex(nextTextureIndex++);
-      for (auto& u : textureDescriptorsToUpdate) {
+      ptr->setIndex(m.nextTextureIndex++);
+      for (auto& u : m.textureDescriptorsToUpdate) {
         u.push_back(ptr);
       }
 
@@ -585,7 +585,8 @@ namespace keptech::vkh {
     bufs.reserve(stagingBuffers.size());
 
     for (auto& stagingBuf : stagingBuffers) {
-      auto buffer = std::make_shared<vkh::Buffer>(vkcore.allocator, stagingBuf);
+      auto buffer =
+          std::make_shared<vkh::Buffer>(m.vkcore.allocator, stagingBuf);
       bufs.push_back(buffer);
     }
 
@@ -654,7 +655,7 @@ namespace keptech::vkh {
         .compareEnable = VK_FALSE,
     };
 
-    VK_MAKE(sampler, vkcore.device.logical.createSampler(samplerInfo),
+    VK_MAKE(sampler, m.vkcore.device.logical.createSampler(samplerInfo),
             "Failed to create texture sampler");
 
     return std::make_shared<vkh::Sampler>(std::move(sampler));
@@ -764,7 +765,7 @@ namespace keptech::vkh {
         *std::dynamic_pointer_cast<vkh::Texture>(texture).get();
 
     auto handle = ImGui_ImplVulkan_AddTexture(
-        *imGuiObjects->sampler,
+        *m.imGuiObjects->sampler,
         static_cast<VkImageView>(vkTexture.getImage().view),
         static_cast<VkImageLayout>(vk::ImageLayout::eShaderReadOnlyOptimal));
 

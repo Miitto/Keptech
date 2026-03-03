@@ -22,6 +22,21 @@ namespace keptech::core::window {
 
   bool Window::shouldClose() const { return shouldExit; }
 
+  void Window::grabMouse(bool grab) {
+    auto err = SDL_SetWindowMouseGrab(handle, grab);
+    KT_ASSERT(err, "Failed to set mouse grab: {}", SDL_GetError());
+    err = SDL_SetWindowRelativeMouseMode(handle, grab);
+    KT_ASSERT(err, "Failed to set relative mouse mode: {}", SDL_GetError());
+    mouseGrabbed = grab;
+    KT_TRACE("Mouse {}", grab ? "grabbed" : "released");
+  }
+  void Window::hideCursor(bool hide) {
+    auto err = hide ? SDL_HideCursor() : SDL_ShowCursor();
+    KT_ASSERT(err >= 0, "Failed to set cursor visibility: {}", SDL_GetError());
+    cursorHidden = hide;
+    KT_TRACE("Cursor {}", hide ? "hidden" : "visible");
+  }
+
   bool Window::pollEvent(Event& event) {
     if (SDL_PollEvent(&event)) {
       switch (event.type) {

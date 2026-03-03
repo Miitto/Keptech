@@ -75,7 +75,7 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
       });
 
   layerStack.emplaceLayer<MaterialEditorLayer>(
-      renderer, std::move(scene), std::move(allMeshes),
+      window, renderer, std::move(scene), std::move(allMeshes),
       std::vector<keptech::PipelinePtr>{});
 
   return {};

@@ -15,7 +15,7 @@ namespace keptech::vkh::setup {
     std::array<vk::DescriptorPoolSize, descriptorBindingCount> sizes{
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eUniformBuffer,
-            .descriptorCount = 1 * MAX_FRAMES_IN_FLIGHT,
+            .descriptorCount = MAX_FRAMES_IN_FLIGHT,
         },
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eCombinedImageSampler,

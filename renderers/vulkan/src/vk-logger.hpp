@@ -60,6 +60,18 @@
 #define VK_CRITICAL(...) (void)0
 #endif
 
+#ifndef NDEBUG
+#define VK_ASSERT(expr, ...)                                                   \
+  if (!expr) {                                                                 \
+    keptech::vkh::logger->log(                                                 \
+        spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION},               \
+        spdlog::level::critical, "Assertion failed: " __VA_ARGS__);            \
+    std::abort();                                                              \
+  }
+#else
+#define VK_ASSERT(expr, ...) (void)0;
+#endif
+
 namespace keptech::vkh {
   extern const std::shared_ptr<spdlog::logger> logger;
 } // namespace keptech::vkh

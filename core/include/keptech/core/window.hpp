@@ -80,12 +80,20 @@ namespace keptech::core::window {
 
     [[nodiscard]] SDL_Window* getHandle() const { return handle; }
 
+    void grabMouse(bool grab);
+    void hideCursor(bool hide);
+
+    [[nodiscard]] bool isMouseGrabbed() const { return mouseGrabbed; }
+    [[nodiscard]] bool isCursorHidden() const { return cursorHidden; }
+
   private:
     void updateSize();
     void updateRenderSize();
 
     SDL_Window* handle;
     bool shouldExit = false;
+    bool mouseGrabbed = false;
+    bool cursorHidden = false;
 
     glm::ivec2 size = {};
     glm::ivec2 renderSize = {};

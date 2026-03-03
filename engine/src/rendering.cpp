@@ -77,11 +77,7 @@ namespace keptech {
           .viewportSize = viewportSize,
       };
 
-      memcpy(m.buffers.cameraStaging->getMapping(), &uniforms,
-             sizeof(components::Camera::Uniforms));
-
-      m.backend->writeCameraMatrices(frame.graphicsCmdBuf,
-                                     m.buffers.cameraStaging);
+      m.backend->writeCameraMatrices(frame.graphicsCmdBuf, uniforms);
     }
 
     drawDeferredPass(frame);

@@ -247,19 +247,6 @@ namespace keptech {
                                          indexBufRes.error()));
     }
 
-    auto cameraStagingRes = backend->createBuffer(BufferCreateInfo{
-        .name = "Camera Staging Buffer",
-        .size = sizeof(components::Camera::Uniforms),
-        .usage = BufferUsage::TransferSrc,
-        .memoryType = BufferMemoryType::Auto,
-        .map = BufferMapType::SeqWrite,
-    });
-    if (!cameraStagingRes) {
-      return std::unexpected(
-          fmt::format("Failed to create camera staging buffer: {}",
-                      cameraStagingRes.error()));
-    }
-
     auto instanceBufRes = backend->createBuffer(BufferCreateInfo{
         .name = "Instance Buffer",
         .size = sizeof(InstanceData) * 10'000,
@@ -480,7 +467,6 @@ namespace keptech {
             },
         .buffers =
             Buffers{
-                .cameraStaging = std::move(cameraStagingRes.value()),
                 .vertex = std::move(vertexBufRes.value()),
                 .index = std::move(indexBufRes.value()),
                 .instance = std::move(instanceBufRes.value()),

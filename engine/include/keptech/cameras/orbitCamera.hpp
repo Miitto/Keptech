@@ -13,7 +13,7 @@ namespace keptech::cameras {
     float& getSensitivity() { return sens; }
     int& getPanButton() { return panButton; }
 
-    bool handleEvent(core::events::Event& event, core::Timestep) override {
+    bool handleEvent(core::events::Event& event, Timestep) override {
       if (!isValid())
         return false;
 
@@ -65,12 +65,12 @@ namespace keptech::cameras {
         auto& transform = camTransform.getLocalMut();
 
         glm::quat rot{glm::vec3(glm::radians(pitch), glm::radians(yaw), 0.f)};
-        glm::vec3 dir = rot * keptech::core::FORWARD;
+        glm::vec3 dir = rot * keptech::FORWARD;
 
         glm::vec3 pos = -dir * zoom;
 
         transform.setPosition(pos);
-        transform.lookAt(keptech::core::ORIGIN, keptech::core::UP);
+        transform.lookAt(keptech::ORIGIN, keptech::UP);
         return true;
       }
       return false;

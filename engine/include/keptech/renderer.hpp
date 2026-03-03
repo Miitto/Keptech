@@ -217,7 +217,6 @@ namespace keptech {
     };
 
     struct Buffers {
-      BufPtr cameraStaging;
       BufPtr vertex;
       BufPtr index;
       BufPtr instance;

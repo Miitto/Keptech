@@ -1,6 +1,7 @@
 #pragma once
 
 #include "glm/fwd.hpp"
+#include "keptech/core/components/camera.hpp"
 #include "keptech/core/image.hpp"
 #include "keptech/core/rendering/buffer.hpp"
 #include "keptech/core/rendering/commandBuffer.hpp"
@@ -111,7 +112,7 @@ namespace keptech {
     virtual std::expected<CmdBufPtr, std::string> startFrame() = 0;
 
     virtual void writeCameraMatrices(const CmdBufPtr&,
-                                     const BufPtr& stagingBuffer) = 0;
+                                     const components::Camera::Uniforms&) = 0;
     virtual void bindGlobalDescriptorSets(const CmdBufPtr&, const IPipeline&,
                                           Bitflag<shaders::ShaderStages>) = 0;
 

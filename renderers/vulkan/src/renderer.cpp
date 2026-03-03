@@ -15,6 +15,7 @@
 #include <keptech/core/components/camera.hpp>
 #include <keptech/core/window.hpp>
 #include <set>
+#include <vk_mem_alloc_enums.hpp>
 
 namespace keptech::vkh {
 
@@ -29,21 +30,21 @@ namespace keptech::vkh {
   }
 
   void RendererBackend::initImGui() {
-    auto res = setup::setupImGui(*window, vkcore);
+    auto res = setup::setupImGui(*m.window, m.vkcore);
     if (!res.has_value()) {
       VK_CRITICAL("Failed to initialize ImGui: {}", res.error());
       abort();
     }
-    imGuiObjects = std::move(res.value());
+    m.imGuiObjects = std::move(res.value());
   }
 
   void RendererBackend::newFrame() {
     ImGui_ImplVulkan_NewFrame();
-    auto& perFrame = vkcore.perFrame[frameInfo.index];
+    auto& perFrame = m.vkcore.perFrame[m.frameInfo.index];
 
     auto nextImageRes =
-        vkcore.swapchain.getNextImage(vkcore.device, perFrame.inFlightFence,
-                                      perFrame.imageAvailableSemaphore);
+        m.vkcore.swapchain.getNextImage(m.vkcore.device, perFrame.inFlightFence,
+                                        perFrame.imageAvailableSemaphore);
 
     if (!nextImageRes) {
       VK_CRITICAL("Failed to acquire next swapchain image: {}",
@@ -63,11 +64,11 @@ namespace keptech::vkh {
       newFrame();
     }
 
-    frameInfo.imageIndex = imageIndex;
-    frameInfo.perFrame = &perFrame;
+    m.frameInfo.imageIndex = imageIndex;
+    m.frameInfo.perFrame = &perFrame;
 
     if (swapchainState == vkh::Swapchain::State::Suboptimal) {
-      frameInfo.suboptimalSwapchain = true;
+      m.frameInfo.suboptimalSwapchain = true;
     }
   }
 
@@ -76,13 +77,13 @@ namespace keptech::vkh {
     vk::raii::CommandPool* pool = nullptr;
     switch (t) {
     case CmdBufType::Graphics:
-      pool = &frameInfo.perFrame->pools.graphics.get()->pool;
+      pool = &m.frameInfo.perFrame->pools.graphics.get()->pool;
       break;
     case CmdBufType::Compute:
-      pool = &frameInfo.perFrame->pools.compute.get()->pool;
+      pool = &m.frameInfo.perFrame->pools.compute.get()->pool;
       break;
     case CmdBufType::Transfer:
-      pool = &vkcore.transferPool.pool;
+      pool = &m.vkcore.transferPool.pool;
       break;
     }
 
@@ -92,7 +93,8 @@ namespace keptech::vkh {
         .commandBufferCount = 1,
     };
 
-    VK_MAKE(cmdBuffers, vkcore.device->allocateCommandBuffers(cmdBufAllocInfo),
+    VK_MAKE(cmdBuffers,
+            m.vkcore.device->allocateCommandBuffers(cmdBufAllocInfo),
             "Failed to allocate graphics command buffer");
 
     vk::raii::CommandBuffer cmdBuffer = std::move(cmdBuffers_res.value.front());
@@ -102,20 +104,20 @@ namespace keptech::vkh {
 
   std::expected<CmdBufPtr, std::string> RendererBackend::startFrame() {
     vk::Result res = vk::Result::eTimeout;
-    uint64_t waitValue = frameInfo.perFrame->timelineValue;
+    uint64_t waitValue = m.frameInfo.perFrame->timelineValue;
 
     bool logged = false;
-    while (res = vkcore.device->waitSemaphores(
+    while (res = m.vkcore.device->waitSemaphores(
                vk::SemaphoreWaitInfo{
                    .semaphoreCount = 1,
-                   .pSemaphores = &*frameInfo.perFrame->timelineSemaphore,
+                   .pSemaphores = &*m.frameInfo.perFrame->timelineSemaphore,
                    .pValues = &waitValue,
                },
                0),
            res == vk::Result::eTimeout) {
       if (!logged)
         VK_DEBUG("Waiting for timeline semaphore for frame {} (value {})",
-                 frameInfo.index, waitValue);
+                 m.frameInfo.index, waitValue);
       logged = true;
 
       using namespace std::chrono_literals;
@@ -128,12 +130,12 @@ namespace keptech::vkh {
       abort();
     }
 
-    submittedCommandBuffers[frameInfo.index].clear();
-    frameInfo.perFrame->pools.resetAll();
+    m.submittedCommandBuffers[m.frameInfo.index].clear();
+    m.frameInfo.perFrame->pools.resetAll();
 
-    auto& textureUpdates = textureDescriptorsToUpdate[frameInfo.index];
+    auto& textureUpdates = m.textureDescriptorsToUpdate[m.frameInfo.index];
     if (!textureUpdates.empty()) {
-      auto& globalDescSet = globalDescriptorSets.sets[frameInfo.index];
+      auto& globalDescSet = m.globalDescriptorSets.sets[m.frameInfo.index];
       std::vector<vk::DescriptorImageInfo> imageInfos;
       imageInfos.reserve(textureUpdates.size());
       std::vector<vk::WriteDescriptorSet> descriptorWrites;
@@ -142,7 +144,7 @@ namespace keptech::vkh {
         auto imageIndex = update->getIndex();
 
         imageInfos.push_back({
-            .sampler = imGuiObjects->sampler,
+            .sampler = m.imGuiObjects->sampler,
             .imageView = update->getImage().view,
             .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
         });
@@ -158,17 +160,18 @@ namespace keptech::vkh {
       }
 
       VK_DEBUG("Updating {} texture descriptors for frame {}",
-               descriptorWrites.size(), frameInfo.index);
-      vkcore.device->updateDescriptorSets(descriptorWrites, {});
+               descriptorWrites.size(), m.frameInfo.index);
+      m.vkcore.device->updateDescriptorSets(descriptorWrites, {});
       textureUpdates.clear();
     }
 
     vk::CommandBufferAllocateInfo cmdBufAllocInfo{
-        .commandPool = *frameInfo.perFrame->pools.graphics.get()->pool,
+        .commandPool = *m.frameInfo.perFrame->pools.graphics.get()->pool,
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = 1,
     };
-    VK_MAKE(cmdBuffers, vkcore.device->allocateCommandBuffers(cmdBufAllocInfo),
+    VK_MAKE(cmdBuffers,
+            m.vkcore.device->allocateCommandBuffers(cmdBufAllocInfo),
             "Failed to allocate graphics command buffer");
     auto cmdBuffer = std::move(cmdBuffers_res.value.front());
 
@@ -185,7 +188,7 @@ namespace keptech::vkh {
         .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = vkcore.swapchain.nImage(frameInfo.imageIndex),
+        .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
         .subresourceRange =
             vk::ImageSubresourceRange{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -204,25 +207,41 @@ namespace keptech::vkh {
     return std::make_unique<CommandBuffer>(std::move(cmdBuffer),
                                            CmdBufType::Graphics);
   }
-  void RendererBackend::writeCameraMatrices(const CmdBufPtr& cmdBuf,
-                                            const BufPtr& stagingBuffer) {
+  void RendererBackend::writeCameraMatrices(
+      const CmdBufPtr& cmdBuf, const components::Camera::Uniforms& uniforms) {
     vk::raii::CommandBuffer& vkCmdBuf =
         dynamic_cast<CommandBuffer*>(cmdBuf.get())->get();
-    Buffer& vkStagingBuffer = *dynamic_cast<Buffer*>(stagingBuffer.get());
 
-    uint64_t offset = 0;
-    uint64_t size = sizeof(components::Camera::Uniforms);
+    size_t alignedSize =
+        maths::roundToAlignment(sizeof(components::Camera::Uniforms),
+                                m.limits.minUniformBufferOffsetAlignment);
 
-    for (size_t i = 0; i < frameInfo.index; ++i) {
-      offset += size;
-      offset = maths::roundToAlignment(offset, 256);
+    size_t dstOffset = alignedSize * m.frameInfo.index;
+
+    // Check if can write to camera buffer. ReBAR etc.
+    if (m.cameraBuffer.mapping() != nullptr) {
+      memcpy(m.cameraBuffer.mapping() + dstOffset, &uniforms,
+             sizeof(components::Camera::Uniforms));
+      return;
     }
 
-    vkCmdBuf.copyBuffer(vkStagingBuffer.getBuffer().buffer, cameraBuffer.buffer,
+    auto res = AllocatedBuffer::create(
+        m.vkcore.allocator, {.usage = vk::BufferUsageFlagBits::eTransferSrc},
+        {.flags = vma::AllocationCreateFlagBits::eHostAccessSequentialWrite |
+                  vma::AllocationCreateFlagBits::eMapped},
+        "Camera Staging Buffer");
+
+    VK_ASSERT(res, "Failed to create camera staging buffer: {}", res.error());
+    if (!res) {
+      VK_ERROR("Failed to create camera staging buffer: {}", res.error());
+      return;
+    }
+
+    vkCmdBuf.copyBuffer(res.value().buffer, m.cameraBuffer.buffer,
                         vk::BufferCopy{
                             .srcOffset = 0,
-                            .dstOffset = offset,
-                            .size = size,
+                            .dstOffset = dstOffset,
+                            .size = sizeof(components::Camera::Uniforms),
                         });
   }
 
@@ -236,14 +255,14 @@ namespace keptech::vkh {
 
     vkCmdBuf.get().bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, vkPipeline.pipelineLayout, 0,
-        {*globalDescriptorSets.sets[frameInfo.index]}, {});
+        {*m.globalDescriptorSets.sets[m.frameInfo.index]}, {});
   }
 
   void RendererBackend::renderImGui(const CmdBufPtr& cmdBuf) {
     ImGui::Render();
 
     vk::RenderingAttachmentInfo aInfo{
-        .imageView = vkcore.swapchain.nView(frameInfo.imageIndex),
+        .imageView = m.vkcore.swapchain.nView(m.frameInfo.imageIndex),
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -253,7 +272,7 @@ namespace keptech::vkh {
         .renderArea =
             vk::Rect2D{
                 .offset = vk::Offset2D{.x = 0, .y = 0},
-                .extent = vkcore.swapchain.config().extent,
+                .extent = m.vkcore.swapchain.config().extent,
             },
         .layerCount = 1,
         .colorAttachmentCount = 1,
@@ -273,7 +292,7 @@ namespace keptech::vkh {
       return;
     }
 
-    uint64_t waitValue = frameInfo.perFrame->timelineValue++;
+    uint64_t waitValue = m.frameInfo.perFrame->timelineValue++;
     uint64_t signalValue = waitValue + 1;
 
     std::vector<SubmittedCommandBufferInfo> submittedCmdBufInfos;
@@ -287,9 +306,9 @@ namespace keptech::vkh {
       });
     }
 
-    auto& perFrame = vkcore.perFrame[frameInfo.index];
+    auto& perFrame = m.vkcore.perFrame[m.frameInfo.index];
 
-    auto& thisFrameCmdBufs = submittedCommandBuffers[frameInfo.index];
+    auto& thisFrameCmdBufs = m.submittedCommandBuffers[m.frameInfo.index];
 
     vk::SemaphoreSubmitInfo nextFrameWaitInfo{
         .semaphore = perFrame.imageAvailableSemaphore,
@@ -327,7 +346,7 @@ namespace keptech::vkh {
 
     vk::SubmitInfo2 submitInfo{
         .waitSemaphoreInfoCount =
-            frameInfo.imageIndex == Frame::INVALID_INDEX ? 1u : 2u,
+            m.frameInfo.imageIndex == Frame::INVALID_INDEX ? 1u : 2u,
         .pWaitSemaphoreInfos = waitInfos.data(),
         .commandBufferInfoCount = static_cast<uint32_t>(cmdBufInfos.size()),
         .pCommandBufferInfos = cmdBufInfos.data(),
@@ -340,13 +359,13 @@ namespace keptech::vkh {
     // FIXME: Assumes all command buffers are of the same type
     switch (cmdBuffers.front().commandBuffer->getType()) {
     case CmdBufType::Graphics:
-      queue = vkcore.queues.graphics.queue.get();
+      queue = m.vkcore.queues.graphics.queue.get();
       break;
     case CmdBufType::Compute:
-      queue = vkcore.queues.compute.queue.get();
+      queue = m.vkcore.queues.compute.queue.get();
       break;
     case CmdBufType::Transfer:
-      queue = vkcore.queues.transfer.queue.get();
+      queue = m.vkcore.queues.transfer.queue.get();
       break;
     }
 
@@ -359,7 +378,7 @@ namespace keptech::vkh {
     }
 
     VK_DEBUG("Submitted {} command buffers at {}, waiting for {}",
-             submittedCmdBufInfos.size(), frameInfo.index, signalValue);
+             submittedCmdBufInfos.size(), m.frameInfo.index, signalValue);
   }
 
   void RendererBackend::endFrame(
@@ -376,7 +395,7 @@ namespace keptech::vkh {
         .newLayout = vk::ImageLayout::ePresentSrcKHR,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = vkcore.swapchain.nImage(frameInfo.imageIndex),
+        .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
         .subresourceRange =
             vk::ImageSubresourceRange{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -394,17 +413,18 @@ namespace keptech::vkh {
 
     vkCmdBuf.end();
 
-    auto& sem = vkcore.swapchain.nPresentSemaphore(frameInfo.imageIndex);
+    auto& sem = m.vkcore.swapchain.nPresentSemaphore(m.frameInfo.imageIndex);
 
     vk::SemaphoreSubmitInfo waitInfo{
-        .semaphore = vkcore.perFrame[frameInfo.index].timelineSemaphore,
-        .value = vkcore.perFrame[frameInfo.index].timelineValue,
+        .semaphore = m.vkcore.perFrame[m.frameInfo.index].timelineSemaphore,
+        .value = m.vkcore.perFrame[m.frameInfo.index].timelineValue,
         .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
         .deviceIndex = 0,
     };
 
     vk::SemaphoreSubmitInfo imageAvailableWaitInfo{
-        .semaphore = vkcore.perFrame[frameInfo.index].imageAvailableSemaphore,
+        .semaphore =
+            m.vkcore.perFrame[m.frameInfo.index].imageAvailableSemaphore,
         .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
     };
 
@@ -431,12 +451,13 @@ namespace keptech::vkh {
         .pSignalSemaphoreInfos = &signalInfo,
     };
 
-    vkcore.device->resetFences(*vkcore.perFrame[frameInfo.index].inFlightFence);
+    m.vkcore.device->resetFences(
+        *m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
 
-    vkcore.queues.graphics->submit2(
-        submitInfo, vkcore.perFrame[frameInfo.index].inFlightFence);
+    m.vkcore.queues.graphics->submit2(
+        submitInfo, m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
 
-    submittedCommandBuffers[frameInfo.index].emplace_back(
+    m.submittedCommandBuffers[m.frameInfo.index].emplace_back(
         SubmittedCommandBufferInfo{
             .buffer = std::move(vkCmdBuf),
         });
@@ -445,35 +466,36 @@ namespace keptech::vkh {
   }
 
   void RendererBackend::present() {
-    uint32_t imageIndex = frameInfo.imageIndex;
-    auto& sem = vkcore.swapchain.nPresentSemaphore(imageIndex);
+    uint32_t imageIndex = m.frameInfo.imageIndex;
+    auto& sem = m.vkcore.swapchain.nPresentSemaphore(imageIndex);
 
     vk::PresentInfoKHR presentInfo{
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = &*sem,
         .swapchainCount = 1,
-        .pSwapchains = &*vkcore.swapchain.getSwapchain(),
+        .pSwapchains = &*m.vkcore.swapchain.getSwapchain(),
         .pImageIndices = &imageIndex,
     };
 
-    auto result = vkcore.queues.present.queue->presentKHR(presentInfo);
+    auto result = m.vkcore.queues.present.queue->presentKHR(presentInfo);
 
-    frameInfo.index = frameInfo.nextIndex; // Advance to next frame index
+    m.frameInfo.index = m.frameInfo.nextIndex; // Advance to next frame index
 
-    frameInfo.nextIndex = (frameInfo.nextIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+    m.frameInfo.nextIndex = (m.frameInfo.nextIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 
 #ifndef NDEBUG
     if (result == vk::Result::eErrorOutOfDateKHR) {
       VK_DEBUG("Swapchain is out of date during present");
     } else if (result == vk::Result::eSuboptimalKHR) {
       VK_DEBUG("Swapchain is suboptimal during present");
-    } else if (frameInfo.suboptimalSwapchain) {
+    } else if (m.frameInfo.suboptimalSwapchain) {
       VK_DEBUG("Swapchain was suboptimal at image aquire");
     }
 #endif
 
     if (result == vk::Result::eErrorOutOfDateKHR ||
-        result == vk::Result::eSuboptimalKHR || frameInfo.suboptimalSwapchain) {
+        result == vk::Result::eSuboptimalKHR ||
+        m.frameInfo.suboptimalSwapchain) {
       auto res = recreateSwapchain();
       if (!res) {
         VK_CRITICAL("Failed to recreate swapchain: {}", res.error());
@@ -483,30 +505,19 @@ namespace keptech::vkh {
   }
 
   RendererBackend::RendererBackend(RendererBackend&& o) noexcept
-      : moveGuard(std::move(o.moveGuard)), vkcore{std::move(o.vkcore)},
-        window{o.window}, cameraBuffer{o.cameraBuffer},
-        globalDescriptorSets{std::move(o.globalDescriptorSets)},
-        imGuiObjects{std::move(o.imGuiObjects)}, frameInfo{o.frameInfo} {
-    frameInfo.perFrame = &vkcore.perFrame[frameInfo.index];
+      : m(std::move(o.m)) {
+    m.frameInfo.perFrame = &m.vkcore.perFrame[m.frameInfo.index];
   }
 
   RendererBackend& RendererBackend::operator=(RendererBackend&& o) noexcept {
     if (this == &o)
       return *this;
 
-    moveGuard = std::move(o.moveGuard);
-    vkcore = std::move(o.vkcore);
-    window = o.window;
-    cameraBuffer = o.cameraBuffer;
-    globalDescriptorSets = std::move(o.globalDescriptorSets);
-    imGuiObjects = std::move(o.imGuiObjects);
-    frameInfo = o.frameInfo;
-    frameInfo.perFrame = &vkcore.perFrame[frameInfo.index];
-
+    m = std::move(o.m);
     return *this;
   }
 
-  void RendererBackend::preExit() { vkcore.device.logical.waitIdle(); }
+  void RendererBackend::preExit() { m.vkcore.device.logical.waitIdle(); }
 
   void RendererBackend::shutdownImGui() {
     ImGui_ImplVulkan_Shutdown();
@@ -514,44 +525,44 @@ namespace keptech::vkh {
   }
 
   RendererBackend::~RendererBackend() {
-    if (moveGuard.moved()) {
+    if (m.moveGuard.moved()) {
       return;
     }
 
-    vkcore.device.logical.waitIdle();
+    m.vkcore.device.logical.waitIdle();
 
-    cameraBuffer.destroy(vkcore.allocator);
+    m.cameraBuffer.destroy(m.vkcore.allocator);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-      submittedCommandBuffers[i].clear();
-      textureDescriptorsToUpdate[i].clear();
+      m.submittedCommandBuffers[i].clear();
+      m.textureDescriptorsToUpdate[i].clear();
     }
 
-    vkcore.allocator.destroy();
+    m.vkcore.allocator.destroy();
 
-    vkcore.device.logical.waitIdle();
+    m.vkcore.device.logical.waitIdle();
     VK_INFO("Vulkan renderer shut down cleanly");
   }
 
   std::expected<void, std::string> RendererBackend::recreateSwapchain() {
     VK_TRACE("Recreating swapchain");
     VKH_MAKE(newSwapchain,
-             setup::createSwapchain(vkcore.device.physical,
-                                    window->getRenderSize(),
-                                    vkcore.device.logical, vkcore.surface,
-                                    vkcore.queues, &*vkcore.swapchain),
+             setup::createSwapchain(m.vkcore.device.physical,
+                                    m.window->getRenderSize(),
+                                    m.vkcore.device.logical, m.vkcore.surface,
+                                    m.vkcore.queues, &*m.vkcore.swapchain),
              "Failed to recreate swapchain");
 
     {
       [[maybe_unused]]
-      auto oldSwapchain = std::move(vkcore.swapchain);
+      auto oldSwapchain = std::move(m.vkcore.swapchain);
 
-      vkcore.swapchain = std::move(newSwapchain);
+      m.vkcore.swapchain = std::move(newSwapchain);
 
-      vkcore.queues.graphics->waitIdle();
+      m.vkcore.queues.graphics->waitIdle();
     }
 
-    frameInfo.suboptimalSwapchain = false;
+    m.frameInfo.suboptimalSwapchain = false;
 
     return {};
   }

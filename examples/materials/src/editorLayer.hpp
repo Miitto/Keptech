@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/cameras/orbitCamera.hpp"
+#include "keptech/cameras/freeCamera.hpp"
 #include "keptech/core/components/renderObject.hpp"
 #include "keptech/core/components/transform.hpp"
 #include "keptech/core/events/event.hpp"
@@ -32,7 +32,7 @@ public:
     Final
   };
 
-  MaterialEditorLayer(keptech::Renderer& renderer,
+  MaterialEditorLayer(keptech::Window& window, keptech::Renderer& renderer,
                       std::unique_ptr<keptech::Scene>&& scene,
                       std::vector<keptech::MeshPtr>&& meshes,
                       std::vector<keptech::PipelinePtr>&& pipelines);
@@ -41,11 +41,11 @@ public:
 
   keptech::Scene& getScene() { return *scene; }
 
-  void onUpdate(keptech::core::Timestep ts) override;
+  void onUpdate(keptech::Timestep ts) final;
 
   void onEvent(keptech::core::events::Event& event,
-               keptech::core::Timestep ts) override {
-    if (orbitController.handleEvent(event, ts))
+               keptech::Timestep ts) final {
+    if (freeController.handleEvent(event, ts))
       return;
   }
 
@@ -113,9 +113,10 @@ private:
   void drawAssetsPanel();
   void drawLoadedAssetsPanel();
 
+  keptech::Window& window;
   keptech::Renderer& renderer;
   std::unique_ptr<keptech::Scene> scene;
-  keptech::cameras::OrbitCameraController orbitController;
+  keptech::cameras::FreeCameraController freeController;
 
   SelectedItem selectedItem = std::monostate{};
 

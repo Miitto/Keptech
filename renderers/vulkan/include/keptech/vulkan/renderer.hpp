@@ -3,7 +3,6 @@
 #include "keptech/core/rendering/buffer.hpp"
 #include "keptech/core/rendering/commandBuffer.hpp"
 #include "keptech/core/rendering/renderer.hpp"
-#include "keptech/vulkan/buffer.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
 #include "keptech/vulkan/helpers/shader.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
@@ -11,6 +10,7 @@
 #include "keptech/vulkan/texture.hpp"
 #include <expected>
 #include <imgui/backends/imgui_impl_vulkan.h>
+#include <keptech/core/base.hpp>
 #include <keptech/core/components/renderObject.hpp>
 #include <keptech/core/components/transform.hpp>
 #include <keptech/core/image.hpp>
@@ -46,6 +46,10 @@ namespace keptech::vkh {
     std::expected<RendererBackend, std::string> static create(
         const RendererCreateInfo& createInfo,
         const core::window::Window& window);
+
+    struct Limits {
+      vk::DeviceSize minUniformBufferOffsetAlignment;
+    };
 
     struct Queues {
       Queue graphics;
@@ -121,14 +125,14 @@ namespace keptech::vkh {
     [[nodiscard]] bool canRenderToFormat(TextureFormat format) const final;
     [[nodiscard]] TextureFormat backbufferFormat() const final;
 
-    void waitIdle() final { vkcore.device.logical.waitIdle(); }
+    void waitIdle() final { m.vkcore.device.logical.waitIdle(); }
 
     void newFrame() final;
 
     std::expected<CmdBufPtr, std::string> startFrame() final;
 
     void writeCameraMatrices(const CmdBufPtr&,
-                             const BufPtr& stagingBuffer) final;
+                             const components::Camera::Uniforms&) final;
 
     void bindGlobalDescriptorSets(const CmdBufPtr&, const IPipeline& pipeline,
                                   Bitflag<shaders::ShaderStages>) final;
@@ -144,7 +148,7 @@ namespace keptech::vkh {
 
     void preExit() final;
 
-    [[nodiscard]] bool hasMoved() const noexcept { return moveGuard.moved(); }
+    [[nodiscard]] bool hasMoved() const noexcept { return m.moveGuard.moved(); }
 
     RendererBackend() = delete;
     RendererBackend(const RendererBackend&) = delete;
@@ -153,47 +157,47 @@ namespace keptech::vkh {
     RendererBackend& operator=(RendererBackend&&) noexcept;
     ~RendererBackend() final;
 
-  private:
-    RendererBackend(
-        const core::window::Window& window, VulkanCore&& vkcore,
-        AllocatedBuffer cameraBuffer,
-        DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>&& globalDescriptorSets)
-        : window(&window), vkcore(std::move(vkcore)),
-          cameraBuffer(cameraBuffer),
-          globalDescriptorSets(std::move(globalDescriptorSets)) {
-      frameInfo.perFrame = &this->vkcore.perFrame[0];
-    }
-
-    [[nodiscard]] const vk::Format& getSwapchainImageFormat() const {
-      return vkcore.swapchain.config().format.format;
-    }
-
-    std::expected<void, std::string> recreateSwapchain();
-
-  private:
-    core::MoveGuard moveGuard = core::MoveGuard{};
-
-    const core::window::Window* window;
-    VulkanCore vkcore;
-    std::optional<ImGuiVkObjects> imGuiObjects;
-
-    AllocatedBuffer cameraBuffer;
-
-    DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
-
     struct SubmittedCommandBufferInfo {
       vk::raii::CommandBuffer buffer;
       std::vector<BufPtr> trackedBuffers{};
     };
 
-    std::array<std::vector<SubmittedCommandBufferInfo>, MAX_FRAMES_IN_FLIGHT>
-        submittedCommandBuffers;
+    struct Members {
+      core::MoveGuard moveGuard = core::MoveGuard{};
 
-    Frame frameInfo{};
+      const core::window::Window* window;
+      VulkanCore vkcore;
+      Limits limits;
 
-    std::array<std::vector<std::shared_ptr<vkh::Texture>>, MAX_FRAMES_IN_FLIGHT>
-        textureDescriptorsToUpdate;
-    size_t nextTextureIndex = 0;
+      std::optional<ImGuiVkObjects> imGuiObjects;
+
+      AllocatedBuffer cameraBuffer;
+
+      DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
+
+      std::array<std::vector<SubmittedCommandBufferInfo>, MAX_FRAMES_IN_FLIGHT>
+          submittedCommandBuffers;
+
+      Frame frameInfo{};
+
+      std::array<std::vector<std::shared_ptr<vkh::Texture>>,
+                 MAX_FRAMES_IN_FLIGHT>
+          textureDescriptorsToUpdate;
+      size_t nextTextureIndex = 0;
+    };
+
+  private:
+    RendererBackend(Members&& m) : m(std::move(m)) {
+      m.frameInfo.perFrame = &this->m.vkcore.perFrame[0];
+    }
+
+    [[nodiscard]] const vk::Format& getSwapchainImageFormat() const {
+      return m.vkcore.swapchain.config().format.format;
+    }
+
+    std::expected<void, std::string> recreateSwapchain();
+
+    Members m;
   };
 
   namespace setup {

@@ -95,11 +95,13 @@ namespace {
 } // namespace
 
 MaterialEditorLayer::MaterialEditorLayer(
-    keptech::Renderer& renderer, std::unique_ptr<keptech::Scene>&& scene,
+    keptech::Window& window, keptech::Renderer& renderer,
+    std::unique_ptr<keptech::Scene>&& scene,
     std::vector<keptech::MeshPtr>&& meshes,
     std::vector<keptech::PipelinePtr>&& pipelines)
-    : keptech::core::layers::Layer("MaterialEditorLayer"), renderer(renderer),
-      scene(std::move(scene)), orbitController(this->scene->getActiveCamera()),
+    : keptech::core::layers::Layer("MaterialEditorLayer"), window(window),
+      renderer(renderer), scene(std::move(scene)),
+      freeController(this->scene->getActiveCamera()),
       loadedMeshes(std::move(meshes)), loadedPipelines(std::move(pipelines)) {
   renderer.setScene(this->scene.get());
 
@@ -116,11 +118,18 @@ MaterialEditorLayer::MaterialEditorLayer(
   loadedPipelines.push_back(rendererPipelines.deferred);
   loadedPipelines.push_back(rendererPipelines.pointLight);
 
+  auto& camTransform = this->scene->getActiveCamera()
+                           .getComponents<keptech::components::Transform>();
+
+  camTransform.getLocalMut()
+      .setPosition({12.f, 3.f, 4.f})
+      .setRotation(glm::vec3{0, -65.f, 0.f});
+
   keptech::shader_processor::init();
   refreshAssetsDirectory();
 }
 
-void MaterialEditorLayer::onUpdate(keptech::core::Timestep ts) {
+void MaterialEditorLayer::onUpdate(keptech::Timestep ts) {
   if (auto frame = keptech::gui::Frame("Stats"); frame.isOpen()) {
     double fps = static_cast<double>(1000.f / ts);
     frame.text("Frame Time: %.2f ms", static_cast<double>(ts));
@@ -128,7 +137,28 @@ void MaterialEditorLayer::onUpdate(keptech::core::Timestep ts) {
     frame.text("Draw Calls: %zu", renderer.getDrawCallCount());
     frame.text("Triangles: %zu", renderer.getTriangleCount());
 
-    frame.inputFloat("Sensitivity", orbitController.getSensitivity());
+    frame.inputFloat("Sensitivity", freeController.getSensitivity());
+  }
+
+  freeController.update(ts);
+
+  auto& io = ImGui::GetIO();
+
+  if (freeController.moving()) {
+    if (!window.isCursorHidden() || !window.isMouseGrabbed()) {
+      window.hideCursor(true);
+      window.grabMouse(true);
+    }
+
+    // For if cursor goes over UI, don't interupt camera movement
+    io.WantCaptureMouse = false;
+    io.WantCaptureKeyboard = false;
+    ImGui::SetNextFrameWantCaptureMouse(false);
+    ImGui::SetNextFrameWantCaptureKeyboard(false);
+
+  } else {
+    window.hideCursor(false);
+    window.grabMouse(false);
   }
 
   drawGui();
@@ -200,7 +230,9 @@ void MaterialEditorLayer::drawViewport() {
   if (ImGui::IsWindowHovered()) {
     auto& io = ImGui::GetIO();
     io.WantCaptureMouse = false;
+    io.WantCaptureKeyboard = false;
     ImGui::SetNextFrameWantCaptureMouse(false);
+    ImGui::SetNextFrameWantCaptureKeyboard(false);
   }
 
   ImVec2 size = ImGui::GetContentRegionAvail();
@@ -488,7 +520,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
   if (!propertiesPanel.isOpen())
     return;
 
-  std::visit(keptech::core::overloaded{
+  std::visit(keptech::overloaded{
                  [&](std::monostate) {},
                  [&](keptech::ecs::EntityHandle entity) {
                    drawEntityProperties(propertiesPanel, entity);

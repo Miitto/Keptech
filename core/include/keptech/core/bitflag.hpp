@@ -13,7 +13,9 @@ namespace keptech {
     using Underlying = std::underlying_type_t<T>;
     constexpr inline Bitflag() : flags(0) {}
     constexpr inline Bitflag(T flag) : flags(static_cast<Underlying>(flag)) {}
-    constexpr explicit inline Bitflag(Underlying flag) : flags(flag) {}
+    template <typename U = Underlying>
+      requires std::convertible_to<U, Underlying>
+    constexpr explicit inline Bitflag(U flag) : flags((Underlying)flag) {}
 
     constexpr static inline Bitflag<T> none() { return Bitflag<T>(0); }
 
@@ -98,6 +100,19 @@ namespace keptech {
     constexpr inline Bitflag& clear(T flag) {
       flags &= ~static_cast<Underlying>(flag);
       return *this;
+    }
+
+    constexpr inline Bitflag& invert() {
+      flags = ~flags;
+      return *this;
+    }
+
+    constexpr inline Bitflag intersect(Bitflag<T> flag) const {
+      return Bitflag(flags & flag.flags);
+    }
+
+    constexpr inline Bitflag intersect(T flag) const {
+      return Bitflag(flags & static_cast<Underlying>(flag));
     }
 
     Underlying flags;

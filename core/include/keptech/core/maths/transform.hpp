@@ -46,6 +46,10 @@ namespace keptech::maths {
       rotation = newRotation;
       return *this;
     }
+    Transform& setRotation(const glm::vec3& eulerDegrees) {
+      rotation = glm::quat(glm::radians(eulerDegrees));
+      return *this;
+    }
     Transform& setScale(const glm::vec3& newScale) {
       _scale = newScale;
       return *this;
