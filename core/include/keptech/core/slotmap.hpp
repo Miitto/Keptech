@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace keptech::core {
+namespace kt {
   using SlotMapRawHandle = size_t;
   template <typename T> class SlotMap {
   public:
@@ -439,4 +439,4 @@ namespace keptech::core {
   private:
     SlotMapRawSmartHandle handle;
   };
-} // namespace keptech::core
+} // namespace kt

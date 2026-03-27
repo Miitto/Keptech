@@ -1,13 +1,13 @@
 #pragma once
 
-#include "keptech/core/rendering/pipeline.hpp"
+#include "keptech/rendering/pipeline.hpp"
 #include <utility>
-#include <vulkan/vulkan_raii.hpp>
+#include <vulkan/vulkan.h>
 
-namespace keptech::vkh {
-  struct LoadedPipeline : public keptech::IPipeline {
-    vk::raii::Pipeline pipeline;
-    vk::raii::PipelineLayout pipelineLayout;
+namespace kt::vkh {
+  struct LoadedPipeline : public kt::IPipeline {
+    VkPipeline pipeline;
+    VkPipelineLayout pipelineLayout;
     uint32_t extraInstanceDataSize = 0;
 
     void setRenderingMode(shaders::RenderingMode newMode) { mode = newMode; }
@@ -16,8 +16,7 @@ namespace keptech::vkh {
       return instanceDataTypes;
     }
 
-    LoadedPipeline(vk::raii::Pipeline&& pipeline,
-                   vk::raii::PipelineLayout&& pipelineLayout,
+    LoadedPipeline(VkPipeline&& pipeline, VkPipelineLayout&& pipelineLayout,
                    uint32_t extraInstanceDataSize, PipelineStage stage,
                    std::vector<shaders::DataType> instanceDataTypes
 #ifdef KT_ADD_RESOURCE_INFO
@@ -45,4 +44,4 @@ namespace keptech::vkh {
       extraInstanceDataSize = otherPipeline.extraInstanceDataSize;
     }
   };
-} // namespace keptech::vkh
+} // namespace kt::vkh

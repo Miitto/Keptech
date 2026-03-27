@@ -2,7 +2,7 @@
 
 #include "keptech/core/maths/sizes.hpp"
 
-namespace keptech::components {
+namespace kt::components {
   enum class ProjectionType : uint8_t {
     Orthographic,
     Perspective,
@@ -124,4 +124,4 @@ namespace keptech::components {
 
     Params params{};
   };
-} // namespace keptech::components
+} // namespace kt::components

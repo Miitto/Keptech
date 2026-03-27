@@ -6,7 +6,7 @@
 
 #include <keptech/shader_processor/shader_processor.hpp>
 
-using namespace keptech::shader_processor;
+using namespace kt::shader_processor;
 
 int main(int argc, char** argv) {
   if (argc < 4 || argc > 5) {
@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
   const char* inputFile = argv[2];
   const char* outputFile = argv[3];
 
-  keptech::shader_processor::init();
+  kt::shader_processor::init();
 
   SessionConfig config;
   if (argc == 4) {

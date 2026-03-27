@@ -1,6 +1,6 @@
 #include "keptech/core/gui.h"
 
-namespace keptech::gui {
+namespace kt::gui {
   std::vector<const char*> Frame::framesToVoid{};
 
   namespace {
@@ -99,4 +99,4 @@ namespace keptech::gui {
     }
     framesToVoid.clear();
   }
-} // namespace keptech::gui
+} // namespace kt::gui

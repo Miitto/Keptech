@@ -1,6 +1,9 @@
+set(RENDERER "Vulkan" CACHE STRING "The renderer to use")
+set_property(CACHE RENDERER PROPERTY STRINGS "Vulkan")
 
-option(ENABLE_VULKAN "Enable Vulkan" ON)
-if(ENABLE_VULKAN)
+add_subdirectory(common)
+
+if(RENDERER STREQUAL "Vulkan")
   include(vulkan)
   find_vulkan(23)
   add_subdirectory(vulkan)

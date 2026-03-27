@@ -9,11 +9,11 @@
 #include <imgui/imgui.h>
 #include <keptech/core/window.hpp>
 
-namespace keptech::vkh::setup {
-  using namespace keptech::vkh;
+namespace kt::vkh::setup {
+  using namespace kt::vkh;
 
   std::expected<RendererBackend::ImGuiVkObjects, std::string>
-  setupImGui(const keptech::core::window::Window& window,
+  setupImGui(const kt::core::window::Window& window,
              const RendererBackend::VulkanCore& vkcore) {
     std::array<vk::DescriptorPoolSize, 11> pool_sizes = {
         {{
@@ -124,4 +124,4 @@ namespace keptech::vkh::setup {
                                                std::move(imguiPool),
                                            .sampler = std::move(linearSampler)};
   }
-} // namespace keptech::vkh::setup
+} // namespace kt::vkh::setup

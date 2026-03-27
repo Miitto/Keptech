@@ -3,7 +3,7 @@
 #include "vk-logger.hpp"
 #include <macros.hpp>
 
-namespace keptech::vkh {
+namespace kt::vkh {
   auto PhysicalDeviceSelector::create(const vk::raii::Instance& instance)
       -> std::expected<PhysicalDeviceSelector, std::string> {
 
@@ -166,4 +166,4 @@ namespace keptech::vkh {
     return devices;
   }
 
-} // namespace keptech::vkh
+} // namespace kt::vkh

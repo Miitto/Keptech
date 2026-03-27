@@ -13,31 +13,6 @@
 #endif
 
 namespace keptech {
-  void Renderer::newFrame() {
-    m.backend->newFrame();
-
-    ImGui_ImplSDL3_NewFrame();
-
-    ImGui::NewFrame();
-  }
-
-  void Renderer::initImGui() {
-    ImGui::CreateContext();
-    m.backend->initImGui();
-  }
-
-  Renderer::~Renderer() {
-    if (!m.backend) {
-      return;
-    }
-
-    m.backend->preExit();
-
-    m.backend->shutdownImGui();
-    ImGui_ImplSDL3_Shutdown();
-    ImGui::DestroyContext();
-  }
-
   std::expected<Renderer, std::string>
   Renderer::create(const RendererCreateInfo& createInfo,
                    const core::window::Window& window) {
@@ -50,8 +25,7 @@ namespace keptech {
       if (!backendRes) {
         return std::unexpected(backendRes.error());
       }
-      backend =
-          std::make_unique<vkh::RendererBackend>(std::move(backendRes.value()));
+      backend = std::make_unique<vkh::Renderer>(std::move(backendRes.value()));
     } break;
 #endif
     }
@@ -59,38 +33,6 @@ namespace keptech {
     if (!backend) {
       return std::unexpected("Failed to create renderer backend");
     }
-
-    TextureFormats formats{
-        .normal = TextureFormat::Undefined,
-        .metallicRoughness = TextureFormat::Undefined,
-        .depth = TextureFormat::Undefined,
-        .diffuse = TextureFormat::Undefined,
-        .specular = TextureFormat::Undefined,
-        .combined = TextureFormat::Undefined,
-    };
-
-    std::array normalFormats{
-        TextureFormat::RGB16F,
-        TextureFormat::RGBA16F,
-        TextureFormat::RGB32F,
-        TextureFormat::RGBA32F,
-    };
-
-    std::array metallicRoughnessFormats{
-        TextureFormat::RG8UNorm,
-        TextureFormat::RGB8UNorm,
-        TextureFormat::RGBA8UNorm,
-    };
-    std::array depthFormats{
-        TextureFormat::Depth24,         TextureFormat::Depth32F,
-        TextureFormat::Depth24Stencil8, TextureFormat::Depth32FStencil8,
-        TextureFormat::Depth16,
-    };
-
-    std::array lightFormats{
-        TextureFormat::RGBA16F,
-        TextureFormat::RGBA32F,
-    };
 
     for (auto format : normalFormats) {
       if (backend->canRenderToFormat(format)) {

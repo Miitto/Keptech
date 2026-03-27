@@ -3,7 +3,7 @@
 #include <keptech/core/components/name.hpp>
 #include <keptech/ecs/entity.hpp>
 
-namespace keptech {
+namespace kt {
   class Scene {
   public:
     ecs::Ecs& getEcs() { return ecs; }
@@ -33,4 +33,4 @@ namespace keptech {
     ecs::Ecs ecs{};
     ecs::EntityHandle activeCamera;
   };
-} // namespace keptech
+} // namespace kt

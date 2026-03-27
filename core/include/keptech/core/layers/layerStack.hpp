@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-namespace keptech::core::layers {
+namespace kt::core::layers {
   class LayerStack {
     using LayerPtr = std::unique_ptr<Layer>;
     using Vec = std::vector<LayerPtr>;
@@ -37,4 +37,4 @@ namespace keptech::core::layers {
     Vec layers{};
     Iter layerInsert = layers.begin();
   };
-} // namespace keptech::core::layers
+} // namespace kt::core::layers

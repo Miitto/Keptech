@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace keptech::shader_processor {
+namespace kt::shader_processor {
   void init();
 
   enum class OptimizationLevel : uint8_t {
@@ -53,7 +53,7 @@ namespace keptech::shader_processor {
       return program->getLayout();
     }
 
-    [[nodiscard]] std::expected<keptech::shaders::Shader, std::string>
+    [[nodiscard]] std::expected<kt::shaders::Shader, std::string>
     toShader(const char* name) const;
 
   private:
@@ -76,4 +76,4 @@ namespace keptech::shader_processor {
     std::vector<Slang::ComPtr<slang::IModule>> loadedModules;
   };
 
-} // namespace keptech::shader_processor
+} // namespace kt::shader_processor

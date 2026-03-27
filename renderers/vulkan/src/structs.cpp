@@ -4,7 +4,7 @@
 
 #include "macros.hpp"
 
-namespace keptech::vkh {
+namespace kt::vkh {
   std::expected<AllocatedImage, std::string>
   AllocatedImage::create(vma::Allocator& allocator,
                          const vk::raii::Device& device,
@@ -121,4 +121,4 @@ namespace keptech::vkh {
 
     return buf;
   }
-} // namespace keptech::vkh
+} // namespace kt::vkh

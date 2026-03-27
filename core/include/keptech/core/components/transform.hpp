@@ -5,11 +5,11 @@
 #include "keptech/core/maths/transform.hpp"
 #include "keptech/ecs/entity.hpp"
 
-namespace keptech::gui {
+namespace kt::gui {
   class Frame;
 }
 
-namespace keptech::components {
+namespace kt::components {
   class Transform {
   public:
     bool recalculateGlobalTransform();
@@ -33,7 +33,7 @@ namespace keptech::components {
 
     [[nodiscard]] ecs::Entity getParent() const { return parent; }
 
-    void inspectorUi(keptech::gui::Frame& frame, bool readOnly = false);
+    void inspectorUi(kt::gui::Frame& frame, bool readOnly = false);
 
   private:
     enum class Flags : uint8_t {
@@ -45,4 +45,4 @@ namespace keptech::components {
     ecs::Entity parent = ecs::Entity{};
     Bitflag<Flags> flags = Flags::Dirty;
   };
-} // namespace keptech::components
+} // namespace kt::components

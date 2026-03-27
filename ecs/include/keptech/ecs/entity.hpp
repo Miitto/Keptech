@@ -3,7 +3,7 @@
 #include "ecs-logger.hpp"
 #include <entt/entt.hpp>
 
-namespace keptech::ecs {
+namespace kt::ecs {
   using EntityHandle = entt::entity;
   inline constexpr EntityHandle INVALID_ENTITY_HANDLE = entt::null;
 
@@ -62,4 +62,4 @@ namespace keptech::ecs {
     EntityHandle handle = INVALID_ENTITY_HANDLE;
     entt::registry* ecs = nullptr;
   };
-} // namespace keptech::ecs
+} // namespace kt::ecs

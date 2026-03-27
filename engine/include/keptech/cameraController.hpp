@@ -7,7 +7,7 @@
 #include <keptech/core/scene.hpp>
 #include <keptech/ecs/entity.hpp>
 
-namespace keptech {
+namespace kt {
   class CameraController {
   public:
     CameraController() = default;
@@ -42,4 +42,4 @@ namespace keptech {
   protected:
     ecs::Entity cameraEntity{};
   };
-} // namespace keptech
+} // namespace kt

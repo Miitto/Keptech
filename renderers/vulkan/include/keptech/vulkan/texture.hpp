@@ -1,18 +1,18 @@
 #pragma once
 
-#include "keptech/core/rendering/texture.hpp"
+#include "keptech/rendering/texture.hpp"
 #include "keptech/vulkan/structs.hpp"
 
-namespace keptech::vkh {
-  class Texture final : public keptech::IImage {
+namespace kt::vkh {
+  class Texture final : public kt::IImage {
   public:
     AllocatedImage& getImage() { return image; }
 
-    Texture(vma::Allocator& allocator, vk::raii::Device& device,
-            AllocatedImage image, glm::uvec3 size, TextureFormat format,
-            Bitflag<TextureUsage> usage, uint32_t mipLevels)
-        : IImage(size, format, mipLevels), allocator(&allocator),
-          device(&device), image(image) {}
+    Texture(VmaAllocator& allocator, VkDevice& device, AllocatedImage image,
+            glm::uvec3 size, TextureFormat format, Bitflag<TextureUsage> usage,
+            uint32_t mipLevels)
+        : IImage(size, format, mipLevels), allocator(allocator), device(device),
+          image(image) {}
 
     Texture(const Texture&) = delete;
     Texture(Texture&& o) noexcept
@@ -43,35 +43,33 @@ namespace keptech::vkh {
     }
     ~Texture() final {
       if (allocator) {
-        image.destroy(*allocator, *device);
+        vmaDestroyImage(allocator, image.image, image.alloc);
         allocator = nullptr;
       }
     }
 
 #ifdef KT_ADD_RESOURCE_INFO
-    Texture(vma::Allocator& allocator, vk::raii::Device& device,
-            AllocatedImage image, glm::uvec3 size, TextureFormat format,
-            uint32_t mipLevels, std::string name, Bitflag<TextureUsage> usage)
+    Texture(VmaAllocator& allocator, VkDevice& device, AllocatedImage image,
+            glm::uvec3 size, TextureFormat format, uint32_t mipLevels,
+            std::string name, Bitflag<TextureUsage> usage)
         : IImage(std::move(name), size, format, usage, mipLevels),
-          allocator(&allocator), device(&device), image(image) {}
+          allocator(allocator), device(device), image(image) {}
 #endif
 
   private:
-    vma::Allocator* allocator;
-    vk::raii::Device* device;
+    VmaAllocator allocator;
+    VkDevice device;
     AllocatedImage image;
-    std::shared_ptr<vk::raii::Sampler> sampler;
+    VkSampler sampler;
   };
 
-  class Sampler final : public keptech::ISampler {
+  class Sampler final : public kt::ISampler {
   public:
-    Sampler(vk::raii::Sampler&& sampler) : sampler(std::move(sampler)) {}
+    Sampler(VkSampler&& sampler) : sampler(std::move(sampler)) {}
 
-    [[nodiscard]] const vk::raii::Sampler& getVkSampler() const {
-      return sampler;
-    }
+    [[nodiscard]] const VkSampler& getVkSampler() const { return sampler; }
 
   private:
-    vk::raii::Sampler sampler;
+    VkSampler sampler;
   };
-} // namespace keptech::vkh
+} // namespace kt::vkh

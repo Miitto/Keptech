@@ -3,7 +3,7 @@
 #include "keptech/core/events/input.hpp"
 #include <memory>
 
-namespace keptech::core::events {
+namespace kt::core::events {
   std::unique_ptr<Event> sdlEventToKeptechEvent(const SDL_Event& sdlEvent) {
     switch (sdlEvent.type) {
     case SDL_EVENT_MOUSE_MOTION: {
@@ -46,4 +46,4 @@ namespace keptech::core::events {
       return nullptr;
     }
   }
-} // namespace keptech::core::events
+} // namespace kt::core::events

@@ -8,9 +8,9 @@
 #include <variant>
 #include <vector>
 
-DEFINE_BITFLAG_ENUM_OPERATORS(keptech::shaders::ShaderStages)
+DEFINE_BITFLAG_ENUM_OPERATORS(kt::shaders::ShaderStages)
 
-namespace keptech {
+namespace kt {
   struct AttachmentConfig {
     std::vector<TextureFormat> colorFormats = {};
     TextureFormat depthFormat = TextureFormat::Undefined;
@@ -116,7 +116,7 @@ namespace keptech {
   };
 
   struct PipelineCreateInfo {
-    keptech::shaders::Shader shader;
+    kt::shaders::Shader shader;
     AttachmentConfig attachments = {};
     Topology topology = Topology::TriangleList;
     RasterizerConfig rasterizer = {};
@@ -140,14 +140,13 @@ namespace keptech {
     enum E : uint8_t { Texture, Float, Float2 };
   }
   using MaterialData = std::variant<ImgPtr, float, glm::vec2>;
-} // namespace keptech
+} // namespace kt
 
 template <>
-struct fmt::formatter<keptech::PipelineStage>
-    : fmt::formatter<std::string_view> {
+struct fmt::formatter<kt::PipelineStage> : fmt::formatter<std::string_view> {
   template <typename FormatContext>
-  auto format(const keptech::PipelineStage stage, FormatContext& ctx) const {
-    using S = keptech::PipelineStage;
+  auto format(const kt::PipelineStage stage, FormatContext& ctx) const {
+    using S = kt::PipelineStage;
     std::string_view name = "";
     switch (stage) {
     case S::Deferred:
@@ -159,7 +158,7 @@ struct fmt::formatter<keptech::PipelineStage>
     case S::Transparent:
       name = "Transparent";
       break;
-    case keptech::PipelineStage::DeferredLighting:
+    case kt::PipelineStage::DeferredLighting:
       name = "Deferred Lighting";
       break;
     }
@@ -168,12 +167,11 @@ struct fmt::formatter<keptech::PipelineStage>
 };
 
 template <>
-struct fmt::formatter<keptech::shaders::RenderingMode>
+struct fmt::formatter<kt::shaders::RenderingMode>
     : fmt::formatter<std::string_view> {
   template <typename FormatContext>
-  auto format(const keptech::shaders::RenderingMode mode,
-              FormatContext& ctx) const {
-    using S = keptech::shaders::RenderingMode;
+  auto format(const kt::shaders::RenderingMode mode, FormatContext& ctx) const {
+    using S = kt::shaders::RenderingMode;
     std::string_view name = "";
     switch (mode) {
     case S::Deferred:
@@ -182,7 +180,7 @@ struct fmt::formatter<keptech::shaders::RenderingMode>
     case S::Forward:
       name = "Forward";
       break;
-    case keptech::shaders::RenderingMode::Custom:
+    case kt::shaders::RenderingMode::Custom:
       name = "Custom";
       break;
     }
@@ -190,7 +188,7 @@ struct fmt::formatter<keptech::shaders::RenderingMode>
   }
 };
 
-namespace keptech {
+namespace kt {
   class IPipeline {
   public:
     [[nodiscard]] PipelineStage getStage() const { return stage; }
@@ -276,4 +274,4 @@ namespace keptech {
   };
 
   using MaterialPtr = std::shared_ptr<Material>;
-} // namespace keptech
+} // namespace kt

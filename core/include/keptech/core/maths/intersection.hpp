@@ -1,5 +1,5 @@
 #pragma once
 
-namespace keptech::maths {
+namespace kt::maths {
   enum class IntersectionType : uint8_t { eNone, ePartial, eWhole };
 }

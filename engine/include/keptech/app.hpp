@@ -8,7 +8,7 @@
 #include <keptech/vulkan/renderer.hpp>
 #endif
 
-namespace keptech {
+namespace kt {
   struct SetupInfo {
     core::window::CreateInfo window = {};
     RendererCreateInfo renderer = {};
@@ -19,4 +19,4 @@ namespace keptech {
   std::expected<void, std::string>
   setupAppLayers(core::layers::LayerStack& layerStack,
                  core::window::Window& window, Renderer& renderer);
-} // namespace keptech
+} // namespace kt

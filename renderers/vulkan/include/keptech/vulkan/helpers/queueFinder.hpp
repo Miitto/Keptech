@@ -3,14 +3,14 @@
 #include <cstdint>
 #include <functional>
 #include <keptech/core/bitflag.hpp>
-#include <vulkan/vulkan_raii.hpp>
+#include <vulkan/vulkan.h>
 
-namespace keptech::vkh {
+namespace kt::vkh {
 
   class QueueFinder {
   public:
     struct QueueFamily {
-      vk::QueueFamilyProperties properties;
+      VkQueueFamilyProperties properties;
       uint32_t index;
     };
 
@@ -20,14 +20,14 @@ namespace keptech::vkh {
   public:
     enum class QueueTypeFlags : uint8_t {
       Present = 0, // Is not really a queue flag, but a special case
-      Graphics = static_cast<VkQueueFlags>(vk::QueueFlagBits::eGraphics),
-      Transfer = static_cast<VkQueueFlags>(vk::QueueFlagBits::eTransfer),
-      Compute = static_cast<VkQueueFlags>(vk::QueueFlagBits::eCompute),
+      Graphics = VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT,
+      Transfer = VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT,
+      Compute = VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT,
     };
 
     struct PresentQueue {
-      const vk::raii::PhysicalDevice& device;
-      const vk::raii::SurfaceKHR& surface;
+      const VkPhysicalDevice& device;
+      const VkSurfaceKHR& surface;
     };
 
     union QueueTypeParams {
@@ -40,9 +40,14 @@ namespace keptech::vkh {
       QueueTypeParams params = QueueTypeParams{.none = nullptr};
     };
 
-    QueueFinder(const vk::raii::PhysicalDevice& physicalDevice) noexcept
+    QueueFinder(const VkPhysicalDevice& physicalDevice) noexcept
         : queueFamilyProperties(std::vector<QueueFamily>{}) {
-      auto props = physicalDevice.getQueueFamilyProperties();
+      uint32_t queueFamilyCount = 0;
+      vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice,
+                                               &queueFamilyCount, nullptr);
+      std::vector<VkQueueFamilyProperties> props(queueFamilyCount);
+      vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice,
+                                               &queueFamilyCount, props.data());
 
       queueFamilyProperties.reserve(props.size());
 
@@ -104,6 +109,6 @@ namespace keptech::vkh {
       return queueFamilyProperties.front();
     }
   };
-} // namespace keptech::vkh
+} // namespace kt::vkh
 
-DEFINE_BITFLAG_ENUM_OPERATORS(keptech::vkh::QueueFinder::QueueTypeFlags)
+DEFINE_BITFLAG_ENUM_OPERATORS(kt::vkh::QueueFinder::QueueTypeFlags)

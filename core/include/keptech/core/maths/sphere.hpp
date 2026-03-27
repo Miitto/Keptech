@@ -3,7 +3,7 @@
 #include "intersection.hpp"
 #include "plane.hpp"
 
-namespace keptech::maths {
+namespace kt::maths {
   struct Sphere;
 
   template <class T>
@@ -53,4 +53,4 @@ namespace keptech::maths {
                 "Sphere does not satisfy SphereIntersectable concept");
   static_assert(PlaneIntersectable<Sphere>,
                 "Sphere does not satisfy PlaneIntersectable concept");
-} // namespace keptech::maths
+} // namespace kt::maths

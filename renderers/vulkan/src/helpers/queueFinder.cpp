@@ -2,7 +2,7 @@
 
 #include "vk-logger.hpp"
 
-namespace keptech::vkh {
+namespace kt::vkh {
 
   [[nodiscard]] auto
   QueueFinder::find(const std::function<bool(QueueFamily)>& finder) const
@@ -88,4 +88,4 @@ namespace keptech::vkh {
 
     return {std::move(filtered)};
   }
-} // namespace keptech::vkh
+} // namespace kt::vkh

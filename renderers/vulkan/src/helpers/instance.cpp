@@ -5,40 +5,42 @@
 #include "vk-logger.hpp"
 
 #include "keptech/vulkan/helpers/validators.hpp"
-#include "vulkan/vulkan.hpp"
+#include "vulkan/vulkan.h"
 #include <SDL3/SDL_vulkan.h>
 #include <keptech/core/window.hpp>
 
-namespace keptech::vkh {
+namespace kt::vkh {
 
-  vk::Bool32 debug_utils_messenger_callback(
-      vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
-      vk::DebugUtilsMessageTypeFlagsEXT message_type,
-      const vk::DebugUtilsMessengerCallbackDataEXT* callback_data,
+  VkBool32 debug_utils_messenger_callback(
+      VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+      VkDebugUtilsMessageTypeFlagsEXT message_type,
+      const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
       void* user_data) {
-    if (message_severity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning) {
+    if (message_severity &
+        VkDebugUtilsMessageSeverityFlagBitsEXT::
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
       VK_WARN("{} - {}: {}", callback_data->messageIdNumber,
               callback_data->pMessageIdName, callback_data->pMessage);
     } else if (message_severity &
-               vk::DebugUtilsMessageSeverityFlagBitsEXT::eError) {
+               VkDebugUtilsMessageSeverityFlagBitsEXT::
+                   VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
       VK_ERROR("{} - {}: {}", callback_data->messageIdNumber,
                callback_data->pMessageIdName, callback_data->pMessage);
     }
     return VK_FALSE;
   }
 
-  auto createInstance(vk::raii::Context& context, const char* appName,
-                      const bool enableValidationLayers,
+  auto createInstance(const char* appName, const bool enableValidationLayers,
                       const std::span<const char* const> extraExtensions,
                       const std::span<const char* const> extraLayers)
-      -> std::expected<vk::raii::Instance, std::string> {
+      -> std::expected<VkInstance, std::string> {
     VK_TRACE("Creating Instance");
-    auto appInfo = vk::ApplicationInfo{
+    auto appInfo = VkApplicationInfo{
         .pApplicationName = appName,
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
         .pEngineName = "No Engine",
         .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-        .apiVersion = vk::ApiVersion14,
+        .apiVersion = VK_MAKE_API_VERSION(0, 1, 4, 0),
     };
 
     Uint32 extCnt = 0;
@@ -57,12 +59,12 @@ namespace keptech::vkh {
     layerNames.insert(layerNames.end(), extraLayers.begin(), extraLayers.end());
 
     if (enableValidationLayers) {
-      printExtensions(context, spdlog::level::trace);
+      printExtensions(spdlog::level::trace);
       layerNames.push_back("VK_LAYER_KHRONOS_validation");
       extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
-    auto missingExtensions = vkh::checkExtensions(context, extensions);
+    auto missingExtensions = vkh::checkExtensions(extensions);
     if (!missingExtensions.empty()) {
       VK_ERROR("Missing required extensions:");
       for (const auto& ext : missingExtensions) {
@@ -71,7 +73,7 @@ namespace keptech::vkh {
       return std::unexpected("Missing required Vulkan extensions");
     }
 
-    auto missingLayers = vkh::checkLayers(context, layerNames);
+    auto missingLayers = vkh::checkLayers(layerNames);
     if (!missingLayers.empty()) {
       VK_ERROR("Missing required layers:");
       for (const auto& layer : missingLayers) {
@@ -90,7 +92,7 @@ namespace keptech::vkh {
       VK_DEBUG("  - {}", layer);
     }
 
-    auto iCreateInfo = vk::InstanceCreateInfo{
+    auto iCreateInfo = VkInstanceCreateInfo{
         .pApplicationInfo = &appInfo,
         .enabledLayerCount = static_cast<uint32_t>(layerNames.size()),
         .ppEnabledLayerNames = layerNames.data(),
@@ -98,20 +100,26 @@ namespace keptech::vkh {
         .ppEnabledExtensionNames = extensions.data()};
 
 #ifndef NDEBUG
-    vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo{
-        .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                           vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
-        .messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                       vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-                       vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{
+        .messageSeverity = VkDebugUtilsMessageSeverityFlagBitsEXT::
+                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                           VkDebugUtilsMessageSeverityFlagBitsEXT::
+                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+        .messageType = VkDebugUtilsMessageTypeFlagBitsEXT::
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                       VkDebugUtilsMessageTypeFlagBitsEXT::
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                       VkDebugUtilsMessageTypeFlagBitsEXT::
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
         .pfnUserCallback = debug_utils_messenger_callback,
     };
     iCreateInfo.pNext = &debugCreateInfo;
 #endif
 
-    VK_MAKE(instance, context.createInstance(iCreateInfo),
+    VkInstance instance;
+    VK_MAKE(vkCreateInstance(&iCreateInfo, nullptr, &instance),
             "Failed to create Vulkan Instance");
 
-    return std::move(instance);
+    return instance;
   }
-} // namespace keptech::vkh
+} // namespace kt::vkh

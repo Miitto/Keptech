@@ -15,7 +15,7 @@ using f64 = double;
 using usize = size_t;
 using isize = std::make_signed_t<size_t>;
 
-namespace keptech {
+namespace kt {
   /// Timestep in milliseconds
   using Timestep = float;
 
@@ -27,4 +27,4 @@ namespace keptech {
   template <typename... T> struct overloaded : T... {
     using T::operator()...;
   };
-} // namespace keptech
+} // namespace kt

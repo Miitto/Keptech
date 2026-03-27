@@ -4,7 +4,7 @@
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
 
-namespace keptech::core::window {
+namespace kt::core::window {
   bool init();
   void shutdown();
 
@@ -98,4 +98,4 @@ namespace keptech::core::window {
     glm::ivec2 size = {};
     glm::ivec2 renderSize = {};
   };
-} // namespace keptech::core::window
+} // namespace kt::core::window

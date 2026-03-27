@@ -3,40 +3,41 @@
 #include <expected>
 #include <functional>
 #include <span>
-#include <vulkan/vulkan_raii.hpp>
+#include <string>
+#include <vulkan/vulkan.h>
 
-namespace keptech::vkh {
+namespace kt::vkh {
 
   class PhysicalDeviceSelector {
   public:
     struct DeviceSpecs {
-      vk::raii::PhysicalDevice device;
-      vk::PhysicalDeviceProperties properties;
-      vk::PhysicalDeviceFeatures features;
-      vk::PhysicalDeviceMemoryProperties memoryProperties;
-      std::vector<vk::QueueFamilyProperties> queueFamilyProperties;
-      std::vector<vk::ExtensionProperties> availableExtensions;
+      VkPhysicalDevice device;
+      VkPhysicalDeviceProperties properties;
+      VkPhysicalDeviceFeatures features;
+      VkPhysicalDeviceMemoryProperties memoryProperties;
+      std::vector<VkQueueFamilyProperties> queueFamilyProperties;
+      std::vector<VkExtensionProperties> availableExtensions;
 
       uint32_t score = 0;
     };
 
-    static auto create(const vk::raii::Instance& instance)
+    static auto create(const VkInstance& instance)
         -> std::expected<PhysicalDeviceSelector, std::string>;
     void
     requireExtensions(const std::span<const char* const> extensions) noexcept;
-    void requireFeatures(
-        const std::function<bool(const vk::PhysicalDeviceFeatures&)>&
-            featureCheck) noexcept;
-    void requireQueueFamily(vk::Flags<vk::QueueFlagBits> queueFlags) noexcept;
+    void
+    requireFeatures(const std::function<bool(const VkPhysicalDeviceFeatures&)>&
+                        featureCheck) noexcept;
+    void requireQueueFamily(VkQueueFlags queueFlags) noexcept;
     void requireMemoryType(uint32_t typeBits,
-                           vk::MemoryPropertyFlags properties) noexcept;
+                           VkMemoryPropertyFlags properties) noexcept;
     void requireVersion(uint32_t major, uint32_t minor,
                         uint32_t patch) noexcept;
     void scoreDevices(const std::function<uint32_t(
                           const vkh::PhysicalDeviceSelector::DeviceSpecs&)>&
                           scoreFn) noexcept;
     void sortDevices() noexcept;
-    auto select() -> std::vector<vk::raii::PhysicalDevice>;
+    auto select() -> std::vector<VkPhysicalDevice>;
 
   private:
     std::vector<DeviceSpecs> physicalDevices;
@@ -44,4 +45,4 @@ namespace keptech::vkh {
     PhysicalDeviceSelector(std::vector<DeviceSpecs>& specs) noexcept
         : physicalDevices(std::move(specs)) {}
   };
-} // namespace keptech::vkh
+} // namespace kt::vkh

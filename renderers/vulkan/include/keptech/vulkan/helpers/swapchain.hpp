@@ -2,31 +2,32 @@
 
 #include <cstdint>
 #include <expected>
+#include <optional>
+#include <string>
 #include <vector>
-#include <vulkan/vulkan_raii.hpp>
+#include <vulkan/vulkan.h>
 
-namespace keptech::vkh {
+namespace kt::vkh {
 
   struct SwapchainConfig {
-    vk::SurfaceFormatKHR format;
-    vk::PresentModeKHR presentMode;
-    vk::Extent2D extent;
+    VkSurfaceFormatKHR format;
+    VkPresentModeKHR presentMode;
+    VkExtent2D extent;
     uint32_t imageCount;
   };
 
   auto chooseSwapSurfaceFormat(
-      const std::vector<::vk::SurfaceFormatKHR>& availableFormats) noexcept
-      -> ::vk::SurfaceFormatKHR;
+      const std::vector<VkSurfaceFormatKHR>& availableFormats) noexcept
+      -> VkSurfaceFormatKHR;
   auto chooseSwapPresentMode(
-      const std::vector<::vk::PresentModeKHR>& availablePresentModes) noexcept
-      -> ::vk::PresentModeKHR;
+      const std::vector<VkPresentModeKHR>& availablePresentModes) noexcept
+      -> VkPresentModeKHR;
 
   auto chooseSwapExtent(int width, int height,
-                        const ::vk::SurfaceCapabilitiesKHR& capabilities,
-                        const bool waitOnZero = false) noexcept
-      -> ::vk::Extent2D;
+                        const VkSurfaceCapabilitiesKHR& capabilities,
+                        const bool waitOnZero = false) noexcept -> VkExtent2D;
 
-  uint32_t minImageCount(const ::vk::SurfaceCapabilitiesKHR& capabilities,
+  uint32_t minImageCount(const VkSurfaceCapabilitiesKHR& capabilities,
                          uint32_t desired) noexcept;
 
   struct SwapchainQueues {
@@ -38,27 +39,25 @@ namespace keptech::vkh {
 
   public:
     struct Sync {
-      vk::raii::Semaphore imageAvailableSemaphore;
-      vk::raii::Semaphore renderFinishedSemaphore;
+      VkSemaphore imageAvailableSemaphore;
+      VkSemaphore renderFinishedSemaphore;
     };
 
     Swapchain() = delete;
 
-    static auto create(const vk::raii::Device& device,
-                       const SwapchainConfig& swapchainConfig,
-                       const vk::raii::PhysicalDevice& physicalDevice,
-                       const vk::raii::SurfaceKHR& surface,
-                       const SwapchainQueues& queues,
-                       std::optional<vk::raii::SwapchainKHR*> oldSwapchain)
+    static auto
+    create(const VkDevice& device, const SwapchainConfig& swapchainConfig,
+           const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface,
+           const SwapchainQueues& queues,
+           std::optional<VkSwapchainKHR*> oldSwapchain)
         -> std::expected<Swapchain, std::string>;
 
-    [[nodiscard]] auto images() const noexcept
-        -> const std::vector<vk::Image>& {
+    [[nodiscard]] auto images() const noexcept -> const std::vector<VkImage>& {
       return imgs;
     }
 
     [[nodiscard]] auto views() const noexcept
-        -> const std::vector<vk::raii::ImageView>& {
+        -> const std::vector<VkImageView>& {
       return imageViews;
     }
 
@@ -67,44 +66,42 @@ namespace keptech::vkh {
     }
 
     [[nodiscard]] auto nImage(const size_t imageIndex) const noexcept
-        -> const vk::Image& {
+        -> const VkImage& {
       return imgs[imageIndex];
     }
 
     [[nodiscard]] auto nView(const size_t imageIndex) const noexcept
-        -> const vk::raii::ImageView& {
+        -> const VkImageView& {
       return imageViews[imageIndex];
     }
 
     [[nodiscard]] auto nPresentSemaphore(const size_t imageIndex) noexcept
-        -> vk::raii::Semaphore& {
+        -> VkSemaphore& {
       return presentSemaphores[imageIndex];
     }
 
-    [[nodiscard]] auto getSwapchain() noexcept -> vk::raii::SwapchainKHR& {
+    [[nodiscard]] auto getSwapchain() noexcept -> VkSwapchainKHR& {
       return swapchain;
     }
 
-    [[nodiscard]] auto getSwapchain() const noexcept
-        -> const vk::raii::SwapchainKHR& {
+    [[nodiscard]] auto getSwapchain() const noexcept -> const VkSwapchainKHR& {
       return swapchain;
     }
 
-    auto operator*() noexcept -> vk::raii::SwapchainKHR& { return swapchain; }
-    auto operator*() const noexcept -> const vk::raii::SwapchainKHR& {
+    auto operator*() noexcept -> VkSwapchainKHR& { return swapchain; }
+    auto operator*() const noexcept -> const VkSwapchainKHR& {
       return swapchain;
     }
 
-    auto operator->() noexcept -> vk::raii::SwapchainKHR* { return &swapchain; }
-    auto operator->() const noexcept -> const vk::raii::SwapchainKHR* {
+    auto operator->() noexcept -> VkSwapchainKHR* { return &swapchain; }
+    auto operator->() const noexcept -> const VkSwapchainKHR* {
       return &swapchain;
     }
 
-    auto operator[](const size_t index) noexcept -> vk::raii::ImageView& {
+    auto operator[](const size_t index) noexcept -> VkImageView& {
       return imageViews[index];
     }
-    auto operator[](const size_t index) const noexcept
-        -> const vk::raii::ImageView& {
+    auto operator[](const size_t index) const noexcept -> const VkImageView& {
       return imageViews[index];
     }
 
@@ -115,24 +112,23 @@ namespace keptech::vkh {
       State state;
     };
 
-    [[nodiscard]] auto
-    getNextImage(const vk::raii::Device& device, vk::raii::Fence& waitFence,
-                 vk::raii::Semaphore& signalSemaphore) const noexcept
+    [[nodiscard]] auto getNextImage(const VkDevice& device, VkFence& waitFence,
+                                    VkSemaphore& signalSemaphore) const noexcept
         -> std::expected<AcquireResult, std::string>;
 
   private:
     SwapchainConfig _config;
-    vk::raii::SwapchainKHR swapchain;
-    std::vector<vk::Image> imgs;
-    std::vector<vk::raii::ImageView> imageViews;
-    std::vector<vk::raii::Semaphore> presentSemaphores;
+    VkSwapchainKHR swapchain;
+    std::vector<VkImage> imgs;
+    std::vector<VkImageView> imageViews;
+    std::vector<VkSemaphore> presentSemaphores;
 
-    Swapchain(vk::raii::SwapchainKHR&& swapchain, SwapchainConfig config,
-              std::vector<vk::Image>&& images,
-              std::vector<vk::raii::ImageView>&& imageViews,
-              std::vector<vk::raii::Semaphore>&& sync) noexcept
+    Swapchain(VkSwapchainKHR&& swapchain, SwapchainConfig config,
+              std::vector<VkImage>&& images,
+              std::vector<VkImageView>&& imageViews,
+              std::vector<VkSemaphore>&& sync) noexcept
         : _config(config), swapchain(std::move(swapchain)),
           imgs(std::move(images)), imageViews(std::move(imageViews)),
           presentSemaphores(std::move(sync)) {}
   };
-} // namespace keptech::vkh
+} // namespace kt::vkh

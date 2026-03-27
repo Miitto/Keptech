@@ -1,7 +1,6 @@
 #include "keptech/vulkan/renderer.hpp"
+
 #include "keptech/core/moveGuard.hpp"
-#include "keptech/vulkan/buffer.hpp"
-#include "keptech/vulkan/commandBuffer.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include "macros.hpp"
 #include "vulkan/vulkan.hpp"
@@ -17,9 +16,9 @@
 #include <set>
 #include <vk_mem_alloc_enums.hpp>
 
-namespace keptech::vkh {
+namespace kt::vkh {
 
-  void RendererBackend::Pools::resetAll() {
+  void Renderer::Pools::resetAll() {
     std::set<vk::raii::CommandPool*> unique{
         &graphics.get()->pool,
         &compute.get()->pool,
@@ -29,7 +28,7 @@ namespace keptech::vkh {
     }
   }
 
-  void RendererBackend::initImGui() {
+  void Renderer::initImGui() {
     auto res = setup::setupImGui(*m.window, m.vkcore);
     if (!res.has_value()) {
       VK_CRITICAL("Failed to initialize ImGui: {}", res.error());
@@ -38,7 +37,7 @@ namespace keptech::vkh {
     m.imGuiObjects = std::move(res.value());
   }
 
-  void RendererBackend::newFrame() {
+  void Renderer::newFrame() {
     ImGui_ImplVulkan_NewFrame();
     auto& perFrame = m.vkcore.perFrame[m.frameInfo.index];
 
@@ -72,37 +71,7 @@ namespace keptech::vkh {
     }
   }
 
-  std::expected<CmdBufPtr, std::string>
-  RendererBackend::createCmdBuffer(CmdBufType t) {
-    vk::raii::CommandPool* pool = nullptr;
-    switch (t) {
-    case CmdBufType::Graphics:
-      pool = &m.frameInfo.perFrame->pools.graphics.get()->pool;
-      break;
-    case CmdBufType::Compute:
-      pool = &m.frameInfo.perFrame->pools.compute.get()->pool;
-      break;
-    case CmdBufType::Transfer:
-      pool = &m.vkcore.transferPool.pool;
-      break;
-    }
-
-    vk::CommandBufferAllocateInfo cmdBufAllocInfo{
-        .commandPool = *pool,
-        .level = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = 1,
-    };
-
-    VK_MAKE(cmdBuffers,
-            m.vkcore.device->allocateCommandBuffers(cmdBufAllocInfo),
-            "Failed to allocate graphics command buffer");
-
-    vk::raii::CommandBuffer cmdBuffer = std::move(cmdBuffers_res.value.front());
-
-    return std::make_unique<CommandBuffer>(std::move(cmdBuffer), t);
-  }
-
-  std::expected<CmdBufPtr, std::string> RendererBackend::startFrame() {
+  std::expected<CmdBufPtr, std::string> Renderer::startFrame() {
     vk::Result res = vk::Result::eTimeout;
     uint64_t waitValue = m.frameInfo.perFrame->timelineValue;
 
@@ -207,8 +176,9 @@ namespace keptech::vkh {
     return std::make_unique<CommandBuffer>(std::move(cmdBuffer),
                                            CmdBufType::Graphics);
   }
-  void RendererBackend::writeCameraMatrices(
-      const CmdBufPtr& cmdBuf, const components::Camera::Uniforms& uniforms) {
+  void
+  Renderer::writeCameraMatrices(const CmdBufPtr& cmdBuf,
+                                const components::Camera::Uniforms& uniforms) {
     vk::raii::CommandBuffer& vkCmdBuf =
         dynamic_cast<CommandBuffer*>(cmdBuf.get())->get();
 
@@ -245,10 +215,9 @@ namespace keptech::vkh {
                         });
   }
 
-  void
-  RendererBackend::bindGlobalDescriptorSets(const CmdBufPtr& cmdBuf,
-                                            const IPipeline& pipeline,
-                                            Bitflag<shaders::ShaderStages>) {
+  void Renderer::bindGlobalDescriptorSets(const CmdBufPtr& cmdBuf,
+                                          const IPipeline& pipeline,
+                                          Bitflag<shaders::ShaderStages>) {
     CommandBuffer& vkCmdBuf = *dynamic_cast<CommandBuffer*>(cmdBuf.get());
     const LoadedPipeline& vkPipeline =
         static_cast<const LoadedPipeline&>(pipeline);
@@ -258,7 +227,7 @@ namespace keptech::vkh {
         {*m.globalDescriptorSets.sets[m.frameInfo.index]}, {});
   }
 
-  void RendererBackend::renderImGui(const CmdBufPtr& cmdBuf) {
+  void Renderer::renderImGui(const CmdBufPtr& cmdBuf) {
     ImGui::Render();
 
     vk::RenderingAttachmentInfo aInfo{
@@ -286,8 +255,7 @@ namespace keptech::vkh {
     graphicsCmdBuffer.endRendering();
   }
 
-  void
-  RendererBackend::submitCommandBuffers(std::vector<SubmitInfo> cmdBuffers) {
+  void Renderer::submitCommandBuffers(std::vector<SubmitInfo> cmdBuffers) {
     if (cmdBuffers.empty()) {
       return;
     }
@@ -381,7 +349,7 @@ namespace keptech::vkh {
              submittedCmdBufInfos.size(), m.frameInfo.index, signalValue);
   }
 
-  void RendererBackend::endFrame(
+  void Renderer::endFrame(
       CmdBufPtr&& cmdBuf) { // NOLINT - The item in the UPtr is moved
     vk::raii::CommandBuffer vkCmdBuf =
         std::move(dynamic_cast<CommandBuffer*>(cmdBuf.get())->get());
@@ -465,7 +433,7 @@ namespace keptech::vkh {
     present();
   }
 
-  void RendererBackend::present() {
+  void Renderer::present() {
     uint32_t imageIndex = m.frameInfo.imageIndex;
     auto& sem = m.vkcore.swapchain.nPresentSemaphore(imageIndex);
 
@@ -504,12 +472,11 @@ namespace keptech::vkh {
     }
   }
 
-  RendererBackend::RendererBackend(RendererBackend&& o) noexcept
-      : m(std::move(o.m)) {
+  Renderer::Renderer(Renderer&& o) noexcept : m(std::move(o.m)) {
     m.frameInfo.perFrame = &m.vkcore.perFrame[m.frameInfo.index];
   }
 
-  RendererBackend& RendererBackend::operator=(RendererBackend&& o) noexcept {
+  Renderer& Renderer::operator=(Renderer&& o) noexcept {
     if (this == &o)
       return *this;
 
@@ -517,14 +484,14 @@ namespace keptech::vkh {
     return *this;
   }
 
-  void RendererBackend::preExit() { m.vkcore.device.logical.waitIdle(); }
+  void Renderer::preExit() { m.vkcore.device.logical.waitIdle(); }
 
-  void RendererBackend::shutdownImGui() {
+  void Renderer::shutdownImGui() {
     ImGui_ImplVulkan_Shutdown();
     VK_DEBUG("Shut down ImGui Vulkan backend");
   }
 
-  RendererBackend::~RendererBackend() {
+  Renderer::~Renderer() {
     if (m.moveGuard.moved()) {
       return;
     }
@@ -544,7 +511,7 @@ namespace keptech::vkh {
     VK_INFO("Vulkan renderer shut down cleanly");
   }
 
-  std::expected<void, std::string> RendererBackend::recreateSwapchain() {
+  std::expected<void, std::string> Renderer::recreateSwapchain() {
     VK_TRACE("Recreating swapchain");
     VKH_MAKE(newSwapchain,
              setup::createSwapchain(m.vkcore.device.physical,
@@ -567,4 +534,4 @@ namespace keptech::vkh {
     return {};
   }
 
-} // namespace keptech::vkh
+} // namespace kt::vkh

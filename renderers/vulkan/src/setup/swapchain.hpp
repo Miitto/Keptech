@@ -8,8 +8,8 @@
 #include <expected>
 #include <keptech/core/components/camera.hpp>
 
-namespace keptech::vkh::setup {
-  using namespace keptech::vkh;
+namespace kt::vkh::setup {
+  using namespace kt::vkh;
 
   std::expected<Swapchain, std::string>
   createSwapchain(const vk::raii::PhysicalDevice& physicalDevice,
@@ -32,7 +32,7 @@ namespace keptech::vkh::setup {
     auto extent = chooseSwapExtent(framebufferSize.x, framebufferSize.y,
                                    surfaceCapabilities, true);
     auto minImageCount =
-        keptech::vkh::minImageCount(surfaceCapabilities, MAX_FRAMES_IN_FLIGHT);
+        kt::vkh::minImageCount(surfaceCapabilities, MAX_FRAMES_IN_FLIGHT);
 
     VK_DEBUG("Min image count for swapchain: {}", minImageCount);
 
@@ -50,4 +50,4 @@ namespace keptech::vkh::setup {
 
     return std::move(swapchain);
   }
-} // namespace keptech::vkh::setup
+} // namespace kt::vkh::setup

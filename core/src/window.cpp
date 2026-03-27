@@ -2,7 +2,7 @@
 
 #include "keptech/core/kt-logger.hpp"
 
-namespace keptech::core::window {
+namespace kt::core::window {
   bool init() {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
       auto msg = SDL_GetError();
@@ -73,4 +73,4 @@ namespace keptech::core::window {
     renderSize = glm::ivec2(w, h);
   }
 
-} // namespace keptech::core::window
+} // namespace kt::core::window

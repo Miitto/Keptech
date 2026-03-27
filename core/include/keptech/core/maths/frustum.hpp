@@ -4,7 +4,7 @@
 #include "plane.hpp"
 #include <array>
 
-namespace keptech::maths {
+namespace kt::maths {
   struct Frustum {
     std::array<Plane, 6> planes; // Left, Right, Bottom, Top, Near, Far
 
@@ -64,4 +64,4 @@ namespace keptech::maths {
       return frustum;
     }
   };
-} // namespace keptech::maths
+} // namespace kt::maths

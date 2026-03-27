@@ -13,8 +13,8 @@
 #include <keptech/core/components/camera.hpp>
 #include <set>
 
-namespace keptech::vkh::setup {
-  using namespace keptech::vkh;
+namespace kt::vkh::setup {
+  using namespace kt::vkh;
   constexpr std::array<const char*, 3> REQUIRED_DEVICE_EXTENSIONS = {
       vk::KHRSwapchainExtensionName,
       vk::KHRSpirv14ExtensionName,
@@ -24,7 +24,7 @@ namespace keptech::vkh::setup {
   std::expected<vk::raii::PhysicalDevice, std::string>
   createPhysicalDevice(vk::raii::Instance& instance,
                        vk::raii::SurfaceKHR& surface) {
-    VKH_MAKE(selector, keptech::vkh::PhysicalDeviceSelector::create(instance),
+    VKH_MAKE(selector, kt::vkh::PhysicalDeviceSelector::create(instance),
              "Failed to create physical device selector.");
 
     selector.requireVersion(1, 4, 0);
@@ -232,4 +232,4 @@ namespace keptech::vkh::setup {
         .transfer = transferQueue,
     });
   }
-} // namespace keptech::vkh::setup
+} // namespace kt::vkh::setup

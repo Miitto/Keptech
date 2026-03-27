@@ -2,7 +2,7 @@
 
 #include "glm/ext/matrix_clip_space.hpp"
 
-namespace keptech::components {
+namespace kt::components {
   void Camera::recalculateProjectionMatrix() {
     switch (projectionType) {
     case ProjectionType::Orthographic: {
@@ -37,4 +37,4 @@ namespace keptech::components {
 
     projectionMatrix[1][1] *= -1; // Flip Y to get +Y as up in world coords
   }
-} // namespace keptech::components
+} // namespace kt::components

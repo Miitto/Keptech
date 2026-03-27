@@ -15,7 +15,7 @@
     return EventType::EVENT_TYPE;                                              \
   }
 
-namespace keptech::core::events {
+namespace kt::core::events {
   enum class EventType : uint8_t {
     WindowResize,
     KeyPressed,
@@ -77,18 +77,18 @@ namespace keptech::core::events {
   };
 
   std::unique_ptr<Event> sdlEventToKeptechEvent(const SDL_Event& sdlEvent);
-} // namespace keptech::core::events
+} // namespace kt::core::events
 
 template <>
-struct fmt::formatter<keptech::core::events::EventType>
+struct fmt::formatter<kt::core::events::EventType>
     : fmt::formatter<std::string_view> {
 
   template <typename FormatContext>
-  auto format(const keptech::core::events::EventType& event,
+  auto format(const kt::core::events::EventType& event,
               FormatContext& ctx) const {
     std::string_view msg;
 
-    using E = keptech::core::events::EventType;
+    using E = kt::core::events::EventType;
 
     switch (event) {
     case E::WindowResize:
@@ -106,13 +106,13 @@ struct fmt::formatter<keptech::core::events::EventType>
     case E::MouseButtonPressed:
       msg = "MouseButtonPressed";
       break;
-    case keptech::core::events::EventType::MouseButtonReleased:
+    case kt::core::events::EventType::MouseButtonReleased:
       msg = "MouseButtonReleased";
       break;
-    case keptech::core::events::EventType::MouseMoved:
+    case kt::core::events::EventType::MouseMoved:
       msg = "MouseMoved";
       break;
-    case keptech::core::events::EventType::MouseScrolled:
+    case kt::core::events::EventType::MouseScrolled:
       msg = "MouseScrolled";
       break;
     }

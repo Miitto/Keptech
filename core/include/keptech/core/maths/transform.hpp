@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-namespace keptech::maths {
+namespace kt::maths {
   class Transform {
   public:
     Transform() = default;
@@ -64,4 +64,4 @@ namespace keptech::maths {
     glm::quat rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
     glm::vec3 _scale = glm::vec3(1.0f, 1.0f, 1.0f);
   };
-} // namespace keptech::maths
+} // namespace kt::maths

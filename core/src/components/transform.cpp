@@ -2,7 +2,7 @@
 #include "imgui.h"
 #include "keptech/core/gui.h"
 
-namespace keptech::components {
+namespace kt::components {
 
   bool Transform::recalculateGlobalTransform() {
     bool dirty = flags.has(Flags::Dirty);
@@ -26,7 +26,7 @@ namespace keptech::components {
     return dirty;
   }
 
-  void Transform::inspectorUi(keptech::gui::Frame& frame, bool readOnly) {
+  void Transform::inspectorUi(kt::gui::Frame& frame, bool readOnly) {
     frame.separatorText("Transform");
 
     ImGuiInputTextFlags iflags = !readOnly ? 0 : ImGuiInputTextFlags_ReadOnly;
@@ -48,4 +48,4 @@ namespace keptech::components {
       flags.set(Flags::Dirty);
     }
   }
-} // namespace keptech::components
+} // namespace kt::components

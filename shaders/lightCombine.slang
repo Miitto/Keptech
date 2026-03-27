@@ -9,7 +9,7 @@ struct v2f {
 v2f vert(uint vid: SV_VertexID) {
   v2f output;
 
-  float3 vertPos = keptech::getFullscreenTriangleVertex(vid);
+  float3 vertPos = kt::getFullscreenTriangleVertex(vid);
 
   output.position = float4(vertPos, 1.0);
   output.uv = vertPos.xy * 0.5 + 0.5;
@@ -35,13 +35,10 @@ float4 frag(v2f input, uniform GBufferIndices gBufferIndices,
             uniform LightBufferIndices lightBufferIndices) {
   float2 uv = input.uv;
 
-  let albedoTex = keptech::textures.getTexture(gBufferIndices.albedoIndex);
-  let emissiveAoTex =
-      keptech::textures.getTexture(gBufferIndices.emissiveAoIndex);
-  let diffuseTex =
-      keptech::textures.getTexture(lightBufferIndices.diffuseIndex);
-  let specularTex =
-      keptech::textures.getTexture(lightBufferIndices.specularIndex);
+  let albedoTex = kt::textures.getTexture(gBufferIndices.albedoIndex);
+  let emissiveAoTex = kt::textures.getTexture(gBufferIndices.emissiveAoIndex);
+  let diffuseTex = kt::textures.getTexture(lightBufferIndices.diffuseIndex);
+  let specularTex = kt::textures.getTexture(lightBufferIndices.specularIndex);
 
   float3 albedo = albedoTex.Sample(uv).rgb;
   float4 emissiveAo = emissiveAoTex.Sample(uv);

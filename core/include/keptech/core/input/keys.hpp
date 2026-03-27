@@ -2,7 +2,7 @@
 
 #include <SDL3/SDL.h>
 
-namespace keptech::core::input {
+namespace kt::core::input {
   enum class Keys : uint16_t {
     Unknown = SDL_SCANCODE_UNKNOWN,
 

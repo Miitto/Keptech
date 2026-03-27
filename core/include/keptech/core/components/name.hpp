@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace keptech::components {
+namespace kt::components {
   struct Name {
     std::string name;
 
@@ -12,4 +12,4 @@ namespace keptech::components {
 
     std::string& operator*() { return name; }
   };
-} // namespace keptech::components
+} // namespace kt::components

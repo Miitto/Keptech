@@ -1,6 +1,6 @@
 implementing keptech;
 
-namespace keptech {
+namespace kt {
 public struct TexData {
   Sampler2D textures[];
 

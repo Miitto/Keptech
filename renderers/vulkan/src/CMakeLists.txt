@@ -5,7 +5,6 @@ target_sources(${PROJECT_NAME}
   PRIVATE
     setup/setup.cpp
     helpers/descriptors.cpp
-    helpers/dynLoader.cpp
     helpers/instance.cpp
     helpers/physicalDevice.cpp
     helpers/queueFinder.cpp
@@ -14,7 +13,6 @@ target_sources(${PROJECT_NAME}
     helpers/validators.cpp
     helpers/vmaImpl.cpp
 
-    commandBuffer.cpp
     renderer.cpp
     resourceManagment.cpp
     structs.cpp

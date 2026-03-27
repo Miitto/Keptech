@@ -5,7 +5,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-namespace keptech::shader_processor::printing {
+namespace kt::shader_processor::printing {
   inline std::shared_ptr<spdlog::logger>
   createLogger(const std::string& name,
                const spdlog::level::level_enum level) noexcept {
@@ -107,4 +107,4 @@ namespace keptech::shader_processor::printing {
     }
   }
 
-} // namespace keptech::shader_processor::printing
+} // namespace kt::shader_processor::printing

@@ -3,7 +3,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-namespace keptech::core {
+namespace kt::core {
   inline std::shared_ptr<spdlog::logger>
   createLogger(const std::string& name,
                const spdlog::level::level_enum level) noexcept {
@@ -12,4 +12,4 @@ namespace keptech::core {
     logger->set_pattern("[%H:%M:%S.%e] [%n] [%^%L%$] [%s:%#] %v");
     return logger;
   }
-} // namespace keptech::core
+} // namespace kt::core

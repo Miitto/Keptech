@@ -2,9 +2,9 @@
 
 #include <cstdint>
 
-namespace keptech::shaders {
+namespace kt::shaders {
 #include "shaders/keptech/deferred.h"
 #include "shaders/keptech/lightCombine.h"
 #include "shaders/keptech/pointLight.h"
 #include "shaders/keptech/transparent.h"
-} // namespace keptech::shaders
+} // namespace kt::shaders

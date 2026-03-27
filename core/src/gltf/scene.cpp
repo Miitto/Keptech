@@ -5,9 +5,9 @@
 
 #include "keptech/core/kt-logger.hpp"
 
-namespace keptech::gltf {
+namespace kt::gltf {
   namespace {
-    void addNodeToEcsScene(const Scene::Node& node, keptech::Scene& scene,
+    void addNodeToEcsScene(const Scene::Node& node, kt::Scene& scene,
                            ecs::EntityHandle parent) {
       auto entity = scene.createEntity(node.name);
       auto& transformComp = entity.addComponent<components::Transform>();
@@ -37,8 +37,7 @@ namespace keptech::gltf {
     }
   } // namespace
 
-  void Scene::addToEcsScene(keptech::Scene& scene,
-                            ecs::EntityHandle parent) const {
+  void Scene::addToEcsScene(kt::Scene& scene, ecs::EntityHandle parent) const {
     KT_DEBUG("Adding glTF scene to ECS scene with {} roots", roots.size());
 
     if (parent != ecs::INVALID_ENTITY_HANDLE) {
@@ -52,4 +51,4 @@ namespace keptech::gltf {
       addNodeToEcsScene(root, scene, parent);
     }
   }
-} // namespace keptech::gltf
+} // namespace kt::gltf

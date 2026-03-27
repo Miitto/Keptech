@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace keptech {
+namespace kt {
 
   struct Vertex {
     glm::vec3 position;
@@ -81,4 +81,4 @@ namespace keptech {
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices = {};
   };
-} // namespace keptech
+} // namespace kt

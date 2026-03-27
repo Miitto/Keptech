@@ -6,7 +6,7 @@
 #include <Windows.h>
 #endif
 
-namespace keptech::vkh {
+namespace kt::vkh {
 
   [[nodiscard]]
   auto createShaderModule(const vk::raii::Device& device,
@@ -36,4 +36,4 @@ namespace keptech::vkh {
     return Shader(shaderModule_res.value());
   }
 
-} // namespace keptech::vkh
+} // namespace kt::vkh

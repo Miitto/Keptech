@@ -5,7 +5,7 @@
 #include <string>
 #include <utility>
 
-namespace keptech::core::layers {
+namespace kt::core::layers {
   class Layer {
   public:
 #ifndef NDEBUG
@@ -32,4 +32,4 @@ namespace keptech::core::layers {
     std::string debugName;
 #endif
   };
-} // namespace keptech::core::layers
+} // namespace kt::core::layers

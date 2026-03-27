@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-using namespace keptech::shader_processor::printing;
+using namespace kt::shader_processor::printing;
 
 namespace {
   const char* slangStagetoString(SlangStage stage) {
@@ -50,15 +50,14 @@ namespace {
     }
   }
 
-  const keptech::shaders::ShaderStages
-  slangStagetoKeptechStage(SlangStage stage) {
+  const kt::shaders::ShaderStages slangStagetoKeptechStage(SlangStage stage) {
     switch (stage) {
     case SLANG_STAGE_VERTEX:
-      return keptech::shaders::ShaderStages::Vertex;
+      return kt::shaders::ShaderStages::Vertex;
     case SLANG_STAGE_FRAGMENT:
-      return keptech::shaders::ShaderStages::Fragment;
+      return kt::shaders::ShaderStages::Fragment;
     case SLANG_STAGE_COMPUTE:
-      return keptech::shaders::ShaderStages::Compute;
+      return kt::shaders::ShaderStages::Compute;
     default:
       std::cerr << "Unsupported shader stage: " << slangStagetoString(stage)
                 << '\n';
@@ -66,9 +65,9 @@ namespace {
     }
   }
 
-  const std::vector<keptech::shaders::DataType>
+  const std::vector<kt::shaders::DataType>
   slangTypeToKeptechTypes(slang::TypeReflection* type) {
-    using namespace keptech::shaders;
+    using namespace kt::shaders;
 
     switch (type->getKind()) {
     case slang::TypeReflection::Kind::Scalar: {
@@ -254,7 +253,7 @@ namespace {
   }
 } // namespace
 
-namespace keptech::shader_processor {
+namespace kt::shader_processor {
   Slang::ComPtr<slang::IGlobalSession> globalSession; // NOLINT
   SlangGlobalSessionDesc globalSessionDesc;           // NOLINT
 
@@ -394,7 +393,7 @@ namespace keptech::shader_processor {
     return {.spirv = std::move(spirvBlob), .diagnostics = std::move(diagBlob)};
   }
 
-  std::expected<keptech::shaders::Shader, std::string>
+  std::expected<kt::shaders::Shader, std::string>
   Program::toShader(const char* name) const {
     auto [kernel, diag] = getCode();
     if (diag) {
@@ -408,7 +407,7 @@ namespace keptech::shader_processor {
     std::vector<uint8_t> code(kernel->getBufferSize());
     memcpy(code.data(), kernel->getBufferPointer(), kernel->getBufferSize());
 
-    keptech::shaders::Shader shader = {
+    kt::shaders::Shader shader = {
         .name = name,
         .code = std::move(code),
     };
@@ -418,16 +417,16 @@ namespace keptech::shader_processor {
 
     shader.stages.reserve(entryPointCount);
 
-    std::vector<std::vector<keptech::shaders::DataType>> vertexLayout;
+    std::vector<std::vector<kt::shaders::DataType>> vertexLayout;
 
-    shader.mode = keptech::shaders::RenderingMode::Custom;
+    shader.mode = kt::shaders::RenderingMode::Custom;
 
     for (uint32_t i = 0; i < entryPointCount; ++i) {
       auto entryPoint = layout->getEntryPointByIndex(i);
-      keptech::shaders::ShaderStages stage =
+      kt::shaders::ShaderStages stage =
           slangStagetoKeptechStage(entryPoint->getStage());
       switch (stage) {
-      case keptech::shaders::ShaderStages::Vertex: {
+      case kt::shaders::ShaderStages::Vertex: {
         auto paramCount = entryPoint->getParameterCount();
         for (auto i = 0; i < paramCount; ++i) {
           auto param = entryPoint->getParameterByIndex(i);
@@ -441,7 +440,7 @@ namespace keptech::shader_processor {
         }
         break;
       }
-      case keptech::shaders::ShaderStages::Fragment: {
+      case kt::shaders::ShaderStages::Fragment: {
         auto returnT = entryPoint->getFunction()->getReturnType();
         Slang::ComPtr<slang::IBlob> typeNameBlob;
         returnT->getFullName(typeNameBlob.writeRef());
@@ -450,29 +449,29 @@ namespace keptech::shader_processor {
             static_cast<const char*>(typeNameBlob->getBufferPointer()),
             typeNameBlob->getBufferSize());
 
-        if (returnTypeName == "keptech.DeferredOutput") {
+        if (returnTypeName == "kt.DeferredOutput") {
           std::cout << "Auto detecting deferred rendering mode for shader '"
                     << name << "'\n";
-          shader.mode = keptech::shaders::RenderingMode::Deferred;
-        } else if (returnTypeName == "keptech.DeferredLightingOutput") {
+          shader.mode = kt::shaders::RenderingMode::Deferred;
+        } else if (returnTypeName == "kt.DeferredLightingOutput") {
           std::cout
               << "Auto detecting deferred lighting rendering mode for shader '"
               << name << "'\n";
-          shader.mode = keptech::shaders::RenderingMode::DeferredLighting;
+          shader.mode = kt::shaders::RenderingMode::DeferredLighting;
         } else if (returnTypeName == "vector<float,4>") {
           std::cout << "Auto detecting forward rendering mode for shader '"
                     << name << "'\n";
-          shader.mode = keptech::shaders::RenderingMode::Forward;
+          shader.mode = kt::shaders::RenderingMode::Forward;
         } else {
           std::cout << "Couldn't auto detect rendering mode for shader '"
                     << name << "'\n";
-          shader.mode = keptech::shaders::RenderingMode::Custom;
+          shader.mode = kt::shaders::RenderingMode::Custom;
         }
       } break;
       case shaders::ShaderStages::Compute:
         break;
       }
-      shader.stages.push_back(keptech::shaders::ShaderStage{
+      shader.stages.push_back(kt::shaders::ShaderStage{
           .name = entryPoint->getName(), .stage = stage});
     }
 
@@ -483,4 +482,4 @@ namespace keptech::shader_processor {
 
     return std::move(shader);
   }
-} // namespace keptech::shader_processor
+} // namespace kt::shader_processor

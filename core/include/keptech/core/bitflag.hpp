@@ -2,7 +2,7 @@
 
 #include <type_traits>
 
-namespace keptech {
+namespace kt {
   // Ensure that T is an enum type and that it is an enum class
   template <typename T>
   concept BitflagEnum = std::is_enum_v<T> && !std::is_convertible_v<T, int>;
@@ -117,24 +117,24 @@ namespace keptech {
 
     Underlying flags;
   };
-} // namespace keptech
+} // namespace kt
 
 template <typename T>
   requires std::is_enum_v<T>
-constexpr inline keptech::Bitflag<T> operator|(keptech::Bitflag<T> lhs, T rhs) {
+constexpr inline kt::Bitflag<T> operator|(kt::Bitflag<T> lhs, T rhs) {
   lhs |= rhs;
   return lhs;
 }
 template <typename T>
   requires std::is_enum_v<T>
-constexpr inline keptech::Bitflag<T> operator&(keptech::Bitflag<T> lhs, T rhs) {
+constexpr inline kt::Bitflag<T> operator&(kt::Bitflag<T> lhs, T rhs) {
   lhs &= rhs;
   return lhs;
 }
 
 template <typename T>
   requires std::is_enum_v<T>
-constexpr inline keptech::Bitflag<T> operator^(keptech::Bitflag<T> lhs, T rhs) {
+constexpr inline kt::Bitflag<T> operator^(kt::Bitflag<T> lhs, T rhs) {
   lhs ^= rhs;
   return lhs;
 }
@@ -145,19 +145,19 @@ constexpr inline keptech::Bitflag<T> operator^(keptech::Bitflag<T> lhs, T rhs) {
 #pragma warning(disable : 26812)
 #endif
 #define DEFINE_BITFLAG_ENUM_OPERATORS(EnumType)                                \
-  constexpr inline keptech::Bitflag<EnumType> operator|(EnumType lhs,          \
-                                                        EnumType rhs) {        \
-    return keptech::Bitflag<EnumType>(lhs) | rhs;                              \
+  constexpr inline kt::Bitflag<EnumType> operator|(EnumType lhs,               \
+                                                   EnumType rhs) {             \
+    return kt::Bitflag<EnumType>(lhs) | rhs;                                   \
   }                                                                            \
                                                                                \
-  constexpr inline keptech::Bitflag<EnumType> operator&(EnumType lhs,          \
-                                                        EnumType rhs) {        \
-    return keptech::Bitflag<EnumType>(lhs) & rhs;                              \
+  constexpr inline kt::Bitflag<EnumType> operator&(EnumType lhs,               \
+                                                   EnumType rhs) {             \
+    return kt::Bitflag<EnumType>(lhs) & rhs;                                   \
   }                                                                            \
                                                                                \
-  constexpr inline keptech::Bitflag<EnumType> operator^(EnumType lhs,          \
-                                                        EnumType rhs) {        \
-    return keptech::Bitflag<EnumType>(lhs) ^ rhs;                              \
+  constexpr inline kt::Bitflag<EnumType> operator^(EnumType lhs,               \
+                                                   EnumType rhs) {             \
+    return kt::Bitflag<EnumType>(lhs) ^ rhs;                                   \
   }
 #ifdef MSVC
 #pragma warning(pop)

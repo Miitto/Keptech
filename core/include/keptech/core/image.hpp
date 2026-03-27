@@ -5,7 +5,7 @@
 #include <stb/image.h>
 #include <string>
 
-namespace keptech {
+namespace kt {
   class Image {
     Image(unsigned char* data, glm::ivec2 size, int channels, bool hdr = false)
         : data(data), size(size), channels(channels), isHDR(hdr) {}
@@ -217,4 +217,4 @@ namespace keptech {
     int channels = 0;
     bool isHDR = false;
   };
-} // namespace keptech
+} // namespace kt

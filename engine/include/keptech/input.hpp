@@ -5,7 +5,7 @@
 #include <keptech/core/macros.hpp>
 #include <unordered_map>
 
-namespace keptech {
+namespace kt {
 
   enum class KeyState : uint8_t {
     /// Key is not pressed
@@ -17,11 +17,7 @@ namespace keptech {
     /// Key was pressed this frame
     Press = BIT(0) | BIT(1),
   };
-}
 
-DEFINE_BITFLAG_ENUM_OPERATORS(keptech::KeyState)
-
-namespace keptech {
   class Input {
   public:
     static inline Input& get() { return singleton; }
@@ -48,4 +44,6 @@ namespace keptech {
     glm::vec3 mousePosition{0.f};
     glm::vec3 mouseDelta{0.f};
   };
-} // namespace keptech
+} // namespace kt
+
+DEFINE_BITFLAG_ENUM_OPERATORS(kt::KeyState)

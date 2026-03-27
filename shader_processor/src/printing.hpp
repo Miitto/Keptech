@@ -3,13 +3,13 @@
 #include <slang.h>
 #include <spdlog/logger.h>
 
-namespace keptech::shader_processor::printing {
+namespace kt::shader_processor::printing {
   extern const std::shared_ptr<spdlog::logger> logger;
 
   void print(slang::VariableReflection* var);
   void print(slang::TypeReflection* type);
   void print(slang::TypeReflection::Kind kind);
-} // namespace keptech::shader_processor::printing
+} // namespace kt::shader_processor::printing
 
 #define N(_NAME)                                                               \
   case E::_NAME:                                                               \

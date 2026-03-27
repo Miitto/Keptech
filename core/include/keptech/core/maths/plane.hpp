@@ -2,7 +2,7 @@
 
 #include "intersection.hpp"
 
-namespace keptech::maths {
+namespace kt::maths {
   struct Plane;
 
   template <class T>
@@ -25,4 +25,4 @@ namespace keptech::maths {
       return obj.inPlane(*this);
     }
   };
-} // namespace keptech::maths
+} // namespace kt::maths

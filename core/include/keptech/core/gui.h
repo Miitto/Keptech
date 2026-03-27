@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace keptech::gui {
+namespace kt::gui {
   class GuiCore;
 
   class Combo {
@@ -158,7 +158,7 @@ namespace keptech::gui {
     }
 
   protected:
-    core::MoveGuard moveGuard;
+    MoveGuard moveGuard;
   };
 
   class ChildFrame : public GuiCore {
@@ -214,4 +214,4 @@ namespace keptech::gui {
     bool open;
   };
 
-} // namespace keptech::gui
+} // namespace kt::gui

@@ -3,7 +3,7 @@
 #include <keptech/logging/createLogger.hpp>
 #include <spdlog/common.h>
 
-namespace keptech::core {
+namespace kt::core {
   const std::shared_ptr<spdlog::logger> logger =
-      keptech::core::createLogger("Keptech", spdlog::level::trace);
+      kt::core::createLogger("Keptech", spdlog::level::trace);
 }

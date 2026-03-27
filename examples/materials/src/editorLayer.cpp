@@ -98,8 +98,8 @@ MaterialEditorLayer::MaterialEditorLayer(
     keptech::Window& window, keptech::Renderer& renderer,
     std::unique_ptr<keptech::Scene>&& scene,
     std::vector<keptech::MeshPtr>&& meshes,
-    std::vector<keptech::PipelinePtr>&& pipelines)
-    : keptech::core::layers::Layer("MaterialEditorLayer"), window(window),
+    std::vector<kt::PipelinePtr>&& pipelines)
+    : kt::core::layers::Layer("MaterialEditorLayer"), window(window),
       renderer(renderer), scene(std::move(scene)),
       freeController(this->scene->getActiveCamera()),
       loadedMeshes(std::move(meshes)), loadedPipelines(std::move(pipelines)) {
@@ -118,19 +118,19 @@ MaterialEditorLayer::MaterialEditorLayer(
   loadedPipelines.push_back(rendererPipelines.deferred);
   loadedPipelines.push_back(rendererPipelines.pointLight);
 
-  auto& camTransform = this->scene->getActiveCamera()
-                           .getComponents<keptech::components::Transform>();
+  auto& camTransform =
+      this->scene->getActiveCamera().getComponents<kt::components::Transform>();
 
   camTransform.getLocalMut()
       .setPosition({12.f, 3.f, 4.f})
       .setRotation(glm::vec3{0, -65.f, 0.f});
 
-  keptech::shader_processor::init();
+  kt::shader_processor::init();
   refreshAssetsDirectory();
 }
 
-void MaterialEditorLayer::onUpdate(keptech::Timestep ts) {
-  if (auto frame = keptech::gui::Frame("Stats"); frame.isOpen()) {
+void MaterialEditorLayer::onUpdate(kt::Timestep ts) {
+  if (auto frame = kt::gui::Frame("Stats"); frame.isOpen()) {
     double fps = static_cast<double>(1000.f / ts);
     frame.text("Frame Time: %.2f ms", static_cast<double>(ts));
     frame.text("FPS: %.1f", fps);
@@ -216,10 +216,10 @@ void MaterialEditorLayer::drawViewport() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(1.f, 0.2f, 1.0f, 1.0f));
-  auto gamePanel = keptech::gui::Frame("Game", nullptr,
-                                       ImGuiWindowFlags_NoDecoration |
-                                           ImGuiWindowFlags_NoMove |
-                                           ImGuiWindowFlags_NoScrollbar);
+  auto gamePanel =
+      kt::gui::Frame("Game", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                         ImGuiWindowFlags_NoScrollbar);
   ImGui::PopStyleVar(2);
   ImGui::PopStyleColor(1);
 
@@ -280,7 +280,7 @@ void MaterialEditorLayer::drawToolbar() {
       ImGuiDockNodeFlags_NoDockingOverOther | ImGuiDockNodeFlags_NoResizeY |
       ImGuiDockNodeFlags_NoResizeX;
   ImGui::SetNextWindowClass(&window_class);
-  auto toolbarPanel = keptech::gui::Frame(
+  auto toolbarPanel = kt::gui::Frame(
       "Toolbar", nullptr,
       ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
           ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar |
@@ -320,10 +320,10 @@ void MaterialEditorLayer::drawToolbar() {
 }
 
 void MaterialEditorLayer::addNodeToList(
-    keptech::ecs::EntityHandle entity, keptech::components::Name& name,
+    kt::ecs::EntityHandle entity, kt::components::Name& name,
     std::vector<std::unique_ptr<MaterialEditorLayer::SceneNode>>& roots,
-    std::unordered_map<keptech::ecs::EntityHandle,
-                       MaterialEditorLayer::SceneNode*>& nodeMap) {
+    std::unordered_map<kt::ecs::EntityHandle, MaterialEditorLayer::SceneNode*>&
+        nodeMap) {
   if (nodeMap.find(entity) != nodeMap.end())
     return;
 
@@ -331,14 +331,13 @@ void MaterialEditorLayer::addNodeToList(
       MaterialEditorLayer::SceneNode{.id = entity, .name = &name.name});
   nodeMap.emplace(entity, node.get());
 
-  auto transform =
-      scene->getEcs().try_get<keptech::components::Transform>(entity);
-  if (transform != nullptr && transform->getParent().getHandle() !=
-                                  keptech::ecs::INVALID_ENTITY_HANDLE) {
+  auto transform = scene->getEcs().try_get<kt::components::Transform>(entity);
+  if (transform != nullptr &&
+      transform->getParent().getHandle() != kt::ecs::INVALID_ENTITY_HANDLE) {
     auto parentId = transform->getParent().getHandle();
 
     if (nodeMap.find(parentId) == nodeMap.end()) {
-      auto& nameComp = scene->getEcs().get<keptech::components::Name>(parentId);
+      auto& nameComp = scene->getEcs().get<kt::components::Name>(parentId);
       addNodeToList(parentId, nameComp, roots, nodeMap);
     }
 
@@ -360,8 +359,8 @@ void MaterialEditorLayer::drawSceneNodeInTree(SceneNode& node) {
     flags |= ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_Leaf;
 
   if (selectedItem.index() == 1) {
-    keptech::ecs::EntityHandle selectedEntity =
-        std::get<keptech::ecs::EntityHandle>(selectedItem);
+    kt::ecs::EntityHandle selectedEntity =
+        std::get<kt::ecs::EntityHandle>(selectedItem);
     if (selectedEntity == node.id)
       flags |= ImGuiTreeNodeFlags_Selected;
   }
@@ -397,7 +396,7 @@ bool MaterialEditorLayer::drawSceneTreeEntityContextMenu(SceneNode& node) {
   // widget ID. If the label changes, the ID changes, and the popup closes
   // immediately - i.e. whenever you'd type.
   struct RenameBuffer {
-    keptech::ecs::EntityHandle entity;
+    kt::ecs::EntityHandle entity;
     std::string newName;
   };
 
@@ -417,15 +416,15 @@ bool MaterialEditorLayer::drawSceneTreeEntityContextMenu(SceneNode& node) {
     }
 
     if (ImGui::Button("Create Child")) {
-      auto thisEntity = keptech::ecs::Entity(node.id, scene->getEcs());
+      auto thisEntity = kt::ecs::Entity(node.id, scene->getEcs());
 
-      if (!thisEntity.hasAllComponents<keptech::components::Transform>()) {
-        thisEntity.addComponent<keptech::components::Transform>();
+      if (!thisEntity.hasAllComponents<kt::components::Transform>()) {
+        thisEntity.addComponent<kt::components::Transform>();
       }
 
       auto child = scene->createEntity("Unnamed Entity");
-      auto& transform = child.addComponent<keptech::components::Transform>();
-      transform.setParent(keptech::ecs::Entity(node.id, scene->getEcs()));
+      auto& transform = child.addComponent<kt::components::Transform>();
+      transform.setParent(kt::ecs::Entity(node.id, scene->getEcs()));
       selectedItem = child.getHandle();
       ImGui::CloseCurrentPopup();
     }
@@ -433,28 +432,26 @@ bool MaterialEditorLayer::drawSceneTreeEntityContextMenu(SceneNode& node) {
     if (ImGui::Button("Create Sibling")) {
       auto sibling = scene->createEntity("Unnamed Entity");
       if (node.parent != nullptr) {
-        auto& transform =
-            sibling.addComponent<keptech::components::Transform>();
-        transform.setParent(
-            keptech::ecs::Entity(node.parent->id, scene->getEcs()));
+        auto& transform = sibling.addComponent<kt::components::Transform>();
+        transform.setParent(kt::ecs::Entity(node.parent->id, scene->getEcs()));
       }
       selectedItem = sibling.getHandle();
       ImGui::CloseCurrentPopup();
     }
 
     if (ImGui::Button("Delete")) {
-      keptech::ecs::Entity(node.id, scene->getEcs()).destroy();
+      kt::ecs::Entity(node.id, scene->getEcs()).destroy();
       if (selectedItem.index() == 1) {
-        keptech::ecs::EntityHandle selectedEntity =
-            std::get<keptech::ecs::EntityHandle>(selectedItem);
+        kt::ecs::EntityHandle selectedEntity =
+            std::get<kt::ecs::EntityHandle>(selectedItem);
         if (selectedEntity == node.id) {
           selectedItem = std::monostate{};
         }
       }
       for (auto& child : node.children) {
-        auto e = keptech::ecs::Entity(child->id, scene->getEcs());
-        auto& transform = e.getComponents<keptech::components::Transform>();
-        transform.setParent(keptech::ecs::Entity{});
+        auto e = kt::ecs::Entity(child->id, scene->getEcs());
+        auto& transform = e.getComponents<kt::components::Transform>();
+        transform.setParent(kt::ecs::Entity{});
       }
       renameBuffer.reset();
       ImGui::EndPopup();
@@ -469,9 +466,9 @@ bool MaterialEditorLayer::drawSceneTreeEntityContextMenu(SceneNode& node) {
 }
 
 void MaterialEditorLayer::drawSceneTree() {
-  auto scenePanel = keptech::gui::Frame("Scene Tree", nullptr,
-                                        ImGuiWindowFlags_NoDecoration |
-                                            ImGuiWindowFlags_NoMove);
+  auto scenePanel =
+      kt::gui::Frame("Scene Tree", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
   if (!scenePanel.isOpen())
     return;
 
@@ -487,16 +484,16 @@ void MaterialEditorLayer::drawSceneTree() {
 
   std::vector<std::unique_ptr<SceneNode>> roots;
   {
-    std::unordered_map<keptech::ecs::EntityHandle, SceneNode*> nodeMap;
+    std::unordered_map<kt::ecs::EntityHandle, SceneNode*> nodeMap;
 
-    auto view = scene->getEcs().view<keptech::components::Name>();
+    auto view = scene->getEcs().view<kt::components::Name>();
     for (auto [entity, name] : view.each()) {
       addNodeToList(entity, name, roots, nodeMap);
     }
 
     if (selectedItem.index() == 1) {
-      keptech::ecs::EntityHandle selectedEntity =
-          std::get<keptech::ecs::EntityHandle>(selectedItem);
+      kt::ecs::EntityHandle selectedEntity =
+          std::get<kt::ecs::EntityHandle>(selectedItem);
       auto it = nodeMap.find(selectedEntity);
       if (it != nodeMap.end()) {
         SceneNode* node = it->second;
@@ -514,18 +511,18 @@ void MaterialEditorLayer::drawSceneTree() {
 }
 
 void MaterialEditorLayer::drawSelectedProperties() {
-  auto propertiesPanel = keptech::gui::Frame("Properties", nullptr,
-                                             ImGuiWindowFlags_NoDecoration |
-                                                 ImGuiWindowFlags_NoMove);
+  auto propertiesPanel =
+      kt::gui::Frame("Properties", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
   if (!propertiesPanel.isOpen())
     return;
 
-  std::visit(keptech::overloaded{
+  std::visit(kt::overloaded{
                  [&](std::monostate) {},
-                 [&](keptech::ecs::EntityHandle entity) {
+                 [&](kt::ecs::EntityHandle entity) {
                    drawEntityProperties(propertiesPanel, entity);
                  },
-                 [&](keptech::MeshPtr& meshPtr) {
+                 [&](kt::MeshPtr& meshPtr) {
                    if (meshPtr == nullptr) {
                      propertiesPanel.separatorText("Invalid Mesh");
                      return;
@@ -535,7 +532,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
                    propertiesPanel.separatorText(label.c_str());
                    inspectorUi(propertiesPanel, meshPtr);
                  },
-                 [&](keptech::PipelinePtr& pipelinePtr) {
+                 [&](kt::PipelinePtr& pipelinePtr) {
                    if (pipelinePtr == nullptr) {
                      propertiesPanel.separatorText("Invalid Material");
                      return;
@@ -546,7 +543,7 @@ void MaterialEditorLayer::drawSelectedProperties() {
                    propertiesPanel.separatorText(label.c_str());
                    inspectorUi(propertiesPanel, pipelinePtr);
                  },
-                 [&](keptech::ImgPtr& texturePtr) {
+                 [&](kt::ImgPtr& texturePtr) {
                    if (texturePtr == nullptr) {
                      propertiesPanel.separatorText("Invalid Texture");
                      return;
@@ -564,13 +561,11 @@ void MaterialEditorLayer::drawSelectedProperties() {
 }
 
 void MaterialEditorLayer::drawEntityProperties(
-    keptech::gui::Frame& propertiesPanel,
-    keptech::ecs::EntityHandle selectedEntity) {
+    kt::gui::Frame& propertiesPanel, kt::ecs::EntityHandle selectedEntity) {
   auto& ecs = scene->getEcs();
-  auto entity = keptech::ecs::Entity(selectedEntity, ecs);
+  auto entity = kt::ecs::Entity(selectedEntity, ecs);
 
-  auto transform =
-      entity.getEcs().try_get<keptech::components::Transform>(entity);
+  auto transform = entity.getEcs().try_get<kt::components::Transform>(entity);
   if (transform != nullptr) {
     transform->inspectorUi(propertiesPanel, false);
   }
@@ -592,30 +587,30 @@ void MaterialEditorLayer::drawEntityProperties(
   if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft |
                                                 ImGuiPopupFlags_NoReopen)) {
 
-    if (!entity.hasAllComponents<keptech::components::Transform>()) {
+    if (!entity.hasAllComponents<kt::components::Transform>()) {
       if (ImGui::Button("Transform")) {
-        entity.addComponent<keptech::components::Transform>();
+        entity.addComponent<kt::components::Transform>();
         ImGui::CloseCurrentPopup();
       }
     }
 
-    if (!entity.hasAllComponents<keptech::components::Mesh>()) {
+    if (!entity.hasAllComponents<kt::components::Mesh>()) {
       if (ImGui::Button("Mesh")) {
-        entity.addComponent<keptech::components::Mesh>(nullptr);
+        entity.addComponent<kt::components::Mesh>(nullptr);
         ImGui::CloseCurrentPopup();
       }
     }
 
-    if (!entity.hasAllComponents<keptech::components::Material>()) {
+    if (!entity.hasAllComponents<kt::components::Material>()) {
       if (ImGui::Button("Material")) {
-        entity.addComponent<keptech::components::Material>();
+        entity.addComponent<kt::components::Material>();
         ImGui::CloseCurrentPopup();
       }
     }
 
-    if (!entity.hasAllComponents<keptech::components::PointLight>()) {
+    if (!entity.hasAllComponents<kt::components::PointLight>()) {
       if (ImGui::Button("Point Light")) {
-        entity.addComponent<keptech::components::PointLight>();
+        entity.addComponent<kt::components::PointLight>();
         ImGui::CloseCurrentPopup();
       }
     }
@@ -629,7 +624,7 @@ void MaterialEditorLayer::refreshAssetsDirectory() {
   assetsRootDir.name = "Assets";
 }
 
-void MaterialEditorLayer::drawAssetsDirectory(keptech::gui::Frame& frame,
+void MaterialEditorLayer::drawAssetsDirectory(kt::gui::Frame& frame,
                                               const Directory& directory,
                                               float depth) {
   if (directory.name.empty())
@@ -666,9 +661,9 @@ void MaterialEditorLayer::drawAssetsDirectory(keptech::gui::Frame& frame,
 }
 
 void MaterialEditorLayer::drawAssetsPanel() {
-  auto assetsPanel = keptech::gui::Frame("Assets", nullptr,
-                                         ImGuiWindowFlags_NoDecoration |
-                                             ImGuiWindowFlags_NoMove);
+  auto assetsPanel =
+      kt::gui::Frame("Assets", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
   if (!assetsPanel.isOpen())
     return;
 
@@ -684,9 +679,9 @@ void MaterialEditorLayer::drawAssetsPanel() {
 }
 
 void MaterialEditorLayer::drawLoadedAssetsPanel() {
-  auto loadedAssetsPanel = keptech::gui::Frame("Loaded Assets", nullptr,
-                                               ImGuiWindowFlags_NoDecoration |
-                                                   ImGuiWindowFlags_NoMove);
+  auto loadedAssetsPanel =
+      kt::gui::Frame("Loaded Assets", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
   if (!loadedAssetsPanel.isOpen())
     return;
 
@@ -724,7 +719,7 @@ void MaterialEditorLayer::drawLoadedAssetsPanel() {
 
           bool selected = false;
           if (selectedItem.index() == 2) {
-            selected = std::get<keptech::MeshPtr>(selectedItem) == meshPtr;
+            selected = std::get<kt::MeshPtr>(selectedItem) == meshPtr;
           }
 
           if (child.selectable(meshPtr->getDebugName().c_str(), selected)) {
@@ -738,8 +733,7 @@ void MaterialEditorLayer::drawLoadedAssetsPanel() {
 
           bool selected = false;
           if (selectedItem.index() == 3) {
-            selected =
-                std::get<keptech::PipelinePtr>(selectedItem) == pipelinePtr;
+            selected = std::get<kt::PipelinePtr>(selectedItem) == pipelinePtr;
           }
 
           if (child.selectable(pipelinePtr->getDebugName().c_str(), selected)) {
@@ -756,8 +750,8 @@ void MaterialEditorLayer::drawLoadedAssetsPanel() {
   }
 }
 
-void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
-                                      keptech::components::Mesh& mesh) {
+void MaterialEditorLayer::inspectorUi(kt::gui::Frame& frame,
+                                      kt::components::Mesh& mesh) {
   frame.separatorText("Mesh");
 
   const char* meshName = (mesh != nullptr) ? mesh->getDebugName().c_str() : "";
@@ -787,11 +781,11 @@ void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
   frame.text("Index Offset: %u", mesh->getIndexOffset());
 }
 
-void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
-                                      keptech::components::Material& material) {
+void MaterialEditorLayer::inspectorUi(kt::gui::Frame& frame,
+                                      kt::components::Material& material) {
 
   if (material == nullptr) {
-    material = std::make_shared<keptech::Material>();
+    material = std::make_shared<kt::Material>();
   }
 
   frame.separatorText("Material");
@@ -817,8 +811,8 @@ void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
 
   for (auto& data : material->data) {
     switch (data.index()) {
-    case keptech::InstanceDataType::Texture: {
-      auto texturePtr = std::get<keptech::ImgPtr>(data);
+    case kt::InstanceDataType::Texture: {
+      auto texturePtr = std::get<kt::ImgPtr>(data);
 
       if (texturePtr != nullptr) {
         if (!texturePtr->getImGuiHandle().has_value()) {
@@ -836,15 +830,14 @@ void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
   }
 }
 
-void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
-                                      keptech::PipelinePtr& pipeline) {
+void MaterialEditorLayer::inspectorUi(kt::gui::Frame& frame,
+                                      kt::PipelinePtr& pipeline) {
 
   auto stageStr = fmt::format("Stage: {}", pipeline->getStage());
   frame.text(stageStr.c_str());
 
-  using S = keptech::PipelineStage;
-  if (pipeline->getRenderingMode() ==
-      keptech::shaders::RenderingMode::Forward) {
+  using S = kt::PipelineStage;
+  if (pipeline->getRenderingMode() == kt::shaders::RenderingMode::Forward) {
     bool checked = (pipeline->getStage() != S::Opaque);
     if (ImGui::Checkbox("Transparent", &checked)) {
       pipeline->setStage(checked ? S::Transparent : S::Opaque);
@@ -856,8 +849,8 @@ void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
   }
 }
 
-void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
-                                      keptech::components::Camera& cam) {
+void MaterialEditorLayer::inspectorUi(kt::gui::Frame& frame,
+                                      kt::components::Camera& cam) {
   frame.separatorText("Camera");
 
   auto params = cam.getParams();
@@ -867,16 +860,16 @@ void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
 
     if (frame.inputFloat("FovY", fovY)) {
       params.perspective.fovY = glm::radians(fovY);
-      cam.setPerspective(static_cast<keptech::components::PerspectiveType>(
-                             cam.getProjectionType()),
-                         params.perspective);
+      cam.setPerspective(
+          static_cast<kt::components::PerspectiveType>(cam.getProjectionType()),
+          params.perspective);
       cam.recalculateProjectionMatrix();
     }
   }
 }
 
-void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
-                                      keptech::components::PointLight& light) {
+void MaterialEditorLayer::inspectorUi(kt::gui::Frame& frame,
+                                      kt::components::PointLight& light) {
   frame.separatorText("Point Light");
 
   ImGui::InputFloat("Radius", &light.radius);
@@ -884,7 +877,7 @@ void MaterialEditorLayer::inspectorUi(keptech::gui::Frame& frame,
   ImGui::ColorEdit3("Color", &light.color.x);
 }
 
-bool MaterialEditorLayer::reloadShader(keptech::PipelinePtr& pipeline) {
+bool MaterialEditorLayer::reloadShader(kt::PipelinePtr& pipeline) {
   auto info = pipeline->getCreateInfo();
 
   if (!info.shader.file.has_value()) {
@@ -898,11 +891,11 @@ bool MaterialEditorLayer::reloadShader(keptech::PipelinePtr& pipeline) {
   std::string source(size, '\0');
   inputStream.read(source.data(), static_cast<std::streamsize>(size));
 
-  keptech::shader_processor::SessionConfig config{
-      .optimizationLevel = keptech::shader_processor::OptimizationLevel::Debug,
+  kt::shader_processor::SessionConfig config{
+      .optimizationLevel = kt::shader_processor::OptimizationLevel::Debug,
   };
 
-  keptech::shader_processor::CompilerSession session(config);
+  kt::shader_processor::CompilerSession session(config);
 
   auto [inputModule, inputDiag] =
       session.loadModule(info.shader.name.c_str(), source);
@@ -937,7 +930,7 @@ bool MaterialEditorLayer::reloadShader(keptech::PipelinePtr& pipeline) {
 
   shader.file = info.shader.file;
 
-  keptech::PipelineCreateInfo newInfo{
+  kt::PipelineCreateInfo newInfo{
       .shader = std::move(shader),
       .attachments = info.attachments,
       .topology = info.topology,

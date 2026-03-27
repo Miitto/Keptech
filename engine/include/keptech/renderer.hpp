@@ -9,6 +9,13 @@
 #include <memory>
 #include <utility>
 
+#ifdef KEPTECH_RENDERER_VULKAN
+#include <keptech/vulkan/renderer.hpp>
+namespace kt {
+  using Renderer = kt::vkh::Renderer;
+}
+#endif
+
 namespace keptech {
   class Scene;
 
@@ -92,17 +99,6 @@ namespace keptech {
     Renderer& operator=(const Renderer&) = delete;
     Renderer& operator=(Renderer&&) = default;
     ~Renderer();
-
-    struct TextureFormats {
-      TextureFormat albedo = TextureFormat::RGBA8UNorm;
-      TextureFormat normal = TextureFormat::RGBA16F;
-      TextureFormat emissiveAo = TextureFormat::RGBA8UNorm;
-      TextureFormat metallicRoughness = TextureFormat::RG8UNorm;
-      TextureFormat depth = TextureFormat::Depth32F;
-      TextureFormat diffuse = TextureFormat::RGBA16F;
-      TextureFormat specular = TextureFormat::RGBA16F;
-      TextureFormat combined = TextureFormat::RGBA16F;
-    };
 
     [[nodiscard]] const TextureFormats& getTextureFormats() const {
       return m.textureFormats;

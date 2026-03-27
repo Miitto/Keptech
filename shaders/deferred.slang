@@ -28,7 +28,7 @@ struct Tex {
   }
 
   float4 Sample(float2 uv) {
-    let texture = keptech::textures.getTexture(textureIndex);
+    let texture = kt::textures.getTexture(textureIndex);
     return texture.Sample(transformedUV(uv));
   }
 };
@@ -74,7 +74,7 @@ VertexOutput vert(Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID,
 
   float4 worldPosition = mul(float4(v.position, 1.0), inst.modelMatrix);
 
-  output.position = keptech::camera.worldToClip(worldPosition);
+  output.position = kt::camera.worldToClip(worldPosition);
   output.color = v.color;
   output.uvX = v.uvX;
   output.uvY = v.uvY;
@@ -90,8 +90,8 @@ VertexOutput vert(Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID,
 }
 
 [shader("pixel")]
-keptech::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
-  keptech::DeferredOutput output;
+kt::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
+  kt::DeferredOutput output;
 
   Material mat = PC.mBuffer[0];
 

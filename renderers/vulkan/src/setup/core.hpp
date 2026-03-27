@@ -18,8 +18,8 @@
 
 #include "device.hpp"
 
-namespace keptech::vkh::setup {
-  using namespace keptech::vkh;
+namespace kt::vkh::setup {
+  using namespace kt::vkh;
 
   std::expected<std::array<RendererBackend::Pools, 2>, std::string>
   createPools(std::set<uint32_t>& uniqueQueueFamilies,
@@ -195,4 +195,4 @@ namespace keptech::vkh::setup {
         .transferPool = std::move(transferPoolStruct),
     };
   }
-} // namespace keptech::vkh::setup
+} // namespace kt::vkh::setup

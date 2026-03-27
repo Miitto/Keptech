@@ -11,7 +11,7 @@
 #define BIT(x) (1 << (x))
 #endif
 
-namespace keptech::shaders {
+namespace kt::shaders {
   enum class ShaderStages : uint8_t {
     Vertex = BIT(0),
     Fragment = BIT(1),
@@ -89,14 +89,14 @@ namespace keptech::shaders {
     std::vector<ShaderStage> stages;
     std::vector<std::vector<DataType>> vertexLayout;
   };
-} // namespace keptech::shaders
+} // namespace kt::shaders
 
 template <>
-struct fmt::formatter<keptech::shaders::DataType>
+struct fmt::formatter<kt::shaders::DataType>
     : fmt::formatter<std::string_view> {
   template <typename FormatContext>
-  auto format(const keptech::shaders::DataType t, FormatContext& ctx) const {
-    using S = keptech::shaders::DataType;
+  auto format(const kt::shaders::DataType t, FormatContext& ctx) const {
+    using S = kt::shaders::DataType;
     std::string_view name = "";
 
 #define N(_n)                                                                  \

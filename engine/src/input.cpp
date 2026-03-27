@@ -1,7 +1,7 @@
 #include "keptech/input.hpp"
 #include "keptech/core/kt-logger.hpp"
 
-namespace keptech {
+namespace kt {
   Input Input::singleton{};
 
   void Input::endFrame() {
@@ -69,4 +69,4 @@ namespace keptech {
     u32 buttonState = (mouseButtonMask >> (button * 2)) & 0b11;
     return (buttonState & (u32)KeyState::Down) != 0;
   }
-} // namespace keptech
+} // namespace kt

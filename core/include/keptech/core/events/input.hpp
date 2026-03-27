@@ -4,7 +4,7 @@
 #include "keptech/core/input/keys.hpp"
 #include <glm/glm.hpp>
 
-namespace keptech::core::events {
+namespace kt::core::events {
   struct MouseMovedEvent : public Event {
     MouseMovedEvent(glm::vec2 movement) : movement(movement) {}
     KT_MAKE_EVENT_FNS(MouseMoved)
@@ -51,4 +51,4 @@ namespace keptech::core::events {
     KeyReleaseEvent(input::Keys key) : KeyEvent(key) {}
     KT_MAKE_EVENT_FNS(KeyReleased)
   };
-} // namespace keptech::core::events
+} // namespace kt::core::events

@@ -9,7 +9,7 @@
 #include <fastgltf/types.hpp>
 #include <string>
 
-namespace keptech::gltf {
+namespace kt::gltf {
   struct Scene {
     struct Node {
       std::string name;
@@ -23,6 +23,6 @@ namespace keptech::gltf {
     std::vector<Node> roots;
     std::vector<MeshPtr> meshes;
 
-    void addToEcsScene(keptech::Scene& scene, ecs::EntityHandle parent) const;
+    void addToEcsScene(Scene& scene, ecs::EntityHandle parent) const;
   };
-} // namespace keptech::gltf
+} // namespace kt::gltf

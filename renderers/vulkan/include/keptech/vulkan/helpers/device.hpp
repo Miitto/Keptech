@@ -1,16 +1,20 @@
 #pragma once
 
-#include <vulkan/vulkan_raii.hpp>
+#include <vulkan/vulkan.h>
 
-namespace keptech::vkh {
+namespace kt::vkh {
   struct Device {
-    vk::raii::PhysicalDevice physical;
-    vk::raii::Device logical;
+    VkPhysicalDevice physical;
+    VkDevice logical;
 
-    operator vk::raii::PhysicalDevice&() { return physical; }
-    operator vk::raii::Device&() { return logical; }
+    operator VkPhysicalDevice&() { return physical; }
+    operator VkDevice&() { return logical; }
 
-    vk::raii::Device& operator*() { return logical; }
-    vk::raii::Device* operator->() { return &logical; }
+    void destroy() {
+      if (logical) {
+        vkDestroyDevice(logical, nullptr);
+        logical = VK_NULL_HANDLE;
+      }
+    }
   };
-} // namespace keptech::vkh
+} // namespace kt::vkh

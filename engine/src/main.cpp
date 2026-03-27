@@ -8,7 +8,7 @@
 #include <keptech/core/kt-logger.hpp>
 #include <string>
 
-using namespace keptech;
+using namespace kt;
 
 int main() {
   if (!core::window::init())

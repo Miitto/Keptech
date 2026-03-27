@@ -1,6 +1,6 @@
 implementing keptech;
 
-public namespace keptech {
+public namespace kt {
 public struct Camera {
   float4x4 projectionMatrix;
   float4x4 viewMatrix;

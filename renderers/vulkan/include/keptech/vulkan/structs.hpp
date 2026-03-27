@@ -1,78 +1,79 @@
 #pragma once
 
 #include <expected>
-#include <vk_mem_alloc.hpp>
-#include <vulkan/vulkan_raii.hpp>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vk_mem_alloc.h>
+#include <vulkan/vulkan.h>
 
-namespace keptech::vkh {
-
+namespace kt::vkh {
   template <size_t N> struct DescriptorPoolSet {
-    vk::raii::DescriptorPool pool;
-    vk::raii::DescriptorSetLayout layout;
-    std::array<vk::raii::DescriptorSet, N> sets;
+    VkDescriptorPool pool;
+    VkDescriptorSetLayout layout;
+    std::array<VkDescriptorSet, N> sets;
   };
 
   struct Queue {
     uint32_t index;
-    std::shared_ptr<vk::raii::Queue> queue;
+    std::shared_ptr<VkQueue> queue;
 
-    vk::raii::Queue& operator*() { return *queue; }
-    vk::raii::Queue* operator->() { return queue.get(); }
+    VkQueue& operator*() { return *queue; }
+    VkQueue* operator->() { return queue.get(); }
 
-    operator const vk::raii::Queue&() const { return *queue; }
-    operator vk::raii::Queue*() const { return queue.get(); }
-    operator vk::raii::Queue&() { return *queue; }
+    operator const VkQueue&() const { return *queue; }
+    operator VkQueue*() const { return queue.get(); }
+    operator VkQueue&() { return *queue; }
   };
 
   struct CommandPool {
-    vk::raii::CommandPool pool;
+    VkCommandPool pool;
     Queue queue;
 
-    vk::raii::CommandPool& operator*() { return pool; }
-    vk::raii::CommandPool* operator->() { return &pool; }
+    VkCommandPool& operator*() { return pool; }
+    VkCommandPool* operator->() { return &pool; }
 
-    operator const vk::raii::CommandPool&() const { return pool; }
-    operator const vk::raii::CommandPool*() const { return &pool; }
-    operator vk::raii::CommandPool&() { return pool; }
+    operator const VkCommandPool&() const { return pool; }
+    operator const VkCommandPool*() const { return &pool; }
+    operator VkCommandPool&() { return pool; }
   };
 
   struct AllocatedImage {
-    vk::Image image;
-    vk::ImageView view;
-    vma::Allocation alloc;
-    vk::Extent3D extent;
-    vk::Format format;
+    VkImage image;
+    VkImageView view;
+    VmaAllocation alloc;
+    VkExtent3D extent;
+    VkFormat format;
 
     static std::expected<AllocatedImage, std::string>
-    create(vma::Allocator& allocator, const vk::raii::Device& device,
-           const vk::ImageCreateInfo& imgInfo,
-           const vma::AllocationCreateInfo& allocInfo,
-           vk::ImageViewCreateInfo viewInfo, bool useSameFormat = false,
+    create(VmaAllocator& allocator, const VkDevice& device,
+           const VkImageCreateInfo& imgInfo,
+           const VmaAllocationCreateInfo& allocInfo,
+           VkImageViewCreateInfo viewInfo, bool useSameFormat = false,
            std::optional<std::string> name = std::nullopt);
 
-    void destroy(vma::Allocator& allocator, const vk::raii::Device& d);
+    void destroy(VmaAllocator& allocator, const VkDevice& d);
   };
 
   struct AllocatedBuffer {
-    vk::Buffer buffer;
-    vma::Allocation alloc;
-    vma::AllocationInfo allocInfo;
+    VkBuffer buffer;
+    VmaAllocation alloc;
+    VmaAllocationInfo allocInfo;
 
-    [[nodiscard]] uint8_t* mapping(vk::DeviceSize offset = 0) const {
+    [[nodiscard]] uint8_t* mapping(VkDeviceSize offset = 0) const {
       return static_cast<uint8_t*>(allocInfo.pMappedData) + offset;
     }
 
-    void setDebugName(const vk::raii::Device& device,
-                      const std::string& name) const {}
+    void setDebugName(const VkDevice& device, const std::string& name) const {}
 
     static std::expected<AllocatedBuffer, std::string>
-    create(vma::Allocator& allocator, const vk::BufferCreateInfo& bufInfo,
-           const vma::AllocationCreateInfo& allocInfo,
+    create(VmaAllocator& allocator, const VkBufferCreateInfo& bufInfo,
+           const VmaAllocationCreateInfo& allocInfo,
            const std::optional<std::string>& name = std::nullopt);
 
-    inline void destroy(vma::Allocator& allocator) {
+    inline void destroy(VmaAllocator& allocator) {
       if (alloc) {
-        allocator.destroyBuffer(buffer, alloc);
+        vmaDestroyBuffer(allocator, buffer, alloc);
         buffer = nullptr;
         alloc = nullptr;
       }
@@ -80,27 +81,27 @@ namespace keptech::vkh {
   };
 
   struct AddressedAllocatedBuffer : public AllocatedBuffer {
-    vk::DeviceAddress address = 0;
+    VkDeviceAddress address = 0;
 
     static std::expected<AddressedAllocatedBuffer, std::string>
-    create(const vk::raii::Device& device, vma::Allocator& allocator,
-           const vk::BufferCreateInfo& bufInfo,
-           const vma::AllocationCreateInfo& allocInfo,
+    create(const VkDevice& device, VmaAllocator& allocator,
+           const VkBufferCreateInfo& bufInfo,
+           const VmaAllocationCreateInfo& allocInfo,
            const std::optional<std::string>& name = std::nullopt);
 
     static std::expected<AddressedAllocatedBuffer, std::string>
-    fromAllocatedBuffer(const vk::raii::Device& desvice,
+    fromAllocatedBuffer(const VkDevice& desvice,
                         const AllocatedBuffer& allocatedBuffer);
   };
 
   struct OnGoingCmdTransfer {
-    vk::raii::CommandBuffer cmdBuffer;
+    VkCommandBuffer cmdBuffer;
     AllocatedBuffer buffer;
-    vk::raii::Fence fence;
+    VkFence fence;
 
-    [[nodiscard]] bool finished() const {
-      auto status = fence.getStatus();
-      return status == vk::Result::eSuccess;
+    [[nodiscard]] bool finished(VkDevice device) const {
+      auto status = vkGetFenceStatus(device, fence);
+      return status == VkResult::VK_SUCCESS;
     }
   };
-} // namespace keptech::vkh
+} // namespace kt::vkh

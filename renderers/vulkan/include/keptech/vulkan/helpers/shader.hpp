@@ -1,55 +1,57 @@
 #pragma once
 
 #include <expected>
+#include <span>
 #include <string>
-#include <vulkan/vulkan_raii.hpp>
+#include <vulkan/vulkan.h>
 
-namespace keptech::vkh {
+namespace kt::vkh {
 
   class Shader {
-    vk::raii::ShaderModule module;
+    VkShaderModule module;
 
-    Shader(vk::raii::ShaderModule& module) noexcept
-        : module(std::move(module)) {}
+    Shader(VkShaderModule& module) noexcept : module(std::move(module)) {}
 
   public:
+    void destroy(const VkDevice& device) {
+      vkDestroyShaderModule(device, module, nullptr);
+    }
+
     struct Stage {
-      vk::ShaderStageFlags stage;
-      vk::raii::ShaderModule& module;
+      VkShaderStageFlags stage;
+      VkShaderModule& module;
       const char* name;
     };
 
-    static auto create(const vk::raii::Device& device,
+    static auto create(const VkDevice& device,
                        const std::span<const uint8_t> code)
         -> std::expected<Shader, std::string>;
 
-    [[nodiscard]] auto get() const noexcept -> const vk::raii::ShaderModule& {
+    [[nodiscard]] auto get() const noexcept -> const VkShaderModule& {
       return module;
     }
 
-    operator const vk::raii::ShaderModule&() const noexcept { return module; }
-    auto operator*() const noexcept -> const vk::raii::ShaderModule& {
-      return module;
-    }
+    operator const VkShaderModule&() const noexcept { return module; }
+    auto operator*() const noexcept -> const VkShaderModule& { return module; }
 
     struct ShaderStageParams {
-      vk::ShaderStageFlagBits stage;
+      VkShaderStageFlagBits stage;
       const char* name;
     };
 
     template <size_t LEN>
     [[nodiscard]] constexpr inline auto stages(
         const std::array<ShaderStageParams, LEN> shaderStages) const noexcept {
-      std::array<vk::PipelineShaderStageCreateInfo, LEN> stages;
+      std::array<VkPipelineShaderStageCreateInfo, LEN> stages;
 
       for (size_t i = 0; i < LEN; ++i) {
         stages[i] =
-            vk::PipelineShaderStageCreateInfo{.stage = shaderStages[i].stage,
-                                              .module = get(),
-                                              .pName = shaderStages[i].name};
+            VkPipelineShaderStageCreateInfo{.stage = shaderStages[i].stage,
+                                            .module = get(),
+                                            .pName = shaderStages[i].name};
       }
 
       return stages;
     }
   };
-} // namespace keptech::vkh
+} // namespace kt::vkh

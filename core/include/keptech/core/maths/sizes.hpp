@@ -2,7 +2,7 @@
 
 #include <glm/glm.hpp>
 
-namespace keptech::maths {
+namespace kt::maths {
   template <size_t D, typename O, typename S = O> struct Rect {
     O x;
     O y;
@@ -25,4 +25,4 @@ namespace keptech::maths {
     float minDepth = 0.0f;
     float maxDepth = 1.0f;
   };
-} // namespace keptech::maths
+} // namespace kt::maths

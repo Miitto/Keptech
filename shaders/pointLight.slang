@@ -23,7 +23,7 @@ struct v2f {
 };
 
 [shader("vertex")]
-v2f vert(uint vid: SV_VertexID, uniform keptech::PointLight light) {
+v2f vert(uint vid: SV_VertexID, uniform kt::PointLight light) {
   v2f output;
 
   float3 vertPos = CUBE_VERTS[CUBE_INDICES[vid]];
@@ -33,25 +33,24 @@ v2f vert(uint vid: SV_VertexID, uniform keptech::PointLight light) {
 
   float4 worldPos = float4(scaledPos + lightPos, 1.0);
 
-  output.position = keptech::camera.worldToClip(worldPos);
+  output.position = kt::camera.worldToClip(worldPos);
 
   return output;
 }
 
 [shader("pixel")]
-keptech::DeferredLightingOutput frag(v2f input,
-                                     uniform keptech::PointLight light,
-                                     uniform GBufferIndices gBufferIndices,
-                                     float4 fragCoord: SV_Position) {
-  keptech::DeferredLightingOutput output;
+kt::DeferredLightingOutput frag(v2f input, uniform kt::PointLight light,
+                                uniform GBufferIndices gBufferIndices,
+                                float4 fragCoord: SV_Position) {
+  kt::DeferredLightingOutput output;
 
-  float2 uv = fragCoord.xy / keptech::camera.viewportSize;
+  float2 uv = fragCoord.xy / kt::camera.viewportSize;
 
-  let albedoTex = keptech::textures.getTexture(gBufferIndices.albedoIndex);
+  let albedoTex = kt::textures.getTexture(gBufferIndices.albedoIndex);
   let metallicRoughnessTex =
-      keptech::textures.getTexture(gBufferIndices.metallicRoughnessIndex);
-  let normalTex = keptech::textures.getTexture(gBufferIndices.normalIndex);
-  let depthTex = keptech::textures.getTexture(gBufferIndices.depthIndex);
+      kt::textures.getTexture(gBufferIndices.metallicRoughnessIndex);
+  let normalTex = kt::textures.getTexture(gBufferIndices.normalIndex);
+  let depthTex = kt::textures.getTexture(gBufferIndices.depthIndex);
 
   let albedoSample = albedoTex.Sample(uv);
   let metallicRoughnessSample = metallicRoughnessTex.Sample(uv);
@@ -59,7 +58,7 @@ keptech::DeferredLightingOutput frag(v2f input,
   float depth = depthTex.Sample(uv).r;
 
   float3 ndc = { uv * 2.0 - 1.0, depth };
-  float4 invClip = keptech::camera.clipToWorld(float4(ndc, 1.0));
+  float4 invClip = kt::camera.clipToWorld(float4(ndc, 1.0));
   float3 world = invClip.xyz / invClip.w;
 
   let toLight = light.position - world;
@@ -77,7 +76,7 @@ keptech::DeferredLightingOutput frag(v2f input,
   let normal = normalize(normalSample.xyz);
 
   let incident = normalize(toLight);
-  let viewDir = normalize(keptech::camera.position - world);
+  let viewDir = normalize(kt::camera.position - world);
   let halfDir = normalize(incident + viewDir);
 
   float metallic = metallicRoughnessSample.r;
@@ -86,9 +85,9 @@ keptech::DeferredLightingOutput frag(v2f input,
   float3 F0 = float3(0.04);
   F0 = lerp(F0, albedoSample.rgb, metallic);
 
-  float NDF = keptech::DistributionGGX(normal, halfDir, roughness);
-  float G = keptech::GeometrySmith(normal, viewDir, incident, roughness);
-  float3 F = keptech::fresnelSchlick(max(dot(halfDir, viewDir), 0.0), F0);
+  float NDF = kt::DistributionGGX(normal, halfDir, roughness);
+  float G = kt::GeometrySmith(normal, viewDir, incident, roughness);
+  float3 F = kt::fresnelSchlick(max(dot(halfDir, viewDir), 0.0), F0);
 
   float3 kS = F;
   float3 kD = float3(1.0) - kS;

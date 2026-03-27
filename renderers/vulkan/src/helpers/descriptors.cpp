@@ -1,13 +1,13 @@
 #include "keptech/vulkan/helpers/descriptors.hpp"
 #include "macros.hpp"
-#include "vulkan/vulkan.hpp"
+#include <vulkan/vulkan.h>
 
-namespace keptech::vkh {
+namespace kt::vkh {
   void DescriptorLayoutBuilder::addBinding(
-      uint32_t binding, vk::DescriptorType descriptorType,
-      vk::ShaderStageFlags stageFlags, uint32_t descriptorCount,
-      vk::DescriptorBindingFlagBits bindingFlags, void* pNext) {
-    bindings.push_back(vk::DescriptorSetLayoutBinding{
+      uint32_t binding, VkDescriptorType descriptorType,
+      VkShaderStageFlags stageFlags, uint32_t descriptorCount,
+      VkDescriptorBindingFlags bindingFlags, void* pNext) {
+    bindings.push_back(VkDescriptorSetLayoutBinding{
         .binding = binding,
         .descriptorType = descriptorType,
         .descriptorCount = descriptorCount,
@@ -17,32 +17,35 @@ namespace keptech::vkh {
     bFlags.emplace_back(bindingFlags);
   }
 
-  std::expected<vk::raii::DescriptorSetLayout, std::string>
-  DescriptorLayoutBuilder::build(const vk::raii::Device& device,
-                                 void* pNext) const {
-    vk::DescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{
+  std::expected<VkDescriptorSetLayout, std::string>
+  DescriptorLayoutBuilder::build(const VkDevice& device, void* pNext) const {
+    VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{
+        .sType =
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
         .pNext = pNext,
         .bindingCount = static_cast<uint32_t>(bFlags.size()),
         .pBindingFlags = bFlags.data(),
     };
 
-    vk::DescriptorSetLayoutCreateInfo layoutCreateInfo{
+    VkDescriptorSetLayoutCreateInfo layoutCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = &bindingFlagsInfo,
         .bindingCount = static_cast<uint32_t>(bindings.size()),
         .pBindings = bindings.data(),
     };
 
-    VK_MAKE(descriptorSetLayout,
-            device.createDescriptorSetLayout(layoutCreateInfo),
+    VkDescriptorSetLayout descriptorSetLayout;
+    VK_MAKE(vkCreateDescriptorSetLayout(device, &layoutCreateInfo, nullptr,
+                                        &descriptorSetLayout),
             "Failed to create descriptor set layout.");
 
     return std::move(descriptorSetLayout);
   }
 
   std::expected<void, std::string> GrowableDescriptorPool::init(
-      const vk::raii::Device& device, std::span<PoolRatios> ratios,
-      vk::DescriptorPoolCreateFlags flags, uint32_t poolSize) {
-    this->device = &device;
+      const VkDevice& device, std::span<PoolRatios> ratios,
+      VkDescriptorPoolCreateFlags flags, uint32_t poolSize) {
+    this->device = device;
     this->poolSize = poolSize;
     this->poolCreateFlags = flags;
     for (const auto& ratio : ratios) {
@@ -57,63 +60,66 @@ namespace keptech::vkh {
     return {};
   }
 
-  std::expected<vk::raii::DescriptorSet, std::string>
-  GrowableDescriptorPool::allocate(const vk::DescriptorSetLayout& layout,
+  std::expected<VkDescriptorSet, std::string>
+  GrowableDescriptorPool::allocate(const VkDescriptorSetLayout& layout,
                                    void* pNext) {
-    vk::DescriptorSetAllocateInfo allocInfo{
+    VkDescriptorSetAllocateInfo allocInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .pNext = pNext,
-        .descriptorPool = **pool,
+        .descriptorPool = pool,
         .descriptorSetCount = 1,
         .pSetLayouts = &layout,
     };
 
-    auto allocRes = device->allocateDescriptorSets(allocInfo);
-    if (allocRes.result == vk::Result::eErrorOutOfPoolMemory ||
-        allocRes.result == vk::Result::eErrorFragmentedPool) {
+    VkDescriptorSet set;
+    auto allocRes = vkAllocateDescriptorSets(device, &allocInfo, &set);
+    if (allocRes == VkResult::VK_ERROR_OUT_OF_POOL_MEMORY ||
+        allocRes == VkResult::VK_ERROR_FRAGMENTED_POOL) {
       // Try to create a new pool and allocate again
-      oldPools.emplace_back(std::move(*pool));
-      pool.reset();
+      oldPools.emplace_back(pool);
 
       VKH_MAKE(newPool, createPool(poolSize, size),
                "Failed to create new descriptor pool.");
 
-      pool = std::move(newPool);
+      pool = newPool;
 
       poolSize = static_cast<uint32_t>(static_cast<float>(poolSize) * 1.5);
 
-      allocInfo.descriptorPool = **pool;
-      allocRes = device->allocateDescriptorSets(allocInfo);
+      allocInfo.descriptorPool = pool;
+      allocRes = vkAllocateDescriptorSets(device, &allocInfo, &set);
     }
 
-    if (allocRes.result != vk::Result::eSuccess) {
+    if (allocRes != VK_SUCCESS) {
       return std::unexpected("Failed to allocate descriptor set.");
     }
 
-    return std::move(allocRes.value.front());
+    return set;
   }
 
-  std::expected<vk::raii::DescriptorPool, std::string>
+  std::expected<VkDescriptorPool, std::string>
   GrowableDescriptorPool::createPool(uint32_t setCount,
                                      std::span<PoolRatios> ratios) {
-    std::vector<vk::DescriptorPoolSize> poolSizes;
+    std::vector<VkDescriptorPoolSize> poolSizes;
     for (const auto& ratio : ratios) {
-      poolSizes.push_back(vk::DescriptorPoolSize{
+      poolSizes.push_back(VkDescriptorPoolSize{
           .type = ratio.type,
           .descriptorCount =
               static_cast<uint32_t>(ratio.ratio * static_cast<float>(setCount)),
       });
     }
 
-    vk::DescriptorPoolCreateInfo poolCreateInfo{
+    VkDescriptorPoolCreateInfo poolCreateInfo{
         .flags = poolCreateFlags,
         .maxSets = setCount,
         .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
         .pPoolSizes = poolSizes.data(),
     };
 
-    VK_MAKE(descriptorPool, device->createDescriptorPool(poolCreateInfo),
+    VkDescriptorPool descriptorPool;
+    VK_MAKE(vkCreateDescriptorPool(device, &poolCreateInfo, nullptr,
+                                   &descriptorPool),
             "Failed to create descriptor pool.");
 
-    return std::move(descriptorPool);
+    return descriptorPool;
   }
-} // namespace keptech::vkh
+} // namespace kt::vkh

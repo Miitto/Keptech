@@ -2,116 +2,121 @@
 
 #include <deque>
 #include <expected>
-#include <vulkan/vulkan_raii.hpp>
+#include <optional>
+#include <span>
+#include <string>
+#include <vector>
+#include <vulkan/vulkan.h>
 
-namespace keptech::vkh {
+namespace kt::vkh {
 
   class DescriptorLayoutBuilder {
   public:
-    constexpr static vk::DescriptorBindingFlags INDEX_BINDING_FLAGS =
-        vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending |
-        vk::DescriptorBindingFlagBits::eUpdateAfterBind |
-        vk::DescriptorBindingFlagBits::ePartiallyBound |
-        vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
+    constexpr static VkDescriptorBindingFlags INDEX_BINDING_FLAGS =
+        VkDescriptorBindingFlagBits::
+            VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT |
+        VkDescriptorBindingFlagBits::
+            VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT |
+        VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+        VkDescriptorBindingFlagBits::
+            VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
 
     void clear() { bindings.clear(); }
 
-    void addBinding(uint32_t binding, vk::DescriptorType descriptorType,
-                    vk::ShaderStageFlags stageFlags,
-                    uint32_t descriptorCount = 1,
-                    vk::DescriptorBindingFlagBits bindingFlags =
-                        vk::DescriptorBindingFlagBits{},
+    void addBinding(uint32_t binding, VkDescriptorType descriptorType,
+                    VkShaderStageFlags stageFlags, uint32_t descriptorCount = 1,
+                    VkDescriptorBindingFlags bindingFlags = 0,
                     void* pNext = nullptr);
 
-    std::expected<vk::raii::DescriptorSetLayout, std::string>
-    build(const vk::raii::Device& device, void* pNext = nullptr) const;
+    std::expected<VkDescriptorSetLayout, std::string>
+    build(const VkDevice& device, void* pNext = nullptr) const;
 
   private:
-    std::vector<vk::DescriptorSetLayoutBinding> bindings{};
-    std::vector<vk::DescriptorBindingFlags> bFlags = {};
+    std::vector<VkDescriptorSetLayoutBinding> bindings{};
+    std::vector<VkDescriptorBindingFlags> bFlags = {};
   };
 
   class GrowableDescriptorPool {
   public:
     struct PoolRatios {
-      vk::DescriptorType type;
+      VkDescriptorType type;
       float ratio;
     };
 
     std::expected<void, std::string>
-    init(const vk::raii::Device& device, std::span<PoolRatios> ratios,
-         vk::DescriptorPoolCreateFlags poolCreateFlags = {},
+    init(const VkDevice& device, std::span<PoolRatios> ratios,
+         VkDescriptorPoolCreateFlags poolCreateFlags = {},
          uint32_t poolSize = 256);
 
-    std::expected<vk::raii::DescriptorSet, std::string>
-    allocate(const vk::DescriptorSetLayout& layout, void* pNext = nullptr);
+    std::expected<VkDescriptorSet, std::string>
+    allocate(const VkDescriptorSetLayout& layout, void* pNext = nullptr);
 
     void reset() {
       if (pool) {
-        pool->reset(vk::DescriptorPoolResetFlags{});
+        vkResetDescriptorPool(device, pool, 0);
       }
 
       for (auto& oldPool : oldPools) {
-        oldPool.reset(vk::DescriptorPoolResetFlags{});
+        vkResetDescriptorPool(device, oldPool, 0);
       }
     }
 
   private:
-    std::expected<vk::raii::DescriptorPool, std::string>
+    std::expected<VkDescriptorPool, std::string>
     createPool(uint32_t setCount, std::span<PoolRatios> ratios);
 
-    const vk::raii::Device* device;
+    VkDevice device;
     uint32_t poolSize;
-    std::optional<vk::raii::DescriptorPool> pool;
-    std::vector<vk::raii::DescriptorPool> oldPools{};
+    VkDescriptorPool pool = nullptr;
+    std::vector<VkDescriptorPool> oldPools{};
 
     std::vector<PoolRatios> size{};
-    vk::DescriptorPoolCreateFlags poolCreateFlags = {};
+    VkDescriptorPoolCreateFlags poolCreateFlags = {};
   };
 
   struct DescriptorWriter {
-    std::deque<vk::DescriptorImageInfo> imagnInfos;
-    std::deque<vk::DescriptorBufferInfo> bufferInfos;
-    std::vector<vk::WriteDescriptorSet> writes;
+    std::deque<VkDescriptorImageInfo> imagnInfos;
+    std::deque<VkDescriptorBufferInfo> bufferInfos;
+    std::vector<VkWriteDescriptorSet> writes;
 
     enum class ImageType : uint8_t {
-      Sampler = static_cast<int>(vk::DescriptorType::eSampler),
+      Sampler = VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
       CombinedImageSampler =
-          static_cast<int>(vk::DescriptorType::eCombinedImageSampler),
-      SampledImage = static_cast<int>(vk::DescriptorType::eSampledImage),
-      StorageImage = static_cast<int>(vk::DescriptorType::eStorageImage),
+          VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      SampledImage = VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+      StorageImage = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
     };
 
-    void writeImage(uint32_t binding, const vk::DescriptorImageInfo& imageInfo,
+    void writeImage(uint32_t binding, const VkDescriptorImageInfo& imageInfo,
                     ImageType type, void* pNext = nullptr) {
       imagnInfos.push_back(imageInfo);
-      writes.push_back(vk::WriteDescriptorSet{
+      writes.push_back(VkWriteDescriptorSet{
+          .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
           .pNext = pNext,
           .dstBinding = binding,
           .descriptorCount = 1,
-          .descriptorType = static_cast<vk::DescriptorType>(type),
+          .descriptorType = static_cast<VkDescriptorType>(type),
           .pImageInfo = &imagnInfos.back(),
       });
     }
 
     enum class BufferType : uint8_t {
-      Uniform = static_cast<int>(vk::DescriptorType::eUniformBuffer),
-      Storage = static_cast<int>(vk::DescriptorType::eStorageBuffer),
+      Uniform = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+      Storage = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
       UniformDynamic =
-          static_cast<int>(vk::DescriptorType::eUniformBufferDynamic),
+          VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
       StorageDynamic =
-          static_cast<int>(vk::DescriptorType::eStorageBufferDynamic),
+          VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
     };
 
-    void writeBuffer(uint32_t binding,
-                     const vk::DescriptorBufferInfo& bufferInfo,
+    void writeBuffer(uint32_t binding, const VkDescriptorBufferInfo& bufferInfo,
                      BufferType type, void* pNext = nullptr) {
       bufferInfos.push_back(bufferInfo);
-      writes.push_back(vk::WriteDescriptorSet{
+      writes.push_back(VkWriteDescriptorSet{
           .pNext = pNext,
           .dstBinding = binding,
           .descriptorCount = 1,
-          .descriptorType = static_cast<vk::DescriptorType>(type),
+          .descriptorType = static_cast<VkDescriptorType>(type),
           .pBufferInfo = &bufferInfos.back(),
       });
     }
@@ -122,12 +127,11 @@ namespace keptech::vkh {
       writes.clear();
     }
 
-    void update(const vk::raii::Device& device,
-                const vk::DescriptorSet& descriptorSet) {
+    void update(const VkDevice& device, const VkDescriptorSet& descriptorSet) {
       for (auto& write : writes) {
         write.dstSet = descriptorSet;
       }
-      device.updateDescriptorSets(writes, {});
+      vkUpdateDescriptorSets(device, writes.size(), writes.data(), 0, nullptr);
     }
   };
-} // namespace keptech::vkh
+} // namespace kt::vkh

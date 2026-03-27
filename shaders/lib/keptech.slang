@@ -6,9 +6,9 @@ __include lighting;
 __include textures;
 __include maths;
 
-public namespace keptech {
+public namespace kt {
 [[vk::binding(0, 0)]]
-public ConstantBuffer<keptech::Camera> camera : register(b0);
+public ConstantBuffer<Camera> camera : register(b0);
 
 [[vk::binding(1, 0)]]
 public ConstantBuffer<TexData> textures;

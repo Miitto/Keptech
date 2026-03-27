@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <ranges>
 
-namespace keptech::core::layers {
+namespace kt::core::layers {
   void LayerStack::pushLayer(LayerPtr layer) {
     layer->onAttach();
     layerInsert = layers.insert(layerInsert, std::move(layer));
@@ -46,4 +46,4 @@ namespace keptech::core::layers {
     }
     return false;
   }
-} // namespace keptech::core::layers
+} // namespace kt::core::layers

@@ -5,7 +5,7 @@
 #include "keptech/core/events/input.hpp"
 #include "keptech/input.hpp"
 
-namespace keptech::cameras {
+namespace kt::cameras {
   class FreeCameraController : public CameraController {
   public:
     FreeCameraController() = default;
@@ -19,12 +19,12 @@ namespace keptech::cameras {
       if (!isValid())
         return false;
 
-      using namespace keptech::core::events;
+      using namespace kt::core::events;
 
       EventDispatcher ed{event};
 
       auto& camTransform =
-          cameraEntity.getComponents<keptech::components::Transform>();
+          cameraEntity.getComponents<kt::components::Transform>();
 
       auto& input = Input::get();
       bool moving = input.isMouseButtonDown(controlButton);
@@ -76,7 +76,7 @@ namespace keptech::cameras {
       auto& input = Input::get();
 
       auto& camTransform =
-          cameraEntity.getComponents<keptech::components::Transform>();
+          cameraEntity.getComponents<kt::components::Transform>();
 
       float speed = .01f;
       if (input.isKeyDown(SDLK_LSHIFT)) {
@@ -125,4 +125,4 @@ namespace keptech::cameras {
     u8 controlButton = 3;
     float sens = 1.f;
   };
-} // namespace keptech::cameras
+} // namespace kt::cameras

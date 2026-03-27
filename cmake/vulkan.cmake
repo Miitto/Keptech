@@ -1,13 +1,6 @@
 function(find_vulkan VERSION)
   find_package(Vulkan REQUIRED)
 
-  FetchContent_Declare(VulkanMemoryAllocator-Hpp
-    GIT_REPOSITORY https://github.com/YaaZ/VulkanMemoryAllocator-Hpp.git
-    GIT_TAG v3.2.1
-    SYSTEM
-  )
-  FetchContent_MakeAvailable(VulkanMemoryAllocator-Hpp)
-
   target_compile_definitions(Vulkan::Vulkan INTERFACE
     VULKAN_HPP_CPP_VERSION=${VERSION}
     VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
@@ -18,12 +11,6 @@ function(find_vulkan VERSION)
 )
 
   set_target_properties(Vulkan::Vulkan PROPERTIES
-    CXX_STANDARD ${VERSION}
-    CXX_EXTENSIONS OFF
-    CXX_STANDARD_REQUIRED ON
-  )
-
-  set_target_properties(VulkanMemoryAllocator-Hpp PROPERTIES
     CXX_STANDARD ${VERSION}
     CXX_EXTENSIONS OFF
     CXX_STANDARD_REQUIRED ON
@@ -41,13 +28,7 @@ function(link_vulkan target ACCESS)
 
   if (KT_USE_PCH)
     target_precompile_headers(${target} ${ACCESS}
-      <vulkan/vulkan_raii.hpp>
+      <vulkan/vulkan.h>
     )
   endif()
-endfunction()
-
-function(link_vma target ACCESS)
-  target_link_libraries(${target} ${ACCESS}
-    VulkanMemoryAllocator-Hpp::VulkanMemoryAllocator-Hpp
-  )
 endfunction()

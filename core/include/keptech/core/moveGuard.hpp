@@ -1,6 +1,6 @@
 #pragma once
 
-namespace keptech::core {
+namespace kt {
   class MoveGuard {
   public:
     explicit MoveGuard() = default;
@@ -21,4 +21,4 @@ namespace keptech::core {
   private:
     bool _moved = false;
   };
-} // namespace keptech::core
+} // namespace kt

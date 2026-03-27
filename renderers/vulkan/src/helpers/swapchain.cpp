@@ -3,7 +3,7 @@
 #include "vk-logger.hpp"
 #include <macros.hpp>
 
-namespace keptech::vkh {
+namespace kt::vkh {
   auto chooseSwapSurfaceFormat(
       const std::vector<vk::SurfaceFormatKHR>& availableFormats) noexcept
       -> vk::SurfaceFormatKHR {
@@ -165,4 +165,4 @@ namespace keptech::vkh {
     return AcquireResult(index, State::Ok);
   }
 
-} // namespace keptech::vkh
+} // namespace kt::vkh

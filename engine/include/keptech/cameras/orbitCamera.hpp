@@ -3,7 +3,7 @@
 #include "keptech/cameraController.hpp"
 #include "keptech/core/events/input.hpp"
 
-namespace keptech::cameras {
+namespace kt::cameras {
   class OrbitCameraController : public CameraController {
   public:
     OrbitCameraController() = default;
@@ -17,7 +17,7 @@ namespace keptech::cameras {
       if (!isValid())
         return false;
 
-      using namespace keptech::core::events;
+      using namespace kt::core::events;
 
       EventDispatcher ed{event};
 
@@ -60,17 +60,17 @@ namespace keptech::cameras {
             return true;
           })) {
         auto& camTransform =
-            cameraEntity.getComponents<keptech::components::Transform>();
+            cameraEntity.getComponents<kt::components::Transform>();
 
         auto& transform = camTransform.getLocalMut();
 
         glm::quat rot{glm::vec3(glm::radians(pitch), glm::radians(yaw), 0.f)};
-        glm::vec3 dir = rot * keptech::FORWARD;
+        glm::vec3 dir = rot * kt::FORWARD;
 
         glm::vec3 pos = -dir * zoom;
 
         transform.setPosition(pos);
-        transform.lookAt(keptech::ORIGIN, keptech::UP);
+        transform.lookAt(kt::ORIGIN, kt::UP);
         return true;
       }
       return false;
@@ -84,4 +84,4 @@ namespace keptech::cameras {
     float yaw = 180; // Start looking down -Z, so camera is +Z from target
     float pitch = 0;
   };
-} // namespace keptech::cameras
+} // namespace kt::cameras

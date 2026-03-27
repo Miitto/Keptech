@@ -23,7 +23,7 @@
 
 #include "conversions.hpp"
 
-namespace keptech::vkh {
+namespace kt::vkh {
   bool RendererBackend::canRenderToFormat(TextureFormat format) const {
     vk::Format vkFormat = from(format);
     auto formatProps = m.vkcore.device.physical.getFormatProperties(vkFormat);
@@ -771,4 +771,4 @@ namespace keptech::vkh {
 
     texture->setImGuiHandle(handle);
   }
-} // namespace keptech::vkh
+} // namespace kt::vkh

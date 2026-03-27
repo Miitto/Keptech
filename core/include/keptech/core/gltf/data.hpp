@@ -8,7 +8,7 @@
 #include <fastgltf/types.hpp>
 #include <string>
 
-namespace keptech::gltf {
+namespace kt::gltf {
 
   struct Submesh {
     uint32_t indexCount;
@@ -48,4 +48,4 @@ namespace keptech::gltf {
 
     static std::expected<Data, std::string> fromFile(std::string_view path);
   };
-} // namespace keptech::gltf
+} // namespace kt::gltf

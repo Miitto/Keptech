@@ -6,7 +6,7 @@
 #include <array>
 #include <vulkan/vulkan_raii.hpp>
 
-namespace keptech::vkh::setup {
+namespace kt::vkh::setup {
 
   std::expected<DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>, std::string>
   createGlobalDescriptors(vk::raii::Device& device) {
@@ -102,4 +102,4 @@ namespace keptech::vkh::setup {
     };
   }
 
-} // namespace keptech::vkh::setup
+} // namespace kt::vkh::setup

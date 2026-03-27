@@ -7,7 +7,7 @@
 #include <keptech/core/fastgltf_formatting.hpp>
 #include <ranges>
 
-namespace keptech::gltf {
+namespace kt::gltf {
   namespace {
     void loadMeshData(fastgltf::Asset& asset, Data& gltf) {
 
@@ -263,4 +263,4 @@ namespace keptech::gltf {
 
     return loadedGltf;
   }
-} // namespace keptech::gltf
+} // namespace kt::gltf

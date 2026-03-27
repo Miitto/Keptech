@@ -13,14 +13,10 @@
 #include <memory>
 #include <utility>
 
-namespace shaders {
-#include "shaders/basic.h"
-} // namespace shaders
-
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 
-keptech::SetupInfo keptech::configureApp() {
+kt::SetupInfo kt::configureApp() {
   return {.window = {.title = "Material Editor",
                      .width = WINDOW_WIDTH,
                      .height = WINDOW_HEIGHT},
@@ -28,12 +24,11 @@ keptech::SetupInfo keptech::configureApp() {
 }
 
 std::expected<void, std::string>
-keptech::setupAppLayers(core::layers::LayerStack& layerStack,
-                        core::window::Window& window,
-                        keptech::Renderer& renderer) {
+kt::setupAppLayers(core::layers::LayerStack& layerStack,
+                   core::window::Window& window, kt::Renderer& renderer) {
   MaterialEditorLayer::initMeta();
 
-  std::unique_ptr scene = std::make_unique<keptech::Scene>();
+  std::unique_ptr scene = std::make_unique<kt::Scene>();
 
   auto bistroMeshRes = renderer.loadMesh(ASSET_DIR "meshes/BistroExterior.glb");
   if (!bistroMeshRes) {
@@ -49,34 +44,31 @@ keptech::setupAppLayers(core::layers::LayerStack& layerStack,
   bistroMeshRes->addToEcsScene(*scene, bistro.getHandle());
 
   auto camera = scene->createEntity("Camera");
-  auto& camTransform = camera.addComponent<keptech::components::Transform>();
+  auto& camTransform = camera.addComponent<kt::components::Transform>();
   auto& localTransform = camTransform.getLocalMut();
   localTransform.translate(glm::vec3(0.0f, 0.0f, 5.0f))
       .lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-  auto& camComp = camera.addComponent<keptech::components::Camera>(
-      keptech::components::PerspectiveType::Standard,
-      keptech::components::Camera::Params::Common{},
-      keptech::components::Camera::Params::Perspective{.fovY =
-                                                           glm::radians(90.f)});
+  auto& camComp = camera.addComponent<kt::components::Camera>(
+      kt::components::PerspectiveType::Standard,
+      kt::components::Camera::Params::Common{},
+      kt::components::Camera::Params::Perspective{.fovY = glm::radians(90.f)});
   camComp.sizeToWindowSize(window.getRenderSize());
 
   scene->useCamera(camera);
 
   auto pointLight = scene->createEntity("Point Light");
-  auto& lightTransform =
-      pointLight.addComponent<keptech::components::Transform>();
+  auto& lightTransform = pointLight.addComponent<kt::components::Transform>();
   lightTransform.getLocalMut().translate(glm::vec3(70.0f, 70.0f, -10.0f));
-  pointLight.addComponent<keptech::components::PointLight>(
-      keptech::components::PointLight{
+  pointLight.addComponent<kt::components::PointLight>(
+      kt::components::PointLight{
           .color = {1.f, 0.985f, 0.95f},
           .intensity = 3.f,
           .radius = 500.f,
       });
 
   layerStack.emplaceLayer<MaterialEditorLayer>(
-      window, renderer, std::move(scene), std::move(allMeshes),
-      std::vector<keptech::PipelinePtr>{});
+      window, renderer, std::move(scene), std::move(allMeshes));
 
   return {};
 }

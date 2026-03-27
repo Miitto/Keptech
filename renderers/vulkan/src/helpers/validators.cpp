@@ -2,7 +2,7 @@
 
 #include "vk-logger.hpp"
 
-namespace keptech::vkh {
+namespace kt::vkh {
   void printExtensions(vk::raii::Context& context,
                        spdlog::level::level_enum logLevel) {
     auto res = context.enumerateInstanceExtensionProperties();
@@ -68,4 +68,4 @@ namespace keptech::vkh {
     return missingLayers;
   }
 
-} // namespace keptech::vkh
+} // namespace kt::vkh

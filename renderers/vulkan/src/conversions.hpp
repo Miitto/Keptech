@@ -10,7 +10,7 @@
 #include <vk_mem_alloc.hpp>
 #include <vulkan/vulkan.hpp>
 
-namespace keptech::vkh {
+namespace kt::vkh {
   namespace {
     vk::ShaderStageFlagBits from(shaders::ShaderStages stages) {
       switch (stages) {
@@ -603,4 +603,4 @@ namespace keptech::vkh {
 
   } // namespace
 
-} // namespace keptech::vkh
+} // namespace kt::vkh

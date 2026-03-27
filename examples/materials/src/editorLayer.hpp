@@ -1,12 +1,12 @@
 #pragma once
 
 #include "keptech/cameras/freeCamera.hpp"
-#include "keptech/core/components/renderObject.hpp"
-#include "keptech/core/components/transform.hpp"
+#include "keptech/components.hpp"
 #include "keptech/core/events/event.hpp"
 #include <keptech/app.hpp>
 
 #include "keptech/ecs/entity.hpp"
+#include "keptech/rendering/pipeline.hpp"
 #include <keptech/components.hpp>
 #include <keptech/core/gui.h>
 #include <keptech/core/window.hpp>
@@ -15,11 +15,10 @@
 
 class MaterialEditorLayer;
 
-class MaterialEditorLayer : public keptech::core::layers::Layer {
+class MaterialEditorLayer : public kt::core::layers::Layer {
 public:
-  using SelectedItem =
-      std::variant<std::monostate, keptech::ecs::EntityHandle, keptech::MeshPtr,
-                   keptech::PipelinePtr, keptech::ImgPtr>;
+  using SelectedItem = std::variant<std::monostate, kt::ecs::EntityHandle,
+                                    kt::MeshPtr, kt::PipelinePtr, kt::ImgPtr>;
 
   enum class ActiveDebugView : uint8_t {
     Albedo,
@@ -32,38 +31,34 @@ public:
     Final
   };
 
-  MaterialEditorLayer(keptech::Window& window, keptech::Renderer& renderer,
-                      std::unique_ptr<keptech::Scene>&& scene,
-                      std::vector<keptech::MeshPtr>&& meshes,
-                      std::vector<keptech::PipelinePtr>&& pipelines);
+  MaterialEditorLayer(kt::Window& window, kt::Renderer& renderer,
+                      std::unique_ptr<kt::Scene>&& scene,
+                      std::vector<kt::MeshPtr>&& meshes,
+                      std::vector<kt::PipelinePtr>&& pipelines);
 
   static void initMeta();
 
-  keptech::Scene& getScene() { return *scene; }
+  kt::Scene& getScene() { return *scene; }
 
-  void onUpdate(keptech::Timestep ts) final;
+  void onUpdate(kt::Timestep ts) final;
 
-  void onEvent(keptech::core::events::Event& event,
-               keptech::Timestep ts) final {
+  void onEvent(kt::core::events::Event& event, kt::Timestep ts) final {
     if (freeController.handleEvent(event, ts))
       return;
   }
 
-  void inspectorUi(keptech::gui::Frame& frame, keptech::components::Mesh& ro);
+  void inspectorUi(kt::gui::Frame& frame, kt::components::Mesh& ro);
 
-  void inspectorUi(keptech::gui::Frame& frame,
-                   keptech::components::Material& ro);
+  void inspectorUi(kt::gui::Frame& frame, kt::components::Material& ro);
 
-  void inspectorUi(keptech::gui::Frame& frame, keptech::PipelinePtr& ro);
+  void inspectorUi(kt::gui::Frame& frame, kt::PipelinePtr& ro);
 
-  void inspectorUi(keptech::gui::Frame& frame,
-                   keptech::components::Camera& camera);
+  void inspectorUi(kt::gui::Frame& frame, kt::components::Camera& camera);
 
-  void inspectorUi(keptech::gui::Frame& frame,
-                   keptech::components::PointLight& light);
+  void inspectorUi(kt::gui::Frame& frame, kt::components::PointLight& light);
 
   struct SceneNode {
-    keptech::ecs::EntityHandle id;
+    kt::ecs::EntityHandle id;
     std::string* name;
     SceneNode* parent = nullptr;
     std::vector<std::unique_ptr<SceneNode>> children{};
@@ -94,34 +89,26 @@ private:
   void drawToolbar();
   void drawSceneTree();
   void addNodeToList(
-      keptech::ecs::EntityHandle entity, keptech::components::Name& name,
+      kt::ecs::EntityHandle entity, kt::components::Name& name,
       std::vector<std::unique_ptr<MaterialEditorLayer::SceneNode>>& roots,
-      std::unordered_map<keptech::ecs::EntityHandle,
+      std::unordered_map<kt::ecs::EntityHandle,
                          MaterialEditorLayer::SceneNode*>& nodeMap);
   void drawSceneNodeInTree(SceneNode& node);
   /// Returns true if the node was deleted
   bool drawSceneTreeEntityContextMenu(SceneNode& node);
 
-  bool reloadShader(keptech::PipelinePtr& pipeline);
+  bool reloadShader(kt::PipelinePtr& pipeline);
 
   void drawSelectedProperties();
-  void drawEntityProperties(keptech::gui::Frame& frame,
-                            keptech::ecs::EntityHandle entity);
-  void refreshAssetsDirectory();
-  void drawAssetsDirectory(keptech::gui::Frame& frame,
-                           const Directory& directory, float depth);
-  void drawAssetsPanel();
-  void drawLoadedAssetsPanel();
+  void drawEntityProperties(kt::gui::Frame& frame,
+                            kt::ecs::EntityHandle entity);
 
-  keptech::Window& window;
-  keptech::Renderer& renderer;
-  std::unique_ptr<keptech::Scene> scene;
-  keptech::cameras::FreeCameraController freeController;
+  kt::Window& window;
+  kt::Renderer& renderer;
+  std::unique_ptr<kt::Scene> scene;
+  kt::cameras::FreeCameraController freeController;
 
   SelectedItem selectedItem = std::monostate{};
-
-  std::vector<keptech::MeshPtr> loadedMeshes;
-  std::vector<keptech::PipelinePtr> loadedPipelines;
 
   Directory assetsRootDir;
 
@@ -129,9 +116,8 @@ private:
 };
 
 template <typename Comp>
-void forwardCompInspectorUi(MaterialEditorLayer* layer,
-                            keptech::gui::Frame* frame,
-                            keptech::ecs::EntityHandle entity) {
+void forwardCompInspectorUi(MaterialEditorLayer* layer, kt::gui::Frame* frame,
+                            kt::ecs::EntityHandle entity) {
   auto& comp = layer->getScene().getEcs().get<Comp>(entity);
   layer->inspectorUi(*frame, comp);
 }

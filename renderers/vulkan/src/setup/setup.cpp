@@ -11,8 +11,8 @@
 #include <keptech/core/components/camera.hpp>
 #include <keptech/core/maths/maths.hpp>
 
-namespace keptech::vkh {
-  using namespace keptech::vkh::setup;
+namespace kt::vkh {
+  using namespace kt::vkh::setup;
 
   std::expected<RendererBackend, std::string>
   RendererBackend::create(const RendererCreateInfo& createInfo,
@@ -83,4 +83,4 @@ namespace keptech::vkh {
 
     return std::move(r);
   }
-} // namespace keptech::vkh
+} // namespace kt::vkh

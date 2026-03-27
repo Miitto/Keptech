@@ -8,7 +8,7 @@
 #include <memory>
 #include <spdlog/fmt/bundled/format.h>
 
-namespace keptech {
+namespace kt {
   enum class TextureUsage : uint8_t {
     Sampled = BIT(0),
     RenderTarget = BIT(1),
@@ -171,16 +171,15 @@ namespace keptech {
 
   using TexPtr = std::shared_ptr<Texture>;
 
-} // namespace keptech
+} // namespace kt
 
-DEFINE_BITFLAG_ENUM_OPERATORS(keptech::TextureUsage)
+DEFINE_BITFLAG_ENUM_OPERATORS(kt::TextureUsage)
 
 template <>
-struct fmt::formatter<keptech::TextureFormat>
-    : fmt::formatter<std::string_view> {
+struct fmt::formatter<kt::TextureFormat> : fmt::formatter<std::string_view> {
   template <typename FormatContext>
-  auto format(const keptech::TextureFormat format, FormatContext& ctx) const {
-    using F = keptech::TextureFormat;
+  auto format(const kt::TextureFormat format, FormatContext& ctx) const {
+    using F = kt::TextureFormat;
     std::string_view name = "";
 #define C(_NAME)                                                               \
   case F::_NAME:                                                               \
