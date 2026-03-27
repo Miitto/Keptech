@@ -1,12 +1,5 @@
-#include "keptech/core/rendering/commandBuffer.hpp"
-#include "keptech/core/rendering/texture.hpp"
 #include "keptech/vulkan/renderer.hpp"
 
-#include "keptech/core/rendering/pipeline.hpp"
-#include "keptech/vulkan/buffer.hpp"
-#include "keptech/vulkan/commandBuffer.hpp"
-#include "keptech/vulkan/helpers/pipeline.hpp"
-#include "keptech/vulkan/material.hpp"
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
 #include "vk-logger.hpp"
@@ -15,94 +8,76 @@
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
-#include <keptech/core/components/camera.hpp>
+#include <keptech/components/camera.hpp>
 #include <keptech/core/window.hpp>
-#include <memory>
-#include <utility>
-#include <vk_mem_alloc_structs.hpp>
 
 #include "conversions.hpp"
 
 namespace kt::vkh {
-  bool RendererBackend::canRenderToFormat(TextureFormat format) const {
-    vk::Format vkFormat = from(format);
-    auto formatProps = m.vkcore.device.physical.getFormatProperties(vkFormat);
-    return ((formatProps.optimalTilingFeatures &
-             vk::FormatFeatureFlagBits::eColorAttachment) |
-            (formatProps.optimalTilingFeatures &
-             vk::FormatFeatureFlagBits::eDepthStencilAttachment)) !=
-           vk::FormatFeatureFlags{};
+  bool Renderer::canRenderToFormat(VkFormat format) const {
+    VkFormatProperties formatProps;
+    vkGetPhysicalDeviceFormatProperties(m.vkcore.device.physical, format, &formatProps);
+    return ((formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BIT) |
+            (formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_2_DEPTH_STENCIL_ATTACHMENT_BIT)) != 0;
   }
 
-  TextureFormat RendererBackend::backbufferFormat() const {
-    return from(getSwapchainImageFormat());
-  }
-
-  std::expected<BufPtr, std::string>
-  RendererBackend::createBuffer(const BufferCreateInfo& createInfo) {
-    vk::BufferCreateInfo bufInfo{
-        .size = createInfo.size,
-        .usage = from(createInfo.usage) |
-                 vk::BufferUsageFlagBits::eShaderDeviceAddress,
-        .sharingMode = vk::SharingMode::eExclusive,
-    };
-
-    vma::AllocationCreateFlags allocFlags = {};
-    if (createInfo.map.has(BufferMapType::SeqWrite))
-      allocFlags |= vma::AllocationCreateFlagBits::eHostAccessSequentialWrite |
-                    vma::AllocationCreateFlagBits::eMapped;
-    if (createInfo.map.has(BufferMapType::Random))
-      allocFlags |= vma::AllocationCreateFlagBits::eHostAccessRandom |
-                    vma::AllocationCreateFlagBits::eMapped;
-    if (createInfo.map.has(BufferMapType::AllowTransferInstead))
-      allocFlags |=
-          vma::AllocationCreateFlagBits::eHostAccessAllowTransferInstead;
-    vma::AllocationCreateInfo allocInfo{
-        .flags = allocFlags,
-        .usage = from(createInfo.memoryType),
-    };
-
-    auto vkRes = AddressedAllocatedBuffer::create(m.vkcore.device.logical,
-                                                  m.vkcore.allocator, bufInfo,
-                                                  allocInfo, createInfo.name);
-    if (!vkRes) {
-      return std::unexpected(
-          fmt::format("Failed to create buffer: {}", vkRes.error()));
+  VertexInput getVertexInputFromShader(const shaders::Shader& shader, std::vector<uint32_t> instanceBindings) {
+    std::vector<VkVertexInputAttributeDescription> vertexAttributes;
+    uint32_t binding = 0;
+    for (auto& param : shader.vertexLayout) {
+      uint32_t voffset = 0;
+      uint32_t location = 0;
+      for (auto& type : param) {
+        VkVertexInputAttributeDescription attrDesc{
+            .location = location++,
+            .binding = binding,
+            .format = from(type),
+            .offset = voffset,
+        };
+        vertexAttributes.push_back(attrDesc);
+        voffset += getSize(type);
+      }
+      ++binding;
     }
 
-#ifndef NDEBUG
-    if (createInfo.name.has_value()) {
-      VkBuffer vkBuffer = vkRes.value().buffer;
-      m.vkcore.device.logical.setDebugUtilsObjectNameEXT(
-          vk::DebugUtilsObjectNameInfoEXT{
-              .objectType = vk::ObjectType::eBuffer,
-              .objectHandle = reinterpret_cast<uint64_t>(vkBuffer),
-              .pObjectName = createInfo.name->c_str(),
-          });
+    std::vector<VkVertexInputBindingDescription> vertexBindings;
+    std::ranges::sort(instanceBindings);
+    uint32_t currentBinding = 0;
+    for (auto& param : shader.vertexLayout) {
+      size_t bindingStride = 0;
+      for (auto& type : param) {
+        bindingStride += getSize(type);
+      }
+
+      auto isInstance = instanceBindings.end() != std::ranges::find(instanceBindings, static_cast<uint32_t>(currentBinding));
+
+      vk::VertexInputBindingDescription bindingDesc{
+          .binding = static_cast<uint32_t>(currentBinding++),
+          .stride = static_cast<uint32_t>(bindingStride),
+          .inputRate = isInstance ? vk::VertexInputRate::eInstance : vk::VertexInputRate::eVertex,
+      };
+      vertexBindings.push_back(bindingDesc);
     }
-#endif
 
-    auto buffer =
-        std::make_shared<vkh::Buffer>(m.vkcore.allocator, vkRes.value());
-
-    return buffer;
+    return {
+        .bindings = vertexBindings,
+        .attributes = vertexAttributes,
+    };
   }
 
-  std::expected<PipelinePtr, std::string>
-  RendererBackend::createPipeline(PipelineCreateInfo createInfo) {
+  std::expected<PipelinePtr, std::string> RendererBackend::createPipeline(PipelineCreateInfo createInfo) {
     GraphicsPipelineConfig config;
 
-    std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
+    VKH_MAKE(shaderModule, Shader::create(m.vkcore.device.logical, createInfo.shader.code), "Failed to create shader module");
 
-    VKH_MAKE(shaderModule,
-             Shader::create(m.vkcore.device.logical, createInfo.shader.code),
-             "Failed to create shader module");
+    std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
+    shaderStages.reserve(createInfo.shader.stages.size());
 
     for (auto& stage : createInfo.shader.stages) {
       vk::PipelineShaderStageCreateInfo stageInfo{
           .stage = from(stage.stage),
           .module = shaderModule.get(),
-          .pName = stage.name, // NOLINT
+          .pName = stage.name,
       };
 
       shaderStages.push_back(stageInfo);
@@ -120,16 +95,13 @@ namespace kt::vkh {
           .srcAlphaBlendFactor = vk::BlendFactor::eOne,
           .dstAlphaBlendFactor = vk::BlendFactor::eZero,
           .alphaBlendOp = vk::BlendOp::eAdd,
-          .colorWriteMask =
-              vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-              vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+          .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB |
+                            vk::ColorComponentFlagBits::eA,
       });
     }
 
-    config.rendering.depthAttachmentFormat =
-        from(createInfo.attachments.depthFormat);
-    config.rendering.stencilAttachmentFormat =
-        from(createInfo.attachments.stencilFormat);
+    config.rendering.depthAttachmentFormat = from(createInfo.attachments.depthFormat);
+    config.rendering.stencilAttachmentFormat = from(createInfo.attachments.stencilFormat);
 
     // Input Assembly
     config.inputAssembly.topology = from(createInfo.topology);
@@ -139,56 +111,13 @@ namespace kt::vkh {
     config.rasterizer.cullMode = from(createInfo.rasterizer.cullMode);
     config.rasterizer.frontFace = from(createInfo.rasterizer.frontFace);
 
-    config.depthStencilState.depthTestEnable =
-        createInfo.depth.depthCompareOp.has_value();
+    config.depthStencilState.depthTestEnable = createInfo.depth.depthCompareOp.has_value();
     config.depthStencilState.depthWriteEnable = createInfo.depth.depthWrite;
     if (createInfo.depth.depthCompareOp.has_value()) {
-      config.depthStencilState.depthCompareOp =
-          from(createInfo.depth.depthCompareOp.value());
+      config.depthStencilState.depthCompareOp = from(createInfo.depth.depthCompareOp.value());
     }
 
     // Vertex Assembly
-    std::vector<vk::VertexInputAttributeDescription> vertexAttributes;
-    uint32_t binding = 0;
-    for (auto& param : createInfo.shader.vertexLayout) {
-      uint32_t voffset = 0;
-      uint32_t location = 0;
-      for (auto& type : param) {
-        vk::VertexInputAttributeDescription attrDesc{
-            .location = location++,
-            .binding = binding,
-            .format = from(type),
-            .offset = voffset,
-        };
-        vertexAttributes.push_back(attrDesc);
-        voffset += getSize(type);
-      }
-      ++binding;
-    }
-
-    std::vector<vk::VertexInputBindingDescription> vertexBindings;
-    std::ranges::sort(createInfo.layout.vertexInstanceBindings);
-    uint32_t currentBinding = 0;
-    for (auto& param : createInfo.shader.vertexLayout) {
-
-      size_t bindingStride = 0;
-      for (auto& type : param) {
-        bindingStride += getSize(type);
-      }
-
-      auto isInstance =
-          createInfo.layout.vertexInstanceBindings.end() !=
-          std::ranges::find(createInfo.layout.vertexInstanceBindings,
-                            static_cast<uint32_t>(currentBinding));
-
-      vk::VertexInputBindingDescription bindingDesc{
-          .binding = static_cast<uint32_t>(currentBinding++),
-          .stride = static_cast<uint32_t>(bindingStride),
-          .inputRate = isInstance ? vk::VertexInputRate::eInstance
-                                  : vk::VertexInputRate::eVertex,
-      };
-      vertexBindings.push_back(bindingDesc);
-    }
 
     config.vertexInput.attributes = vertexAttributes;
     config.vertexInput.bindings = vertexBindings;
@@ -209,38 +138,31 @@ namespace kt::vkh {
 
     auto vkLayoutInfo = config.layout.build();
 
-    VK_MAKE(pipelineLayout,
-            m.vkcore.device.logical.createPipelineLayout(vkLayoutInfo),
-            "Failed to create pipeline layout");
+    VK_MAKE(pipelineLayout, m.vkcore.device.logical.createPipelineLayout(vkLayoutInfo), "Failed to create pipeline layout");
 
 #ifndef NDEBUG
-    std::string layoutName =
-        fmt::format("{}_pipeline_layout", createInfo.shader.name);
+    std::string layoutName = fmt::format("{}_pipeline_layout", createInfo.shader.name);
 
     VkPipelineLayout vkPipelineLayout = *pipelineLayout;
-    m.vkcore.device.logical.setDebugUtilsObjectNameEXT(
-        vk::DebugUtilsObjectNameInfoEXT{
-            .objectType = vk::ObjectType::ePipelineLayout,
-            .objectHandle = reinterpret_cast<uint64_t>(vkPipelineLayout),
-            .pObjectName = layoutName.c_str(),
-        });
+    m.vkcore.device.logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        .objectType = vk::ObjectType::ePipelineLayout,
+        .objectHandle = reinterpret_cast<uint64_t>(vkPipelineLayout),
+        .pObjectName = layoutName.c_str(),
+    });
 #endif
 
     auto vkConfig = config.build();
     vkConfig.layout = *pipelineLayout;
 
-    VK_MAKE(pipeline,
-            m.vkcore.device.logical.createGraphicsPipeline(nullptr, vkConfig),
-            "Failed to create graphics pipeline");
+    VK_MAKE(pipeline, m.vkcore.device.logical.createGraphicsPipeline(nullptr, vkConfig), "Failed to create graphics pipeline");
 
 #ifndef NDEBUG
     VkPipeline vkPipeline = *pipeline;
-    m.vkcore.device.logical.setDebugUtilsObjectNameEXT(
-        vk::DebugUtilsObjectNameInfoEXT{
-            .objectType = vk::ObjectType::ePipeline,
-            .objectHandle = reinterpret_cast<uint64_t>(vkPipeline),
-            .pObjectName = createInfo.shader.name.c_str(),
-        });
+    m.vkcore.device.logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        .objectType = vk::ObjectType::ePipeline,
+        .objectHandle = reinterpret_cast<uint64_t>(vkPipeline),
+        .pObjectName = createInfo.shader.name.c_str(),
+    });
 #endif
 
     PipelineStage stage = PipelineStage::Deferred;
@@ -343,12 +265,11 @@ namespace kt::vkh {
       }
     }
 
-    LoadedPipeline mat(
-        std::move(pipeline), std::move(pipelineLayout), extraInstanceDataSize,
-        stage, std::move(createInfo.layout.instanceDataTypes)
+    LoadedPipeline mat(std::move(pipeline), std::move(pipelineLayout), extraInstanceDataSize, stage,
+                       std::move(createInfo.layout.instanceDataTypes)
 #ifdef KT_ADD_RESOURCE_INFO
-                   ,
-        createInfo.shader.name, createInfo.shader.mode, createInfo
+                           ,
+                       createInfo.shader.name, createInfo.shader.mode, createInfo
 #endif
 
     );
@@ -360,8 +281,7 @@ namespace kt::vkh {
     return ptr;
   }
 
-  std::expected<std::vector<ImgPtr>, std::string>
-  RendererBackend::createImages(const std::vector<ImageCreateInfo>& infos) {
+  std::expected<std::vector<ImgPtr>, std::string> RendererBackend::createImages(const std::vector<ImageCreateInfo>& infos) {
     std::vector<ImgPtr> images;
     images.reserve(infos.size());
 
@@ -380,23 +300,19 @@ namespace kt::vkh {
 
       size_t sz = pixelSize * info.size.x * info.size.y * info.size.z;
 
-      VKH_MAKE(
-          b,
-          AddressedAllocatedBuffer::create(
-              m.vkcore.device.logical, m.vkcore.allocator,
-              {
-                  .size = sz,
-                  .usage = vk::BufferUsageFlagBits::eTransferSrc |
-                           vk::BufferUsageFlagBits::eShaderDeviceAddress,
-              },
-              {
-                  .flags =
-                      vma::AllocationCreateFlagBits::eMapped |
-                      vma::AllocationCreateFlagBits::eHostAccessSequentialWrite,
-                  .usage = vma::MemoryUsage::eAuto,
-              },
-              fmt::format("Staging buffer for image '{}'", info.name)),
-          "Failed to create staging buffer for image transfer");
+      VKH_MAKE(b,
+               AddressedAllocatedBuffer::create(
+                   m.vkcore.device.logical, m.vkcore.allocator,
+                   {
+                       .size = sz,
+                       .usage = vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                   },
+                   {
+                       .flags = vma::AllocationCreateFlagBits::eMapped | vma::AllocationCreateFlagBits::eHostAccessSequentialWrite,
+                       .usage = vma::MemoryUsage::eAuto,
+                   },
+                   fmt::format("Staging buffer for image '{}'", info.name)),
+               "Failed to create staging buffer for image transfer");
       stagingBuffers.emplace_back(b);
     }
 
@@ -405,8 +321,7 @@ namespace kt::vkh {
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = 1,
     };
-    VK_MAKE(cmdBufs, m.vkcore.device.logical.allocateCommandBuffers(allocInfo),
-            "Failed to allocate command buffer for image transfer");
+    VK_MAKE(cmdBufs, m.vkcore.device.logical.allocateCommandBuffers(allocInfo), "Failed to allocate command buffer for image transfer");
     auto& cmdBuf = cmdBufs[0];
 
     cmdBuf.begin(vk::CommandBufferBeginInfo{
@@ -419,12 +334,9 @@ namespace kt::vkh {
       vk::Format vkFormat = from(info.format);
 
       vk::ImageCreateInfo imageCreateInfo{
-          .imageType =
-              info.size.z == 1 ? vk::ImageType::e2D : vk::ImageType::e3D,
+          .imageType = info.size.z == 1 ? vk::ImageType::e2D : vk::ImageType::e3D,
           .format = vkFormat,
-          .extent = {.width = info.size.x,
-                     .height = info.size.y,
-                     .depth = info.size.z},
+          .extent = {.width = info.size.x, .height = info.size.y, .depth = info.size.z},
           .mipLevels = info.mipLevels,
           .arrayLayers = 1,
           .samples = vk::SampleCountFlagBits::e1,
@@ -441,8 +353,7 @@ namespace kt::vkh {
           };
 
       auto imageViewCreateInfo = vk::ImageViewCreateInfo{
-          .viewType = info.size.z == 1 ? vk::ImageViewType::e2D
-                                       : vk::ImageViewType::e3D,
+          .viewType = info.size.z == 1 ? vk::ImageViewType::e2D : vk::ImageViewType::e3D,
           .format = imageCreateInfo.format,
           .subresourceRange =
               {
@@ -455,39 +366,35 @@ namespace kt::vkh {
       };
 
       VKH_MAKE(img,
-               AllocatedImage::create(
-                   m.vkcore.allocator, m.vkcore.device.logical, imageCreateInfo,
-                   allocCreateInfo, imageViewCreateInfo, true, info.name),
+               AllocatedImage::create(m.vkcore.allocator, m.vkcore.device.logical, imageCreateInfo, allocCreateInfo, imageViewCreateInfo,
+                                      true, info.name),
                "Failed to create texture image");
 
 #ifndef NDEBUG
       VkImage vkImage = img.image;
       VkImageView vkImageView = img.view;
-      m.vkcore.device.logical.setDebugUtilsObjectNameEXT(
-          vk::DebugUtilsObjectNameInfoEXT{
-              .objectType = vk::ObjectType::eImage,
-              .objectHandle = reinterpret_cast<uint64_t>(vkImage),
-              .pObjectName = info.name.c_str(),
-          });
+      m.vkcore.device.logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+          .objectType = vk::ObjectType::eImage,
+          .objectHandle = reinterpret_cast<uint64_t>(vkImage),
+          .pObjectName = info.name.c_str(),
+      });
 
       std::string viewName = info.name + "_view";
 
-      m.vkcore.device.logical.setDebugUtilsObjectNameEXT(
-          vk::DebugUtilsObjectNameInfoEXT{
-              .objectType = vk::ObjectType::eImageView,
-              .objectHandle = reinterpret_cast<uint64_t>(vkImageView),
-              .pObjectName = viewName.c_str(),
-          });
+      m.vkcore.device.logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+          .objectType = vk::ObjectType::eImageView,
+          .objectHandle = reinterpret_cast<uint64_t>(vkImageView),
+          .pObjectName = viewName.c_str(),
+      });
 #endif
 
-      std::shared_ptr ptr = std::make_shared<vkh::Texture>(
-          m.vkcore.allocator, m.vkcore.device.logical, img, info.size,
-          info.format, info.mipLevels
+      std::shared_ptr ptr =
+          std::make_shared<vkh::Texture>(m.vkcore.allocator, m.vkcore.device.logical, img, info.size, info.format, info.mipLevels
 #ifdef KT_ADD_RESOURCE_INFO
-          ,
-          info.name, info.usage
+                                         ,
+                                         info.name, info.usage
 #endif
-      );
+          );
 
       ptr->setIndex(m.nextTextureIndex++);
       for (auto& u : m.textureDescriptorsToUpdate) {
@@ -585,13 +492,11 @@ namespace kt::vkh {
     bufs.reserve(stagingBuffers.size());
 
     for (auto& stagingBuf : stagingBuffers) {
-      auto buffer =
-          std::make_shared<vkh::Buffer>(m.vkcore.allocator, stagingBuf);
+      auto buffer = std::make_shared<vkh::Buffer>(m.vkcore.allocator, stagingBuf);
       bufs.push_back(buffer);
     }
 
-    CmdBufPtr cmdBuffer = std::make_unique<vkh::CommandBuffer>(
-        std::move(cmdBuf), CmdBufType::Compute);
+    CmdBufPtr cmdBuffer = std::make_unique<vkh::CommandBuffer>(std::move(cmdBuf), CmdBufType::Compute);
 
     std::vector<SubmitInfo> submitInfos;
     submitInfos.push_back({
@@ -605,8 +510,7 @@ namespace kt::vkh {
     return std::move(images);
   }
 
-  std::expected<std::vector<ImgPtr>, std::string>
-  RendererBackend::createImages(const std::vector<ImageUploadInfo>& infos) {
+  std::expected<std::vector<ImgPtr>, std::string> RendererBackend::createImages(const std::vector<ImageUploadInfo>& infos) {
     std::vector<ImageCreateInfo> createInfos;
     createInfos.reserve(infos.size());
 
@@ -639,8 +543,7 @@ namespace kt::vkh {
     return createImages(createInfos);
   }
 
-  std::expected<SamplerPtr, std::string>
-  RendererBackend::createSampler(const SamplerCreateInfo& info) {
+  std::expected<SamplerPtr, std::string> RendererBackend::createSampler(const SamplerCreateInfo& info) {
     vk::SamplerCreateInfo samplerInfo{
         .magFilter = from(info.magFilter),
         .minFilter = from(info.minFilter),
@@ -655,15 +558,12 @@ namespace kt::vkh {
         .compareEnable = VK_FALSE,
     };
 
-    VK_MAKE(sampler, m.vkcore.device.logical.createSampler(samplerInfo),
-            "Failed to create texture sampler");
+    VK_MAKE(sampler, m.vkcore.device.logical.createSampler(samplerInfo), "Failed to create texture sampler");
 
     return std::make_shared<vkh::Sampler>(std::move(sampler));
   }
 
-  void RendererBackend::textureLayoutTransition(
-      const CmdBufPtr& cmdBuf,
-      const std::vector<TextureTransition>& transitions) {
+  void RendererBackend::textureLayoutTransition(const CmdBufPtr& cmdBuf, const std::vector<TextureTransition>& transitions) {
     std::vector<vk::ImageMemoryBarrier2> vkBarriers;
     vkBarriers.reserve(transitions.size());
 
@@ -684,10 +584,8 @@ namespace kt::vkh {
       vk::AccessFlags2 access{};
 
       if (isDepth || isStencil) {
-        stages |= vk::PipelineStageFlagBits2::eEarlyFragmentTests |
-                  vk::PipelineStageFlagBits2::eLateFragmentTests;
-        access |= vk::AccessFlagBits2::eDepthStencilAttachmentRead |
-                  vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+        stages |= vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests;
+        access |= vk::AccessFlagBits2::eDepthStencilAttachmentRead | vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
 
         if (isDepth && isStencil) {
           layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
@@ -698,8 +596,7 @@ namespace kt::vkh {
         }
       } else {
         stages |= vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-        access |= vk::AccessFlagBits2::eColorAttachmentRead |
-                  vk::AccessFlagBits2::eColorAttachmentWrite;
+        access |= vk::AccessFlagBits2::eColorAttachmentRead | vk::AccessFlagBits2::eColorAttachmentWrite;
         layout = vk::ImageLayout::eColorAttachmentOptimal;
       }
 
@@ -730,29 +627,27 @@ namespace kt::vkh {
         break;
       }
 
-      vk::ImageMemoryBarrier2 barrier{
-          .srcStageMask = srcStageMask,
-          .srcAccessMask = srcAccessMask,
-          .dstStageMask = dstStageMask,
-          .dstAccessMask = dstAccessMask,
-          .oldLayout = oldLayout,
-          .newLayout = newLayout,
-          .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-          .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-          .image = texture->getImage().image,
-          .subresourceRange = vk::ImageSubresourceRange{
-              .aspectMask = aspectFromFormat(texture->getFormat()),
-              .baseMipLevel = 0,
-              .levelCount = texture->getMipLevels(),
-              .baseArrayLayer = 0,
-              .layerCount = 1,
-          }};
+      vk::ImageMemoryBarrier2 barrier{.srcStageMask = srcStageMask,
+                                      .srcAccessMask = srcAccessMask,
+                                      .dstStageMask = dstStageMask,
+                                      .dstAccessMask = dstAccessMask,
+                                      .oldLayout = oldLayout,
+                                      .newLayout = newLayout,
+                                      .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                      .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                      .image = texture->getImage().image,
+                                      .subresourceRange = vk::ImageSubresourceRange{
+                                          .aspectMask = aspectFromFormat(texture->getFormat()),
+                                          .baseMipLevel = 0,
+                                          .levelCount = texture->getMipLevels(),
+                                          .baseArrayLayer = 0,
+                                          .layerCount = 1,
+                                      }};
 
       vkBarriers.push_back(barrier);
     }
 
-    vk::raii::CommandBuffer& graphicsCmdBuffer =
-        dynamic_cast<vkh::CommandBuffer*>(cmdBuf.get())->get();
+    vk::raii::CommandBuffer& graphicsCmdBuffer = dynamic_cast<vkh::CommandBuffer*>(cmdBuf.get())->get();
 
     graphicsCmdBuffer.pipelineBarrier2(vk::DependencyInfo{
         .imageMemoryBarrierCount = static_cast<uint32_t>(vkBarriers.size()),
@@ -761,13 +656,10 @@ namespace kt::vkh {
   }
 
   void RendererBackend::loadImGuiImageHandle(ImgPtr& texture) {
-    vkh::Texture& vkTexture =
-        *std::dynamic_pointer_cast<vkh::Texture>(texture).get();
+    vkh::Texture& vkTexture = *std::dynamic_pointer_cast<vkh::Texture>(texture).get();
 
-    auto handle = ImGui_ImplVulkan_AddTexture(
-        *m.imGuiObjects->sampler,
-        static_cast<VkImageView>(vkTexture.getImage().view),
-        static_cast<VkImageLayout>(vk::ImageLayout::eShaderReadOnlyOptimal));
+    auto handle = ImGui_ImplVulkan_AddTexture(*m.imGuiObjects->sampler, static_cast<VkImageView>(vkTexture.getImage().view),
+                                              static_cast<VkImageLayout>(vk::ImageLayout::eShaderReadOnlyOptimal));
 
     texture->setImGuiHandle(handle);
   }

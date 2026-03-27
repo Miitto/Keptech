@@ -1,12 +1,8 @@
 #pragma once
 
-#include "keptech/renderer.hpp"
 #include <keptech/core/layers/layerStack.hpp>
 #include <keptech/core/window.hpp>
-
-#ifdef KEPTECH_RENDERER_VULKAN
-#include <keptech/vulkan/renderer.hpp>
-#endif
+#include <keptech/rendering/renderer.hpp>
 
 namespace kt {
   struct SetupInfo {
@@ -16,7 +12,5 @@ namespace kt {
 
   // To be defined by the application
   [[nodiscard]] SetupInfo configureApp();
-  std::expected<void, std::string>
-  setupAppLayers(core::layers::LayerStack& layerStack,
-                 core::window::Window& window, Renderer& renderer);
+  std::expected<void, std::string> setupAppLayers(core::layers::LayerStack& layerStack, core::window::Window& window, Renderer& renderer);
 } // namespace kt

@@ -1,7 +1,8 @@
 ---
-# We'll use defaults from the LLVM style, but with 4 columns indentation.
+# We'll use defaults from the LLVM style
 BasedOnStyle: LLVM
 IndentWidth: 2
+ColumnLimit: 140
 ---
 Language: Cpp
 # Force pointers to the type for C++.

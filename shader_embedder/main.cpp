@@ -78,8 +78,7 @@ int main(int argc, char** argv) {
 
   out << "#pragma once\n\n#include <keptech/shaders/shader.h>\n";
 
-  out << "keptech::shaders::Shader " << name << "{ .name = \"" << name
-      << "\",\n .file = \"" << inputFile << "\",\n .code = {\n";
+  out << "kt::shaders::Shader " << name << "{ .name = \"" << name << "\",\n .file = \"" << inputFile << "\",\n .code = {\n";
   for (size_t i = 0; i < shader.code.size(); ++i) {
     if (i % 96 == 0) {
       out << "\n    ";
@@ -89,13 +88,12 @@ int main(int argc, char** argv) {
       out << ", ";
     }
   }
-  out << "\n},\n .mode = static_cast<keptech::shaders::RenderingMode>("
-      << std::dec << static_cast<uint32_t>(shader.mode) << "),\n .stages = {\n";
+  out << "\n},\n .mode = static_cast<kt::shaders::RenderingMode>(" << std::dec << static_cast<uint32_t>(shader.mode)
+      << "),\n .stages = {\n";
 
   for (auto& stage : shader.stages) {
-    out << "{.name = \"" << stage.name
-        << "\", .stage = static_cast<keptech::shaders::ShaderStages>("
-        << std::dec << static_cast<uint32_t>(stage.stage) << ")},\n";
+    out << "{.name = \"" << stage.name << "\", .stage = static_cast<kt::shaders::ShaderStages>(" << std::dec
+        << static_cast<uint32_t>(stage.stage) << ")},\n";
   }
 
   out << "\n},\n .vertexLayout = {\n";
@@ -103,8 +101,7 @@ int main(int argc, char** argv) {
   for (auto& layout : shader.vertexLayout) {
     out << "{\n";
     for (auto& type : layout) {
-      out << "    static_cast<keptech::shaders::DataType>(" << std::dec
-          << static_cast<uint32_t>(type) << "),\n";
+      out << "    static_cast<kt::shaders::DataType>(" << std::dec << static_cast<uint32_t>(type) << "),\n";
     }
     out << "},\n";
   }

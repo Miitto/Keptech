@@ -1,12 +1,16 @@
 #include "keptech/app.hpp"
-#include "keptech/core/gui.h"
 
+#include "keptech/core/gui.h"
 #include "keptech/input.hpp"
 #include <expected>
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/imgui.h>
 #include <keptech/core/kt-logger.hpp>
 #include <string>
+
+#ifdef KEPTECH_RENDERER_VULKAN
+#include <keptech/vulkan/renderer.hpp>
+#endif
 
 using namespace kt;
 
@@ -20,8 +24,7 @@ int main() {
   bool exitCleanly = false;
   {
     KT_DEBUG("Creating renderer");
-    std::expected<Renderer, std::string> rendererRes =
-        Renderer::create(info.renderer, window);
+    std::expected<Renderer, std::string> rendererRes = Renderer::create(info.renderer, window);
     if (!rendererRes) {
       KT_CRITICAL("Failed to create renderer: {}", rendererRes.error());
       return -1;
@@ -40,9 +43,8 @@ int main() {
 
     auto& io = ImGui::GetIO();
 
-    io.ConfigFlags |=
-        ImGuiConfigFlags_NavEnableKeyboard | // Enable Keyboard Controls
-        ImGuiConfigFlags_DockingEnable;      // Enable Docking
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | // Enable Keyboard Controls
+                      ImGuiConfigFlags_DockingEnable;      // Enable Docking
 
     // Any UP event is not included, as it's preferable to handle them
     // regardless of if ImGui wants input.
@@ -99,27 +101,23 @@ int main() {
 
     auto now = std::chrono::high_resolution_clock::now();
 
-    keptech::core::window::Event event;
+    kt::core::window::Event event;
     while (true) {
       KT_TRACE("Starting frame");
       auto newTime = std::chrono::high_resolution_clock::now();
 
-      float dt =
-          std::chrono::duration<float, std::chrono::milliseconds::period>(
-              newTime - now)
-              .count();
+      float dt = std::chrono::duration<float, std::chrono::milliseconds::period>(newTime - now).count();
 
       now = newTime;
       while (window.pollEvent(event)) {
         ImGui_ImplSDL3_ProcessEvent(&event);
-        if ((io.WantCaptureKeyboard && isKeyboardEvent(event)) ||
-            (io.WantCaptureMouse && isMouseEvent(event))) {
+        if ((io.WantCaptureKeyboard && isKeyboardEvent(event)) || (io.WantCaptureMouse && isMouseEvent(event))) {
           KT_TRACE("Event sent to ImGui");
           continue;
         }
         inputProcessEvent(event);
 
-        auto eventPtr = keptech::core::events::sdlEventToKeptechEvent(event);
+        auto eventPtr = kt::core::events::sdlEventToKeptechEvent(event);
         if (eventPtr.get() == nullptr) {
           continue;
         }
@@ -136,7 +134,7 @@ int main() {
 
       layerStack.onUpdate(dt);
 
-      keptech::gui::Frame::processInputPassthrough();
+      kt::gui::Frame::processInputPassthrough();
 
       renderer.render();
 

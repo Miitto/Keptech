@@ -1,12 +1,12 @@
 #include "keptech/vulkan/helpers/queueFinder.hpp"
 
+#include "macros.hpp"
 #include "vk-logger.hpp"
+#include <expected>
 
 namespace kt::vkh {
 
-  [[nodiscard]] auto
-  QueueFinder::find(const std::function<bool(QueueFamily)>& finder) const
-      -> QueueFinder {
+  [[nodiscard]] auto QueueFinder::find(const std::function<bool(QueueFamily)>& finder) const -> QueueFinder {
     auto filtered = std::vector<QueueFinder::QueueFamily>{};
 
     for (const auto& queueFamily : queueFamilyProperties) {
@@ -18,41 +18,40 @@ namespace kt::vkh {
     return {std::move(filtered)};
   }
 
-  [[nodiscard]] auto QueueFinder::findType(const QueueType type) const
-      -> QueueFinder {
+  [[nodiscard]] auto QueueFinder::findType(const QueueType type) const -> QueueFinder {
     auto filtered = std::vector<QueueFinder::QueueFamily>{};
 
     for (auto& queueFamily : queueFamilyProperties) {
       switch (type.type) {
       case QueueTypeFlags::Graphics: {
-        if (queueFamily.properties.queueFlags & vk::QueueFlagBits::eGraphics) {
+        if (queueFamily.properties.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
           filtered.push_back(queueFamily);
         }
         break;
       }
       case QueueTypeFlags::Transfer: {
-        if (queueFamily.properties.queueFlags & vk::QueueFlagBits::eTransfer) {
+        if (queueFamily.properties.queueFlags & VK_QUEUE_TRANSFER_BIT) {
           filtered.push_back(queueFamily);
         }
         break;
       }
       case QueueTypeFlags::Compute: {
-        if (queueFamily.properties.queueFlags & vk::QueueFlagBits::eCompute) {
+        if (queueFamily.properties.queueFlags & VK_QUEUE_COMPUTE_BIT) {
           filtered.push_back(queueFamily);
         }
         break;
       }
       case QueueTypeFlags::Present: {
-        auto res = type.params.presentQueue.device.getSurfaceSupportKHR(
-            queueFamily.index, type.params.presentQueue.surface);
+        VkBool32 supported = false;
+        auto res = vkGetPhysicalDeviceSurfaceSupportKHR(type.params.presentQueue.device, queueFamily.index,
+                                                        type.params.presentQueue.surface, &supported);
 
-        if (res.result != vk::Result::eSuccess) {
-          VK_ERROR("Failed to query present support for queue family {}: {}",
-                   queueFamily.index, vk::to_string(res.result));
+        if (res != VK_SUCCESS) {
+          VK_ERROR("Failed to query present support for queue family {}", queueFamily.index);
           continue;
         }
 
-        if (res.value) {
+        if (supported) {
           filtered.push_back(queueFamily);
         }
         break;
@@ -63,9 +62,7 @@ namespace kt::vkh {
     return {std::move(filtered)};
   }
 
-  [[nodiscard]] auto
-  QueueFinder::findCombined(const std::vector<QueueType>& types) const
-      -> QueueFinder {
+  [[nodiscard]] auto QueueFinder::findCombined(const std::vector<QueueType>& types) const -> QueueFinder {
     QueueFinder finder = *this;
 
     for (const auto& type : types) {
@@ -79,8 +76,7 @@ namespace kt::vkh {
     std::vector<QueueFinder::QueueFamily> filtered{};
 
     for (auto& queueFamily : queueFamilyProperties) {
-      const uint8_t vkFlags =
-          static_cast<uint32_t>(queueFamily.properties.queueFlags);
+      const uint8_t vkFlags = static_cast<uint32_t>(queueFamily.properties.queueFlags);
       if ((type & vkFlags) == 0) {
         filtered.push_back(queueFamily);
       }

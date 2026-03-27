@@ -1,6 +1,6 @@
 #pragma once
 
-#include <keptech/core/components/name.hpp>
+#include <keptech/components/name.hpp>
 #include <keptech/ecs/entity.hpp>
 
 namespace kt {
@@ -17,16 +17,12 @@ namespace kt {
       return entity;
     }
 
-    void useCamera(ecs::EntityHandle cameraEntity) {
-      activeCamera = cameraEntity;
-    }
+    void useCamera(ecs::EntityHandle cameraEntity) { activeCamera = cameraEntity; }
 
     [[nodiscard]] ecs::Entity getActiveCamera() { return {activeCamera, ecs}; }
 
-    template <typename Component, typename FRef>
-    static void registerComponentFunctions(const char* functionName) {
-      entt::meta_factory<Component>().template func<FRef>(
-          entt::hashed_string(functionName));
+    template <typename Component, typename FRef> static void registerComponentFunctions(const char* functionName) {
+      entt::meta_factory<Component>().template func<FRef>(entt::hashed_string(functionName));
     }
 
   private:

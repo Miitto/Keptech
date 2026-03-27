@@ -1,73 +1,83 @@
 #include <keptech/vulkan/structs.hpp>
 
+#include <set>
 #include <spdlog/fmt/bundled/ranges.h>
 
 #include "macros.hpp"
 
 namespace kt::vkh {
-  std::expected<AllocatedImage, std::string>
-  AllocatedImage::create(vma::Allocator& allocator,
-                         const vk::raii::Device& device,
-                         const vk::ImageCreateInfo& imgInfo,
-                         const vma::AllocationCreateInfo& allocInfo,
-                         vk::ImageViewCreateInfo viewInfo, bool useSameFormat,
-                         std::optional<std::string> name) {
-    vma::AllocationInfo aInfo = {};
-    VMA_MAKE(image, allocator.createImage(imgInfo, allocInfo, aInfo),
-             "Failed to create allocated image");
+  void Pools::resetAll(VkDevice device) {
+    std::set<VkCommandPool> unique{
+        &graphics.pool,
+        &compute.pool,
+    };
+    for (auto& pool : unique) {
+      vkResetCommandPool(device, pool, 0);
+    }
+  }
+  std::expected<AllocatedImage, std::string> AllocatedImage::create(const VmaAllocator& allocator, const VkDevice& device,
+                                                                    const VkImageCreateInfo& imgInfo,
+                                                                    const VmaAllocationCreateInfo& allocInfo,
+                                                                    VkImageViewCreateInfo viewInfo, bool useSameFormat,
+                                                                    std::optional<std::string> name) {
+    VmaAllocation alloc;
+    VmaAllocationInfo aInfo = {};
+    VkImage image;
+    VK_MAKE(vmaCreateImage(allocator, &imgInfo, &allocInfo, &image, &alloc, &aInfo), "Failed to create allocated image");
 
-    if (name.has_value())
-      allocator.setAllocationName(image.second, name->c_str());
-
-    viewInfo.image = image.first;
+    viewInfo.image = image;
     if (useSameFormat) {
       viewInfo.format = imgInfo.format;
     }
 
-    VK_MAKE(viewRaii, device.createImageView(viewInfo),
-            "Failed to create image view for allocated image");
+    VkImageView view;
+    VK_MAKE(vkCreateImageView(device, &viewInfo, nullptr, &view), "Failed to create image view for allocated image");
 
-    vk::ImageView view = viewRaii.release();
+    if (name.has_value()) {
+      vmaSetAllocationName(allocator, alloc, name->c_str());
+
+      VkDebugUtilsObjectNameInfoEXT imageNameInfo{
+          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+          .objectType = VkObjectType::VK_OBJECT_TYPE_IMAGE,
+          .objectHandle = reinterpret_cast<uint64_t>(image),
+          .pObjectName = name->c_str(),
+      };
+      vkSetDebugUtilsObjectNameEXT(device, &imageNameInfo);
+    }
 
     return AllocatedImage{
-        .image = image.first,
+        .image = image,
         .view = view,
-        .alloc = image.second,
+        .alloc = alloc,
         .extent = imgInfo.extent,
         .format = imgInfo.format,
     };
   }
 
-  void AllocatedImage::destroy(vma::Allocator& allocator,
-                               const vk::raii::Device& d) {
+  void AllocatedImage::destroy(const VmaAllocator& allocator, const VkDevice& d) {
     if (image) {
-      allocator.destroyImage(image, alloc);
-      d.getDispatcher()->vkDestroyImageView(
-          static_cast<VkDevice>(*d), static_cast<VkImageView>(view), nullptr);
+      vmaDestroyImage(allocator, image, alloc);
+      vkDestroyImageView(d, view, nullptr);
       image = nullptr;
       view = nullptr;
       alloc = nullptr;
     }
   }
 
-  std::expected<AllocatedBuffer, std::string>
-  AllocatedBuffer::create(vma::Allocator& allocator,
-                          const vk::BufferCreateInfo& bufInfo,
-                          const vma::AllocationCreateInfo& allocInfo,
-                          const std::optional<std::string>& name) {
-    vma::AllocationInfo aInfo = {};
-    VMA_MAKE(buffer, allocator.createBuffer(bufInfo, allocInfo, aInfo),
-             "Failed to create allocated buffer");
-
-    if (name.has_value())
-      allocator.setAllocationName(buffer.second, name->c_str());
+  std::expected<AllocatedBuffer, std::string> AllocatedBuffer::create(const VmaAllocator& allocator, VkDevice device,
+                                                                      const VkBufferCreateInfo& bufInfo,
+                                                                      const VmaAllocationCreateInfo& allocInfo,
+                                                                      const std::optional<std::string>& name) {
+    VkBuffer buffer;
+    VmaAllocation alloc;
+    VmaAllocationInfo aInfo = {};
+    VK_MAKE(vmaCreateBuffer(allocator, &bufInfo, &allocInfo, &buffer, &alloc, &aInfo), "Failed to create allocated buffer");
 
 #ifndef NDEBUG
-    auto props = allocator.getAllocationMemoryProperties(buffer.second);
-    bool isHostVisible = (props & vk::MemoryPropertyFlagBits::eHostVisible) !=
-                         vk::MemoryPropertyFlags();
-    bool deviceLocal = (props & vk::MemoryPropertyFlagBits::eDeviceLocal) !=
-                       vk::MemoryPropertyFlags();
+    VkMemoryPropertyFlags props;
+    vmaGetAllocationMemoryProperties(allocator, alloc, &props);
+    bool isHostVisible = (props & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
+    bool deviceLocal = (props & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0;
     bool mapped = aInfo.pMappedData != nullptr;
 
     std::vector<std::string> flags;
@@ -78,26 +88,33 @@ namespace kt::vkh {
     if (mapped)
       flags.emplace_back("Mapped");
 
-    VK_DEBUG("Created buffer [{}] with size {} bytes. {}", name.value_or(""),
-             aInfo.size, fmt::join(flags, ", "));
+    VK_DEBUG("Created buffer [{}] with size {} bytes. {}", name.value_or(""), aInfo.size, fmt::join(flags, ", "));
 #endif
 
+    if (name.has_value()) {
+      vmaSetAllocationName(allocator, alloc, name->c_str());
+
+      VkDebugUtilsObjectNameInfoEXT bufferNameInfo{
+          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+          .objectType = VkObjectType::VK_OBJECT_TYPE_BUFFER,
+          .objectHandle = reinterpret_cast<uint64_t>(buffer),
+          .pObjectName = name->c_str(),
+      };
+      vkSetDebugUtilsObjectNameEXT(device, &bufferNameInfo);
+    }
+
     return AllocatedBuffer{
-        .buffer = buffer.first,
-        .alloc = buffer.second,
+        .buffer = buffer,
+        .alloc = alloc,
         .allocInfo = aInfo,
     };
   }
 
   std::expected<AddressedAllocatedBuffer, std::string>
-  AddressedAllocatedBuffer::create(const vk::raii::Device& device,
-                                   vma::Allocator& allocator,
-                                   const vk::BufferCreateInfo& bufInfo,
-                                   const vma::AllocationCreateInfo& allocInfo,
-                                   const std::optional<std::string>& name) {
+  AddressedAllocatedBuffer::create(const VkDevice& device, const VmaAllocator& allocator, const VkBufferCreateInfo& bufInfo,
+                                   const VmaAllocationCreateInfo& allocInfo, const std::optional<std::string>& name) {
 
-    auto allocatedBufferRes =
-        AllocatedBuffer::create(allocator, bufInfo, allocInfo, name);
+    auto allocatedBufferRes = AllocatedBuffer::create(allocator, device, bufInfo, allocInfo, name);
     if (!allocatedBufferRes) {
       return std::unexpected(allocatedBufferRes.error());
     }
@@ -106,10 +123,9 @@ namespace kt::vkh {
   }
 
   std::expected<AddressedAllocatedBuffer, std::string>
-  AddressedAllocatedBuffer::fromAllocatedBuffer(
-      const vk::raii::Device& device, const AllocatedBuffer& allocatedBuffer) {
-    vk::BufferDeviceAddressInfo addressInfo{.buffer = allocatedBuffer.buffer};
-    vk::DeviceAddress address = device.getBufferAddress(addressInfo);
+  AddressedAllocatedBuffer::fromAllocatedBuffer(const VkDevice& device, const AllocatedBuffer& allocatedBuffer) {
+    VkBufferDeviceAddressInfo addrVknfo{.buffer = allocatedBuffer.buffer};
+    VkDeviceAddress address = vkGetBufferDeviceAddress(device, &addrVknfo);
 
     AddressedAllocatedBuffer buf{
         .address = address,

@@ -4,11 +4,9 @@
 #include <spdlog/fmt/bundled/printf.h>
 #include <string_view>
 
-#define VMA_DEBUG_LOG_FORMAT(format, ...)                                      \
-  vmaLog(fmt::sprintf(format, ##__VA_ARGS__));
+#define VMA_DEBUG_LOG_FORMAT(format, ...) vmaLog(fmt::sprintf(format, ##__VA_ARGS__));
 
-#define VMA_LEAK_LOG_FORMAT(format, ...)                                       \
-  vmaMemLeak(fmt::sprintf(format, ##__VA_ARGS__));
+#define VMA_LEAK_LOG_FORMAT(format, ...) vmaMemLeak(fmt::sprintf(format, ##__VA_ARGS__));
 
 namespace {
   void vmaLog(std::string_view str) {
@@ -20,5 +18,3 @@ namespace {
     // For break
   }
 } // namespace
-
-#include "vk_mem_alloc.hpp"

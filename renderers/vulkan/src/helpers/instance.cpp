@@ -11,31 +11,22 @@
 
 namespace kt::vkh {
 
-  VkBool32 debug_utils_messenger_callback(
-      VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-      VkDebugUtilsMessageTypeFlagsEXT message_type,
-      const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
-      void* user_data) {
-    if (message_severity &
-        VkDebugUtilsMessageSeverityFlagBitsEXT::
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-      VK_WARN("{} - {}: {}", callback_data->messageIdNumber,
-              callback_data->pMessageIdName, callback_data->pMessage);
-    } else if (message_severity &
-               VkDebugUtilsMessageSeverityFlagBitsEXT::
-                   VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-      VK_ERROR("{} - {}: {}", callback_data->messageIdNumber,
-               callback_data->pMessageIdName, callback_data->pMessage);
+  VkBool32 debug_utils_messenger_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+                                          VkDebugUtilsMessageTypeFlagsEXT message_type,
+                                          const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* user_data) {
+    if (message_severity & VkDebugUtilsMessageSeverityFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+      VK_WARN("{} - {}: {}", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
+    } else if (message_severity & VkDebugUtilsMessageSeverityFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+      VK_ERROR("{} - {}: {}", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
     }
     return VK_FALSE;
   }
 
-  auto createInstance(const char* appName, const bool enableValidationLayers,
-                      const std::span<const char* const> extraExtensions,
-                      const std::span<const char* const> extraLayers)
-      -> std::expected<VkInstance, std::string> {
+  auto createInstance(const char* appName, const bool enableValidationLayers, const std::span<const char* const> extraExtensions,
+                      const std::span<const char* const> extraLayers) -> std::expected<VkInstance, std::string> {
     VK_TRACE("Creating Instance");
     auto appInfo = VkApplicationInfo{
+        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = appName,
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
         .pEngineName = "No Engine",
@@ -47,8 +38,7 @@ namespace kt::vkh {
     auto extensionsSDL = SDL_Vulkan_GetInstanceExtensions(&extCnt);
 
     std::vector<const char*> extensions{extensionsSDL, extensionsSDL + extCnt};
-    extensions.insert(extensions.end(), extraExtensions.begin(),
-                      extraExtensions.end());
+    extensions.insert(extensions.end(), extraExtensions.begin(), extraExtensions.end());
 
 #ifndef NDEBUG
     extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
@@ -93,32 +83,29 @@ namespace kt::vkh {
     }
 
     auto iCreateInfo = VkInstanceCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &appInfo,
         .enabledLayerCount = static_cast<uint32_t>(layerNames.size()),
         .ppEnabledLayerNames = layerNames.data(),
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
-        .ppEnabledExtensionNames = extensions.data()};
+        .ppEnabledExtensionNames = extensions.data(),
+    };
 
 #ifndef NDEBUG
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{
-        .messageSeverity = VkDebugUtilsMessageSeverityFlagBitsEXT::
-                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                           VkDebugUtilsMessageSeverityFlagBitsEXT::
-                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-        .messageType = VkDebugUtilsMessageTypeFlagBitsEXT::
-                           VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                       VkDebugUtilsMessageTypeFlagBitsEXT::
-                           VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                       VkDebugUtilsMessageTypeFlagBitsEXT::
-                           VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+        .messageSeverity = VkDebugUtilsMessageSeverityFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                           VkDebugUtilsMessageSeverityFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+        .messageType = VkDebugUtilsMessageTypeFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                       VkDebugUtilsMessageTypeFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                       VkDebugUtilsMessageTypeFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
         .pfnUserCallback = debug_utils_messenger_callback,
     };
     iCreateInfo.pNext = &debugCreateInfo;
 #endif
 
     VkInstance instance;
-    VK_MAKE(vkCreateInstance(&iCreateInfo, nullptr, &instance),
-            "Failed to create Vulkan Instance");
+    VK_MAKE(vkCreateInstance(&iCreateInfo, nullptr, &instance), "Failed to create Vulkan Instance");
 
     return instance;
   }

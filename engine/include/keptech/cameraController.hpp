@@ -1,8 +1,8 @@
 #pragma once
 
+#include <keptech/components/camera.hpp>
+#include <keptech/components/transform.hpp>
 #include <keptech/core/base.hpp>
-#include <keptech/core/components/camera.hpp>
-#include <keptech/core/components/transform.hpp>
 #include <keptech/core/events/event.hpp>
 #include <keptech/core/scene.hpp>
 #include <keptech/ecs/entity.hpp>
@@ -23,8 +23,7 @@ namespace kt {
       if (!cameraEntity.isValid())
         return false;
 
-      return cameraEntity
-          .hasAllComponents<components::Transform, components::Camera>();
+      return cameraEntity.hasAllComponents<components::Transform, components::Camera>();
     }
 
     bool attachTo(ecs::Entity entity) {

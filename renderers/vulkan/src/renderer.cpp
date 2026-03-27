@@ -3,30 +3,21 @@
 #include "keptech/core/moveGuard.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include "macros.hpp"
-#include "vulkan/vulkan.hpp"
-#include <keptech/core/maths/maths.hpp>
+#include "vulkan/vulkan.h"
+#include <keptech/maths/maths.hpp>
 
-#include "setup/imgui.hpp"
+#include "setup/setup.hpp"
 #include "vk-logger.hpp"
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
-#include <keptech/core/components/camera.hpp>
+#include <keptech/components/camera.hpp>
 #include <keptech/core/window.hpp>
 #include <set>
-#include <vk_mem_alloc_enums.hpp>
 
 namespace kt::vkh {
 
-  void Renderer::Pools::resetAll() {
-    std::set<vk::raii::CommandPool*> unique{
-        &graphics.get()->pool,
-        &compute.get()->pool,
-    };
-    for (auto& pool : unique) {
-      pool->reset();
-    }
-  }
+  static_assert(CRenderer<Renderer>, "Renderer does not satisfy CRenderer concept");
 
   void Renderer::initImGui() {
     auto res = setup::setupImGui(*m.window, m.vkcore);
@@ -41,13 +32,10 @@ namespace kt::vkh {
     ImGui_ImplVulkan_NewFrame();
     auto& perFrame = m.vkcore.perFrame[m.frameInfo.index];
 
-    auto nextImageRes =
-        m.vkcore.swapchain.getNextImage(m.vkcore.device, perFrame.inFlightFence,
-                                        perFrame.imageAvailableSemaphore);
+    auto nextImageRes = m.vkcore.swapchain.getNextImage(m.vkcore.device, perFrame.inFlightFence, perFrame.imageAvailableSemaphore);
 
     if (!nextImageRes) {
-      VK_CRITICAL("Failed to acquire next swapchain image: {}",
-                  nextImageRes.error());
+      VK_CRITICAL("Failed to acquire next swapchain image: {}", nextImageRes.error());
       abort();
     }
     auto [imageIndex, swapchainState] = nextImageRes.value();
@@ -71,96 +59,91 @@ namespace kt::vkh {
     }
   }
 
-  std::expected<CmdBufPtr, std::string> Renderer::startFrame() {
-    vk::Result res = vk::Result::eTimeout;
+  std::expected<VkCommandBuffer, std::string> Renderer::startFrame() {
+    VkResult res = VkResult::VK_TIMEOUT;
     uint64_t waitValue = m.frameInfo.perFrame->timelineValue;
 
-    bool logged = false;
-    while (res = m.vkcore.device->waitSemaphores(
-               vk::SemaphoreWaitInfo{
-                   .semaphoreCount = 1,
-                   .pSemaphores = &*m.frameInfo.perFrame->timelineSemaphore,
-                   .pValues = &waitValue,
-               },
-               0),
-           res == vk::Result::eTimeout) {
-      if (!logged)
-        VK_DEBUG("Waiting for timeline semaphore for frame {} (value {})",
-                 m.frameInfo.index, waitValue);
-      logged = true;
-
+    VkSemaphoreWaitInfo waitInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+        .semaphoreCount = 1,
+        .pSemaphores = &m.frameInfo.perFrame->timelineSemaphore,
+        .pValues = &waitValue,
+    };
+    ;
+    while (res = vkWaitSemaphores(m.vkcore.device.logical, &waitInfo, 0), res == VkResult::VK_TIMEOUT) {
       using namespace std::chrono_literals;
       std::this_thread::sleep_for(100ms);
     }
 
-    if (res != vk::Result::eSuccess) {
-      VK_CRITICAL("Failed to wait for command buffer semaphore: {}",
-                  vk::to_string(res));
+    if (res != VK_SUCCESS) {
+      VK_CRITICAL("Failed to wait for command buffer semaphore");
       abort();
     }
 
-    m.submittedCommandBuffers[m.frameInfo.index].clear();
-    m.frameInfo.perFrame->pools.resetAll();
+    m.frameInfo.perFrame->submittedCmds.clear();
+    m.frameInfo.perFrame->pools.resetAll(m.vkcore.device.logical);
 
-    auto& textureUpdates = m.textureDescriptorsToUpdate[m.frameInfo.index];
+    auto& textureUpdates = m.frameInfo.perFrame->texToUpdate;
     if (!textureUpdates.empty()) {
       auto& globalDescSet = m.globalDescriptorSets.sets[m.frameInfo.index];
-      std::vector<vk::DescriptorImageInfo> imageInfos;
+      std::vector<VkDescriptorImageInfo> imageInfos;
       imageInfos.reserve(textureUpdates.size());
-      std::vector<vk::WriteDescriptorSet> descriptorWrites;
+      std::vector<VkWriteDescriptorSet> descriptorWrites;
       descriptorWrites.reserve(textureUpdates.size());
       for (auto& update : textureUpdates) {
-        auto imageIndex = update->getIndex();
+        auto imageIndex = update.indexInDescriptorSet;
 
-        imageInfos.push_back({
-            .sampler = m.imGuiObjects->sampler,
-            .imageView = update->getImage().view,
-            .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+        imageInfos.push_back(VkDescriptorImageInfo{
+            .sampler = m.imGuiObjects.sampler,
+            .imageView = update.texture.view,
+            .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         });
 
-        descriptorWrites.push_back({
-            .dstSet = *globalDescSet,
+        descriptorWrites.push_back(VkWriteDescriptorSet{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = globalDescSet,
             .dstBinding = 1,
-            .dstArrayElement = imageIndex,
+            .dstArrayElement = static_cast<uint32_t>(imageIndex),
             .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .pImageInfo = &imageInfos.back(),
         });
       }
 
-      VK_DEBUG("Updating {} texture descriptors for frame {}",
-               descriptorWrites.size(), m.frameInfo.index);
-      m.vkcore.device->updateDescriptorSets(descriptorWrites, {});
+      VK_DEBUG("Updating {} texture descriptors for frame {}", descriptorWrites.size(), m.frameInfo.index);
+      vkUpdateDescriptorSets(m.vkcore.device.logical, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
       textureUpdates.clear();
     }
 
-    vk::CommandBufferAllocateInfo cmdBufAllocInfo{
-        .commandPool = *m.frameInfo.perFrame->pools.graphics.get()->pool,
-        .level = vk::CommandBufferLevel::ePrimary,
+    VkCommandBufferAllocateInfo cmdBufAllocInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = m.frameInfo.perFrame->pools.graphics.pool,
+        .level = VkCommandBufferLevel::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1,
     };
-    VK_MAKE(cmdBuffers,
-            m.vkcore.device->allocateCommandBuffers(cmdBufAllocInfo),
-            "Failed to allocate graphics command buffer");
-    auto cmdBuffer = std::move(cmdBuffers_res.value.front());
+    VkCommandBuffer cmdBuffer;
+    VK_MAKE(vkAllocateCommandBuffers(m.vkcore.device.logical, &cmdBufAllocInfo, &cmdBuffer), "Failed to allocate graphics command buffer");
 
-    cmdBuffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
+    VkCommandBufferBeginInfo beginInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    vkBeginCommandBuffer(cmdBuffer, &beginInfo);
 
-    vk::ImageMemoryBarrier2 barrier{
-        .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
-        .srcAccessMask = vk::AccessFlagBits2::eNone,
-        .dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-        .dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-        .oldLayout = vk::ImageLayout::eUndefined,
-        .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
+    VkImageMemoryBarrier2 barrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+        .srcAccessMask = VK_ACCESS_2_NONE,
+        .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+        .oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
         .subresourceRange =
-            vk::ImageSubresourceRange{
-                .aspectMask = vk::ImageAspectFlagBits::eColor,
+            VkImageSubresourceRange{
+                .aspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseMipLevel = 0,
                 .levelCount = 1,
                 .baseArrayLayer = 0,
@@ -168,79 +151,31 @@ namespace kt::vkh {
             },
     };
 
-    cmdBuffer.pipelineBarrier2(vk::DependencyInfo{
+    VkDependencyInfo dependencyInfo{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
         .imageMemoryBarrierCount = 1,
         .pImageMemoryBarriers = &barrier,
-    });
+    };
+    vkCmdPipelineBarrier2(cmdBuffer, &dependencyInfo);
 
-    return std::make_unique<CommandBuffer>(std::move(cmdBuffer),
-                                           CmdBufType::Graphics);
-  }
-  void
-  Renderer::writeCameraMatrices(const CmdBufPtr& cmdBuf,
-                                const components::Camera::Uniforms& uniforms) {
-    vk::raii::CommandBuffer& vkCmdBuf =
-        dynamic_cast<CommandBuffer*>(cmdBuf.get())->get();
-
-    size_t alignedSize =
-        maths::roundToAlignment(sizeof(components::Camera::Uniforms),
-                                m.limits.minUniformBufferOffsetAlignment);
-
-    size_t dstOffset = alignedSize * m.frameInfo.index;
-
-    // Check if can write to camera buffer. ReBAR etc.
-    if (m.cameraBuffer.mapping() != nullptr) {
-      memcpy(m.cameraBuffer.mapping() + dstOffset, &uniforms,
-             sizeof(components::Camera::Uniforms));
-      return;
-    }
-
-    auto res = AllocatedBuffer::create(
-        m.vkcore.allocator, {.usage = vk::BufferUsageFlagBits::eTransferSrc},
-        {.flags = vma::AllocationCreateFlagBits::eHostAccessSequentialWrite |
-                  vma::AllocationCreateFlagBits::eMapped},
-        "Camera Staging Buffer");
-
-    VK_ASSERT(res, "Failed to create camera staging buffer: {}", res.error());
-    if (!res) {
-      VK_ERROR("Failed to create camera staging buffer: {}", res.error());
-      return;
-    }
-
-    vkCmdBuf.copyBuffer(res.value().buffer, m.cameraBuffer.buffer,
-                        vk::BufferCopy{
-                            .srcOffset = 0,
-                            .dstOffset = dstOffset,
-                            .size = sizeof(components::Camera::Uniforms),
-                        });
+    return cmdBuffer;
   }
 
-  void Renderer::bindGlobalDescriptorSets(const CmdBufPtr& cmdBuf,
-                                          const IPipeline& pipeline,
-                                          Bitflag<shaders::ShaderStages>) {
-    CommandBuffer& vkCmdBuf = *dynamic_cast<CommandBuffer*>(cmdBuf.get());
-    const LoadedPipeline& vkPipeline =
-        static_cast<const LoadedPipeline&>(pipeline);
-
-    vkCmdBuf.get().bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, vkPipeline.pipelineLayout, 0,
-        {*m.globalDescriptorSets.sets[m.frameInfo.index]}, {});
-  }
-
-  void Renderer::renderImGui(const CmdBufPtr& cmdBuf) {
+  void Renderer::renderImGui(VkCommandBuffer cmdBuf) {
     ImGui::Render();
 
-    vk::RenderingAttachmentInfo aInfo{
+    VkRenderingAttachmentInfo aInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
         .imageView = m.vkcore.swapchain.nView(m.frameInfo.imageIndex),
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eLoad,
-        .storeOp = vk::AttachmentStoreOp::eStore,
+        .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
     };
 
-    vk::RenderingInfo renderingInfo{
+    VkRenderingInfo renderingInfo{
         .renderArea =
-            vk::Rect2D{
-                .offset = vk::Offset2D{.x = 0, .y = 0},
+            VkRect2D{
+                .offset = VkOffset2D{.x = 0, .y = 0},
                 .extent = m.vkcore.swapchain.config().extent,
             },
         .layerCount = 1,
@@ -248,11 +183,9 @@ namespace kt::vkh {
         .pColorAttachments = &aInfo,
     };
 
-    auto& graphicsCmdBuffer = dynamic_cast<CommandBuffer*>(cmdBuf.get())->get();
-
-    graphicsCmdBuffer.beginRendering(renderingInfo);
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *graphicsCmdBuffer);
-    graphicsCmdBuffer.endRendering();
+    vkCmdBeginRendering(cmdBuf, &renderingInfo);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuf);
+    vkCmdEndRendering(cmdBuf);
   }
 
   void Renderer::submitCommandBuffers(std::vector<SubmitInfo> cmdBuffers) {
@@ -262,111 +195,24 @@ namespace kt::vkh {
 
     uint64_t waitValue = m.frameInfo.perFrame->timelineValue++;
     uint64_t signalValue = waitValue + 1;
-
-    std::vector<SubmittedCommandBufferInfo> submittedCmdBufInfos;
-    submittedCmdBufInfos.reserve(cmdBuffers.size());
-    for (auto& cmdBuf : cmdBuffers) {
-      auto& vkCmdBuf =
-          dynamic_cast<CommandBuffer*>(cmdBuf.commandBuffer.get())->get();
-      submittedCmdBufInfos.emplace_back(SubmittedCommandBufferInfo{
-          .buffer = std::move(vkCmdBuf),
-          .trackedBuffers = std::move(cmdBuf.trackedBuffers),
-      });
-    }
-
-    auto& perFrame = m.vkcore.perFrame[m.frameInfo.index];
-
-    auto& thisFrameCmdBufs = m.submittedCommandBuffers[m.frameInfo.index];
-
-    vk::SemaphoreSubmitInfo nextFrameWaitInfo{
-        .semaphore = perFrame.imageAvailableSemaphore,
-        .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
-        .deviceIndex = 0,
-    };
-
-    vk::SemaphoreSubmitInfo prevSumbitWaitInfo{
-        .semaphore = perFrame.timelineSemaphore,
-        .value = waitValue,
-        .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
-        .deviceIndex = 0,
-    };
-
-    std::array<vk::SemaphoreSubmitInfo, 2> waitInfos{
-        prevSumbitWaitInfo,
-        nextFrameWaitInfo,
-    };
-
-    vk::SemaphoreSubmitInfo signalInfo{
-        .semaphore = perFrame.timelineSemaphore,
-        .value = signalValue,
-        .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
-        .deviceIndex = 0,
-    };
-
-    std::vector<vk::CommandBufferSubmitInfo> cmdBufInfos;
-    cmdBufInfos.reserve(submittedCmdBufInfos.size());
-    for (auto& info : submittedCmdBufInfos) {
-      cmdBufInfos.emplace_back(vk::CommandBufferSubmitInfo{
-          .commandBuffer = *info.buffer,
-          .deviceMask = 0,
-      });
-    }
-
-    vk::SubmitInfo2 submitInfo{
-        .waitSemaphoreInfoCount =
-            m.frameInfo.imageIndex == Frame::INVALID_INDEX ? 1u : 2u,
-        .pWaitSemaphoreInfos = waitInfos.data(),
-        .commandBufferInfoCount = static_cast<uint32_t>(cmdBufInfos.size()),
-        .pCommandBufferInfos = cmdBufInfos.data(),
-        .signalSemaphoreInfoCount = 1,
-        .pSignalSemaphoreInfos = &signalInfo,
-    };
-
-    vk::raii::Queue* queue = nullptr;
-
-    // FIXME: Assumes all command buffers are of the same type
-    switch (cmdBuffers.front().commandBuffer->getType()) {
-    case CmdBufType::Graphics:
-      queue = m.vkcore.queues.graphics.queue.get();
-      break;
-    case CmdBufType::Compute:
-      queue = m.vkcore.queues.compute.queue.get();
-      break;
-    case CmdBufType::Transfer:
-      queue = m.vkcore.queues.transfer.queue.get();
-      break;
-    }
-
-    queue->submit2(submitInfo);
-
-    thisFrameCmdBufs.reserve(thisFrameCmdBufs.size() +
-                             submittedCmdBufInfos.size());
-    for (auto& info : submittedCmdBufInfos) {
-      thisFrameCmdBufs.emplace_back(std::move(info));
-    }
-
-    VK_DEBUG("Submitted {} command buffers at {}, waiting for {}",
-             submittedCmdBufInfos.size(), m.frameInfo.index, signalValue);
   }
 
-  void Renderer::endFrame(
-      CmdBufPtr&& cmdBuf) { // NOLINT - The item in the UPtr is moved
-    vk::raii::CommandBuffer vkCmdBuf =
-        std::move(dynamic_cast<CommandBuffer*>(cmdBuf.get())->get());
+  void Renderer::endFrame(VkCommandBuffer cmdBuf) { // NOLINT - The item in the UPtr is moved
 
-    vk::ImageMemoryBarrier2 barrier{
-        .srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-        .srcAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-        .dstStageMask = vk::PipelineStageFlagBits2::eBottomOfPipe,
-        .dstAccessMask = vk::AccessFlagBits2::eNone,
-        .oldLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .newLayout = vk::ImageLayout::ePresentSrcKHR,
+    VkImageMemoryBarrier2 barrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
+        .dstAccessMask = VK_ACCESS_2_NONE,
+        .oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
         .subresourceRange =
-            vk::ImageSubresourceRange{
-                .aspectMask = vk::ImageAspectFlagBits::eColor,
+            VkImageSubresourceRange{
+                .aspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseMipLevel = 0,
                 .levelCount = 1,
                 .baseArrayLayer = 0,
@@ -374,43 +220,49 @@ namespace kt::vkh {
             },
     };
 
-    vkCmdBuf.pipelineBarrier2(vk::DependencyInfo{
+    VkDependencyInfo dependencyInfo{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
         .imageMemoryBarrierCount = 1,
         .pImageMemoryBarriers = &barrier,
-    });
+    };
 
-    vkCmdBuf.end();
+    vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
+
+    vkEndCommandBuffer(cmdBuf);
 
     auto& sem = m.vkcore.swapchain.nPresentSemaphore(m.frameInfo.imageIndex);
 
-    vk::SemaphoreSubmitInfo waitInfo{
+    VkSemaphoreSubmitInfo waitInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
         .semaphore = m.vkcore.perFrame[m.frameInfo.index].timelineSemaphore,
         .value = m.vkcore.perFrame[m.frameInfo.index].timelineValue,
-        .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
         .deviceIndex = 0,
     };
 
-    vk::SemaphoreSubmitInfo imageAvailableWaitInfo{
-        .semaphore =
-            m.vkcore.perFrame[m.frameInfo.index].imageAvailableSemaphore,
-        .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
+    VkSemaphoreSubmitInfo imageAvailableWaitInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = m.vkcore.perFrame[m.frameInfo.index].imageAvailableSemaphore,
+        .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
     };
 
-    std::array<vk::SemaphoreSubmitInfo, 2> waitSemaphores{
-        waitInfo, imageAvailableWaitInfo};
+    std::array<VkSemaphoreSubmitInfo, 2> waitSemaphores{waitInfo, imageAvailableWaitInfo};
 
-    vk::SemaphoreSubmitInfo signalInfo{
+    VkSemaphoreSubmitInfo signalInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
         .semaphore = sem,
-        .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
         .deviceIndex = 0,
     };
 
-    vk::CommandBufferSubmitInfo cmdBufInfo{
-        .commandBuffer = vkCmdBuf,
+    VkCommandBufferSubmitInfo cmdBufInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .commandBuffer = cmdBuf,
         .deviceMask = 0,
     };
 
-    vk::SubmitInfo2 submitInfo{
+    VkSubmitInfo2 submitInfo{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
         .waitSemaphoreInfoCount = 2,
         .pWaitSemaphoreInfos = waitSemaphores.data(),
         .commandBufferInfoCount = 1,
@@ -419,16 +271,13 @@ namespace kt::vkh {
         .pSignalSemaphoreInfos = &signalInfo,
     };
 
-    m.vkcore.device->resetFences(
-        *m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
+    vkResetFences(m.vkcore.device.logical, 1, &m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
 
-    m.vkcore.queues.graphics->submit2(
-        submitInfo, m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
+    vkQueueSubmit2(m.vkcore.queues.graphics.queue, 1, &submitInfo, m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
 
-    m.submittedCommandBuffers[m.frameInfo.index].emplace_back(
-        SubmittedCommandBufferInfo{
-            .buffer = std::move(vkCmdBuf),
-        });
+    m.frameInfo.perFrame->submittedCmds.emplace_back(SubmittedCommandBufferInfo{
+        .buffer = cmdBuf,
+    });
 
     present();
   }
@@ -437,33 +286,32 @@ namespace kt::vkh {
     uint32_t imageIndex = m.frameInfo.imageIndex;
     auto& sem = m.vkcore.swapchain.nPresentSemaphore(imageIndex);
 
-    vk::PresentInfoKHR presentInfo{
+    VkPresentInfoKHR presentInfo{
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &*sem,
+        .pWaitSemaphores = &sem,
         .swapchainCount = 1,
-        .pSwapchains = &*m.vkcore.swapchain.getSwapchain(),
+        .pSwapchains = &m.vkcore.swapchain.getSwapchain(),
         .pImageIndices = &imageIndex,
     };
 
-    auto result = m.vkcore.queues.present.queue->presentKHR(presentInfo);
+    auto result = vkQueuePresentKHR(m.vkcore.queues.present.queue, &presentInfo);
 
     m.frameInfo.index = m.frameInfo.nextIndex; // Advance to next frame index
 
     m.frameInfo.nextIndex = (m.frameInfo.nextIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 
 #ifndef NDEBUG
-    if (result == vk::Result::eErrorOutOfDateKHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
       VK_DEBUG("Swapchain is out of date during present");
-    } else if (result == vk::Result::eSuboptimalKHR) {
+    } else if (result == VK_SUBOPTIMAL_KHR) {
       VK_DEBUG("Swapchain is suboptimal during present");
     } else if (m.frameInfo.suboptimalSwapchain) {
       VK_DEBUG("Swapchain was suboptimal at image aquire");
     }
 #endif
 
-    if (result == vk::Result::eErrorOutOfDateKHR ||
-        result == vk::Result::eSuboptimalKHR ||
-        m.frameInfo.suboptimalSwapchain) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m.frameInfo.suboptimalSwapchain) {
       auto res = recreateSwapchain();
       if (!res) {
         VK_CRITICAL("Failed to recreate swapchain: {}", res.error());
@@ -472,9 +320,7 @@ namespace kt::vkh {
     }
   }
 
-  Renderer::Renderer(Renderer&& o) noexcept : m(std::move(o.m)) {
-    m.frameInfo.perFrame = &m.vkcore.perFrame[m.frameInfo.index];
-  }
+  Renderer::Renderer(Renderer&& o) noexcept : m(std::move(o.m)) { m.frameInfo.perFrame = &m.vkcore.perFrame[m.frameInfo.index]; }
 
   Renderer& Renderer::operator=(Renderer&& o) noexcept {
     if (this == &o)
@@ -483,8 +329,6 @@ namespace kt::vkh {
     m = std::move(o.m);
     return *this;
   }
-
-  void Renderer::preExit() { m.vkcore.device.logical.waitIdle(); }
 
   void Renderer::shutdownImGui() {
     ImGui_ImplVulkan_Shutdown();
@@ -496,28 +340,49 @@ namespace kt::vkh {
       return;
     }
 
-    m.vkcore.device.logical.waitIdle();
+    auto& device = m.vkcore.device.logical;
+    auto& allocator = m.vkcore.allocator;
 
-    m.cameraBuffer.destroy(m.vkcore.allocator);
+    vkDeviceWaitIdle(device);
+
+    m.buffers.camera.destroy(allocator);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-      m.submittedCommandBuffers[i].clear();
-      m.textureDescriptorsToUpdate[i].clear();
+      for (auto& cmdBufInfo : m.vkcore.perFrame[i].submittedCmds) {
+        for (auto& buf : cmdBufInfo.trackedBuffers) {
+          buf.destroy(allocator);
+        }
+      }
     }
 
-    m.vkcore.allocator.destroy();
+    for (auto& perFrame : m.vkcore.perFrame) {
+      vkDestroySemaphore(device, perFrame.imageAvailableSemaphore, nullptr);
+      vkDestroySemaphore(device, perFrame.timelineSemaphore, nullptr);
+      vkDestroyFence(device, perFrame.inFlightFence, nullptr);
 
-    m.vkcore.device.logical.waitIdle();
+      vkDestroyCommandPool(device, perFrame.pools.graphics.pool, nullptr);
+      vkDestroyCommandPool(device, perFrame.pools.compute.pool, nullptr);
+    }
+
+    vkDestroyDescriptorPool(device, m.imGuiObjects.descriptorPool, nullptr);
+    vkDestroySampler(device, m.imGuiObjects.sampler, nullptr);
+
+    vmaDestroyAllocator(allocator);
+
+    m.vkcore.swapchain.~Swapchain();
+    vkDestroyCommandPool(device, m.vkcore.transferPool.pool, nullptr);
+    vkDestroyDevice(device, nullptr);
+    vkDestroySurfaceKHR(m.vkcore.instance, m.vkcore.surface, nullptr);
+    vkDestroyInstance(m.vkcore.instance, nullptr);
+
     VK_INFO("Vulkan renderer shut down cleanly");
   }
 
   std::expected<void, std::string> Renderer::recreateSwapchain() {
     VK_TRACE("Recreating swapchain");
     VKH_MAKE(newSwapchain,
-             setup::createSwapchain(m.vkcore.device.physical,
-                                    m.window->getRenderSize(),
-                                    m.vkcore.device.logical, m.vkcore.surface,
-                                    m.vkcore.queues, &*m.vkcore.swapchain),
+             setup::createSwapchain(m.vkcore.device.physical, m.window->getRenderSize(), m.vkcore.device.logical, m.vkcore.surface,
+                                    m.vkcore.queues, m.vkcore.swapchain.getSwapchain()),
              "Failed to recreate swapchain");
 
     {
@@ -526,7 +391,7 @@ namespace kt::vkh {
 
       m.vkcore.swapchain = std::move(newSwapchain);
 
-      m.vkcore.queues.graphics->waitIdle();
+      vkQueueWaitIdle(m.vkcore.queues.graphics.queue);
     }
 
     m.frameInfo.suboptimalSwapchain = false;

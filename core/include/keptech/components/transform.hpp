@@ -2,8 +2,8 @@
 
 #include "keptech/core/bitflag.hpp"
 #include "keptech/core/macros.hpp"
-#include "keptech/core/maths/transform.hpp"
 #include "keptech/ecs/entity.hpp"
+#include "keptech/maths/transform.hpp"
 
 namespace kt::gui {
   class Frame;

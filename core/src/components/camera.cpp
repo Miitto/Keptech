@@ -1,4 +1,4 @@
-#include "keptech/core/components/camera.hpp"
+#include "keptech/components/camera.hpp"
 
 #include "glm/ext/matrix_clip_space.hpp"
 

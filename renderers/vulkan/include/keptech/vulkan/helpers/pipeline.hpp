@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/vulkan/structs.hpp"
 #include <optional>
 #include <span>
 #include <vector>
@@ -12,25 +13,19 @@ namespace kt::vkh {
     VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo;
 
   public:
-    constexpr DynamicStateInfo(
-        std::initializer_list<VkDynamicState> args) noexcept
-        : dynamicStates{args} {
+    constexpr DynamicStateInfo(std::initializer_list<VkDynamicState> args) noexcept : dynamicStates{args} {
       dynamicStateCreateInfo = VkPipelineDynamicStateCreateInfo{
+          .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
           .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
-          .pDynamicStates = dynamicStates.data()};
+          .pDynamicStates = dynamicStates.data(),
+      };
     }
 
-    operator VkPipelineDynamicStateCreateInfo() const noexcept {
-      return dynamicStateCreateInfo;
-    }
+    operator VkPipelineDynamicStateCreateInfo() const noexcept { return dynamicStateCreateInfo; }
 
-    operator VkPipelineDynamicStateCreateInfo*() noexcept {
-      return &dynamicStateCreateInfo;
-    }
+    operator VkPipelineDynamicStateCreateInfo*() noexcept { return &dynamicStateCreateInfo; }
 
-    operator const VkPipelineDynamicStateCreateInfo*() const noexcept {
-      return &dynamicStateCreateInfo;
-    }
+    operator const VkPipelineDynamicStateCreateInfo*() const noexcept { return &dynamicStateCreateInfo; }
   };
 
   struct PipelineLayoutConfig {
@@ -39,10 +34,10 @@ namespace kt::vkh {
 
     VkPipelineLayoutCreateInfo build() noexcept {
       return VkPipelineLayoutCreateInfo{
+          .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
           .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
           .pSetLayouts = setLayouts.data(),
-          .pushConstantRangeCount =
-              static_cast<uint32_t>(pushConstantRanges.size()),
+          .pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size()),
           .pPushConstantRanges = pushConstantRanges.data(),
       };
     }
@@ -57,10 +52,10 @@ namespace kt::vkh {
 
     VkPipelineRenderingCreateInfo build() noexcept {
       return VkPipelineRenderingCreateInfo{
+          .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
           .pNext = pNext,
           .viewMask = viewMask,
-          .colorAttachmentCount =
-              static_cast<uint32_t>(colorAttachmentFormats.size()),
+          .colorAttachmentCount = static_cast<uint32_t>(colorAttachmentFormats.size()),
           .pColorAttachmentFormats = colorAttachmentFormats.data(),
           .depthAttachmentFormat = depthAttachmentFormat,
           .stencilAttachmentFormat = stencilAttachmentFormat,
@@ -69,19 +64,20 @@ namespace kt::vkh {
   };
 
   struct GraphicsPipelineConfig {
-    struct VertexInput {
-      std::span<VkVertexInputBindingDescription> bindings = {};
-      std::span<VkVertexInputAttributeDescription> attributes = {};
-    };
-
-    RenderingConfig rendering = {};
+    RenderingConfig rendering{};
     std::span<VkPipelineShaderStageCreateInfo> shaders = {};
-    VertexInput vertexInput = {};
+    VertexInput vertexInput{};
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
-        .topology = VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-    VkPipelineViewportStateCreateInfo viewport = {.viewportCount = 1,
-                                                  .scissorCount = 1};
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+    };
+    VkPipelineViewportStateCreateInfo viewport = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .scissorCount = 1,
+    };
     VkPipelineRasterizationStateCreateInfo rasterizer = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .depthClampEnable = VK_FALSE,
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VkPolygonMode::VK_POLYGON_MODE_FILL,
@@ -92,11 +88,12 @@ namespace kt::vkh {
         .depthBiasSlopeFactor = 1.0f,
         .lineWidth = 1.0f,
     };
-    VkPipelineMultisampleStateCreateInfo multisampling = {
-        .rasterizationSamples = VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
-        .sampleShadingEnable = VK_FALSE,
-        .minSampleShading = 1.0f};
+    VkPipelineMultisampleStateCreateInfo multisampling = {.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                                                          .rasterizationSamples = VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
+                                                          .sampleShadingEnable = VK_FALSE,
+                                                          .minSampleShading = 1.0f};
     VkPipelineDepthStencilStateCreateInfo depthStencilState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .depthTestEnable = VK_FALSE,
         .depthWriteEnable = VK_TRUE,
         .depthCompareOp = VkCompareOp::VK_COMPARE_OP_LESS,
@@ -106,24 +103,21 @@ namespace kt::vkh {
         .stencilTestEnable = VK_FALSE,
     };
     std::vector<VkPipelineColorBlendAttachmentState> blendAttachments = {};
-    VkPipelineColorBlendStateCreateInfo blending = {.logicOpEnable = VK_FALSE};
-    DynamicStateInfo dynamicState = {VkDynamicState::VK_DYNAMIC_STATE_VIEWPORT,
-                                     VkDynamicState::VK_DYNAMIC_STATE_SCISSOR};
-    PipelineLayoutConfig layout = {};
+    VkPipelineColorBlendStateCreateInfo blending = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .logicOpEnable = VK_FALSE,
+    };
+    DynamicStateInfo dynamicState = {VkDynamicState::VK_DYNAMIC_STATE_VIEWPORT, VkDynamicState::VK_DYNAMIC_STATE_SCISSOR};
 
-    std::optional<VkPipelineVertexInputStateCreateInfo>
-        _internalVertexInputInfo = std::nullopt;
+    std::optional<VkPipelineVertexInputStateCreateInfo> _internalVertexInputInfo = std::nullopt;
 
-    std::optional<VkPipelineRenderingCreateInfo> _internalRenderingInfo =
-        std::nullopt;
+    std::optional<VkPipelineRenderingCreateInfo> _internalRenderingInfo = std::nullopt;
 
     VkGraphicsPipelineCreateInfo build() noexcept {
       _internalVertexInputInfo = {
-          .vertexBindingDescriptionCount =
-              static_cast<uint32_t>(vertexInput.bindings.size()),
+          .vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInput.bindings.size()),
           .pVertexBindingDescriptions = vertexInput.bindings.data(),
-          .vertexAttributeDescriptionCount =
-              static_cast<uint32_t>(vertexInput.attributes.size()),
+          .vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInput.attributes.size()),
           .pVertexAttributeDescriptions = vertexInput.attributes.data(),
       };
 
@@ -131,6 +125,18 @@ namespace kt::vkh {
       blending.pAttachments = blendAttachments.data();
 
       _internalRenderingInfo = rendering.build();
+
+      _internalRenderingInfo->sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+      for (auto& shader : shaders) {
+        shader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+      }
+      _internalVertexInputInfo->sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+      inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+      viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+      rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+      multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+      depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+      blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 
       return VkGraphicsPipelineCreateInfo{
           .pNext = &_internalRenderingInfo.value(),
@@ -147,5 +153,4 @@ namespace kt::vkh {
       };
     }
   };
-
 } // namespace kt::vkh

@@ -25,12 +25,10 @@ target_link_libraries(${PROJECT_NAME}
     keptech::core
 )
 
-if(ENABLE_VULKAN)
   target_link_libraries(${PROJECT_NAME}
     PUBLIC
-      keptech::vulkan
+      keptech::renderer
   )
-endif()
 
 if (KT_USE_PCH)
   target_precompile_headers(${PROJECT_NAME}

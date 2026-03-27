@@ -5,20 +5,6 @@ target_sources(${PROJECT_NAME}
   PRIVATE
     main.cpp
     input.cpp
-    renderer.cpp
-    rendering.cpp
-    resourceManagment.cpp
 )
 
-include(shaders)
 
-compile_shader(${PROJECT_NAME} SPIRV
-  BASE_DIR
-    ${KT_SHADER_DIR}
-  OUTPUT_DIR
-    keptech
-  SOURCES
-    deferred
-    pointLight
-    lightCombine
-)

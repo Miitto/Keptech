@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/core/maths/sizes.hpp"
+#include "keptech/maths/sizes.hpp"
 
 namespace kt::components {
   enum class ProjectionType : uint8_t {
@@ -51,19 +51,16 @@ namespace kt::components {
       };
     };
 
-    Camera(PerspectiveType perspectiveType, Params::Common common,
-           Params::Perspective perspective, maths::Viewport viewport = {},
+    Camera(PerspectiveType perspectiveType, Params::Common common, Params::Perspective perspective, maths::Viewport viewport = {},
            maths::Rect2D scissor = {})
-        : projectionType(static_cast<ProjectionType>(perspectiveType)),
-          viewport(viewport), scissor(scissor),
+        : projectionType(static_cast<ProjectionType>(perspectiveType)), viewport(viewport), scissor(scissor),
           params({.common = common, .perspective = perspective}) {}
 
     void recalculateProjectionMatrix();
 
     void sizeToWindowSize(glm::ivec2 size, bool correctAspectRatio = true) {
       if (correctAspectRatio)
-        params.common.aspectRatio =
-            static_cast<float>(size.x) / static_cast<float>(size.y);
+        params.common.aspectRatio = static_cast<float>(size.x) / static_cast<float>(size.y);
       viewport.width = static_cast<float>(size.x);
       viewport.height = static_cast<float>(size.y);
       scissor.width = static_cast<uint32_t>(size.x);
@@ -73,17 +70,12 @@ namespace kt::components {
 
     glm::mat4& getProjectionMatrix() { return projectionMatrix; }
 
-    [[nodiscard]] ProjectionType getProjectionType() const {
-      return projectionType;
-    }
+    [[nodiscard]] ProjectionType getProjectionType() const { return projectionType; }
 
     [[nodiscard]] bool isPerspective() const {
-      return projectionType == ProjectionType::Perspective ||
-             projectionType == ProjectionType::PerspectiveInfinite;
+      return projectionType == ProjectionType::Perspective || projectionType == ProjectionType::PerspectiveInfinite;
     }
-    [[nodiscard]] bool isOrthographic() const {
-      return projectionType == ProjectionType::Orthographic;
-    }
+    [[nodiscard]] bool isOrthographic() const { return projectionType == ProjectionType::Orthographic; }
 
     [[nodiscard]] const Params& getParams() const { return params; }
 
@@ -100,8 +92,7 @@ namespace kt::components {
       return *this;
     }
 
-    Camera& setPerspective(PerspectiveType perspectiveType,
-                           Params::Perspective perspective) {
+    Camera& setPerspective(PerspectiveType perspectiveType, Params::Perspective perspective) {
       projectionType = static_cast<ProjectionType>(perspectiveType);
       params.perspective = perspective;
       recalculateProjectionMatrix();
@@ -110,9 +101,7 @@ namespace kt::components {
 
     maths::Viewport& getViewport() { return viewport; }
     maths::Rect2D& getScissor() { return scissor; }
-    [[nodiscard]] const maths::Viewport& getViewport() const {
-      return viewport;
-    }
+    [[nodiscard]] const maths::Viewport& getViewport() const { return viewport; }
     [[nodiscard]] const maths::Rect2D& getScissor() const { return scissor; }
 
   private:
