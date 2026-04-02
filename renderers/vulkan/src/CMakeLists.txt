@@ -3,6 +3,7 @@ target_sources(${PROJECT_NAME}
     FILE_SET internalVulkanHeaders
     TYPE HEADERS
   PRIVATE
+    setup/buffers.cpp
     setup/core.cpp
     setup/descriptors.cpp
     setup/device.cpp
@@ -21,6 +22,8 @@ target_sources(${PROJECT_NAME}
     helpers/vmaImpl.cpp
 
     renderer.cpp
+    resourceManagment.cpp
     structs.cpp
     vk-logger.cpp
+    vmaImpl.cpp
 )

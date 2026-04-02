@@ -16,15 +16,8 @@ namespace kt {
     glm::vec4 color{1.f};
     glm::vec4 tangent;
 
-    constexpr inline static Vertex create(glm::vec3 pos, glm::vec2 uv,
-                                          glm::vec3 norm, glm::vec4 col,
-                                          glm::vec4 tang = glm::vec4(0.0f)) {
-      return Vertex{.position = pos,
-                    .uvX = uv.x,
-                    .normal = norm,
-                    .uvY = uv.y,
-                    .color = col,
-                    .tangent = tang};
+    constexpr inline static Vertex create(glm::vec3 pos, glm::vec2 uv, glm::vec3 norm, glm::vec4 col, glm::vec4 tang = glm::vec4(0.0f)) {
+      return Vertex{.position = pos, .uvX = uv.x, .normal = norm, .uvY = uv.y, .color = col, .tangent = tang};
     }
   };
 
@@ -48,33 +41,31 @@ namespace kt {
     [[nodiscard]] size_t getVertexCount() const { return vertexCount; }
 #endif
 
-    Mesh(uint32_t vertexOffset, uint32_t indexCount, uint32_t indexOffset
-#ifdef KT_ADD_RESOURCE_INFO
-         ,
-         std::string name, size_t vertexCount
-#endif
-         )
-        : vertexOffset(vertexOffset), indexCount(indexCount),
-          indexOffset(indexOffset)
+    Mesh(uint32_t vertexCount, uint32_t vertexOffset, uint32_t indexCount, uint32_t indexOffset, std::string name = {})
+        : vertexCount(vertexCount), vertexOffset(vertexOffset), indexCount(indexCount), indexOffset(indexOffset)
 #ifdef KT_ADD_RESOURCE_INFO
           ,
-          name(std::move(name)), vertexCount(vertexCount)
+          name(std::move(name))
 #endif
     {
     }
 
   protected:
+    uint32_t vertexCount;
     uint32_t vertexOffset;
     uint32_t indexCount;
     uint32_t indexOffset;
 
 #ifdef KT_ADD_RESOURCE_INFO
     std::string name;
-    size_t vertexCount;
 #endif
   };
 
   using MeshPtr = std::shared_ptr<Mesh>;
+
+  namespace components {
+    using Mesh = MeshPtr;
+  }
 
   struct MeshData {
     std::string name;

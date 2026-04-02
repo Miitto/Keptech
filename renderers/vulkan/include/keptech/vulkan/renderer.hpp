@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/rendering/texture.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include <expected>
@@ -12,6 +13,7 @@
 #include <keptech/core/slotmap.hpp>
 #include <keptech/maths/frustum.hpp>
 #include <keptech/maths/transform.hpp>
+#include <keptech/rendering/gltf/scene.hpp>
 #include <keptech/rendering/mesh.hpp>
 #include <keptech/rendering/renderer.hpp>
 #include <keptech/shaders/shader.h>
@@ -110,7 +112,8 @@ namespace kt::vkh {
   public:
     std::expected<Renderer, std::string> static create(const RendererCreateInfo& createInfo, const core::window::Window& window);
 
-    std::expected<std::vector<AllocatedImage>, std::string> createImages(const std::vector<ImageUploadInfo>& imageInfos);
+    std::expected<gltf::Scene, std::string> loadMesh(std::string_view path);
+    std::expected<std::vector<Texture>, std::string> createImages(const std::vector<ImageUploadInfo>& imageInfos);
 
     void loadImGuiImageHandle(AllocatedImage& texture);
     Renderer() = delete;
@@ -151,11 +154,4 @@ namespace kt::vkh {
     Members m;
   };
 
-  VertexInput getVertexInputFromShader(const shaders::Shader& shader, std::vector<uint32_t> instanceBindings);
-
-  namespace setup {
-    std::expected<Swapchain, std::string> createSwapchain(const VkPhysicalDevice physicalDevice, glm::ivec2 framebufferSize,
-                                                          const VkDevice device, const VkSurfaceKHR surface, const Queues& queues,
-                                                          std::optional<VkSwapchainKHR> oldSwapchain);
-  }
 } // namespace kt::vkh

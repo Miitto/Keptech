@@ -35,14 +35,6 @@ namespace kt::vkh {
 
     if (name.has_value()) {
       vmaSetAllocationName(allocator, alloc, name->c_str());
-
-      VkDebugUtilsObjectNameInfoEXT imageNameInfo{
-          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-          .objectType = VkObjectType::VK_OBJECT_TYPE_IMAGE,
-          .objectHandle = reinterpret_cast<uint64_t>(image),
-          .pObjectName = name->c_str(),
-      };
-      vkSetDebugUtilsObjectNameEXT(device, &imageNameInfo);
     }
 
     return AllocatedImage{
@@ -93,14 +85,6 @@ namespace kt::vkh {
 
     if (name.has_value()) {
       vmaSetAllocationName(allocator, alloc, name->c_str());
-
-      VkDebugUtilsObjectNameInfoEXT bufferNameInfo{
-          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-          .objectType = VkObjectType::VK_OBJECT_TYPE_BUFFER,
-          .objectHandle = reinterpret_cast<uint64_t>(buffer),
-          .pObjectName = name->c_str(),
-      };
-      vkSetDebugUtilsObjectNameEXT(device, &bufferNameInfo);
     }
 
     return AllocatedBuffer{

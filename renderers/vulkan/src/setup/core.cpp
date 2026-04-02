@@ -1,10 +1,9 @@
-#pragma once
-
-#include "keptech/vulkan/renderer.hpp"
+#include "setup.hpp"
 
 #include "keptech/core/window.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
 #include "keptech/vulkan/helpers/instance.hpp"
+#include "keptech/vulkan/renderer.hpp"
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
 #include <SDL3/SDL_vulkan.h>
@@ -13,8 +12,6 @@
 #include <keptech/components/camera.hpp>
 #include <set>
 #include <string>
-
-#include "setup.hpp"
 
 namespace kt::vkh::setup {
   using namespace kt::vkh;
@@ -104,7 +101,7 @@ namespace kt::vkh::setup {
     };
     VK_MAKE(vmaCreateAllocator(&allocInfo, &allocator), "Failed to create VMA allocator.");
 
-    VKH_MAKE(swapchain, createSwapchain(physDevice, window.getRenderSize(), device, surface, queues, std::nullopt),
+    VKH_MAKE(swapchain, createSwapchain(physDevice, window.getRenderSize(), device, surface, queues, nullptr),
              "Failed to create swapchain.");
 
     VkCommandPool transferPool;

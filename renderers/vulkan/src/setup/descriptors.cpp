@@ -48,9 +48,10 @@ namespace kt::vkh::setup {
         },
     };
 
-    std::array<VkDescriptorBindingFlags, descriptorBindingCount> bindingFlags{VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
-                                                                              VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
-                                                                                  VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT};
+    std::array<VkDescriptorBindingFlags, descriptorBindingCount> bindingFlags{
+        VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+        VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+            VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT};
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
@@ -86,13 +87,6 @@ namespace kt::vkh::setup {
       std::string name = fmt::format("Global Descriptor Set {}", i);
 
       VkDescriptorSet vkDescriptorSet = descriptorSets[i];
-      VkDebugUtilsObjectNameInfoEXT info{
-          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-          .objectType = VkObjectType::VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,
-          .objectHandle = reinterpret_cast<uint64_t>(layout),
-          .pObjectName = fmt::format("Global Descriptor Set Layout {}", i).c_str(),
-      };
-      vkSetDebugUtilsObjectNameEXT(device, &info);
     }
 #endif
 

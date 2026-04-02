@@ -28,6 +28,7 @@ namespace kt::vkh::setup {
   std::expected<Swapchain, std::string> createSwapchain(const VkPhysicalDevice physicalDevice, glm::ivec2 framebufferSize,
                                                         const VkDevice device, const VkSurfaceKHR surface, const Queues& queues,
                                                         VkSwapchainKHR oldSwapchain);
+
   std::expected<Renderer::Pipelines, std::string> createPipelines(const Renderer::VulkanCore& vkcore);
   std::expected<Renderer::Buffers, std::string> createBuffers(const Renderer::VulkanCore& vkcore);
 } // namespace kt::vkh::setup

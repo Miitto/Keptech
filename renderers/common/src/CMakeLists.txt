@@ -3,5 +3,8 @@ target_sources(${PROJECT_NAME}
     FILE_SET internalHeaders
     TYPE HEADERS
   PUBLIC
+    gltf/data.cpp
+    gltf/scene.cpp
+    
     imgui.cpp
 )

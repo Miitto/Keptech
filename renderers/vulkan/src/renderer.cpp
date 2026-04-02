@@ -19,6 +19,18 @@ namespace kt::vkh {
 
   static_assert(CRenderer<Renderer>, "Renderer does not satisfy CRenderer concept");
 
+  void Renderer::render() {
+    auto start = startFrame();
+    if (!start) {
+      VK_CRITICAL("Failed to start frame: {}", start.error());
+      abort();
+    }
+
+    VkCommandBuffer cmdBuf = start.value();
+
+    endFrame(cmdBuf);
+  }
+
   void Renderer::initImGui() {
     auto res = setup::setupImGui(*m.window, m.vkcore);
     if (!res.has_value()) {
