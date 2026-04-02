@@ -31,6 +31,8 @@ namespace kt::vkh {
     endFrame(cmdBuf);
   }
 
+  void Renderer::drawDeferred(VkCommandBuffer cmdBuf) {}
+
   void Renderer::initImGui() {
     auto res = setup::setupImGui(*m.window, m.vkcore);
     if (!res.has_value()) {
@@ -367,6 +369,13 @@ namespace kt::vkh {
       }
     }
 
+    auto destroyPipeline = [&](Pipeline& pipeline) {
+      vkDestroyPipeline(device, pipeline.pipeline, nullptr);
+      vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
+    };
+
+    destroyPipeline(m.pipelines.deferred);
+
     for (auto& perFrame : m.vkcore.perFrame) {
       vkDestroySemaphore(device, perFrame.imageAvailableSemaphore, nullptr);
       vkDestroySemaphore(device, perFrame.timelineSemaphore, nullptr);
@@ -375,6 +384,10 @@ namespace kt::vkh {
       vkDestroyCommandPool(device, perFrame.pools.graphics.pool, nullptr);
       vkDestroyCommandPool(device, perFrame.pools.compute.pool, nullptr);
     }
+    vkDestroyCommandPool(device, m.vkcore.transferPool.pool, nullptr);
+
+    vkDestroyDescriptorSetLayout(device, m.globalDescriptorSets.layout, nullptr);
+    vkDestroyDescriptorPool(device, m.globalDescriptorSets.pool, nullptr);
 
     vkDestroyDescriptorPool(device, m.imGuiObjects.descriptorPool, nullptr);
     vkDestroySampler(device, m.imGuiObjects.sampler, nullptr);
@@ -382,7 +395,6 @@ namespace kt::vkh {
     vmaDestroyAllocator(allocator);
 
     m.vkcore.swapchain.~Swapchain();
-    vkDestroyCommandPool(device, m.vkcore.transferPool.pool, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(m.vkcore.instance, m.vkcore.surface, nullptr);
     vkDestroyInstance(m.vkcore.instance, nullptr);

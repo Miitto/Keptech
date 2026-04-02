@@ -94,7 +94,6 @@ namespace kt::vkh {
 
       const core::window::Window* window;
       VulkanCore vkcore;
-      Limits limits;
 
       ImGuiVkObjects imGuiObjects;
 
@@ -139,6 +138,8 @@ namespace kt::vkh {
     Renderer(Members&& m) : m(std::move(m)) { m.frameInfo.perFrame = &this->m.vkcore.perFrame[0]; }
 
     std::expected<VkCommandBuffer, std::string> startFrame();
+
+    void drawDeferred(VkCommandBuffer cmdBuf);
 
     void renderImGui(VkCommandBuffer graphicsCmd);
     void endFrame(VkCommandBuffer graphicsCmd);

@@ -3,6 +3,13 @@
   "configurations": [
     {
       "type": "codelldb",
+      "name": "Launch Benchmark (Debug, Clang x64, Windows)",
+      "request": "launch",
+      "program": "${workspaceFolder}/__output/clang-x64/examples/benchmark/Debug/benchmark.exe",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "codelldb",
       "name": "Launch Materials example (Debug, Clang x64, Windows)",
       "request": "launch",
       "program": "${workspaceFolder}/__output/clang-x64/examples/materials/src/Debug/materials.exe",

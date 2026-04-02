@@ -1,8 +1,10 @@
+#include "setup.hpp"
+
+#include "helpers/conversions.hpp"
 #include "keptech/vulkan/helpers/formatting.hpp"
 #include "keptech/vulkan/helpers/pipeline.hpp"
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
-#include "setup.hpp"
 #include <keptech/shaders/shader.h>
 #include <vulkan/vulkan.h>
 
@@ -16,6 +18,7 @@ namespace shaders {
 
 namespace kt::vkh::setup {
 
+  // Formats
   namespace {
     constexpr std::array GBUFFER_ALBEDO_FORMATS = {VK_FORMAT_B8G8R8A8_SRGB};
     constexpr std::array GBUFFER_NORMAL_FORMATS = {VK_FORMAT_A2B10G10R10_SNORM_PACK32, VK_FORMAT_R16G16B16_SFLOAT,
@@ -31,7 +34,10 @@ namespace kt::vkh::setup {
     constexpr std::array TEXTURE_METROUGH_FORMATS = {VK_FORMAT_BC5_UNORM_BLOCK, VK_FORMAT_R8G8_UNORM, VK_FORMAT_R8G8B8_UNORM,
                                                      VK_FORMAT_R8G8B8A8_UNORM};
     constexpr std::array TEXTURE_EMISSIVE_FORMATS = {VK_FORMAT_B10G11R11_UFLOAT_PACK32};
+  } // namespace
 
+  // Util
+  namespace {
     std::expected<Formats, std::string> findFormats(const Renderer::VulkanCore& vkcore) {
       auto findFormat = [&](std::span<const VkFormat> candidates, VkFormatFeatureFlags features) -> VkFormat {
         for (auto& format : candidates) {
@@ -109,20 +115,6 @@ namespace kt::vkh::setup {
       return f;
     }
 
-    VkShaderStageFlagBits from(shaders::ShaderStages stage) {
-      switch (stage) {
-      case shaders::ShaderStages::Vertex:
-        return VK_SHADER_STAGE_VERTEX_BIT;
-      case shaders::ShaderStages::Fragment:
-        return VK_SHADER_STAGE_FRAGMENT_BIT;
-      case shaders::ShaderStages::Compute:
-        return VK_SHADER_STAGE_COMPUTE_BIT;
-      default:
-        VK_CRITICAL("Unsupported shader stage: {}", static_cast<int>(stage));
-        std::abort();
-      }
-    }
-
     struct Shader {
       VkShaderModule module;
       std::vector<VkPipelineShaderStageCreateInfo> stages;
@@ -143,219 +135,12 @@ namespace kt::vkh::setup {
         stages[i] = VkPipelineShaderStageCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = from(shader.stages[i].stage),
-            .module = VK_NULL_HANDLE, // Placeholder, should be set when creating the pipeline
+            .module = shaderModule,
             .pName = shader.stages[i].name,
         };
       }
 
       return std::move(Shader{.module = shaderModule, .stages = std::move(stages)});
-    }
-
-    VkFormat from(shaders::DataType type) {
-      using T = shaders::DataType;
-#define F(_F) return VkFormat::VK_FORMAT_##_F
-      switch (type) {
-      case T::F32:
-        F(R32_SFLOAT);
-      case T::F32_2:
-        F(R32G32_SFLOAT);
-      case T::F32_3:
-        F(R32G32B32_SFLOAT);
-      case T::F32_4:
-        F(R32G32B32A32_SFLOAT);
-      case T::U8:
-        F(R8_UINT);
-      case T::U8_2:
-        F(R8G8_UINT);
-      case T::U8_3:
-        F(R8G8B8_UINT);
-      case T::U8_4:
-        F(R8G8B8A8_UINT);
-      case T::U16:
-        F(R16_UINT);
-      case T::U16_2:
-        F(R16G16_UINT);
-      case T::U16_3:
-        F(R16G16B16_UINT);
-      case T::U16_4:
-        F(R16G16B16A16_UINT);
-      case T::U32:
-        F(R32_UINT);
-      case T::U32_2:
-        F(R32G32_UINT);
-      case T::U32_3:
-        F(R32G32B32_UINT);
-      case T::U32_4:
-        F(R32G32B32A32_UINT);
-      case shaders::DataType::None:
-      case shaders::DataType::Void:
-        F(UNDEFINED);
-      case shaders::DataType::Bool:
-        F(R8_UINT);
-      case shaders::DataType::F16:
-        F(R16_SFLOAT);
-      case shaders::DataType::F64:
-        F(R64_SFLOAT);
-      case shaders::DataType::F16_2:
-        F(R16G16_SFLOAT);
-      case shaders::DataType::F64_2:
-        F(R64G64_SFLOAT);
-      case shaders::DataType::F16_3:
-        F(R16G16B16_SFLOAT);
-      case shaders::DataType::F64_3:
-        F(R64G64B64_SFLOAT);
-      case shaders::DataType::F16_4:
-        F(R16G16B16A16_SFLOAT);
-      case shaders::DataType::F64_4:
-        F(R64G64B64A64_SFLOAT);
-      case shaders::DataType::I8:
-        F(R8_SINT);
-      case shaders::DataType::I16:
-        F(R16_SINT);
-      case shaders::DataType::I32:
-        F(R32_SINT);
-      case shaders::DataType::I64:
-        F(R64_SINT);
-      case shaders::DataType::I8_2:
-        F(R8G8_SINT);
-      case shaders::DataType::I16_2:
-        F(R16G16_SINT);
-      case shaders::DataType::I32_2:
-        F(R32G32_SINT);
-      case shaders::DataType::I64_2:
-        F(R64G64_SINT);
-      case shaders::DataType::I8_3:
-        F(R8G8B8_SINT);
-      case shaders::DataType::I16_3:
-        F(R16G16B16_SINT);
-      case shaders::DataType::I32_3:
-        F(R32G32B32_SINT);
-      case shaders::DataType::I64_3:
-        F(R64G64B64_SINT);
-      case shaders::DataType::I8_4:
-        F(R8G8B8A8_SINT);
-      case shaders::DataType::I16_4:
-        F(R16G16B16A16_SINT);
-      case shaders::DataType::I32_4:
-        F(R32G32B32A32_SINT);
-      case shaders::DataType::I64_4:
-        F(R64G64B64A64_SINT);
-      case shaders::DataType::U64:
-        F(R64_UINT);
-      case shaders::DataType::U64_2:
-        F(R64G64_UINT);
-      case shaders::DataType::U64_3:
-        F(R64G64B64_UINT);
-      case shaders::DataType::U64_4:
-        F(R64G64B64A64_UINT);
-      case shaders::DataType::F32_4x4:
-        F(R32G32B32A32_SFLOAT);
-      case shaders::DataType::Sampler2D:
-        F(UNDEFINED);
-      }
-    }
-
-    uint32_t getSize(shaders::DataType type) {
-      using T = shaders::DataType;
-      switch (type) {
-      case T::F32:
-        return 4;
-      case T::F32_2:
-        return 8;
-      case T::F32_3:
-        return 12;
-      case T::F32_4:
-        return 16;
-      case T::U8:
-        return 1;
-      case T::U8_2:
-        return 2;
-      case T::U8_3:
-        return 3;
-      case T::U8_4:
-        return 4;
-      case T::U16:
-        return 2;
-      case T::U16_2:
-        return 4;
-      case T::U16_3:
-        return 6;
-      case T::U16_4:
-        return 8;
-      case T::U32:
-        return 4;
-      case T::U32_2:
-        return 8;
-      case T::U32_3:
-        return 12;
-      case T::U32_4:
-        return 16;
-      case shaders::DataType::None:
-      case shaders::DataType::Void:
-        return 0;
-      case shaders::DataType::Bool:
-        return 1;
-      case shaders::DataType::F16:
-        return 2;
-      case shaders::DataType::F64:
-        return 8;
-      case shaders::DataType::F16_2:
-        return 4;
-      case shaders::DataType::F64_2:
-        return 16;
-      case shaders::DataType::F16_3:
-        return 6;
-      case shaders::DataType::F64_3:
-        return 24;
-      case shaders::DataType::F16_4:
-        return 8;
-      case shaders::DataType::F64_4:
-        return 32;
-      case shaders::DataType::I8:
-        return 1;
-      case shaders::DataType::I16:
-        return 2;
-      case shaders::DataType::I32:
-        return 4;
-      case shaders::DataType::I64:
-        return 8;
-      case shaders::DataType::I8_2:
-        return 2;
-      case shaders::DataType::I16_2:
-        return 4;
-      case shaders::DataType::I32_2:
-        return 8;
-      case shaders::DataType::I64_2:
-        return 16;
-      case shaders::DataType::I8_3:
-        return 3;
-      case shaders::DataType::I16_3:
-        return 6;
-      case shaders::DataType::I32_3:
-        return 12;
-      case shaders::DataType::I64_3:
-        return 24;
-      case shaders::DataType::I8_4:
-        return 4;
-      case shaders::DataType::I16_4:
-        return 8;
-      case shaders::DataType::I32_4:
-        return 16;
-      case shaders::DataType::I64_4:
-        return 32;
-      case shaders::DataType::U64:
-        return 8;
-      case shaders::DataType::U64_2:
-        return 16;
-      case shaders::DataType::U64_3:
-        return 24;
-      case shaders::DataType::U64_4:
-        return 32;
-      case shaders::DataType::F32_4x4:
-        return 64;
-      case shaders::DataType::Sampler2D:
-        return 0;
-      }
     }
 
     VertexInput getVertexInputFromShader(const shaders::Shader& shader, std::vector<uint32_t> instanceBindings) {
@@ -403,7 +188,8 @@ namespace kt::vkh::setup {
 
   } // namespace
 
-  std::expected<Pipeline, std::string> createDeferredPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats) {
+  std::expected<Pipeline, std::string> createDeferredPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                              const VkDescriptorSetLayout globalLayout) {
     VKH_MAKE(shader, getShader(::shaders::deferred, vkcore.device.logical), "Failed to create shader for deferred pipeline.");
 
     GraphicsPipelineConfig config{
@@ -439,7 +225,14 @@ namespace kt::vkh::setup {
 
     };
 
-    PipelineLayoutConfig layoutConfig{};
+    PipelineLayoutConfig layoutConfig{
+        .setLayouts = {globalLayout},
+        .pushConstantRanges = {{
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .offset = 0,
+            .size = sizeof(VkDeviceAddress) * 2 + sizeof(uint32_t),
+        }},
+    };
 
     auto vkLayoutInfo = layoutConfig.build();
     auto vkConfig = config.build();
@@ -456,10 +249,11 @@ namespace kt::vkh::setup {
     return pipeline;
   } // namespace
 
-  std::expected<Renderer::Pipelines, std::string> createPipelines(const Renderer::VulkanCore& vkcore) {
+  std::expected<Renderer::Pipelines, std::string> createPipelines(const Renderer::VulkanCore& vkcore,
+                                                                  const VkDescriptorSetLayout globalLayout) {
     VKH_MAKE(formats, findFormats(vkcore), "Failed to find suitable formats for renderer.");
 
-    VKH_MAKE(deferred, createDeferredPipeline(vkcore, formats), "Failed to create deferred pipeline.");
+    VKH_MAKE(deferred, createDeferredPipeline(vkcore, formats, globalLayout), "Failed to create deferred pipeline.");
 
     return Renderer::Pipelines{
         .deferred = deferred,

@@ -13,23 +13,17 @@ namespace kt::vkh {
   class DescriptorLayoutBuilder {
   public:
     constexpr static VkDescriptorBindingFlags INDEX_BINDING_FLAGS =
-        VkDescriptorBindingFlagBits::
-            VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT |
-        VkDescriptorBindingFlagBits::
-            VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT |
+        VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT |
+        VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT |
         VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
-        VkDescriptorBindingFlagBits::
-            VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
+        VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
 
     void clear() { bindings.clear(); }
 
-    void addBinding(uint32_t binding, VkDescriptorType descriptorType,
-                    VkShaderStageFlags stageFlags, uint32_t descriptorCount = 1,
-                    VkDescriptorBindingFlags bindingFlags = 0,
-                    void* pNext = nullptr);
+    void addBinding(uint32_t binding, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags, uint32_t descriptorCount = 1,
+                    VkDescriptorBindingFlags bindingFlags = 0, void* pNext = nullptr);
 
-    std::expected<VkDescriptorSetLayout, std::string>
-    build(const VkDevice& device, void* pNext = nullptr) const;
+    std::expected<VkDescriptorSetLayout, std::string> build(const VkDevice& device, void* pNext = nullptr) const;
 
   private:
     std::vector<VkDescriptorSetLayoutBinding> bindings{};
@@ -43,13 +37,10 @@ namespace kt::vkh {
       float ratio;
     };
 
-    std::expected<void, std::string>
-    init(const VkDevice& device, std::span<PoolRatios> ratios,
-         VkDescriptorPoolCreateFlags poolCreateFlags = {},
-         uint32_t poolSize = 256);
+    std::expected<void, std::string> init(const VkDevice& device, std::span<PoolRatios> ratios,
+                                          VkDescriptorPoolCreateFlags poolCreateFlags = {}, uint32_t poolSize = 256);
 
-    std::expected<VkDescriptorSet, std::string>
-    allocate(const VkDescriptorSetLayout& layout, void* pNext = nullptr);
+    std::expected<VkDescriptorSet, std::string> allocate(const VkDescriptorSetLayout& layout, void* pNext = nullptr);
 
     void reset() {
       if (pool) {
@@ -62,8 +53,7 @@ namespace kt::vkh {
     }
 
   private:
-    std::expected<VkDescriptorPool, std::string>
-    createPool(uint32_t setCount, std::span<PoolRatios> ratios);
+    std::expected<VkDescriptorPool, std::string> createPool(uint32_t setCount, std::span<PoolRatios> ratios);
 
     VkDevice device;
     uint32_t poolSize;
@@ -81,14 +71,12 @@ namespace kt::vkh {
 
     enum class ImageType : uint8_t {
       Sampler = VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
-      CombinedImageSampler =
-          VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      CombinedImageSampler = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
       SampledImage = VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
       StorageImage = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
     };
 
-    void writeImage(uint32_t binding, const VkDescriptorImageInfo& imageInfo,
-                    ImageType type, void* pNext = nullptr) {
+    void writeImage(uint32_t binding, const VkDescriptorImageInfo& imageInfo, ImageType type, void* pNext = nullptr) {
       imagnInfos.push_back(imageInfo);
       writes.push_back(VkWriteDescriptorSet{
           .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -103,16 +91,14 @@ namespace kt::vkh {
     enum class BufferType : uint8_t {
       Uniform = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
       Storage = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      UniformDynamic =
-          VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-      StorageDynamic =
-          VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+      UniformDynamic = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+      StorageDynamic = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
     };
 
-    void writeBuffer(uint32_t binding, const VkDescriptorBufferInfo& bufferInfo,
-                     BufferType type, void* pNext = nullptr) {
+    void writeBuffer(uint32_t binding, const VkDescriptorBufferInfo& bufferInfo, BufferType type, void* pNext = nullptr) {
       bufferInfos.push_back(bufferInfo);
       writes.push_back(VkWriteDescriptorSet{
+          .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
           .pNext = pNext,
           .dstBinding = binding,
           .descriptorCount = 1,

@@ -12,6 +12,7 @@ target_sources(${PROJECT_NAME}
     setup/setup.cpp
     setup/swapchain.cpp
 
+    helpers/conversions.cpp
     helpers/descriptors.cpp
     helpers/formatting.cpp
     helpers/instance.cpp
@@ -21,6 +22,7 @@ target_sources(${PROJECT_NAME}
     helpers/validators.cpp
     helpers/vmaImpl.cpp
 
+    constants.cpp
     renderer.cpp
     resourceManagment.cpp
     structs.cpp

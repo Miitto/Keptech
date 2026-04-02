@@ -22,8 +22,7 @@ struct Tex {
   float2 transformedUV(float2 uv) {
     float cosRotation = cos(uvRotation);
     float sinRotation = sin(uvRotation);
-    float2x2 rotMatrix =
-        float2x2(cosRotation, -sinRotation, sinRotation, cosRotation);
+    float2x2 rotMatrix = float2x2(cosRotation, -sinRotation, sinRotation, cosRotation);
     return mul(uv, rotMatrix) * uvScale + uvOffset;
   }
 
@@ -51,8 +50,8 @@ struct Instance {
 
 struct PushConstants {
   Instance *iBuffer;
-  uint instanceOffset;
   Material *mBuffer;
+  uint instanceOffset;
 };
 
 struct VertexOutput {
@@ -66,8 +65,7 @@ struct VertexOutput {
 };
 
 [shader("vertex")]
-VertexOutput vert(Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID,
-                  uniform PushConstants PC) {
+VertexOutput vert(Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID, uniform PushConstants PC) {
   VertexOutput output;
 
   Instance inst = PC.iBuffer[iid + PC.instanceOffset];
@@ -83,8 +81,7 @@ VertexOutput vert(Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID,
 
   output.normal = normalize(mul(v.normal, modelRotMatrix));
   output.tangent = normalize(mul(v.tangent.xyz, modelRotMatrix));
-  output.bitangent =
-      normalize(cross(output.normal, output.tangent) * v.tangent.w);
+  output.bitangent = normalize(cross(output.normal, output.tangent) * v.tangent.w);
 
   return output;
 }
@@ -114,9 +111,7 @@ kt::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
   if (mat.bump.valid) {
     float3 normalSample = mat.bump.Sample(uv).xyz * 2.0 - 1.0;
 
-    float3x3 TBN =
-        float3x3(normalize(input.tangent), normalize(input.bitangent),
-                 normalize(input.normal));
+    float3x3 TBN = float3x3(normalize(input.tangent), normalize(input.bitangent), normalize(input.normal));
     float3 worldNormal = normalize(mul(normalSample, TBN));
 
     output.normal = float4(worldNormal, 1.f);

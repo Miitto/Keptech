@@ -71,10 +71,6 @@ namespace kt::vkh {
     Queue queue;
   };
 
-  struct Limits {
-    VkDeviceSize minUniformBufferOffsetAlignment;
-  };
-
   struct Queues {
     Queue graphics;
     Queue present;

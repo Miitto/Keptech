@@ -108,7 +108,7 @@ namespace kt::vkh {
 
   std::expected<AddressedAllocatedBuffer, std::string>
   AddressedAllocatedBuffer::fromAllocatedBuffer(const VkDevice& device, const AllocatedBuffer& allocatedBuffer) {
-    VkBufferDeviceAddressInfo addrVknfo{.buffer = allocatedBuffer.buffer};
+    VkBufferDeviceAddressInfo addrVknfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = allocatedBuffer.buffer};
     VkDeviceAddress address = vkGetBufferDeviceAddress(device, &addrVknfo);
 
     AddressedAllocatedBuffer buf{

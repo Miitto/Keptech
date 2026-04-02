@@ -18,47 +18,34 @@ namespace kt::vkh::setup {
 
   std::expected<std::array<Pools, 2>, std::string> createPools(std::set<uint32_t>& uniqueQueueFamilies, const QueueIndices& queueIndices,
                                                                VkDevice& device, const Queues& queues) {
-    Pools pools1;
-    Pools pools2;
-
-    std::array<Pools*, 2> poolsArray = {&pools1, &pools2};
+    Pools pools1{};
+    Pools pools2{};
 
     VkCommandPoolCreateInfo poolCreateInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
     };
+
+    auto makePool = [&](VkCommandPool& p1, VkCommandPool& p2) {
+      VK_CHECK(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &p1), "Failed to create command pool.");
+      VK_CHECK(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &p2), "Failed to create command pool.");
+    };
+
     for (uint32_t familyIndex : uniqueQueueFamilies) {
       poolCreateInfo.queueFamilyIndex = familyIndex;
 
-      Queue queue;
       if (familyIndex == queueIndices.graphics) {
-        queue = queues.graphics;
-      } else if (familyIndex == queueIndices.present) {
-        queue = queues.present;
+        pools1.graphics.queue = queues.graphics;
+        pools2.graphics.queue = queues.graphics;
+        makePool(pools1.graphics.pool, pools2.graphics.pool);
       } else if (familyIndex == queueIndices.compute) {
-        queue = queues.compute;
-      } else {
-        continue;
-      }
-
-      for (int i = 0; i < 2; i++) {
-        Pools& pools = *poolsArray[i];
-
-        VkCommandPool vkpool;
-        VK_MAKE(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &vkpool), "Failed to create command pool.");
-
-        CommandPool pool{.pool = vkpool, .queue = queue};
-
-        if (familyIndex == queueIndices.graphics) {
-          pools.graphics = pool;
-        }
-        if (familyIndex == queueIndices.compute) {
-          pools.compute = pool;
-        }
+        pools1.compute.queue = queues.compute;
+        pools2.compute.queue = queues.compute;
+        makePool(pools1.compute.pool, pools2.compute.pool);
       }
     }
 
-    return std::move(std::array<Pools, 2>{std::move(pools1), std::move(pools2)});
+    return std::array<Pools, 2>{pools1, pools2};
   }
 
   std::expected<Renderer::VulkanCore, std::string> createVulkanCore(const RendererCreateInfo& createInfo,

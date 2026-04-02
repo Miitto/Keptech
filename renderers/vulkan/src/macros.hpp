@@ -19,6 +19,15 @@
     }                                                                                                                                      \
   }
 
+#define VK_CHECK(_EXPR, _ERROR)                                                                                                            \
+  {                                                                                                                                        \
+    auto res = _EXPR;                                                                                                                      \
+    if (res != VK_SUCCESS) {                                                                                                               \
+      VK_CRITICAL(_ERROR);                                                                                                                 \
+      std::abort();                                                                                                                        \
+    }                                                                                                                                      \
+  }
+
 #define VMA_MAKE(_NAME, _EXPR, _ERROR)                                                                                                     \
   auto _NAME##_res = _EXPR;                                                                                                                \
   if (_NAME##_res.result != vk::Result::eSuccess) {                                                                                        \

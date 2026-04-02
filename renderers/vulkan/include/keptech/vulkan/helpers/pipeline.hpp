@@ -139,6 +139,7 @@ namespace kt::vkh {
       blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 
       return VkGraphicsPipelineCreateInfo{
+          .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
           .pNext = &_internalRenderingInfo.value(),
           .stageCount = static_cast<uint32_t>(shaders.size()),
           .pStages = shaders.data(),
