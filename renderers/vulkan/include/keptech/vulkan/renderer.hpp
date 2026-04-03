@@ -127,7 +127,7 @@ namespace kt::vkh {
     [[nodiscard]] bool canRenderToFormat(VkFormat format) const;
     [[nodiscard]] VkFormat backbufferFormat() const;
     [[nodiscard]] bool hasMoved() const noexcept { return m.moveGuard.moved(); }
-    void submitCommandBuffers(std::vector<SubmitInfo>);
+    void submitCommandBuffers(std::vector<SubmitInfo>&&);
 
     // Render
   public:
@@ -137,7 +137,7 @@ namespace kt::vkh {
   private:
     Renderer(Members&& m) : m(std::move(m)) { m.frameInfo.perFrame = &this->m.vkcore.perFrame[0]; }
 
-    std::expected<VkCommandBuffer, std::string> startFrame();
+    void startFrame();
 
     void drawDeferred(VkCommandBuffer cmdBuf);
 
@@ -145,7 +145,7 @@ namespace kt::vkh {
     void endFrame(VkCommandBuffer graphicsCmd);
     void present();
 
-    void initImGui();
+    void imGuiNewFrame() const;
     void shutdownImGui();
     [[nodiscard]] const VkFormat& getSwapchainImageFormat() const { return m.vkcore.swapchain.config().format.format; }
 

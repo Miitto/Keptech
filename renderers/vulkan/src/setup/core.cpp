@@ -27,8 +27,8 @@ namespace kt::vkh::setup {
     };
 
     auto makePool = [&](VkCommandPool& p1, VkCommandPool& p2) {
-      VK_CHECK(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &p1), "Failed to create command pool.");
-      VK_CHECK(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &p2), "Failed to create command pool.");
+      VK_CHECK(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &p1), "Failed to create first command pool.");
+      VK_CHECK(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &p2), "Failed to create second command pool.");
     };
 
     for (uint32_t familyIndex : uniqueQueueFamilies) {
@@ -38,12 +38,21 @@ namespace kt::vkh::setup {
         pools1.graphics.queue = queues.graphics;
         pools2.graphics.queue = queues.graphics;
         makePool(pools1.graphics.pool, pools2.graphics.pool);
+        if (queueIndices.graphics == queueIndices.compute) {
+          pools1.compute = pools1.graphics;
+          pools2.compute = pools2.graphics;
+        }
       } else if (familyIndex == queueIndices.compute) {
         pools1.compute.queue = queues.compute;
         pools2.compute.queue = queues.compute;
         makePool(pools1.compute.pool, pools2.compute.pool);
       }
     }
+
+    VK_ASSERT(pools1.graphics.pool != nullptr, "Graphics command pool was not created.");
+    VK_ASSERT(pools1.compute.pool != nullptr, "Compute command pool was not created.");
+    VK_ASSERT(pools2.graphics.pool != nullptr, "Graphics command pool was not created.");
+    VK_ASSERT(pools2.compute.pool != nullptr, "Compute command pool was not created.");
 
     return std::array<Pools, 2>{pools1, pools2};
   }
@@ -79,7 +88,7 @@ namespace kt::vkh::setup {
 
     VKH_MAKE(queues, getQueues(device, queueIndices, uniqueQueueFamilies), "Failed to get device queues.");
 
-    VmaAllocator allocator;
+    VmaAllocator allocator = nullptr;
     VmaAllocatorCreateInfo allocInfo{
         .flags = VmaAllocatorCreateFlagBits::VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
         .physicalDevice = physDevice,
@@ -91,7 +100,9 @@ namespace kt::vkh::setup {
     VKH_MAKE(swapchain, createSwapchain(physDevice, window.getRenderSize(), device, surface, queues, nullptr),
              "Failed to create swapchain.");
 
-    VkCommandPool transferPool;
+    VKH_MAKE(poolsArray, createPools(uniqueQueueFamilies, queueIndices, device, queues), "Failed to create command pools.");
+
+    VkCommandPool transferPool = nullptr;
     VkCommandPoolCreateInfo poolCreateInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
@@ -99,15 +110,13 @@ namespace kt::vkh::setup {
     };
     VK_MAKE(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &transferPool), "Failed to create transfer command pool.");
 
-    VKH_MAKE(poolsArray, createPools(uniqueQueueFamilies, queueIndices, device, queues), "Failed to create command pools.");
-
     CommandPool transferPoolStruct{
         .pool = transferPool,
         .queue = queues.transfer,
     };
 
-    VkFence fence1;
-    VkFence fence2;
+    VkFence fence1 = nullptr;
+    VkFence fence2 = nullptr;
     VkFenceCreateInfo fenceCreateInfo{
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .flags = VkFenceCreateFlagBits::VK_FENCE_CREATE_SIGNALED_BIT,
@@ -115,8 +124,8 @@ namespace kt::vkh::setup {
     VK_MAKE(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence1), "Failed to create fence1.");
     VK_MAKE(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence2), "Failed to create fence2.")
 
-    VkSemaphore sem1;
-    VkSemaphore sem2;
+    VkSemaphore sem1 = nullptr;
+    VkSemaphore sem2 = nullptr;
     VkSemaphoreCreateInfo semaphoreCreateInfo{
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     };
@@ -133,8 +142,8 @@ namespace kt::vkh::setup {
         .pNext = &timelineCreateInfo,
     };
 
-    VkSemaphore timelineSem1;
-    VkSemaphore timelineSem2;
+    VkSemaphore timelineSem1 = nullptr;
+    VkSemaphore timelineSem2 = nullptr;
     VK_MAKE(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &timelineSem1), "Failed to create timeline sem1");
     VK_MAKE(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &timelineSem2), "Failed to create timeline sem2");
 

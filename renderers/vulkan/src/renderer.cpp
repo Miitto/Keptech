@@ -20,30 +20,56 @@ namespace kt::vkh {
   static_assert(CRenderer<Renderer>, "Renderer does not satisfy CRenderer concept");
 
   void Renderer::render() {
-    auto start = startFrame();
-    if (!start) {
-      VK_CRITICAL("Failed to start frame: {}", start.error());
-      abort();
-    }
+    startFrame();
+    VkCommandBuffer cmdBuf = nullptr;
+    VkCommandBufferAllocateInfo allocInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = m.frameInfo.perFrame->pools.graphics.pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+    VK_CHECK(vkAllocateCommandBuffers(m.vkcore.device.logical, &allocInfo, &cmdBuf), "Failed to allocate command buffer for frame");
+    VkCommandBufferBeginInfo beginInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    vkBeginCommandBuffer(cmdBuf, &beginInfo);
+    VkImageMemoryBarrier2 swapToRender{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+        .srcAccessMask = VK_ACCESS_2_NONE,
+        .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
+        .subresourceRange =
+            VkImageSubresourceRange{
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+    VkDependencyInfo dependencyInfo{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &swapToRender,
+    };
 
-    VkCommandBuffer cmdBuf = start.value();
+    vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
 
+    renderImGui(cmdBuf);
     endFrame(cmdBuf);
   }
 
   void Renderer::drawDeferred(VkCommandBuffer cmdBuf) {}
 
-  void Renderer::initImGui() {
-    auto res = setup::setupImGui(*m.window, m.vkcore);
-    if (!res.has_value()) {
-      VK_CRITICAL("Failed to initialize ImGui: {}", res.error());
-      abort();
-    }
-    m.imGuiObjects = std::move(res.value());
-  }
-
   void Renderer::newFrame() {
-    ImGui_ImplVulkan_NewFrame();
+    imGuiNewFrame();
     auto& perFrame = m.vkcore.perFrame[m.frameInfo.index];
 
     auto nextImageRes = m.vkcore.swapchain.getNextImage(m.vkcore.device, perFrame.inFlightFence, perFrame.imageAvailableSemaphore);
@@ -73,7 +99,7 @@ namespace kt::vkh {
     }
   }
 
-  std::expected<VkCommandBuffer, std::string> Renderer::startFrame() {
+  void Renderer::startFrame() {
     VkResult res = VkResult::VK_TIMEOUT;
     uint64_t waitValue = m.frameInfo.perFrame->timelineValue;
 
@@ -95,6 +121,8 @@ namespace kt::vkh {
     }
 
     m.frameInfo.perFrame->submittedCmds.clear();
+    VK_ASSERT(m.frameInfo.perFrame->pools.graphics.pool != VK_NULL_HANDLE, "Graphics command pool is null");
+    VK_ASSERT(m.frameInfo.perFrame->pools.compute.pool != VK_NULL_HANDLE, "Compute command pool is null");
     m.frameInfo.perFrame->pools.resetAll(m.vkcore.device.logical);
 
     auto& textureUpdates = m.frameInfo.perFrame->texToUpdate;
@@ -128,51 +156,6 @@ namespace kt::vkh {
       vkUpdateDescriptorSets(m.vkcore.device.logical, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
       textureUpdates.clear();
     }
-
-    VkCommandBufferAllocateInfo cmdBufAllocInfo{
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = m.frameInfo.perFrame->pools.graphics.pool,
-        .level = VkCommandBufferLevel::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
-    };
-    VkCommandBuffer cmdBuffer;
-    VK_MAKE(vkAllocateCommandBuffers(m.vkcore.device.logical, &cmdBufAllocInfo, &cmdBuffer), "Failed to allocate graphics command buffer");
-
-    VkCommandBufferBeginInfo beginInfo{
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-    };
-    vkBeginCommandBuffer(cmdBuffer, &beginInfo);
-
-    VkImageMemoryBarrier2 barrier{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-        .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-        .srcAccessMask = VK_ACCESS_2_NONE,
-        .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-        .oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-        .subresourceRange =
-            VkImageSubresourceRange{
-                .aspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-    };
-
-    VkDependencyInfo dependencyInfo{
-        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &barrier,
-    };
-    vkCmdPipelineBarrier2(cmdBuffer, &dependencyInfo);
-
-    return cmdBuffer;
   }
 
   void Renderer::renderImGui(VkCommandBuffer cmdBuf) {
@@ -187,6 +170,7 @@ namespace kt::vkh {
     };
 
     VkRenderingInfo renderingInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
         .renderArea =
             VkRect2D{
                 .offset = VkOffset2D{.x = 0, .y = 0},
@@ -202,7 +186,7 @@ namespace kt::vkh {
     vkCmdEndRendering(cmdBuf);
   }
 
-  void Renderer::submitCommandBuffers(std::vector<SubmitInfo> cmdBuffers) {
+  void Renderer::submitCommandBuffers(std::vector<SubmitInfo>&& cmdBuffers) {
     if (cmdBuffers.empty()) {
       return;
     }
@@ -332,74 +316,6 @@ namespace kt::vkh {
         abort();
       }
     }
-  }
-
-  Renderer::Renderer(Renderer&& o) noexcept : m(std::move(o.m)) { m.frameInfo.perFrame = &m.vkcore.perFrame[m.frameInfo.index]; }
-
-  Renderer& Renderer::operator=(Renderer&& o) noexcept {
-    if (this == &o)
-      return *this;
-
-    m = std::move(o.m);
-    return *this;
-  }
-
-  void Renderer::shutdownImGui() {
-    ImGui_ImplVulkan_Shutdown();
-    VK_DEBUG("Shut down ImGui Vulkan backend");
-  }
-
-  Renderer::~Renderer() {
-    if (m.moveGuard.moved()) {
-      return;
-    }
-
-    auto& device = m.vkcore.device.logical;
-    auto& allocator = m.vkcore.allocator;
-
-    vkDeviceWaitIdle(device);
-
-    m.buffers.camera.destroy(allocator);
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-      for (auto& cmdBufInfo : m.vkcore.perFrame[i].submittedCmds) {
-        for (auto& buf : cmdBufInfo.trackedBuffers) {
-          buf.destroy(allocator);
-        }
-      }
-    }
-
-    auto destroyPipeline = [&](Pipeline& pipeline) {
-      vkDestroyPipeline(device, pipeline.pipeline, nullptr);
-      vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
-    };
-
-    destroyPipeline(m.pipelines.deferred);
-
-    for (auto& perFrame : m.vkcore.perFrame) {
-      vkDestroySemaphore(device, perFrame.imageAvailableSemaphore, nullptr);
-      vkDestroySemaphore(device, perFrame.timelineSemaphore, nullptr);
-      vkDestroyFence(device, perFrame.inFlightFence, nullptr);
-
-      vkDestroyCommandPool(device, perFrame.pools.graphics.pool, nullptr);
-      vkDestroyCommandPool(device, perFrame.pools.compute.pool, nullptr);
-    }
-    vkDestroyCommandPool(device, m.vkcore.transferPool.pool, nullptr);
-
-    vkDestroyDescriptorSetLayout(device, m.globalDescriptorSets.layout, nullptr);
-    vkDestroyDescriptorPool(device, m.globalDescriptorSets.pool, nullptr);
-
-    vkDestroyDescriptorPool(device, m.imGuiObjects.descriptorPool, nullptr);
-    vkDestroySampler(device, m.imGuiObjects.sampler, nullptr);
-
-    vmaDestroyAllocator(allocator);
-
-    m.vkcore.swapchain.~Swapchain();
-    vkDestroyDevice(device, nullptr);
-    vkDestroySurfaceKHR(m.vkcore.instance, m.vkcore.surface, nullptr);
-    vkDestroyInstance(m.vkcore.instance, nullptr);
-
-    VK_INFO("Vulkan renderer shut down cleanly");
   }
 
   std::expected<void, std::string> Renderer::recreateSwapchain() {

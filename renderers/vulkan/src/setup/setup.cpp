@@ -15,10 +15,13 @@ namespace kt::vkh {
 
   std::expected<Renderer, std::string> Renderer::create(const RendererCreateInfo& createInfo, const core::window::Window& window) {
     VKH_MAKE(vkcore, createVulkanCore(createInfo, window), "Failed to create Vulkan core.");
+
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(vkcore.device.physical, &properties);
 
     limits::minUniformBufferOffsetAlignment = properties.limits.minUniformBufferOffsetAlignment;
+
+    VKH_MAKE(imGuiObjects, setupImGui(window, vkcore), "Failed to set up ImGui for Vulkan.");
 
     VKH_MAKE(globalDescriptorSets, createGlobalDescriptors(vkcore.device.logical), "Failed to create global descriptor sets.");
 
@@ -41,13 +44,13 @@ namespace kt::vkh {
       offset = maths::roundToAlignment(offset, limits::minUniformBufferOffsetAlignment);
     }
 
-    VK_DEBUG("Vulkan renderer created successfully.");
-
     VKH_MAKE(pipelines, createPipelines(vkcore, globalDescriptorSets.layout), "Failed to create pipelines for renderer.");
 
+    VK_DEBUG("Vulkan renderer created successfully.");
     Renderer r{{
         .window = &window,
         .vkcore = std::move(vkcore),
+        .imGuiObjects = imGuiObjects,
         .buffers = buffers,
         .pipelines = pipelines,
         .globalDescriptorSets = globalDescriptorSets,

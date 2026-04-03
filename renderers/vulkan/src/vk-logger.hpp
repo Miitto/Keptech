@@ -44,7 +44,7 @@
 
 #ifndef NDEBUG
 #define VK_ASSERT(expr, ...)                                                                                                               \
-  if (!expr) {                                                                                                                             \
+  if (!(expr)) {                                                                                                                           \
     kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical,                                 \
                          "Assertion failed: " __VA_ARGS__);                                                                                \
     std::abort();                                                                                                                          \

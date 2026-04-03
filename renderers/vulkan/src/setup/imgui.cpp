@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/rendering/imgui.hpp"
 #include "keptech/vulkan/renderer.hpp"
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
@@ -14,6 +15,7 @@ namespace kt::vkh::setup {
 
   std::expected<Renderer::ImGuiVkObjects, std::string> setupImGui(const kt::core::window::Window& window,
                                                                   const Renderer::VulkanCore& vkcore) {
+    rendering::initImGui();
     std::array<VkDescriptorPoolSize, 11> pool_sizes = {{
         {
             .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,

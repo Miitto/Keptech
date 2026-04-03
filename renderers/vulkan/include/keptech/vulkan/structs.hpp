@@ -62,13 +62,13 @@ namespace kt::vkh {
   };
 
   struct Queue {
-    uint32_t index;
-    VkQueue queue;
+    uint32_t index = ~0;
+    VkQueue queue = nullptr;
   };
 
   struct CommandPool {
-    VkCommandPool pool;
-    Queue queue;
+    VkCommandPool pool = nullptr;
+    Queue queue{};
   };
 
   struct Queues {
@@ -79,8 +79,8 @@ namespace kt::vkh {
   };
 
   struct Pools {
-    CommandPool graphics;
-    CommandPool compute;
+    CommandPool graphics{};
+    CommandPool compute{};
 
     void resetAll(VkDevice device);
   };

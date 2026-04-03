@@ -51,74 +51,69 @@ namespace kt::vkh::setup {
   }
 
   std::expected<QueueIndices, std::string> findQueues(VkPhysicalDevice physDevice, VkSurfaceKHR surface) {
-    QueueFinder finder{physDevice};
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, nullptr);
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, queueFamilies.data());
 
-    auto getGraphicsPresentQueues = [&]() -> std::expected<QueueIndices, std::string> {
-      // Prefer a graphics + present
-      auto combinedFinder = finder.findCombined({
-          {QueueFinder::QueueType{
-              .type = QueueFinder::QueueTypeFlags::Graphics,
-          }},
-          {QueueFinder::QueueType{
-              .type = QueueFinder::QueueTypeFlags::Present,
-              .params =
-                  QueueFinder::QueueTypeParams{
-                      .presentQueue =
-                          {
-                              .device = physDevice,
-                              .surface = surface,
-                          },
-                  },
-          }},
-      });
-
-      if (combinedFinder.hasQueue()) {
-        auto& queue = combinedFinder.first();
-        return QueueIndices{.graphics = queue.index, .present = queue.index};
-      }
-
-      QueueIndices ind{};
-
-      auto graphicsFinder = finder.findType(QueueFinder::QueueType{.type = QueueFinder::QueueTypeFlags::Graphics});
-
-      if (graphicsFinder.hasQueue()) {
-        auto queue = graphicsFinder.first();
-        ind.graphics = queue.index;
-      } else {
-        return std::unexpected("No graphics queue family found");
-      }
-
-      auto presentFinder = finder.findType(
-          QueueFinder::QueueType{.type = QueueFinder::QueueTypeFlags::Present,
-                                 .params = QueueFinder::QueueTypeParams{.presentQueue = {.device = physDevice, .surface = surface}}});
-
-      if (presentFinder.hasQueue()) {
-        auto presentFamily = presentFinder.first();
-        ind.present = presentFamily.index;
-      } else {
-        return std::unexpected("No present queue family found");
-      }
-
-      return ind;
+    QueueIndices queues{
+        .graphics = UINT32_MAX,
+        .present = UINT32_MAX,
+        .compute = UINT32_MAX,
+        .transfer = UINT32_MAX,
     };
 
-    VKH_MAKE(queueIndices, getGraphicsPresentQueues(), "Failed to get core queues");
+    bool foundCombinedGraphicsPresent = false;
+    bool foundDedicatedTransfer = false;
+    bool foundDedicatedCompute = false;
 
-    auto computeFinder = finder.findType({.type = QueueFinder::QueueTypeFlags::Compute});
-    if (!computeFinder.hasQueue())
-      return std::unexpected("No compute queue found");
+    for (const auto& [index, props] : std::views::enumerate(queueFamilies)) {
+      bool isGraphics = props.queueFlags & VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT;
+      bool isCompute = props.queueFlags & VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT;
+      bool isTransfer = props.queueFlags & VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT;
+      VkBool32 supportsPresent = false;
+      vkGetPhysicalDeviceSurfaceSupportKHR(physDevice, index, surface, &supportsPresent);
 
-    queueIndices.compute = computeFinder.first().index;
-
-    auto transferFinder = finder.findType({.type = QueueFinder::QueueTypeFlags::Transfer})
-                              .filterTypes(QueueFinder::QueueTypeFlags::Graphics | QueueFinder::QueueTypeFlags::Compute);
-    if (transferFinder.hasQueue()) {
-      queueIndices.transfer = transferFinder.first().index;
-    } else {
-      queueIndices.transfer = queueIndices.graphics;
+      if (isGraphics && supportsPresent && !foundCombinedGraphicsPresent) {
+        queues.graphics = index;
+        queues.present = index;
+        foundCombinedGraphicsPresent = true;
+        VK_DEBUG("Found combined graphics/present queue at index {}", index);
+      } else if (isCompute && !isGraphics && !foundDedicatedCompute) {
+        queues.compute = index;
+        foundDedicatedCompute = true;
+        VK_DEBUG("Found dedicated compute queue at index {}", index);
+      } else if (isTransfer && !isGraphics && !isCompute && !foundDedicatedTransfer) {
+        queues.transfer = index;
+        foundDedicatedTransfer = true;
+        VK_DEBUG("Found dedicated transfer queue at index {}", index);
+      }
+      // A compute transfer queue is preferable if we can't have a truly dedicated one
+      else if (isTransfer && isCompute && !isGraphics && !foundDedicatedTransfer) {
+        queues.transfer = index;
+        VK_DEBUG("Found compute/transfer queue at index {}, using it as transfer queue", index);
+      } else {
+        if (isGraphics && queues.graphics == UINT32_MAX) {
+          queues.graphics = index;
+        }
+        if (supportsPresent && queues.present == UINT32_MAX) {
+          queues.present = index;
+        }
+        if (isCompute && queues.compute == UINT32_MAX) {
+          queues.compute = index;
+        }
+        if (isTransfer && queues.transfer == UINT32_MAX) {
+          queues.transfer = index;
+        }
+      }
     }
 
-    return queueIndices;
+    VK_ASSERT(queues.graphics != UINT32_MAX, "Failed to find graphics queue.");
+    VK_ASSERT(queues.present != UINT32_MAX, "Failed to find present queue.");
+    VK_ASSERT(queues.compute != UINT32_MAX, "Failed to find compute queue.");
+    VK_ASSERT(queues.transfer != UINT32_MAX, "Failed to find transfer queue.");
+
+    return queues;
   }
 
   std::expected<VkDevice, std::string> createDevice(VkPhysicalDevice physDevice, const std::set<uint32_t>& uniqueQueueFamilies) {

@@ -1,7 +1,7 @@
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/imgui.h>
 
-namespace keptech::rendering {
+namespace kt::rendering {
 
   void initImGui() { ImGui::CreateContext(); }
   void shutdownImGui() {
@@ -13,4 +13,4 @@ namespace keptech::rendering {
     ImGui::NewFrame();
   }
 
-} // namespace keptech::rendering
+} // namespace kt::rendering

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace keptech::rendering {
+namespace kt::rendering {
 
   /// Call before the renderer inits its own ImGui backend.
   void initImGui();
@@ -10,4 +10,4 @@ namespace keptech::rendering {
   /// start issuing ImGui commands.
   void newImGuiFrame();
 
-} // namespace keptech::rendering
+} // namespace kt::rendering

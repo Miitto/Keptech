@@ -24,6 +24,7 @@ target_sources(${PROJECT_NAME}
 
     constants.cpp
     renderer.cpp
+    rendererConDes.cpp
     resourceManagment.cpp
     structs.cpp
     vk-logger.cpp

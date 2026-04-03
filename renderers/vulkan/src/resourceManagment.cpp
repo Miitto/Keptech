@@ -1,10 +1,6 @@
 #include "keptech/vulkan/renderer.hpp"
 
 #include "keptech/vulkan/structs.hpp"
-#include "macros.hpp"
-#include "vk-logger.hpp"
-#include "vulkan/vulkan.hpp"
-#include <algorithm>
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
@@ -20,10 +16,12 @@ namespace kt::vkh {
   }
 
   std::expected<gltf::Scene, std::string> Renderer::loadMesh(std::string_view path) {
-    return std::unexpected("Mesh loading not implemented yet");
+    // TODO: Impl
+    return gltf::Scene{};
   }
 
   std::expected<std::vector<Texture>, std::string> Renderer::createImages(const std::vector<ImageUploadInfo>& infos) {
-    return std::unexpected("Texture creation not implemented yet");
+    // TODO: Impl
+    return {};
   }
 } // namespace kt::vkh

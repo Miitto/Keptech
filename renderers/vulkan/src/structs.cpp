@@ -7,12 +7,9 @@
 
 namespace kt::vkh {
   void Pools::resetAll(VkDevice device) {
-    std::set<VkCommandPool> unique{
-        &graphics.pool,
-        &compute.pool,
-    };
-    for (auto& pool : unique) {
-      vkResetCommandPool(device, pool, 0);
+    vkResetCommandPool(device, graphics.pool, 0);
+    if (graphics.pool != compute.pool) {
+      vkResetCommandPool(device, compute.pool, 0);
     }
   }
   std::expected<AllocatedImage, std::string> AllocatedImage::create(const VmaAllocator& allocator, const VkDevice& device,
