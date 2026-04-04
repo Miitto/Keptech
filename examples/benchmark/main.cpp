@@ -20,7 +20,7 @@ kt::SetupInfo kt::configureApp() {
 
 class BenchmarkLayer : public kt::core::layers::Layer {
 public:
-  BenchmarkLayer(kt::Window& window, kt::Renderer& renderer, kt::Scene&& scene, kt::ecs::Entity cameraEntity)
+  BenchmarkLayer(kt::Window& window, kt::rendering::Renderer& renderer, kt::Scene&& scene, kt::ecs::Entity cameraEntity)
       : kt::core::layers::Layer("Benchkark"), window(window), scene(std::move(scene)), freeController(cameraEntity) {}
 
 private:
@@ -30,7 +30,7 @@ private:
 };
 
 std::expected<void, std::string> kt::setupAppLayers(core::layers::LayerStack& layerStack, core::window::Window& window,
-                                                    kt::Renderer& renderer) {
+                                                    kt::rendering::Renderer& renderer) {
   kt::Scene scene{};
   auto bistroMeshRes = renderer.loadMesh(ASSET_DIR "meshes/BistroExterior.gltf");
   if (!bistroMeshRes) {

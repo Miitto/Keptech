@@ -44,7 +44,6 @@ namespace kt::vkh {
 
     for (auto& perFrame : m.vkcore.perFrame) {
       vkDestroySemaphore(device, perFrame.imageAvailableSemaphore, nullptr);
-      vkDestroySemaphore(device, perFrame.timelineSemaphore, nullptr);
       vkDestroyFence(device, perFrame.inFlightFence, nullptr);
 
       vkDestroyCommandPool(device, perFrame.pools.graphics.pool, nullptr);
@@ -57,12 +56,11 @@ namespace kt::vkh {
 
     m.buffers.camera.destroy(allocator);
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-      for (auto& cmdBufInfo : m.vkcore.perFrame[i].submittedCmds) {
-        for (auto& buf : cmdBufInfo.trackedBuffers) {
-          buf.destroy(allocator);
-        }
-      }
+    for (auto& texture : m.loadedTextures) {
+      texture.destroy(allocator, device);
+    }
+    for (auto& buffer : m.loadedBuffers) {
+      buffer.destroy(allocator);
     }
 
     destroyPipeline(m.pipelines.deferred);

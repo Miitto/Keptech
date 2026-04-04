@@ -88,6 +88,7 @@ namespace kt::vkh {
         .buffer = buffer,
         .alloc = alloc,
         .allocInfo = aInfo,
+        .destroyed = new bool(false),
     };
   }
 

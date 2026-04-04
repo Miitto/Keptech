@@ -12,12 +12,12 @@ namespace kt::gltf {
     struct Node {
       std::string name;
       maths::Transform transform;
-      MeshPtr mesh;
+      Mesh mesh;
       std::vector<Node> children{};
     };
 
     std::vector<Node> roots;
-    std::vector<MeshPtr> meshes;
+    std::vector<Mesh> meshes;
 
     void addToEcsScene(kt::Scene& scene, kt::ecs::EntityHandle parent) const;
   };

@@ -100,27 +100,6 @@ namespace kt::vkh {
   }
 
   void Renderer::startFrame() {
-    VkResult res = VkResult::VK_TIMEOUT;
-    uint64_t waitValue = m.frameInfo.perFrame->timelineValue;
-
-    VkSemaphoreWaitInfo waitInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
-        .semaphoreCount = 1,
-        .pSemaphores = &m.frameInfo.perFrame->timelineSemaphore,
-        .pValues = &waitValue,
-    };
-    ;
-    while (res = vkWaitSemaphores(m.vkcore.device.logical, &waitInfo, 0), res == VkResult::VK_TIMEOUT) {
-      using namespace std::chrono_literals;
-      std::this_thread::sleep_for(100ms);
-    }
-
-    if (res != VK_SUCCESS) {
-      VK_CRITICAL("Failed to wait for command buffer semaphore");
-      abort();
-    }
-
-    m.frameInfo.perFrame->submittedCmds.clear();
     VK_ASSERT(m.frameInfo.perFrame->pools.graphics.pool != VK_NULL_HANDLE, "Graphics command pool is null");
     VK_ASSERT(m.frameInfo.perFrame->pools.compute.pool != VK_NULL_HANDLE, "Compute command pool is null");
     m.frameInfo.perFrame->pools.resetAll(m.vkcore.device.logical);
@@ -186,15 +165,6 @@ namespace kt::vkh {
     vkCmdEndRendering(cmdBuf);
   }
 
-  void Renderer::submitCommandBuffers(std::vector<SubmitInfo>&& cmdBuffers) {
-    if (cmdBuffers.empty()) {
-      return;
-    }
-
-    uint64_t waitValue = m.frameInfo.perFrame->timelineValue++;
-    uint64_t signalValue = waitValue + 1;
-  }
-
   void Renderer::endFrame(VkCommandBuffer cmdBuf) { // NOLINT - The item in the UPtr is moved
 
     VkImageMemoryBarrier2 barrier{
@@ -230,21 +200,11 @@ namespace kt::vkh {
 
     auto& sem = m.vkcore.swapchain.nPresentSemaphore(m.frameInfo.imageIndex);
 
-    VkSemaphoreSubmitInfo waitInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = m.vkcore.perFrame[m.frameInfo.index].timelineSemaphore,
-        .value = m.vkcore.perFrame[m.frameInfo.index].timelineValue,
-        .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-        .deviceIndex = 0,
-    };
-
     VkSemaphoreSubmitInfo imageAvailableWaitInfo{
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
         .semaphore = m.vkcore.perFrame[m.frameInfo.index].imageAvailableSemaphore,
         .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
     };
-
-    std::array<VkSemaphoreSubmitInfo, 2> waitSemaphores{waitInfo, imageAvailableWaitInfo};
 
     VkSemaphoreSubmitInfo signalInfo{
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
@@ -261,8 +221,8 @@ namespace kt::vkh {
 
     VkSubmitInfo2 submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-        .waitSemaphoreInfoCount = 2,
-        .pWaitSemaphoreInfos = waitSemaphores.data(),
+        .waitSemaphoreInfoCount = 1,
+        .pWaitSemaphoreInfos = &imageAvailableWaitInfo,
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &cmdBufInfo,
         .signalSemaphoreInfoCount = 1,
@@ -272,10 +232,6 @@ namespace kt::vkh {
     vkResetFences(m.vkcore.device.logical, 1, &m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
 
     vkQueueSubmit2(m.vkcore.queues.graphics.queue, 1, &submitInfo, m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
-
-    m.frameInfo.perFrame->submittedCmds.emplace_back(SubmittedCommandBufferInfo{
-        .buffer = cmdBuf,
-    });
 
     present();
   }

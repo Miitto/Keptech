@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/rendering/gltf/data.hpp"
 #include "keptech/rendering/texture.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
@@ -32,11 +33,6 @@ namespace kt::vkh {
       VkSampler sampler;
     };
 
-    struct SubmittedCommandBufferInfo {
-      VkCommandBuffer buffer;
-      std::vector<AllocatedBuffer> trackedBuffers{};
-    };
-
     struct TextureUpdateInfo {
       AllocatedImage texture;
       size_t indexInDescriptorSet;
@@ -45,10 +41,7 @@ namespace kt::vkh {
     struct PerFrame {
       VkFence inFlightFence;
       VkSemaphore imageAvailableSemaphore;
-      VkSemaphore timelineSemaphore;
-      uint64_t timelineValue = 0;
       Pools pools;
-      std::vector<SubmittedCommandBufferInfo> submittedCmds;
       std::vector<TextureUpdateInfo> texToUpdate;
     };
 
@@ -63,7 +56,8 @@ namespace kt::vkh {
     };
 
     struct Buffers {
-      AddressedAllocatedBuffer camera;
+      using B = AddressedAllocatedBuffer;
+      B camera;
     };
 
     struct Pipelines {
@@ -83,12 +77,6 @@ namespace kt::vkh {
       CommandPool transferPool;
     };
 
-    struct SubmitInfo {
-      std::vector<VkCommandBuffer> cmds;
-      std::vector<VkBuffer> trackedBuffers;
-      std::vector<AllocatedImage> trackedTextures;
-    };
-
     struct Members {
       MoveGuard moveGuard{};
 
@@ -105,6 +93,9 @@ namespace kt::vkh {
       Frame frameInfo{};
 
       size_t nextTextureIndex = 0;
+
+      std::vector<AllocatedImage> loadedTextures{};
+      std::vector<AllocatedBuffer> loadedBuffers{};
     };
 
     // Creation and destruction
@@ -115,6 +106,9 @@ namespace kt::vkh {
     std::expected<std::vector<Texture>, std::string> createImages(const std::vector<ImageUploadInfo>& imageInfos);
 
     void loadImGuiImageHandle(AllocatedImage& texture);
+
+    std::expected<std::vector<Mesh>, std::string> uploadMeshes(const std::vector<gltf::MeshData>& meshes);
+
     Renderer() = delete;
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
@@ -127,7 +121,6 @@ namespace kt::vkh {
     [[nodiscard]] bool canRenderToFormat(VkFormat format) const;
     [[nodiscard]] VkFormat backbufferFormat() const;
     [[nodiscard]] bool hasMoved() const noexcept { return m.moveGuard.moved(); }
-    void submitCommandBuffers(std::vector<SubmitInfo>&&);
 
     // Render
   public:

@@ -104,7 +104,9 @@ namespace kt::vkh {
     VkBuffer buffer;
     VmaAllocation alloc;
     VmaAllocationInfo allocInfo;
+    bool* destroyed = nullptr;
 
+    [[nodiscard]] bool isMapped() const { return allocInfo.pMappedData != nullptr; }
     [[nodiscard]] uint8_t* mapping(VkDeviceSize offset = 0) const { return static_cast<uint8_t*>(allocInfo.pMappedData) + offset; }
 
     void setDebugName(const VkDevice& device, const std::string& name) const {}
@@ -114,10 +116,11 @@ namespace kt::vkh {
                                                               const std::optional<std::string>& name = std::nullopt);
 
     inline void destroy(VmaAllocator& allocator) {
-      if (alloc) {
+      if (alloc && !*destroyed) {
         vmaDestroyBuffer(allocator, buffer, alloc);
         buffer = nullptr;
         alloc = nullptr;
+        *destroyed = true;
       }
     }
   };
@@ -132,6 +135,8 @@ namespace kt::vkh {
 
     static std::expected<AddressedAllocatedBuffer, std::string> fromAllocatedBuffer(const VkDevice& desvice,
                                                                                     const AllocatedBuffer& allocatedBuffer);
+
+    AllocatedBuffer downcast() { return AllocatedBuffer{.buffer = buffer, .alloc = alloc, .allocInfo = allocInfo}; }
   };
 
   struct OnGoingCmdTransfer {
@@ -143,5 +148,10 @@ namespace kt::vkh {
       auto status = vkGetFenceStatus(device, fence);
       return status == VkResult::VK_SUCCESS;
     }
+  };
+
+  struct RendererMesh {
+    AddressedAllocatedBuffer vertexBuffer;
+    AddressedAllocatedBuffer indexBuffer;
   };
 } // namespace kt::vkh

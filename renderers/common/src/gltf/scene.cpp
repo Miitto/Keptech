@@ -15,7 +15,7 @@ namespace kt::gltf {
         transformComp.setParent({parent, scene.getEcs()});
       }
 
-      if (node.mesh != nullptr) {
+      if (node.mesh.isValid()) {
         entity.addComponent<components::Mesh>(node.mesh);
       }
 

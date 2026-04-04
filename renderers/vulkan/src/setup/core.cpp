@@ -132,21 +132,6 @@ namespace kt::vkh::setup {
     VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &sem1), "Failed to create sem1");
     VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &sem2), "Failed to create sem2");
 
-    VkSemaphoreTypeCreateInfo timelineCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
-        .semaphoreType = VkSemaphoreType::VK_SEMAPHORE_TYPE_TIMELINE,
-        .initialValue = 0,
-    };
-    VkSemaphoreCreateInfo timelineSemaphoreCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-        .pNext = &timelineCreateInfo,
-    };
-
-    VkSemaphore timelineSem1 = nullptr;
-    VkSemaphore timelineSem2 = nullptr;
-    VK_MAKE(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &timelineSem1), "Failed to create timeline sem1");
-    VK_MAKE(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &timelineSem2), "Failed to create timeline sem2");
-
     return Renderer::VulkanCore{
         .instance = instance,
         .surface = surface,
@@ -159,13 +144,11 @@ namespace kt::vkh::setup {
                 Renderer::PerFrame{
                     .inFlightFence = fence1,
                     .imageAvailableSemaphore = sem1,
-                    .timelineSemaphore = timelineSem1,
                     .pools = poolsArray[0],
                 },
                 Renderer::PerFrame{
                     .inFlightFence = fence2,
                     .imageAvailableSemaphore = sem2,
-                    .timelineSemaphore = timelineSem2,
                     .pools = poolsArray[1],
                 },
             },

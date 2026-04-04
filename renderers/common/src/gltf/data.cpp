@@ -137,10 +137,12 @@ namespace kt::gltf {
 
     fastgltf::Parser parser{};
 
+    constexpr auto extensions = fastgltf::Extensions::KHR_texture_basisu | fastgltf::Extensions::KHR_materials_specular;
     constexpr auto options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble |
                              fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages |
-                             fastgltf::Options::DecomposeNodeMatrices;
+                             fastgltf::Options::GenerateMeshIndices | fastgltf::Options::DecomposeNodeMatrices;
 
+    KT_DEBUG("Loading glTF file from path: {}", path.string());
     auto gltfFile = fastgltf::MappedGltfFile::FromPath(path);
     if (!bool(gltfFile)) {
       return std::unexpected(fmt::format("Failed to load glTF file: {}", gltfFile.error()));
@@ -200,10 +202,6 @@ namespace kt::gltf {
           .transform = transform,
           .meshIndex = static_cast<uint32_t>(node.meshIndex.value_or(UINT32_MAX)),
       };
-
-      if (node.lightIndex.has_value()) {
-        gltfNode.lightIndex = static_cast<uint32_t>(node.lightIndex.value());
-      }
 
       nodes.emplace_back(std::move(gltfNode));
     }

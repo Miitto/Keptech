@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/rendering/interface.hpp"
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <memory>
@@ -23,9 +24,13 @@ namespace kt {
 
   class Mesh {
   public:
+    [[nodiscard]] bool isValid() const { return vertexCount > 0 && indexCount > 0; }
+    operator bool() const { return isValid(); }
     [[nodiscard]] uint32_t getVertexOffset() const { return vertexOffset; }
     [[nodiscard]] size_t getIndexCount() const { return indexCount; }
     [[nodiscard]] uint32_t getIndexOffset() const { return indexOffset; }
+    [[nodiscard]] const rendering::RendererMesh& getRMesh() const { return rMesh; }
+    rendering::RendererMesh& getRMesh() { return rMesh; }
 
     Mesh& setVertexOffset(uint32_t offset) {
       vertexOffset = offset;
@@ -41,8 +46,10 @@ namespace kt {
     [[nodiscard]] size_t getVertexCount() const { return vertexCount; }
 #endif
 
-    Mesh(uint32_t vertexCount, uint32_t vertexOffset, uint32_t indexCount, uint32_t indexOffset, std::string name = {})
-        : vertexCount(vertexCount), vertexOffset(vertexOffset), indexCount(indexCount), indexOffset(indexOffset)
+    Mesh() = default;
+    Mesh(uint32_t vertexCount, uint32_t vertexOffset, uint32_t indexCount, uint32_t indexOffset, rendering::RendererMesh rData,
+         std::string name = {})
+        : vertexCount(vertexCount), vertexOffset(vertexOffset), indexCount(indexCount), indexOffset(indexOffset), rMesh(rData)
 #ifdef KT_ADD_RESOURCE_INFO
           ,
           name(std::move(name))
@@ -55,16 +62,15 @@ namespace kt {
     uint32_t vertexOffset;
     uint32_t indexCount;
     uint32_t indexOffset;
+    rendering::RendererMesh rMesh;
 
 #ifdef KT_ADD_RESOURCE_INFO
     std::string name;
 #endif
   };
 
-  using MeshPtr = std::shared_ptr<Mesh>;
-
   namespace components {
-    using Mesh = MeshPtr;
+    using Mesh = Mesh;
   }
 
   struct MeshData {

@@ -18,9 +18,4 @@ namespace kt {
     { a.render() } -> std::same_as<void>;
   };
 
-  namespace vkh {
-    class Renderer;
-  }
-
-  using Renderer = vkh::Renderer;
 } // namespace kt
