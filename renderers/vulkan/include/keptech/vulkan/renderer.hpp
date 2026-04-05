@@ -61,6 +61,7 @@ namespace kt::vkh {
     };
 
     struct Pipelines {
+      Pipeline basic;
       Pipeline deferred;
       Pipeline deferredPointLight;
       Pipeline deferredCombine;
@@ -109,6 +110,8 @@ namespace kt::vkh {
 
     std::expected<std::vector<Mesh>, std::string> uploadMeshes(const std::vector<gltf::MeshData>& meshes);
 
+    void setScene(Scene& scene) { this->scene = &scene; }
+
     Renderer() = delete;
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
@@ -146,6 +149,7 @@ namespace kt::vkh {
 
   private:
     Members m;
+    Scene* scene = nullptr;
   };
 
 } // namespace kt::vkh

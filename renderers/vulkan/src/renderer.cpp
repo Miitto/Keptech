@@ -1,9 +1,7 @@
 #include "keptech/vulkan/renderer.hpp"
 
-#include "keptech/core/moveGuard.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include "macros.hpp"
-#include "vulkan/vulkan.h"
 #include <keptech/maths/maths.hpp>
 
 #include "setup/setup.hpp"
@@ -13,7 +11,6 @@
 #include <imgui/imgui.h>
 #include <keptech/components/camera.hpp>
 #include <keptech/core/window.hpp>
-#include <set>
 
 namespace kt::vkh {
 
@@ -21,6 +18,14 @@ namespace kt::vkh {
 
   void Renderer::render() {
     startFrame();
+
+    {
+      auto view = scene->getEcs().view<components::Transform>();
+      for (auto [entity, transform] : view.each()) {
+        transform.recalculateGlobalTransform();
+      }
+    }
+
     VkCommandBuffer cmdBuf = nullptr;
     VkCommandBufferAllocateInfo allocInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -61,6 +66,78 @@ namespace kt::vkh {
     };
 
     vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
+
+    auto view = scene->getEcs().view<components::Transform, components::Mesh>();
+
+    VkRenderingAttachmentInfo aInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = m.vkcore.swapchain.nView(m.frameInfo.imageIndex),
+        .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue =
+            VkClearValue{
+                .color = VkClearColorValue{.float32{0.0f, 0.0f, 0.0f, 1.0f}},
+            },
+    };
+    VkRenderingInfo renderingInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea =
+            VkRect2D{
+                .offset = VkOffset2D{.x = 0, .y = 0},
+                .extent = m.vkcore.swapchain.config().extent,
+            },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &aInfo,
+    };
+    vkCmdBeginRendering(cmdBuf, &renderingInfo);
+
+    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.basic.pipeline);
+    VkRect2D scissor{
+        .offset = VkOffset2D{.x = 0, .y = 0},
+        .extent = m.vkcore.swapchain.config().extent,
+    };
+    VkViewport viewport{
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = static_cast<float>(m.vkcore.swapchain.config().extent.width),
+        .height = static_cast<float>(m.vkcore.swapchain.config().extent.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+    vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+    vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+
+    auto [camT, cam] = scene->getActiveCamera().getComponents<components::Transform, components::Camera>();
+
+    cam.recalculateProjectionMatrix();
+    auto projection = cam.getProjectionMatrix();
+    auto viewMat = glm::inverse(camT.getGlobal());
+
+    auto viewProj = projection * viewMat;
+
+    VkDeviceSize offest = 0;
+    for (auto [entity, transform, mesh] : view.each()) {
+      vkCmdBindVertexBuffers(cmdBuf, 0, 1, &mesh.getRMesh().vertexBuffer.buffer, &offest);
+      vkCmdBindIndexBuffer(cmdBuf, mesh.getRMesh().indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+      auto model = transform.getGlobal();
+
+      struct PC {
+        glm::mat4 viewProj;
+        glm::mat4 model;
+      } pc{
+          .viewProj = viewProj,
+          .model = model,
+      };
+
+      vkCmdPushConstants(cmdBuf, m.pipelines.basic.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PC), &pc);
+
+      vkCmdDrawIndexed(cmdBuf, mesh.getIndexCount(), 1, 0, 0, 0);
+    }
+
+    vkCmdEndRendering(cmdBuf);
 
     renderImGui(cmdBuf);
     endFrame(cmdBuf);

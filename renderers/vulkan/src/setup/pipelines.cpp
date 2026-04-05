@@ -10,9 +10,8 @@
 
 namespace shaders {
   namespace {
+#include "shaders/keptech/basic.h"
 #include "shaders/keptech/deferred.h"
-#include "shaders/keptech/lightCombine.h"
-#include "shaders/keptech/pointLight.h"
   } // namespace
 } // namespace shaders
 
@@ -124,8 +123,8 @@ namespace kt::vkh::setup {
       VkShaderModule shaderModule = nullptr;
       VkShaderModuleCreateInfo shaderModuleCreateInfo{
           .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-          .codeSize = ::shaders::deferred.code.size() * sizeof(uint8_t),
-          .pCode = reinterpret_cast<uint32_t*>(::shaders::deferred.code.data()),
+          .codeSize = shader.code.size() * sizeof(uint8_t),
+          .pCode = reinterpret_cast<const uint32_t*>(shader.code.data()),
       };
       VK_MAKE(vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &shaderModule),
               "Failed to create shader module for deferred pipeline.");
@@ -187,6 +186,44 @@ namespace kt::vkh::setup {
     }
 
   } // namespace
+  std::expected<Pipeline, std::string> createBasicPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                           const VkDescriptorSetLayout globalLayout) {
+    VKH_MAKE(shader, getShader(::shaders::basic, vkcore.device.logical), "Failed to create shader for basic pipeline.");
+
+    GraphicsPipelineConfig config{
+        .rendering = {.colorAttachmentFormats = {formats.swapchain}},
+        .shaders = shader.stages,
+        .vertexInput = getVertexInputFromShader(::shaders::basic, {}),
+    };
+
+    PipelineLayoutConfig layoutConfig{
+        .setLayouts = {},
+        .pushConstantRanges = {{
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .offset = 0,
+            .size = sizeof(glm::mat4) * 2,
+        }},
+    };
+
+    auto vkLayoutInfo = layoutConfig.build();
+
+    VkPipelineLayout vkLayout = nullptr;
+    VK_MAKE(vkCreatePipelineLayout(vkcore.device.logical, &vkLayoutInfo, nullptr, &vkLayout),
+            "Failed to create pipeline layout for basic pipeline.");
+
+    auto vkConfig = config.build();
+    vkConfig.layout = vkLayout;
+    VkPipeline vkPipeline = nullptr;
+    VK_MAKE(vkCreateGraphicsPipelines(vkcore.device.logical, nullptr, 1, &vkConfig, nullptr, &vkPipeline),
+            "Failed to create graphics pipeline for basic pipeline.");
+
+    vkDestroyShaderModule(vkcore.device.logical, shader.module, nullptr);
+
+    return Pipeline{
+        .layout = vkLayout,
+        .pipeline = vkPipeline,
+    };
+  }
 
   std::expected<Pipeline, std::string> createDeferredPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
                                                               const VkDescriptorSetLayout globalLayout) {
@@ -253,9 +290,11 @@ namespace kt::vkh::setup {
                                                                   const VkDescriptorSetLayout globalLayout) {
     VKH_MAKE(formats, findFormats(vkcore), "Failed to find suitable formats for renderer.");
 
+    VKH_MAKE(basic, createBasicPipeline(vkcore, formats, globalLayout), "Failed to create basic pipeline.");
     VKH_MAKE(deferred, createDeferredPipeline(vkcore, formats, globalLayout), "Failed to create deferred pipeline.");
 
     return Renderer::Pipelines{
+        .basic = basic,
         .deferred = deferred,
     };
   }

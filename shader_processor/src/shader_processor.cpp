@@ -59,14 +59,12 @@ namespace {
     case SLANG_STAGE_COMPUTE:
       return kt::shaders::ShaderStages::Compute;
     default:
-      std::cerr << "Unsupported shader stage: " << slangStagetoString(stage)
-                << '\n';
+      std::cerr << "Unsupported shader stage: " << slangStagetoString(stage) << '\n';
       throw std::runtime_error("Unsupported shader stage");
     }
   }
 
-  const std::vector<kt::shaders::DataType>
-  slangTypeToKeptechTypes(slang::TypeReflection* type) {
+  const std::vector<kt::shaders::DataType> slangTypeToKeptechTypes(slang::TypeReflection* type) {
     using namespace kt::shaders;
 
     switch (type->getKind()) {
@@ -112,8 +110,7 @@ namespace {
         case slang::TypeReflection::None:
         case slang::TypeReflection::Void:
         case slang::TypeReflection::Bool:
-          logger->error(
-              "Unsupported type in vector for resource type extraction");
+          logger->error("Unsupported type in vector for resource type extraction");
           abort();
         case slang::TypeReflection::Int32:
           return {DataType::I32_2};
@@ -143,8 +140,7 @@ namespace {
         case slang::TypeReflection::None:
         case slang::TypeReflection::Void:
         case slang::TypeReflection::Bool:
-          logger->error(
-              "Unsupported type in vector for resource type extraction");
+          logger->error("Unsupported type in vector for resource type extraction");
           abort();
         case slang::TypeReflection::Int32:
           return {DataType::I32_3};
@@ -175,8 +171,7 @@ namespace {
         case slang::TypeReflection::None:
         case slang::TypeReflection::Void:
         case slang::TypeReflection::Bool:
-          logger->error(
-              "Unsupported type in vector for resource type extraction");
+          logger->error("Unsupported type in vector for resource type extraction");
           abort();
         case slang::TypeReflection::Int32:
           return {DataType::I32_4};
@@ -234,13 +229,11 @@ namespace {
       auto colCount = type->getColumnCount();
 
       if (rowCount != 4 || colCount != 4) {
-        logger->error(
-            "Unsupported matrix size in type for resource type extraction");
+        logger->error("Unsupported matrix size in type for resource type extraction");
         abort();
       }
       if (elemType != slang::TypeReflection::Float32) {
-        logger->error(
-            "Unsupported matrix element type for resource type extraction");
+        logger->error("Unsupported matrix element type for resource type extraction");
         abort();
       }
 
@@ -257,9 +250,7 @@ namespace kt::shader_processor {
   Slang::ComPtr<slang::IGlobalSession> globalSession; // NOLINT
   SlangGlobalSessionDesc globalSessionDesc;           // NOLINT
 
-  void init() {
-    slang::createGlobalSession(&globalSessionDesc, globalSession.writeRef());
-  }
+  void init() { slang::createGlobalSession(&globalSessionDesc, globalSession.writeRef()); }
 
   CompilerSession::CompilerSession(SessionConfig config) {
     slang::SessionDesc sessionDesc = {};
@@ -268,8 +259,7 @@ namespace kt::shader_processor {
 
     {
       auto name = slang::CompilerOptionName::Optimization;
-      SlangOptimizationLevel level =
-          SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_DEFAULT;
+      SlangOptimizationLevel level = SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_DEFAULT;
       switch (config.optimizationLevel) {
       case OptimizationLevel::None:
       case OptimizationLevel::Debug:
@@ -290,16 +280,13 @@ namespace kt::shader_processor {
     if (config.optimizationLevel == OptimizationLevel::Debug) {
       slang::CompilerOptionValue value;
       value.intValue0 = true;
-      compilerOptionEntries.push_back(
-          {.name = slang::CompilerOptionName::DebugInformation,
-           .value = value});
+      compilerOptionEntries.push_back({.name = slang::CompilerOptionName::DebugInformation, .value = value});
     }
 
     std::vector<const char*> searchPaths{KEPTECH_SHADER_DIR "/lib"};
 
     sessionDesc.compilerOptionEntries = compilerOptionEntries.data();
-    sessionDesc.compilerOptionEntryCount =
-        static_cast<uint32_t>(compilerOptionEntries.size());
+    sessionDesc.compilerOptionEntryCount = static_cast<uint32_t>(compilerOptionEntries.size());
 
     sessionDesc.searchPathCount = static_cast<uint32_t>(searchPaths.size());
     sessionDesc.searchPaths = searchPaths.data();
@@ -309,8 +296,7 @@ namespace kt::shader_processor {
     target.profile = globalSession->findProfile("spirv_1_4");
 
     slang::CompilerOptionEntry emitDirectlyToBinaryEntry;
-    emitDirectlyToBinaryEntry.name =
-        slang::CompilerOptionName::EmitSpirvDirectly;
+    emitDirectlyToBinaryEntry.name = slang::CompilerOptionName::EmitSpirvDirectly;
     emitDirectlyToBinaryEntry.value.intValue0 = true;
 
     target.compilerOptionEntries = &emitDirectlyToBinaryEntry;
@@ -320,36 +306,22 @@ namespace kt::shader_processor {
     sessionDesc.targetCount = 1;
 
     globalSession->createSession(sessionDesc, session.writeRef());
-
-    Slang::ComPtr<slang::IBlob> keptechModuleDiag;
-    keptechModule =
-        session->loadModule("keptech", keptechModuleDiag.writeRef());
-    if (!keptechModule) {
-      std::cerr << "Failed to load keptech shader module: "
-                << (char*)keptechModuleDiag->getBufferPointer() // NOLINT
-                << '\n';
-    }
   }
 
-  std::pair<slang::IModule*, Slang::ComPtr<slang::IBlob>>
-  CompilerSession::loadModule(const char* moduleName, const std::string& source,
-                              const char* path) {
+  std::pair<slang::IModule*, Slang::ComPtr<slang::IBlob>> CompilerSession::loadModule(const char* moduleName, const std::string& source,
+                                                                                      const char* path) {
     Slang::ComPtr<slang::IBlob> diagBlob;
-    auto mod = session->loadModuleFromSourceString(
-        moduleName, path, source.c_str(), diagBlob.writeRef());
+    auto mod = session->loadModuleFromSourceString(moduleName, path, source.c_str(), diagBlob.writeRef());
 
     if (mod) {
       loadedModules.emplace_back(mod);
-      return {mod, diagBlob};
-    } else {
-      return {mod, diagBlob};
     }
+    return {mod, diagBlob};
   }
 
   std::pair<Program, Slang::ComPtr<slang::IBlob>> CompilerSession::link() {
     std::vector<slang::IComponentType*> modules;
-    modules.reserve(1 + loadedModules.size());
-    modules.push_back(keptechModule.get());
+    modules.reserve(loadedModules.size());
     for (const auto& mod : loadedModules) {
       modules.push_back(mod.get());
     }
@@ -370,9 +342,7 @@ namespace kt::shader_processor {
     }
 
     Slang::ComPtr<slang::IComponentType> program;
-    session->createCompositeComponentType(modules.data(),
-                                          static_cast<uint32_t>(modules.size()),
-                                          program.writeRef());
+    session->createCompositeComponentType(modules.data(), static_cast<uint32_t>(modules.size()), program.writeRef());
 
     Slang::ComPtr<slang::IBlob> diagBlob;
     Slang::ComPtr<slang::IComponentType> linkedProgram;
@@ -381,8 +351,7 @@ namespace kt::shader_processor {
     return {linkedProgram, diagBlob};
   }
 
-  Program::Program(Slang::ComPtr<slang::IComponentType> componentType)
-      : program(std::move(componentType)) {}
+  Program::Program(Slang::ComPtr<slang::IComponentType> componentType) : program(std::move(componentType)) {}
 
   Program::Kernel Program::getCode() const {
     Slang::ComPtr<slang::IBlob> spirvBlob;
@@ -393,15 +362,13 @@ namespace kt::shader_processor {
     return {.spirv = std::move(spirvBlob), .diagnostics = std::move(diagBlob)};
   }
 
-  std::expected<kt::shaders::Shader, std::string>
-  Program::toShader(const char* name) const {
+  std::expected<kt::shaders::Shader, std::string> Program::toShader(const char* name) const {
     auto [kernel, diag] = getCode();
     if (diag) {
       std::cerr << (char*)diag->getBufferPointer() << '\n'; // NOLINT
     }
     if (!kernel) {
-      return std::unexpected<std::string>(
-          "Failed to get SPIR-V code for shader.");
+      return std::unexpected<std::string>("Failed to get SPIR-V code for shader.");
     }
 
     std::vector<uint8_t> code(kernel->getBufferSize());
@@ -423,16 +390,14 @@ namespace kt::shader_processor {
 
     for (uint32_t i = 0; i < entryPointCount; ++i) {
       auto entryPoint = layout->getEntryPointByIndex(i);
-      kt::shaders::ShaderStages stage =
-          slangStagetoKeptechStage(entryPoint->getStage());
+      kt::shaders::ShaderStages stage = slangStagetoKeptechStage(entryPoint->getStage());
       switch (stage) {
       case kt::shaders::ShaderStages::Vertex: {
         auto paramCount = entryPoint->getParameterCount();
         for (auto i = 0; i < paramCount; ++i) {
           auto param = entryPoint->getParameterByIndex(i);
           auto category = param->getCategory();
-          if (category != slang::ParameterCategory::VaryingInput &&
-              category != slang::ParameterCategory::Mixed)
+          if (category != slang::ParameterCategory::VaryingInput && category != slang::ParameterCategory::Mixed)
             continue; // Some sort of builtin, such as vertex ID
 
           auto types = slangTypeToKeptechTypes(param->getType());
@@ -445,34 +410,26 @@ namespace kt::shader_processor {
         Slang::ComPtr<slang::IBlob> typeNameBlob;
         returnT->getFullName(typeNameBlob.writeRef());
 
-        std::string_view returnTypeName(
-            static_cast<const char*>(typeNameBlob->getBufferPointer()),
-            typeNameBlob->getBufferSize());
+        std::string_view returnTypeName(static_cast<const char*>(typeNameBlob->getBufferPointer()), typeNameBlob->getBufferSize());
 
         if (returnTypeName == "kt.DeferredOutput") {
-          std::cout << "Auto detecting deferred rendering mode for shader '"
-                    << name << "'\n";
+          std::cout << "Auto detecting deferred rendering mode for shader '" << name << "'\n";
           shader.mode = kt::shaders::RenderingMode::Deferred;
         } else if (returnTypeName == "kt.DeferredLightingOutput") {
-          std::cout
-              << "Auto detecting deferred lighting rendering mode for shader '"
-              << name << "'\n";
+          std::cout << "Auto detecting deferred lighting rendering mode for shader '" << name << "'\n";
           shader.mode = kt::shaders::RenderingMode::DeferredLighting;
         } else if (returnTypeName == "vector<float,4>") {
-          std::cout << "Auto detecting forward rendering mode for shader '"
-                    << name << "'\n";
+          std::cout << "Auto detecting forward rendering mode for shader '" << name << "'\n";
           shader.mode = kt::shaders::RenderingMode::Forward;
         } else {
-          std::cout << "Couldn't auto detect rendering mode for shader '"
-                    << name << "'\n";
+          std::cout << "Couldn't auto detect rendering mode for shader '" << name << "'\n";
           shader.mode = kt::shaders::RenderingMode::Custom;
         }
       } break;
       case shaders::ShaderStages::Compute:
         break;
       }
-      shader.stages.push_back(kt::shaders::ShaderStage{
-          .name = entryPoint->getName(), .stage = stage});
+      shader.stages.push_back(kt::shaders::ShaderStage{.name = entryPoint->getName(), .stage = stage});
     }
 
     shader.vertexLayout.reserve(vertexLayout.size());

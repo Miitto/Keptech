@@ -21,7 +21,19 @@ kt::SetupInfo kt::configureApp() {
 class BenchmarkLayer : public kt::core::layers::Layer {
 public:
   BenchmarkLayer(kt::Window& window, kt::rendering::Renderer& renderer, kt::Scene&& scene, kt::ecs::Entity cameraEntity)
-      : kt::core::layers::Layer("Benchkark"), window(window), scene(std::move(scene)), freeController(cameraEntity) {}
+      : kt::core::layers::Layer("Benchkark"), window(window), scene(std::move(scene)), freeController(cameraEntity) {
+    renderer.setScene(this->scene);
+  }
+
+  void onUpdate(kt::Timestep ts) final {
+    float deltaTime = ts / 1000.f;
+    float fps = 1.f / deltaTime;
+
+    ImGui::Begin("Benchmark");
+    ImGui::Text("FPS: %.2f", fps);
+    ImGui::Text("Frame Time: %.2f ms", ts);
+    ImGui::End();
+  }
 
 private:
   kt::Window& window;
@@ -39,6 +51,42 @@ std::expected<void, std::string> kt::setupAppLayers(core::layers::LayerStack& la
 
   auto bistro = scene.createEntity("Bistro");
   bistroMeshRes->addToEcsScene(scene, bistro.getHandle());
+  auto pointLight = scene.createEntity("Point Light");
+  auto& lightTransform = pointLight.addComponent<kt::components::Transform>();
+  lightTransform.getLocalMut().translate(glm::vec3(70.0f, 70.0f, -10.0f));
+  pointLight.addComponent<kt::components::PointLight>(kt::components::PointLight{
+      .color = {1.f, 0.985f, 0.95f},
+      .intensity = 3.f,
+      .radius = 500.f,
+  });
+
+  auto triMeshRes = renderer.uploadMeshes({gltf::MeshData{
+      .name = "Triangle",
+      .vertices =
+          {
+              Vertex{
+                  .position = {0.0f, -0.5f, 0.0f},
+                  .color = {1.0f, 0.0f, 0.0f, 1.0f},
+              },
+              Vertex{
+                  .position = {0.5f, 0.5f, 0.0f},
+                  .color = {0.0f, 1.0f, 0.0f, 1.0f},
+              },
+              Vertex{
+                  .position = {-0.5f, 0.5f, 0.0f},
+                  .color = {0.0f, 0.0f, 1.0f, 1.0f},
+              },
+          },
+      .indices = {0, 1, 2},
+      .submeshes = {gltf::Submesh{.indexCount = 3, .indexOffset = 0}},
+  }});
+  if (!triMeshRes) {
+    return std::unexpected(fmt::format("Failed to upload triangle mesh: {}", triMeshRes.error()));
+  }
+
+  auto triangle = scene.createEntity("Triangle");
+  triangle.addComponent<kt::components::Transform>();
+  triangle.addComponent<kt::components::Mesh>(triMeshRes->at(0));
 
   auto camera = scene.createEntity("Camera");
   auto& camTransform = camera.addComponent<kt::components::Transform>();
@@ -51,15 +99,6 @@ std::expected<void, std::string> kt::setupAppLayers(core::layers::LayerStack& la
   camComp.sizeToWindowSize(window.getRenderSize());
 
   scene.useCamera(camera);
-
-  auto pointLight = scene.createEntity("Point Light");
-  auto& lightTransform = pointLight.addComponent<kt::components::Transform>();
-  lightTransform.getLocalMut().translate(glm::vec3(70.0f, 70.0f, -10.0f));
-  pointLight.addComponent<kt::components::PointLight>(kt::components::PointLight{
-      .color = {1.f, 0.985f, 0.95f},
-      .intensity = 3.f,
-      .radius = 500.f,
-  });
 
   layerStack.emplaceLayer<BenchmarkLayer>(window, renderer, std::move(scene), camera);
 

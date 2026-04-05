@@ -121,6 +121,15 @@ namespace kt::vkh {
           .pVertexAttributeDescriptions = vertexInput.attributes.data(),
       };
 
+      if (rendering.colorAttachmentFormats.size() > blendAttachments.size()) {
+        size_t blendDiff = rendering.colorAttachmentFormats.size() - blendAttachments.size();
+        for (size_t i = 0; i < blendDiff; ++i) {
+          blendAttachments.push_back(VkPipelineColorBlendAttachmentState{
+              .blendEnable = VK_FALSE,
+              .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT});
+        }
+      }
+
       blending.attachmentCount = static_cast<uint32_t>(blendAttachments.size());
       blending.pAttachments = blendAttachments.data();
 

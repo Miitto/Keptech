@@ -22,7 +22,6 @@ compile_shader(${PROJECT_NAME} SPIRV
   OUTPUT_DIR
     keptech
   SOURCES
+    basic
     deferred
-    pointLight
-    lightCombine
 )
