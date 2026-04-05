@@ -4,26 +4,21 @@
 
 namespace kt::components {
 
-  bool Transform::recalculateGlobalTransform() {
-    bool dirty = flags.has(Flags::Dirty);
-    flags.clear(Flags::Dirty);
-
-    bool hasParent = parent.isValid();
-
-    Transform* parentTransform = nullptr;
-    if (hasParent) {
-      parentTransform = &parent.getComponents<Transform>();
-      dirty |= parentTransform->recalculateGlobalTransform();
+  void Transform::recalculateDepth() {
+    if (parent.isValid()) {
+      auto& parentTransform = parent.getComponents<Transform>();
+      parentTransform.recalculateDepth();
+      depth = parentTransform.depth + 1;
     }
+  }
 
-    if (dirty) {
-      global = local.toMatrix();
+  void Transform::recalculateGlobalTransform() {
+    global = local.toMatrix();
 
-      if (hasParent)
-        global = parentTransform->getGlobal() * global;
+    if (parent.isValid()) {
+      auto& parentTransform = parent.getComponents<Transform>();
+      global = parentTransform.getGlobal() * global;
     }
-
-    return dirty;
   }
 
   void Transform::inspectorUi(kt::gui::Frame& frame, bool readOnly) {
@@ -37,15 +32,12 @@ namespace kt::components {
 
     if (frame.inputFloat3("Pos:", &pos.x, "%.3f", iflags)) {
       local.setPosition(pos);
-      flags.set(Flags::Dirty);
     }
     if (frame.inputFloat3("Rot:", &rot.x, "%.3f", iflags)) {
       local.setRotation(glm::radians(rot));
-      flags.set(Flags::Dirty);
     }
     if (frame.inputFloat3("Scl:", &scale.x, "%.3f", iflags)) {
       local.setScale(scale);
-      flags.set(Flags::Dirty);
     }
   }
 } // namespace kt::components
