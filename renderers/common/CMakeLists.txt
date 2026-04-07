@@ -12,6 +12,7 @@ target_link_libraries(${PROJECT_NAME}
   PUBLIC
     keptech::core
     imgui::imgui
+    kt::ktx
 )
 
 include(shaders)

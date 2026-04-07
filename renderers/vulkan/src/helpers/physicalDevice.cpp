@@ -105,7 +105,6 @@ namespace kt::vkh {
   }
 
   void PhysicalDeviceSelector::requireMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties) noexcept {
-    VK_TRACE("Requiring memory type with type bits: {}, properties: {}", typeBits, vk::to_string(properties));
     for (size_t i = physicalDevices.size() - 1; i != (~(size_t)0); --i) {
       const auto& device = physicalDevices[i];
 

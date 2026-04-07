@@ -2,6 +2,7 @@
 
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
+#include <execution>
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
@@ -9,6 +10,7 @@
 #include <keptech/core/window.hpp>
 #include <keptech/rendering/gltf/data.hpp>
 #include <keptech/rendering/gltf/scene.hpp>
+#include <ktx.h>
 
 namespace kt::vkh {
   bool Renderer::canRenderToFormat(VkFormat format) const {
@@ -38,6 +40,8 @@ namespace kt::vkh {
 
     VKH_MAKE(meshes, uploadMeshes(gltfData.meshes), "Failed to upload meshes from glTF data");
 
+    VKH_MAKE(images, createImages(gltfData.images, gltfData), "Failed to create images from glTF data");
+
     gltf::Scene scene{};
     scene.roots.reserve(gltfData.roots.size());
 
@@ -46,6 +50,94 @@ namespace kt::vkh {
     }
 
     return scene;
+  }
+
+  std::expected<std::vector<Texture>, std::string> Renderer::createImages(const std::vector<fastgltf::Image>& gltfImages,
+                                                                          const gltf::Data& gltf) {
+    struct Tex {
+      ktxTexture* ktx;
+      size_t size;
+      uint8_t* data;
+    };
+    std::vector<Tex> textures(gltfImages.size());
+    constexpr ktxTextureCreateFlags createFlags = 0;
+    auto visitor = fastgltf::visitor{
+        [](auto& arg) -> ktxTexture* {
+          VK_CRITICAL("Unsupported glTF image source type {}", typeid(arg).name());
+          abort();
+        },
+        [&](fastgltf::sources::Array& array) {
+          ktxTexture* ktxTexture = nullptr;
+          ktxTexture_CreateFromMemory(reinterpret_cast<const uint8_t*>(array.bytes.data()), array.bytes.size(), createFlags, &ktxTexture);
+          return ktxTexture;
+        },
+        [&](fastgltf::sources::URI& filePath) {
+          assert(filePath.fileByteOffset == 0); // We don't support offsets with stbi.
+          assert(filePath.uri.isLocalPath());   // We're only capable of
+                                                // loading local files.
+
+          const std::string path(filePath.uri.path().begin(), filePath.uri.path().end());
+          ktxTexture* ktxTexture = nullptr;
+          ktxTexture_CreateFromNamedFile(path.c_str(), createFlags, &ktxTexture);
+          return ktxTexture;
+        },
+        [&](fastgltf::sources::Vector& vector) {
+          ktxTexture* ktxTexture = nullptr;
+          ktxTexture_CreateFromMemory(reinterpret_cast<const uint8_t*>(vector.bytes.data()), vector.bytes.size(), createFlags, &ktxTexture);
+          return ktxTexture;
+        },
+        [&](fastgltf::sources::BufferView view) {
+          auto& bufferView = gltf.bufferViews[view.bufferViewIndex];
+          auto& buffer = gltf.buffers[bufferView.bufferIndex];
+
+          return std::visit(fastgltf::visitor{
+                                // We only care about VectorWithMime here, because
+                                // we
+                                // specify LoadExternalBuffers, meaning all buffers
+                                // are already loaded into a vector.
+                                [](auto& arg) -> ktxTexture* {
+                                  VK_CRITICAL("Unsupported glTF image source buffer "
+                                              "type {}",
+                                              typeid(arg).name());
+                                  abort();
+                                },
+                                [&](fastgltf::sources::Array& array) {
+                                  ktxTexture* ktxTexture = nullptr;
+                                  ktxTexture_CreateFromMemory(reinterpret_cast<const uint8_t*>(array.bytes.data()) + bufferView.byteOffset,
+                                                              bufferView.byteLength, createFlags, &ktxTexture);
+                                  return ktxTexture;
+                                },
+                                [&](fastgltf::sources::Vector& vector) {
+                                  ktxTexture* ktxTexture = nullptr;
+                                  ktxTexture_CreateFromMemory(reinterpret_cast<const uint8_t*>(vector.bytes.data()) + bufferView.byteOffset,
+                                                              bufferView.byteLength, createFlags, &ktxTexture);
+                                  return ktxTexture;
+                                },
+                            },
+                            buffer.data);
+        },
+    };
+    auto enumView = std::views::enumerate(gltfImages);
+    std::for_each(std::execution::par, enumView.begin(), enumView.end(), [&](const std::tuple<size_t, fastgltf::Image&>& pair) {
+      const auto& [idx, img] = pair;
+
+      auto ktxTexture = std::visit(visitor, img.data);
+      textures[idx] = Tex{
+          .ktx = ktxTexture,
+          .size = ktxTexture_GetImageSize(ktxTexture, 0),
+          .data = ktxTexture_GetData(ktxTexture),
+      };
+    });
+
+    size_t totalSize = std::accumulate(textures.begin(), textures.end(), 0ull, [](size_t sum, const Tex& tex) { return sum + tex.size; });
+
+    // TODO: Upload textures to GPU and create Texture objects
+
+    for (const auto& tex : textures) {
+      ktxTexture_Destroy(tex.ktx);
+    }
+
+    return {};
   }
 
   std::expected<std::vector<Texture>, std::string> Renderer::createImages(const std::vector<ImageUploadInfo>& infos) {

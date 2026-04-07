@@ -105,6 +105,8 @@ namespace kt::vkh {
 
     std::expected<gltf::Scene, std::string> loadMesh(std::string_view path);
     std::expected<std::vector<Texture>, std::string> createImages(const std::vector<ImageUploadInfo>& imageInfos);
+    std::expected<std::vector<Texture>, std::string> createImages(const std::vector<fastgltf::Image>& gltfImages,
+                                                                  const gltf::Data& gltfData);
 
     void loadImGuiImageHandle(AllocatedImage& texture);
 

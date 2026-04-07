@@ -26,7 +26,7 @@ target_sources(ktimgui PRIVATE
 include(sdl)
 link_sdl(ktimgui PUBLIC)
 
-if (ENABLE_VULKAN)
+if (RENDERER STREQUAL "Vulkan")
   include(vulkan)
   find_vulkan(23)
   link_vulkan(ktimgui PUBLIC)

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15..4.0)
 
-project(Keptech VERSION 0.1 LANGUAGES CXX)
+project(Keptech VERSION 0.1 LANGUAGES C CXX)
 
 set(KT_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 
@@ -9,6 +9,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(FetchContent)
 
 find_program(SCCACHE_FOUND sccache)
+include(ktx)
 
 if(SCCACHE_FOUND)
   message(STATUS "Using sccache for compilation")
