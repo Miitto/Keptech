@@ -11,6 +11,7 @@
 #include <keptech/rendering/gltf/data.hpp>
 #include <keptech/rendering/gltf/scene.hpp>
 #include <ktx.h>
+#include <ktxvulkan.h>
 
 namespace kt::vkh {
   bool Renderer::canRenderToFormat(VkFormat format) const {
@@ -131,13 +132,143 @@ namespace kt::vkh {
 
     size_t totalSize = std::accumulate(textures.begin(), textures.end(), 0ull, [](size_t sum, const Tex& tex) { return sum + tex.size; });
 
-    // TODO: Upload textures to GPU and create Texture objects
+    AllocatedBuffer stagingBuffer;
+    VkCommandBuffer transferCmd = nullptr;
+    {
+      VkBufferCreateInfo stagingBufferCreateInfo{
+          .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+          .size = totalSize,
+          .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+      };
+
+      VmaAllocationCreateInfo stagingAllocInfo{
+          .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+          .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+      };
+
+      VKH_MAKE(buffer, AllocatedBuffer::create(m.vkcore.allocator, m.vkcore.device.logical, stagingBufferCreateInfo, stagingAllocInfo),
+               "Failed to create staging buffer for image upload");
+      stagingBuffer = buffer;
+
+      VkCommandBufferAllocateInfo cmdAllocInfo{
+          .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+          .commandPool = m.vkcore.transferPool.pool,
+          .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+          .commandBufferCount = 1,
+      };
+      VkCommandBufferBeginInfo cmdBeginInfo{
+          .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+          .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+      };
+      VK_CHECK(vkAllocateCommandBuffers(m.vkcore.device.logical, &cmdAllocInfo, &transferCmd),
+               "Failed to allocate command buffer for image upload");
+      vkBeginCommandBuffer(transferCmd, &cmdBeginInfo);
+    }
+
+    VkDeviceSize offset = 0;
+    VkImageCreateInfo imageCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+    VkImageViewCreateInfo imageViewCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .components =
+            {
+                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+            },
+        .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+    VmaAllocationCreateInfo imageAllocInfo{
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+    };
+
+    std::vector<Texture> result;
+    result.reserve(textures.size());
 
     for (const auto& tex : textures) {
+      memcpy(stagingBuffer.mapping() + offset, tex.data, tex.size);
+
+      VkFormat format = ktxTexture_GetVkFormat(tex.ktx);
+      imageCreateInfo.format = format;
+      imageCreateInfo.extent = VkExtent3D{
+          .width = tex.ktx->baseWidth,
+          .height = tex.ktx->baseHeight,
+          .depth = 1,
+      };
+
+      VKH_MAKE(
+          image,
+          AllocatedImage::create(m.vkcore.allocator, m.vkcore.device.logical, imageCreateInfo, imageAllocInfo, imageViewCreateInfo, true),
+          "Failed to create image for texture");
+
+      auto index = m.nextTextureIndex++;
+      result.emplace_back(glm::ivec3{tex.ktx->baseWidth, tex.ktx->baseHeight, 1}, 1, format, index);
+
+      m.loadedTextures.push_back(image);
+
+      for (auto& frame : m.vkcore.perFrame) {
+        frame.texToUpdate.emplace_back(image, index);
+      }
+
+      VkBufferImageCopy copyRegion{
+          .bufferOffset = offset,
+          .bufferRowLength = 0,
+          .bufferImageHeight = 0,
+          .imageSubresource =
+              {
+                  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                  .mipLevel = 0,
+                  .baseArrayLayer = 0,
+                  .layerCount = 1,
+              },
+          .imageOffset = {.x = 0, .y = 0, .z = 0},
+          .imageExtent = imageCreateInfo.extent,
+      };
+
+      vkCmdCopyBufferToImage(transferCmd, stagingBuffer.buffer, image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+      offset += tex.size;
+
       ktxTexture_Destroy(tex.ktx);
     }
 
-    return {};
+    vkEndCommandBuffer(transferCmd);
+
+    VkFence transferFence = nullptr;
+    VkFenceCreateInfo fenceCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+    };
+    VK_CHECK(vkCreateFence(m.vkcore.device.logical, &fenceCreateInfo, nullptr, &transferFence), "Failed to create fence for image upload");
+    VkCommandBufferSubmitInfo cmdInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .commandBuffer = transferCmd,
+    };
+    VkSubmitInfo2 submitInfo{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferInfoCount = 1,
+        .pCommandBufferInfos = &cmdInfo,
+    };
+    vkQueueSubmit2(m.vkcore.queues.transfer.queue, 1, &submitInfo, transferFence);
+
+    vkWaitForFences(m.vkcore.device.logical, 1, &transferFence, VK_TRUE, UINT64_MAX);
+
+    return result;
   }
 
   std::expected<std::vector<Texture>, std::string> Renderer::createImages(const std::vector<ImageUploadInfo>& infos) {

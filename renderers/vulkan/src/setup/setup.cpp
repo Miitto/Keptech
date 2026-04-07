@@ -20,6 +20,8 @@ namespace kt::vkh {
     vkGetPhysicalDeviceProperties(vkcore.device.physical, &properties);
 
     limits::minUniformBufferOffsetAlignment = properties.limits.minUniformBufferOffsetAlignment;
+    limits::minStorageBufferOffsetAlignment = properties.limits.minStorageBufferOffsetAlignment;
+    limits::maxPushConstantsSize = properties.limits.maxPushConstantsSize;
 
     VKH_MAKE(imGuiObjects, setupImGui(window, vkcore), "Failed to set up ImGui for Vulkan.");
 
