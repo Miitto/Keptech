@@ -2,6 +2,7 @@
 
 #include "keptech/core/image.hpp"
 #include <expected>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vk_mem_alloc.h>
@@ -104,7 +105,7 @@ namespace kt::vkh {
     VkBuffer buffer;
     VmaAllocation alloc;
     VmaAllocationInfo allocInfo;
-    bool* destroyed = nullptr;
+    std::shared_ptr<bool> destroyed = std::make_shared<bool>(true); // If it hasn't been created yet, it's already "destroyed"
 
     [[nodiscard]] bool isMapped() const { return allocInfo.pMappedData != nullptr; }
     [[nodiscard]] uint8_t* mapping(VkDeviceSize offset = 0) const { return static_cast<uint8_t*>(allocInfo.pMappedData) + offset; }

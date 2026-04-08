@@ -2,41 +2,41 @@
 
 #include <spdlog/spdlog.h>
 
-#ifndef VK_LOG_LEVEL
-#define VK_LOG_LEVEL SPDLOG_ACTIVE_LEVEL
+#ifndef RENDERER_LOG_LEVEL
+#define RENDERER_LOG_LEVEL SPDLOG_ACTIVE_LEVEL
 #endif
 
-#if VK_LOG_LEVEL <= SPDLOG_LEVEL_TRACE
+#if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_TRACE
 #define VK_TRACE(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::trace, __VA_ARGS__)
 #else
 #define VK_TRACE(...) (void)0
 #endif
 
-#if VK_LOG_LEVEL <= SPDLOG_LEVEL_DEBUG
+#if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_DEBUG
 #define VK_DEBUG(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::debug, __VA_ARGS__)
 #else
 #define VK_DEBUG(...) (void)0
 #endif
 
-#if VK_LOG_LEVEL <= SPDLOG_LEVEL_INFO
+#if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_INFO
 #define VK_INFO(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::info, __VA_ARGS__)
 #else
 #define VK_INFO(...) (void)0
 #endif
 
-#if VK_LOG_LEVEL <= SPDLOG_LEVEL_WARN
+#if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_WARN
 #define VK_WARN(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::warn, __VA_ARGS__)
 #else
 #define VK_WARN(...) (void)0
 #endif
 
-#if VK_LOG_LEVEL <= SPDLOG_LEVEL_ERROR
+#if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_ERROR
 #define VK_ERROR(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::err, __VA_ARGS__)
 #else
 #define VK_ERROR(...) (void)0
 #endif
 
-#if VK_LOG_LEVEL <= SPDLOG_LEVEL_CRITICAL
+#if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_CRITICAL
 #define VK_CRITICAL(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical, __VA_ARGS__)
 #else
 #define VK_CRITICAL(...) (void)0

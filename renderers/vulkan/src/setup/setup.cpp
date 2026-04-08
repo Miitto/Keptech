@@ -16,12 +16,23 @@ namespace kt::vkh {
   std::expected<Renderer, std::string> Renderer::create(const RendererCreateInfo& createInfo, const core::window::Window& window) {
     VKH_MAKE(vkcore, createVulkanCore(createInfo, window), "Failed to create Vulkan core.");
 
-    VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(vkcore.device.physical, &properties);
+    VkPhysicalDeviceMaintenance3Properties maintenance3Properties{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES,
+    };
+    VkPhysicalDeviceProperties2 properties{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+        .pNext = &maintenance3Properties,
+    };
+    vkGetPhysicalDeviceProperties2(vkcore.device.physical, &properties);
 
-    limits::minUniformBufferOffsetAlignment = properties.limits.minUniformBufferOffsetAlignment;
-    limits::minStorageBufferOffsetAlignment = properties.limits.minStorageBufferOffsetAlignment;
-    limits::maxPushConstantsSize = properties.limits.maxPushConstantsSize;
+    limits::minUniformBufferOffsetAlignment = properties.properties.limits.minUniformBufferOffsetAlignment;
+    limits::minStorageBufferOffsetAlignment = properties.properties.limits.minStorageBufferOffsetAlignment;
+    limits::maxPushConstantsSize = properties.properties.limits.maxPushConstantsSize;
+
+    if (properties.pNext) {
+      VkPhysicalDeviceMaintenance3Properties p = *reinterpret_cast<VkPhysicalDeviceMaintenance3Properties*>(properties.pNext);
+      limits::maxMemoryAllocationSize = p.maxMemoryAllocationSize;
+    }
 
     VKH_MAKE(imGuiObjects, setupImGui(window, vkcore), "Failed to set up ImGui for Vulkan.");
 

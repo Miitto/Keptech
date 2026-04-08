@@ -88,7 +88,7 @@ namespace kt::vkh {
         .buffer = buffer,
         .alloc = alloc,
         .allocInfo = aInfo,
-        .destroyed = new bool(false),
+        .destroyed = std::make_shared<bool>(false),
     };
   }
 

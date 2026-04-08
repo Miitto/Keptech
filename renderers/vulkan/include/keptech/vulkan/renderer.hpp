@@ -105,12 +105,17 @@ namespace kt::vkh {
 
     std::expected<gltf::Scene, std::string> loadMesh(std::string_view path);
     std::expected<std::vector<Texture>, std::string> createImages(const std::vector<ImageUploadInfo>& imageInfos);
-    std::expected<std::vector<Texture>, std::string> createImages(const std::vector<fastgltf::Image>& gltfImages,
-                                                                  const gltf::Data& gltfData);
 
     void loadImGuiImageHandle(AllocatedImage& texture);
 
-    std::expected<std::vector<Mesh>, std::string> uploadMeshes(const std::vector<gltf::MeshData>& meshes);
+    template <typename T> struct UploadResult {
+      std::vector<T> resources;
+      std::vector<AllocatedBuffer> stagingBuffers;
+    };
+    std::expected<UploadResult<Mesh>, std::string> uploadMeshes(const std::vector<gltf::MeshData>& meshes,
+                                                                const VkCommandBuffer transferCmd);
+    std::expected<UploadResult<Texture>, std::string> createImages(const std::vector<fastgltf::Image>& gltfImages,
+                                                                   const gltf::Data& gltfData, const VkCommandBuffer transferCmd);
 
     void setScene(Scene& scene) { this->scene = &scene; }
 

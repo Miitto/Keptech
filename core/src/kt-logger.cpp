@@ -4,6 +4,5 @@
 #include <spdlog/common.h>
 
 namespace kt::core {
-  const std::shared_ptr<spdlog::logger> logger =
-      kt::core::createLogger("Keptech", spdlog::level::trace);
+  const std::shared_ptr<spdlog::logger> logger = kt::core::createLogger("Keptech");
 }

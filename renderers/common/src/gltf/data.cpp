@@ -135,12 +135,11 @@ namespace kt::gltf {
 
     std::filesystem::path path{spath};
 
-    fastgltf::Parser parser{};
-
     constexpr auto extensions = fastgltf::Extensions::KHR_texture_basisu | fastgltf::Extensions::KHR_materials_specular;
     constexpr auto options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble |
-                             fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages |
-                             fastgltf::Options::GenerateMeshIndices | fastgltf::Options::DecomposeNodeMatrices;
+                             fastgltf::Options::LoadExternalBuffers | fastgltf::Options::GenerateMeshIndices |
+                             fastgltf::Options::DecomposeNodeMatrices;
+    fastgltf::Parser parser(extensions);
 
     KT_DEBUG("Loading glTF file from path: {}", path.string());
     auto gltfFile = fastgltf::MappedGltfFile::FromPath(path);
@@ -148,14 +147,18 @@ namespace kt::gltf {
       return std::unexpected(fmt::format("Failed to load glTF file: {}", gltfFile.error()));
     }
 
-    auto asset_res = parser.loadGltf(gltfFile.get(), path.parent_path(), options);
+    std::filesystem::path basePath = path.parent_path();
+
+    auto asset_res = parser.loadGltf(gltfFile.get(), basePath, options);
     if (!bool(asset_res)) {
       return std::unexpected(fmt::format("Failed to parse glTF file: {}", asset_res.error()));
     }
 
     auto& asset = asset_res.get();
 
-    Data loadedGltf{};
+    Data loadedGltf{
+        .basePath = std::move(basePath),
+    };
 
     loadMeshData(asset, loadedGltf);
 

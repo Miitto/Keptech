@@ -1,6 +1,7 @@
 #pragma once
 
 #include "imgui_internal.h"
+#include "keptech/core/compiler.hpp"
 #include <cstdint>
 #include <imgui/imgui.h>
 #include <keptech/core/moveGuard.hpp>
@@ -12,8 +13,7 @@ namespace kt::gui {
 
   class Combo {
     friend class GuiCore;
-    Combo(const char* label, const char* preview, ImGuiComboFlags flags = 0)
-        : open(ImGui::BeginCombo(label, preview, flags)) {}
+    Combo(const char* label, const char* preview, ImGuiComboFlags flags = 0) : open(ImGui::BeginCombo(label, preview, flags)) {}
 
   public:
     Combo(const Combo&) = delete;
@@ -26,8 +26,7 @@ namespace kt::gui {
         ImGui::EndCombo();
     }
 
-    bool item(const char* label, bool selected,
-              ImGuiSelectableFlags flags = 0) {
+    bool item(const char* label, bool selected, ImGuiSelectableFlags flags = 0) {
       if (!open)
         return false;
       bool sel = ImGui::Selectable(label, selected, flags);
@@ -53,12 +52,9 @@ namespace kt::gui {
       return *this;
     }
 
-    Combo combo(const char* label, const char* preview,
-                ImGuiComboFlags flags = 0) {
-      return {label, preview, flags};
-    }
+    Combo combo(const char* label, const char* preview, ImGuiComboFlags flags = 0) { return {label, preview, flags}; }
 
-    GuiCore& text(const char* fmt, ...) __attribute__((format(printf, 2, 3))) {
+    GuiCore& text(const char* fmt, ...) KT_FN_ATTR(format(printf, 2, 3)) {
       va_list args;
       va_start(args, fmt);
       ImGui::TextV(fmt, args);
@@ -66,10 +62,7 @@ namespace kt::gui {
       return *this;
     }
 
-    bool button(const char* const label,
-                const ImVec2& size = ImVec2(0, 0)) const {
-      return ImGui::Button(label, size);
-    }
+    bool button(const char* const label, const ImVec2& size = ImVec2(0, 0)) const { return ImGui::Button(label, size); }
 
     template <typename T>
       requires std::is_integral_v<T>
@@ -91,54 +84,39 @@ namespace kt::gui {
       } else if constexpr (std::is_same_v<T, int64_t>) {
         return ImGuiDataType_S64;
       } else {
-        static_assert(sizeof(T) == 0,
-                      "Unsupported integral type for getImGuiDataType");
+        static_assert(sizeof(T) == 0, "Unsupported integral type for getImGuiDataType");
       }
     }
 
     template <typename T, typename S = T, typename SF = T>
       requires std::is_integral_v<T>
-    bool input(const char* const label, T& value, const S step = 1,
-               const SF step_fast = 10, ImGuiInputTextFlags flags = 0) const {
+    bool input(const char* const label, T& value, const S step = 1, const SF step_fast = 10, ImGuiInputTextFlags flags = 0) const {
       T step_converted = static_cast<T>(step);
       T step_fast_converted = static_cast<T>(step_fast);
-      return ImGui::InputScalar(label, getImGuiDataType<T>(), &value,
-                                step_converted == 0 ? nullptr : &step_converted,
-                                step_fast_converted == 0 ? nullptr
-                                                         : &step_fast_converted,
-                                nullptr, flags);
+      return ImGui::InputScalar(label, getImGuiDataType<T>(), &value, step_converted == 0 ? nullptr : &step_converted,
+                                step_fast_converted == 0 ? nullptr : &step_fast_converted, nullptr, flags);
     }
 
-    bool inputInt(const char* const label, int& value, int step = 1,
-                  int step_fast = 100, ImGuiInputTextFlags flags = 0) const {
+    bool inputInt(const char* const label, int& value, int step = 1, int step_fast = 100, ImGuiInputTextFlags flags = 0) const {
       return ImGui::InputInt(label, &value, step, step_fast, flags);
     }
 
-    bool inputFloat(const char* const label, float& value,
-                    const float step = 0.0f, const float step_fast = 0.0f,
-                    const char* const format = "%.3f",
-                    ImGuiInputTextFlags flags = 0) const {
+    bool inputFloat(const char* const label, float& value, const float step = 0.0f, const float step_fast = 0.0f,
+                    const char* const format = "%.3f", ImGuiInputTextFlags flags = 0) const {
       return ImGui::InputFloat(label, &value, step, step_fast, format, flags);
     }
 
-    bool inputFloat3(const char* label, float* value,
-                     const char* format = "%.3f",
-                     ImGuiInputTextFlags flags = 0) {
+    bool inputFloat3(const char* label, float* value, const char* format = "%.3f", ImGuiInputTextFlags flags = 0) {
       return ImGui::InputFloat3(label, value, format, flags);
     }
 
-    bool inputText(const char* const label, char* buf, size_t buf_size,
-                   ImGuiInputTextFlags flags = 0) const {
+    bool inputText(const char* const label, char* buf, size_t buf_size, ImGuiInputTextFlags flags = 0) const {
       return ImGui::InputText(label, buf, buf_size, flags);
     }
 
-    bool inputScalar(const char* const label, ImGuiDataType data_type,
-                     void* data, const void* step = nullptr,
-                     const void* step_fast = nullptr,
-                     const char* const format = nullptr,
-                     ImGuiInputTextFlags flags = 0) const {
-      return ImGui::InputScalar(label, data_type, data, step, step_fast, format,
-                                flags);
+    bool inputScalar(const char* const label, ImGuiDataType data_type, void* data, const void* step = nullptr,
+                     const void* step_fast = nullptr, const char* const format = nullptr, ImGuiInputTextFlags flags = 0) const {
+      return ImGui::InputScalar(label, data_type, data, step, step_fast, format, flags);
     }
 
     GuiCore& sameLine(float offset_from_start_x = 0.0f, float spacing = -1.0f) {
@@ -151,9 +129,7 @@ namespace kt::gui {
       return *this;
     }
 
-    bool selectable(const char* label, bool isSelected,
-                    ImGuiSelectableFlags flags = 0,
-                    const ImVec2& size = ImVec2(0, 0)) {
+    bool selectable(const char* label, bool isSelected, ImGuiSelectableFlags flags = 0, const ImVec2& size = ImVec2(0, 0)) {
       return ImGui::Selectable(label, isSelected, flags, size);
     }
 
@@ -163,8 +139,7 @@ namespace kt::gui {
 
   class ChildFrame : public GuiCore {
     friend class Frame;
-    ChildFrame(const char* id, const ImVec2& size = ImVec2(0, 0),
-               ImGuiChildFlags flags = 0, ImGuiWindowFlags winFlags = 0) {
+    ChildFrame(const char* id, const ImVec2& size = ImVec2(0, 0), ImGuiChildFlags flags = 0, ImGuiWindowFlags winFlags = 0) {
       ImGui::BeginChild(id, size, flags, winFlags);
     }
 
@@ -181,9 +156,7 @@ namespace kt::gui {
 
   class Frame : public GuiCore {
   public:
-    Frame(const char* const name, bool* p_open = nullptr,
-          ImGuiWindowFlags flags = 0)
-        : open(ImGui::Begin(name, p_open, flags)) {}
+    Frame(const char* const name, bool* p_open = nullptr, ImGuiWindowFlags flags = 0) : open(ImGui::Begin(name, p_open, flags)) {}
 
     Frame(const Frame&) = delete;
     Frame& operator=(const Frame&) = delete;
@@ -196,8 +169,7 @@ namespace kt::gui {
 
     [[nodiscard]] bool isOpen() const { return open; }
 
-    ChildFrame child(const char* id, const ImVec2& size = ImVec2(0, 0),
-                     ImGuiChildFlags flags = 0, ImGuiWindowFlags winFlags = 0) {
+    ChildFrame child(const char* id, const ImVec2& size = ImVec2(0, 0), ImGuiChildFlags flags = 0, ImGuiWindowFlags winFlags = 0) {
       return {id, size, flags, winFlags};
     }
 

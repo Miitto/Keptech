@@ -56,12 +56,14 @@ set(KT_PCH_HEADERS
 )
 
 add_subdirectory(logging)
+add_subdirectory(shader_processor)
+add_subdirectory(shader_embedder)
+
 add_subdirectory(ecs)
 add_subdirectory(core)
 add_subdirectory(renderers)
 add_subdirectory(engine)
-add_subdirectory(shader_processor)
-add_subdirectory(shader_embedder)
+
 
 # Vendored Deps
 add_subdirectory(vendor/imgui imgui)

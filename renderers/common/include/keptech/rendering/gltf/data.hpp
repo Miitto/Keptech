@@ -5,6 +5,7 @@
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
+#include <filesystem>
 #include <keptech/maths/transform.hpp>
 #include <string>
 
@@ -31,6 +32,8 @@ namespace kt::gltf {
       uint32_t materialIndex = ~0u;
       std::vector<Node> children{};
     };
+
+    std::filesystem::path basePath;
 
     std::vector<MeshData> meshes;
     std::vector<fastgltf::Material> materials;

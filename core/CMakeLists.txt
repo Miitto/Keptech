@@ -85,6 +85,8 @@ set(KT_LOG_LEVEL "DEBUG" CACHE STRING "Core log level")
 target_compile_definitions(${PROJECT_NAME}
   PUBLIC
     KT_LOG_LEVEL=SPDLOG_LEVEL_${KT_LOG_LEVEL}
+    $<$<CXX_COMPILER_ID:GNU,Clang>:_KT_GNU>
+    $<$<CXX_COMPILER_ID:MSVC>:_KT_MSVC>
 )
 
 if(KT_ADD_RESOURCE_INFO)
