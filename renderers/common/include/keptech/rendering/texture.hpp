@@ -7,6 +7,7 @@
 namespace kt {
   class Texture {
   public:
+    Texture() = default;
     Texture(glm::ivec3 size, uint8_t mipLevels, rendering::ImageFormat format, uint32_t index)
         : size(size), mipLevels(mipLevels), format(format), index(index) {}
 
@@ -19,6 +20,6 @@ namespace kt {
     glm::ivec3 size;
     uint8_t mipLevels;
     rendering::ImageFormat format;
-    uint32_t index;
+    uint32_t index = ~0u;
   };
 } // namespace kt

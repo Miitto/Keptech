@@ -137,7 +137,7 @@ namespace kt::vkh {
     static std::expected<AddressedAllocatedBuffer, std::string> fromAllocatedBuffer(const VkDevice& desvice,
                                                                                     const AllocatedBuffer& allocatedBuffer);
 
-    AllocatedBuffer downcast() { return AllocatedBuffer{.buffer = buffer, .alloc = alloc, .allocInfo = allocInfo}; }
+    AllocatedBuffer downcast() { return AllocatedBuffer{.buffer = buffer, .alloc = alloc, .allocInfo = allocInfo, .destroyed = destroyed}; }
   };
 
   struct OnGoingCmdTransfer {

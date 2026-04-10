@@ -25,6 +25,24 @@
 
 namespace kt::vkh {
 
+  struct GBuffer {
+    using T = AllocatedImage;
+    T albedo;
+    T normal;
+    T emissive;
+    T metRough;
+    T depth;
+    void destroy(const VmaAllocator& allocator, const VkDevice& device);
+  };
+
+  struct LightBuffer {
+    using T = AllocatedImage;
+    T diffuse;
+    T specular;
+    T combined;
+    void destroy(const VmaAllocator& allocator, const VkDevice& device);
+  };
+
   class Renderer {
     // Structs
   public:
@@ -58,6 +76,8 @@ namespace kt::vkh {
     struct Buffers {
       using B = AddressedAllocatedBuffer;
       B camera;
+
+      void destroy(VmaAllocator& allocator);
     };
 
     struct Pipelines {
@@ -65,6 +85,8 @@ namespace kt::vkh {
       Pipeline deferred;
       Pipeline deferredPointLight;
       Pipeline deferredCombine;
+
+      void destroy(const VkDevice& device);
     };
 
     struct VulkanCore {
@@ -78,6 +100,14 @@ namespace kt::vkh {
       CommandPool transferPool;
     };
 
+    struct RenderTargets {
+      GBuffer gBuffer;
+      LightBuffer lights;
+      glm::ivec2 framebufferSize;
+
+      void destroy(const VmaAllocator& allocator, const VkDevice& device);
+    };
+
     struct Members {
       MoveGuard moveGuard{};
 
@@ -85,6 +115,9 @@ namespace kt::vkh {
       VulkanCore vkcore;
 
       ImGuiVkObjects imGuiObjects;
+
+      Formats formats;
+      RenderTargets renderTargets;
 
       Buffers buffers;
       Pipelines pipelines;
@@ -113,9 +146,11 @@ namespace kt::vkh {
       std::vector<AllocatedBuffer> stagingBuffers;
     };
     std::expected<UploadResult<Mesh>, std::string> uploadMeshes(const std::vector<gltf::MeshData>& meshes,
+                                                                const std::vector<rendering::Material>& materials,
                                                                 const VkCommandBuffer transferCmd);
-    std::expected<UploadResult<Texture>, std::string> createImages(const std::vector<fastgltf::Image>& gltfImages,
-                                                                   const gltf::Data& gltfData, const VkCommandBuffer transferCmd);
+    std::expected<UploadResult<Texture>, std::string> createImages(const gltf::Data& gltfData, const VkCommandBuffer transferCmd);
+    std::expected<UploadResult<rendering::Material>, std::string>
+    createMaterials(const gltf::Data& data, const std::vector<Texture>& textures, const VkCommandBuffer transferCmd);
 
     void setScene(Scene& scene) { this->scene = &scene; }
 
@@ -142,6 +177,7 @@ namespace kt::vkh {
 
     void startFrame();
 
+    void updateCameraBuffer(VkCommandBuffer cmdBuf);
     void drawDeferred(VkCommandBuffer cmdBuf);
 
     void renderImGui(VkCommandBuffer graphicsCmd);

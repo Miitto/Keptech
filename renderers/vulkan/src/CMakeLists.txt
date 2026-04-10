@@ -7,10 +7,12 @@ target_sources(${PROJECT_NAME}
     setup/core.cpp
     setup/descriptors.cpp
     setup/device.cpp
+    setup/formats.cpp
     setup/imgui.cpp
     setup/pipelines.cpp
     setup/setup.cpp
     setup/swapchain.cpp
+    setup/targets.cpp
 
     helpers/conversions.cpp
     helpers/descriptors.cpp

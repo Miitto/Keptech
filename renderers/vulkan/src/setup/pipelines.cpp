@@ -17,102 +17,7 @@ namespace shaders {
 
 namespace kt::vkh::setup {
 
-  // Formats
   namespace {
-    constexpr std::array GBUFFER_ALBEDO_FORMATS = {VK_FORMAT_B8G8R8A8_SRGB};
-    constexpr std::array GBUFFER_NORMAL_FORMATS = {VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_FORMAT_R16G16B16_SFLOAT,
-                                                   VK_FORMAT_R16G16B16A16_SFLOAT};
-    constexpr std::array GBUFFER_EMISSIVE_FORMATS = {VK_FORMAT_B10G11R11_UFLOAT_PACK32};
-    constexpr std::array GBUFFER_METROUGH_FORMATS = {VK_FORMAT_R8G8_UNORM, VK_FORMAT_R8G8B8_UNORM, VK_FORMAT_R8G8B8A8_UNORM};
-    constexpr std::array GBUFFER_DEPTH_FORMATS = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D16_UNORM};
-    constexpr std::array HDR_FORMATS = {VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R32G32B32A32_SFLOAT};
-
-    constexpr std::array TEXTYRE_ALBEDO_FORMATS = {VK_FORMAT_BC7_SRGB_BLOCK, VK_FORMAT_BC1_RGBA_SRGB_BLOCK, VK_FORMAT_B8G8R8A8_SRGB};
-    constexpr std::array TEXTURE_NORMAL_FORMATS = {VK_FORMAT_BC5_UNORM_BLOCK, VK_FORMAT_A2B10G10R10_UNORM_PACK32,
-                                                   VK_FORMAT_R16G16B16_SFLOAT, VK_FORMAT_R16G16B16A16_SFLOAT};
-    constexpr std::array TEXTURE_METROUGH_FORMATS = {VK_FORMAT_BC5_UNORM_BLOCK, VK_FORMAT_R8G8_UNORM, VK_FORMAT_R8G8B8_UNORM,
-                                                     VK_FORMAT_R8G8B8A8_UNORM};
-    constexpr std::array TEXTURE_EMISSIVE_FORMATS = {VK_FORMAT_B10G11R11_UFLOAT_PACK32};
-  } // namespace
-
-  // Util
-  namespace {
-    std::expected<Formats, std::string> findFormats(const Renderer::VulkanCore& vkcore) {
-      auto findFormat = [&](std::span<const VkFormat> candidates, VkFormatFeatureFlags features) -> VkFormat {
-        for (auto& format : candidates) {
-          VkFormatProperties props;
-          vkGetPhysicalDeviceFormatProperties(vkcore.device.physical, format, &props);
-          if ((props.optimalTilingFeatures & features) == features) {
-            return format;
-          }
-        }
-        return VK_FORMAT_UNDEFINED;
-      };
-      auto findColorAttachmentFormat = [&](std::span<const VkFormat> candidates) {
-        return findFormat(candidates, VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT);
-      };
-      auto findDepthAttachmentFormat = [&](std::span<const VkFormat> candidates) {
-        return findFormat(candidates, VK_FORMAT_FEATURE_2_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT);
-      };
-      auto findTextureFormat = [&](std::span<const VkFormat> candidates) {
-        return findFormat(candidates, VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT);
-      };
-
-      Formats f{
-          .render =
-              {
-                  .albedo = findColorAttachmentFormat(GBUFFER_ALBEDO_FORMATS),
-                  .normal = findColorAttachmentFormat(GBUFFER_NORMAL_FORMATS),
-                  .emissive = findColorAttachmentFormat(GBUFFER_EMISSIVE_FORMATS),
-                  .metRought = findColorAttachmentFormat(GBUFFER_METROUGH_FORMATS),
-                  .depth = findDepthAttachmentFormat(GBUFFER_DEPTH_FORMATS),
-                  .hdr = findColorAttachmentFormat(HDR_FORMATS),
-              },
-          .texture =
-              {
-                  .albedo = findTextureFormat(TEXTYRE_ALBEDO_FORMATS),
-                  .normal = findTextureFormat(TEXTURE_NORMAL_FORMATS),
-                  .metRough = findTextureFormat(TEXTURE_METROUGH_FORMATS),
-                  .emissive = findTextureFormat(TEXTURE_EMISSIVE_FORMATS),
-              },
-          .swapchain = vkcore.swapchain.config().format.format,
-      };
-
-#define CHECK_FORMAT(format)                                                                                                               \
-  if (!(format)) {                                                                                                                         \
-    return std::unexpected("Failed to find suitable " #format " format.");                                                                 \
-  }
-      CHECK_FORMAT(f.render.albedo);
-      CHECK_FORMAT(f.render.normal);
-      CHECK_FORMAT(f.render.emissive);
-      CHECK_FORMAT(f.render.metRought);
-      CHECK_FORMAT(f.render.depth);
-      CHECK_FORMAT(f.render.hdr);
-      CHECK_FORMAT(f.texture.albedo);
-      CHECK_FORMAT(f.texture.normal);
-      CHECK_FORMAT(f.texture.metRough);
-      CHECK_FORMAT(f.texture.emissive);
-      CHECK_FORMAT(f.swapchain);
-      CHECK_FORMAT(f.render.albedo);
-      CHECK_FORMAT(f.render.normal);
-      CHECK_FORMAT(f.render.emissive);
-      CHECK_FORMAT(f.render.metRought);
-
-      VK_DEBUG("Selected formats:");
-      VK_DEBUG("  Albedo: {}", f.render.albedo);
-      VK_DEBUG("  Normal: {}", f.render.normal);
-      VK_DEBUG("  Emissive: {}", f.render.emissive);
-      VK_DEBUG("  Metallic-Roughness: {}", f.render.metRought);
-      VK_DEBUG("  Depth: {}", f.render.depth);
-      VK_DEBUG("  HDR: {}", f.render.hdr);
-      VK_DEBUG("  Texture Albedo: {}", f.texture.albedo);
-      VK_DEBUG("  Texture Normal: {}", f.texture.normal);
-      VK_DEBUG("  Texture Metallic-Roughness: {}", f.texture.metRough);
-      VK_DEBUG("  Texture Emissive: {}", f.texture.emissive);
-      VK_DEBUG("  Swapchain: {}", f.swapchain);
-
-      return f;
-    }
 
     struct Shader {
       VkShaderModule module;
@@ -188,6 +93,7 @@ namespace kt::vkh::setup {
   } // namespace
   std::expected<Pipeline, std::string> createBasicPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
                                                            const VkDescriptorSetLayout globalLayout) {
+    VK_DEBUG("Creating basic pipeline");
     VKH_MAKE(shader, getShader(::shaders::basic, vkcore.device.logical), "Failed to create shader for basic pipeline.");
 
     GraphicsPipelineConfig config{
@@ -227,6 +133,7 @@ namespace kt::vkh::setup {
 
   std::expected<Pipeline, std::string> createDeferredPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
                                                               const VkDescriptorSetLayout globalLayout) {
+    VK_DEBUG("Creating deferred pipeline");
     VKH_MAKE(shader, getShader(::shaders::deferred, vkcore.device.logical), "Failed to create shader for deferred pipeline.");
 
     GraphicsPipelineConfig config{
@@ -243,23 +150,22 @@ namespace kt::vkh::setup {
             },
         .shaders = shader.stages,
         .vertexInput = getVertexInputFromShader(::shaders::deferred, {}),
-        .inputAssembly = {.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST},
+        .rasterizer =
+            {
+                .polygonMode = VK_POLYGON_MODE_FILL,
+                .cullMode = VK_CULL_MODE_BACK_BIT,
+                .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                .lineWidth = 1.f,
+            },
         .depthStencilState =
             {
                 .depthBoundsTestEnable = VK_TRUE,
                 .depthTestEnable = VK_TRUE,
-                .depthCompareOp = VK_COMPARE_OP_GREATER,
+                .depthCompareOp = VK_COMPARE_OP_LESS,
+                .depthWriteEnable = VK_TRUE,
+                .minDepthBounds = 0.f,
+                .maxDepthBounds = 1.f,
             },
-        .blendAttachments =
-            {
-                VkPipelineColorBlendAttachmentState{.blendEnable = VK_FALSE},
-                VkPipelineColorBlendAttachmentState{.blendEnable = VK_FALSE},
-                VkPipelineColorBlendAttachmentState{.blendEnable = VK_FALSE},
-                VkPipelineColorBlendAttachmentState{.blendEnable = VK_FALSE},
-            },
-        .blending = {.logicOpEnable = VK_FALSE},
-        .dynamicState = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR},
-
     };
 
     PipelineLayoutConfig layoutConfig{
@@ -267,7 +173,7 @@ namespace kt::vkh::setup {
         .pushConstantRanges = {{
             .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
             .offset = 0,
-            .size = sizeof(VkDeviceAddress) * 2 + sizeof(uint32_t),
+            .size = sizeof(glm::mat4) + sizeof(VkDeviceAddress),
         }},
     };
 
@@ -286,10 +192,8 @@ namespace kt::vkh::setup {
     return pipeline;
   } // namespace
 
-  std::expected<Renderer::Pipelines, std::string> createPipelines(const Renderer::VulkanCore& vkcore,
+  std::expected<Renderer::Pipelines, std::string> createPipelines(const Renderer::VulkanCore& vkcore, const Formats& formats,
                                                                   const VkDescriptorSetLayout globalLayout) {
-    VKH_MAKE(formats, findFormats(vkcore), "Failed to find suitable formats for renderer.");
-
     VKH_MAKE(basic, createBasicPipeline(vkcore, formats, globalLayout), "Failed to create basic pipeline.");
     VKH_MAKE(deferred, createDeferredPipeline(vkcore, formats, globalLayout), "Failed to create deferred pipeline.");
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/vulkan/helpers/formatting.hpp"
 #include "vk-logger.hpp"
 
 #define VKH_MAKE(_NAME, _EXPR, _ERROR)                                                                                                     \
@@ -14,7 +15,7 @@
   {                                                                                                                                        \
     auto res = _EXPR;                                                                                                                      \
     if (res != VK_SUCCESS) {                                                                                                               \
-      VK_ERROR(_ERROR);                                                                                                                    \
+      VK_ERROR(_ERROR ": {}", res);                                                                                                        \
       return std::unexpected(_ERROR);                                                                                                      \
     }                                                                                                                                      \
   }

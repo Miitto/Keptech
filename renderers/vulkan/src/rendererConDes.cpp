@@ -27,6 +27,41 @@ namespace kt::vkh {
     rendering::shutdownImGui();
   }
 
+  void GBuffer::destroy(const VmaAllocator& allocator, const VkDevice& device) {
+    albedo.destroy(allocator, device);
+    normal.destroy(allocator, device);
+    emissive.destroy(allocator, device);
+    metRough.destroy(allocator, device);
+    depth.destroy(allocator, device);
+  }
+
+  void LightBuffer::destroy(const VmaAllocator& allocator, const VkDevice& device) {
+    diffuse.destroy(allocator, device);
+    specular.destroy(allocator, device);
+    combined.destroy(allocator, device);
+  }
+
+  void Renderer::RenderTargets::destroy(const VmaAllocator& allocator, const VkDevice& device) {
+    gBuffer.destroy(allocator, device);
+    lights.destroy(allocator, device);
+  }
+
+  void Renderer::Pipelines::destroy(const VkDevice& device) {
+    vkDestroyPipeline(device, basic.pipeline, nullptr);
+    vkDestroyPipelineLayout(device, basic.layout, nullptr);
+
+    vkDestroyPipeline(device, deferred.pipeline, nullptr);
+    vkDestroyPipelineLayout(device, deferred.layout, nullptr);
+
+    // vkDestroyPipeline(device, deferredPointLight.pipeline, nullptr);
+    // vkDestroyPipelineLayout(device, deferredPointLight.layout, nullptr);
+    //
+    // vkDestroyPipeline(device, deferredCombine.pipeline, nullptr);
+    // vkDestroyPipelineLayout(device, deferredCombine.layout, nullptr);
+  }
+
+  void Renderer::Buffers::destroy(VmaAllocator& allocator) { camera.destroy(allocator); }
+
   Renderer::~Renderer() {
     if (m.moveGuard.moved()) {
       return;
@@ -36,11 +71,6 @@ namespace kt::vkh {
     auto& allocator = m.vkcore.allocator;
 
     vkDeviceWaitIdle(device);
-
-    auto destroyPipeline = [&](Pipeline& pipeline) {
-      vkDestroyPipeline(device, pipeline.pipeline, nullptr);
-      vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
-    };
 
     for (auto& perFrame : m.vkcore.perFrame) {
       vkDestroySemaphore(device, perFrame.imageAvailableSemaphore, nullptr);
@@ -54,7 +84,7 @@ namespace kt::vkh {
     vkDestroyDescriptorSetLayout(device, m.globalDescriptorSets.layout, nullptr);
     vkDestroyDescriptorPool(device, m.globalDescriptorSets.pool, nullptr);
 
-    m.buffers.camera.destroy(allocator);
+    m.buffers.destroy(allocator);
 
     for (auto& texture : m.loadedTextures) {
       texture.destroy(allocator, device);
@@ -63,7 +93,9 @@ namespace kt::vkh {
       buffer.destroy(allocator);
     }
 
-    destroyPipeline(m.pipelines.deferred);
+    m.pipelines.destroy(device);
+
+    m.renderTargets.destroy(allocator, device);
 
     vmaDestroyAllocator(allocator);
 

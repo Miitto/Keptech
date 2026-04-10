@@ -57,6 +57,8 @@ namespace kt::vkh {
                                                                       const VkBufferCreateInfo& bufInfo,
                                                                       const VmaAllocationCreateInfo& allocInfo,
                                                                       const std::optional<std::string>& name) {
+    VK_ASSERT(bufInfo.size > 0, "Buffer size must be greater than 0");
+
     VkBuffer buffer;
     VmaAllocation alloc;
     VmaAllocationInfo aInfo = {};
@@ -116,6 +118,7 @@ namespace kt::vkh {
     buf.buffer = allocatedBuffer.buffer;
     buf.alloc = allocatedBuffer.alloc;
     buf.allocInfo = allocatedBuffer.allocInfo;
+    buf.destroyed = allocatedBuffer.destroyed;
 
     return buf;
   }

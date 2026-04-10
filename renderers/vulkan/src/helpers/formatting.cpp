@@ -1,5 +1,68 @@
 #include "keptech/vulkan/helpers/formatting.hpp"
 
+fmt::format_context::iterator fmt::formatter<VkResult>::format(VkResult format, fmt::format_context& ctx) const {
+  std::string_view name = "Unknown";
+#define CASE(x)                                                                                                                            \
+  case VK_##x:                                                                                                                             \
+    name = #x;                                                                                                                             \
+    break;
+  switch (format) {
+    CASE(SUCCESS)
+    CASE(NOT_READY)
+    CASE(TIMEOUT)
+    CASE(EVENT_SET)
+    CASE(EVENT_RESET)
+    CASE(INCOMPLETE)
+    CASE(ERROR_OUT_OF_HOST_MEMORY)
+    CASE(ERROR_OUT_OF_DEVICE_MEMORY)
+    CASE(ERROR_INITIALIZATION_FAILED)
+    CASE(ERROR_DEVICE_LOST)
+    CASE(ERROR_MEMORY_MAP_FAILED)
+    CASE(ERROR_LAYER_NOT_PRESENT)
+    CASE(ERROR_EXTENSION_NOT_PRESENT)
+    CASE(ERROR_FEATURE_NOT_PRESENT)
+    CASE(ERROR_INCOMPATIBLE_DRIVER)
+    CASE(ERROR_TOO_MANY_OBJECTS)
+    CASE(ERROR_FORMAT_NOT_SUPPORTED)
+    CASE(ERROR_FRAGMENTED_POOL)
+    CASE(ERROR_UNKNOWN)
+    CASE(ERROR_VALIDATION_FAILED)
+    CASE(ERROR_OUT_OF_POOL_MEMORY)
+    CASE(ERROR_INVALID_EXTERNAL_HANDLE)
+    CASE(ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS)
+    CASE(ERROR_FRAGMENTATION)
+    CASE(PIPELINE_COMPILE_REQUIRED)
+    CASE(ERROR_NOT_PERMITTED)
+    CASE(ERROR_SURFACE_LOST_KHR)
+    CASE(ERROR_NATIVE_WINDOW_IN_USE_KHR)
+    CASE(SUBOPTIMAL_KHR)
+    CASE(ERROR_OUT_OF_DATE_KHR)
+    CASE(ERROR_INCOMPATIBLE_DISPLAY_KHR)
+    CASE(ERROR_INVALID_SHADER_NV)
+    CASE(ERROR_IMAGE_USAGE_NOT_SUPPORTED_KHR)
+    CASE(ERROR_VIDEO_PICTURE_LAYOUT_NOT_SUPPORTED_KHR)
+    CASE(ERROR_VIDEO_PROFILE_OPERATION_NOT_SUPPORTED_KHR)
+    CASE(ERROR_VIDEO_PROFILE_FORMAT_NOT_SUPPORTED_KHR)
+    CASE(ERROR_VIDEO_PROFILE_CODEC_NOT_SUPPORTED_KHR)
+    CASE(ERROR_VIDEO_STD_VERSION_NOT_SUPPORTED_KHR)
+    CASE(ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT)
+    CASE(ERROR_PRESENT_TIMING_QUEUE_FULL_EXT)
+    CASE(ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
+    CASE(THREAD_IDLE_KHR)
+    CASE(THREAD_DONE_KHR)
+    CASE(OPERATION_DEFERRED_KHR)
+    CASE(OPERATION_NOT_DEFERRED_KHR)
+    CASE(ERROR_INVALID_VIDEO_STD_PARAMETERS_KHR)
+    CASE(ERROR_COMPRESSION_EXHAUSTED_EXT)
+    CASE(INCOMPATIBLE_SHADER_BINARY_EXT)
+    CASE(PIPELINE_BINARY_MISSING_KHR)
+    CASE(ERROR_NOT_ENOUGH_SPACE_KHR)
+    CASE(RESULT_MAX_ENUM)
+  }
+#undef CASE
+  return fmt::formatter<std::string_view>::format(name, ctx);
+}
+
 fmt::format_context::iterator fmt::formatter<VkFormat>::format(VkFormat format, fmt::format_context& ctx) const {
   std::string_view name = "Invalid";
 #define CASE(x)                                                                                                                            \

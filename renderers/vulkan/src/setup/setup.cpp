@@ -57,13 +57,23 @@ namespace kt::vkh {
       offset = maths::roundToAlignment(offset, limits::minUniformBufferOffsetAlignment);
     }
 
-    VKH_MAKE(pipelines, createPipelines(vkcore, globalDescriptorSets.layout), "Failed to create pipelines for renderer.");
+    VKH_MAKE(formats, findFormats(vkcore), "Failed to find suitable formats for renderer.");
+
+    VKH_MAKE(pipelines, createPipelines(vkcore, formats, globalDescriptorSets.layout), "Failed to create pipelines for renderer.");
+
+    auto d = SDL_GetDisplayForWindow(window.getHandle());
+    auto* dm = SDL_GetCurrentDisplayMode(d);
+
+    VKH_MAKE(renderTargets, createRenderTargets(vkcore, formats, glm::ivec2{dm->w, dm->h}),
+             "Failed to create render targets for renderer.");
 
     VK_DEBUG("Vulkan renderer created successfully.");
     Renderer r{{
         .window = &window,
         .vkcore = std::move(vkcore),
         .imGuiObjects = imGuiObjects,
+        .formats = formats,
+        .renderTargets = renderTargets,
         .buffers = buffers,
         .pipelines = pipelines,
         .globalDescriptorSets = globalDescriptorSets,

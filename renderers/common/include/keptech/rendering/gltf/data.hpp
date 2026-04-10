@@ -29,7 +29,6 @@ namespace kt::gltf {
       fastgltf::Node node;
       maths::Transform transform;
       uint32_t meshIndex = ~0u;
-      uint32_t materialIndex = ~0u;
       std::vector<Node> children{};
     };
 

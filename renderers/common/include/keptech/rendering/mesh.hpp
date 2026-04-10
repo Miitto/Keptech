@@ -1,10 +1,11 @@
 #pragma once
 
 #include "keptech/rendering/interface.hpp"
+#include "keptech/rendering/material.hpp"
 #include <cstdint>
 #include <glm/glm.hpp>
-#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace kt {
@@ -22,34 +23,28 @@ namespace kt {
     }
   };
 
+  struct Submesh {
+    uint32_t start;
+    uint32_t count;
+    std::optional<rendering::Material> material;
+  };
+
   class Mesh {
   public:
     [[nodiscard]] bool isValid() const { return vertexCount > 0 && indexCount > 0; }
-    operator bool() const { return isValid(); }
-    [[nodiscard]] uint32_t getVertexOffset() const { return vertexOffset; }
-    [[nodiscard]] size_t getIndexCount() const { return indexCount; }
-    [[nodiscard]] uint32_t getIndexOffset() const { return indexOffset; }
+    [[nodiscard]] uint32_t getVertexCount() const { return vertexCount; }
+    [[nodiscard]] uint32_t getIndexCount() const { return indexCount; }
+    [[nodiscard]] const std::vector<Submesh>& getSubmeshes() const { return submeshes; }
     [[nodiscard]] const rendering::RendererMesh& getRMesh() const { return rMesh; }
     rendering::RendererMesh& getRMesh() { return rMesh; }
 
-    Mesh& setVertexOffset(uint32_t offset) {
-      vertexOffset = offset;
-      return *this;
-    }
-    Mesh& setIndexOffset(uint32_t offset) {
-      indexOffset = offset;
-      return *this;
-    }
-
 #ifdef KT_ADD_RESOURCE_INFO
     std::string& getDebugName() { return name; }
-    [[nodiscard]] size_t getVertexCount() const { return vertexCount; }
 #endif
 
     Mesh() = default;
-    Mesh(uint32_t vertexCount, uint32_t vertexOffset, uint32_t indexCount, uint32_t indexOffset, rendering::RendererMesh rData,
-         std::string name = {})
-        : vertexCount(vertexCount), vertexOffset(vertexOffset), indexCount(indexCount), indexOffset(indexOffset), rMesh(rData)
+    Mesh(uint32_t vertexCount, uint32_t indexCount, rendering::RendererMesh rData, std::vector<Submesh> submeshes, std::string name = {})
+        : vertexCount(vertexCount), indexCount(indexCount), rMesh(std::move(rData)), submeshes(std::move(submeshes))
 #ifdef KT_ADD_RESOURCE_INFO
           ,
           name(std::move(name))
@@ -58,11 +53,10 @@ namespace kt {
     }
 
   protected:
-    uint32_t vertexCount;
-    uint32_t vertexOffset;
-    uint32_t indexCount;
-    uint32_t indexOffset;
+    uint32_t vertexCount = 0;
+    uint32_t indexCount = 0;
     rendering::RendererMesh rMesh;
+    std::vector<Submesh> submeshes;
 
 #ifdef KT_ADD_RESOURCE_INFO
     std::string name;

@@ -18,6 +18,7 @@ namespace kt::vkh::setup {
                                                                VkDevice& device, const Queues& queues);
   std::expected<Renderer::VulkanCore, std::string> createVulkanCore(const RendererCreateInfo& createInfo,
                                                                     const core::window::Window& window);
+  std::expected<Formats, std::string> findFormats(const Renderer::VulkanCore& vkcore);
   std::expected<DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>, std::string> createGlobalDescriptors(VkDevice device);
   std::expected<VkPhysicalDevice, std::string> createPhysicalDevice(VkInstance instance, VkSurfaceKHR surface);
   std::expected<QueueIndices, std::string> findQueues(VkPhysicalDevice physDevice, VkSurfaceKHR surface);
@@ -30,6 +31,9 @@ namespace kt::vkh::setup {
                                                         VkSwapchainKHR oldSwapchain);
 
   std::expected<Renderer::Buffers, std::string> createBuffers(const Renderer::VulkanCore& vkcore);
-  std::expected<Renderer::Pipelines, std::string> createPipelines(const Renderer::VulkanCore& vkcore,
+  std::expected<Renderer::Pipelines, std::string> createPipelines(const Renderer::VulkanCore& vkcore, const Formats& formats,
                                                                   const VkDescriptorSetLayout globalLayout);
+
+  std::expected<Renderer::RenderTargets, std::string> createRenderTargets(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                                          const glm::ivec2& framebufferSize);
 } // namespace kt::vkh::setup

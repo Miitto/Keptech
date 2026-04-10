@@ -27,7 +27,7 @@ namespace kt::vkh::setup {
     };
 
     VmaAllocationCreateInfo allocInfo{
-        .flags = hostWriteOrTransferFlags,
+        .flags = hostWriteFlags,
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
     };
 

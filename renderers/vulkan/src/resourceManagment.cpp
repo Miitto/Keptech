@@ -59,8 +59,9 @@ namespace kt::vkh {
     };
     vkBeginCommandBuffer(transferCmd, &cmdBeginInfo);
 
-    VKH_MAKE(meshesRes, uploadMeshes(gltfData.meshes, transferCmd), "Failed to upload meshes from glTF data");
-    VKH_MAKE(imagesRes, createImages(gltfData.images, gltfData, transferCmd), "Failed to create images from glTF data");
+    VKH_MAKE(imagesRes, createImages(gltfData, transferCmd), "Failed to create images from glTF data");
+    VKH_MAKE(materialsRes, createMaterials(gltfData, imagesRes.resources, transferCmd), "Failed to create materials from glTF data");
+    VKH_MAKE(meshesRes, uploadMeshes(gltfData.meshes, materialsRes.resources, transferCmd), "Failed to upload meshes from glTF data");
 
     vkEndCommandBuffer(transferCmd);
 
@@ -81,7 +82,7 @@ namespace kt::vkh {
     VK_CHECK(vkCreateFence(m.vkcore.device.logical, &fenceCreateInfo, nullptr, &transferFence), "Failed to create fence for mesh upload");
     vkQueueSubmit2(m.vkcore.queues.transfer.queue, 1, &submitInfo, transferFence);
 
-    VkResult res;
+    VkResult res = VK_SUCCESS;
     while (res = vkWaitForFences(m.vkcore.device.logical, 1, &transferFence, VK_TRUE, UINT64_MAX), res == VK_TIMEOUT) {
       std::this_thread::yield();
     }
@@ -92,6 +93,9 @@ namespace kt::vkh {
       buf.destroy(m.vkcore.allocator);
     }
     for (auto& buf : imagesRes.stagingBuffers) {
+      buf.destroy(m.vkcore.allocator);
+    }
+    for (auto& buf : materialsRes.stagingBuffers) {
       buf.destroy(m.vkcore.allocator);
     }
 
@@ -105,8 +109,9 @@ namespace kt::vkh {
     return scene;
   }
 
-  std::expected<Renderer::UploadResult<Texture>, std::string>
-  Renderer::createImages(const std::vector<fastgltf::Image>& gltfImages, const gltf::Data& gltf, const VkCommandBuffer transferCmd) {
+  std::expected<Renderer::UploadResult<Texture>, std::string> Renderer::createImages(const gltf::Data& gltf,
+                                                                                     const VkCommandBuffer transferCmd) {
+    auto& gltfImages = gltf.images;
     VK_DEBUG("Loading {} images from glTF data", gltfImages.size());
     struct Tex {
       std::string name;
@@ -279,7 +284,9 @@ namespace kt::vkh {
 
       for (auto& sbuf : stagingBuffers) {
         stagingBufferCreateInfo.size = sbuf.size;
-        VKH_MAKE(buffer, AllocatedBuffer::create(m.vkcore.allocator, m.vkcore.device.logical, stagingBufferCreateInfo, stagingAllocInfo),
+        VKH_MAKE(buffer,
+                 AllocatedBuffer::create(m.vkcore.allocator, m.vkcore.device.logical, stagingBufferCreateInfo, stagingAllocInfo,
+                                         "Image staging buffer."),
                  "Failed to create staging buffer for image upload");
         sbuf.buffer = buffer;
       }
@@ -460,6 +467,7 @@ namespace kt::vkh {
   }
 
   std::expected<Renderer::UploadResult<Mesh>, std::string> Renderer::uploadMeshes(const std::vector<gltf::MeshData>& meshes,
+                                                                                  const std::vector<rendering::Material>& materials,
                                                                                   const VkCommandBuffer transferCmd) {
     VK_DEBUG("Uploading {} meshes from glTF data", meshes.size());
     std::vector<Mesh> result;
@@ -519,7 +527,20 @@ namespace kt::vkh {
           .indexBuffer = indexBuffer,
       };
 
-      result.emplace_back(mesh.vertices.size(), 0, mesh.indices.size(), 0, rendererMesh, mesh.name);
+      std::vector<Submesh> submeshes;
+      submeshes.reserve(mesh.submeshes.size());
+      for (const auto& primitive : mesh.submeshes) {
+        Submesh submesh{
+            .start = primitive.indexOffset,
+            .count = primitive.indexCount,
+        };
+        if (primitive.materialIndex < materials.size()) {
+          submesh.material = materials[primitive.materialIndex];
+        }
+        submeshes.push_back(submesh);
+      }
+
+      result.emplace_back(mesh.vertices.size(), mesh.indices.size(), rendererMesh, std::move(submeshes), mesh.name);
     }
 
     UploadResult<Mesh> resultStruct{};
@@ -536,7 +557,8 @@ namespace kt::vkh {
       };
 
       VKH_MAKE(stagingBuffer,
-               AllocatedBuffer::create(m.vkcore.allocator, m.vkcore.device.logical, stagingBufferCreateInfo, stagingAllocInfo),
+               AllocatedBuffer::create(m.vkcore.allocator, m.vkcore.device.logical, stagingBufferCreateInfo, stagingAllocInfo,
+                                       "Mesh staging buffer."),
                "Failed to create staging buffer for mesh upload");
 
       if (stagingBuffer.isMapped()) {
@@ -583,6 +605,158 @@ namespace kt::vkh {
     }
 
     resultStruct.resources = std::move(result);
+
+    return std::move(resultStruct);
+  }
+
+  std::expected<Renderer::UploadResult<rendering::Material>, std::string>
+  Renderer::createMaterials(const gltf::Data& data, const std::vector<Texture>& textures, const VkCommandBuffer transferCmd) {
+    auto& materials = data.materials;
+    struct GpuMaterial {
+      uint32_t albedo;
+      uint32_t bump;
+      uint32_t emissive;
+      uint32_t metRough;
+      glm::vec4 albedoFactor;
+      glm::vec3 emissiveFactor;
+      uint32_t ao;
+      float metFactor;
+      float roughFactor;
+      float specFactor = 1.f;
+      float alphaCutoff = 0.f;
+    };
+
+    VkBufferCreateInfo matBufferCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .size = sizeof(GpuMaterial),
+    };
+    VmaAllocationCreateInfo matAllocInfo{
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
+                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+    };
+
+    size_t stagingBufferSize = materials.size() * sizeof(rendering::MaterialLayer);
+    struct Copy {
+      GpuMaterial material;
+      AddressedAllocatedBuffer buffer;
+      size_t offset;
+    };
+
+    auto getTexture = [&](const fastgltf::TextureInfo& i) -> const Texture& {
+      auto& tex = data.textures[i.textureIndex];
+      if (tex.basisuImageIndex.has_value()) {
+        auto idx = tex.basisuImageIndex.value();
+        return textures[idx];
+      } else {
+        VK_ASSERT(tex.imageIndex.has_value(), "Texture {} has no image index", tex.name);
+        return textures[tex.imageIndex.value()];
+      }
+    };
+
+    auto toGlmVec4 = [](const fastgltf::math::nvec4& g) { return glm::vec4(g.x(), g.y(), g.z(), g.w()); };
+    auto toGlmVec3 = [](const fastgltf::math::nvec3& g) { return glm::vec3(g.x(), g.y(), g.z()); };
+
+    std::vector<Copy> requiredCopies;
+    std::vector<rendering::Material> result;
+    result.reserve(materials.size());
+
+    m.loadedBuffers.reserve(m.loadedBuffers.size() + materials.size());
+
+    for (const auto& mat : materials) {
+      VK_DEBUG("Creating material {}", mat.name);
+      VKH_MAKE(buffer,
+               AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, matBufferCreateInfo, matAllocInfo,
+                                                std::string(mat.name) + "_material"),
+               "Failed to create buffer for material");
+
+      m.loadedBuffers.push_back(buffer.downcast());
+
+      rendering::MaterialLayer matLayer{
+          .albedoFactor = toGlmVec4(mat.pbrData.baseColorFactor),
+          .emissiveFactor = toGlmVec3(mat.emissiveFactor),
+          .metFactor = mat.pbrData.metallicFactor,
+          .roughFactor = mat.pbrData.roughnessFactor,
+          .alphaCutoff = mat.alphaCutoff,
+      };
+
+      if (mat.pbrData.baseColorTexture.has_value()) {
+        matLayer.albedo = getTexture(mat.pbrData.baseColorTexture.value());
+      }
+      if (mat.normalTexture.has_value()) {
+        matLayer.bump = getTexture(mat.normalTexture.value());
+      }
+      if (mat.pbrData.metallicRoughnessTexture.has_value()) {
+        matLayer.metRough = getTexture(mat.pbrData.metallicRoughnessTexture.value());
+      }
+      if (mat.emissiveTexture.has_value()) {
+        matLayer.emissive = getTexture(mat.emissiveTexture.value());
+      }
+      if (mat.occlusionTexture.has_value()) {
+        matLayer.ao = getTexture(mat.occlusionTexture.value());
+      }
+      if (mat.specular != nullptr) {
+        matLayer.specFactor = mat.specular->specularFactor;
+      }
+
+      GpuMaterial gpuMat{
+          .albedo = matLayer.albedo.getIndex(),
+          .bump = matLayer.bump.getIndex(),
+          .emissive = matLayer.emissive.getIndex(),
+          .metRough = matLayer.metRough.getIndex(),
+          .albedoFactor = matLayer.albedoFactor,
+          .emissiveFactor = matLayer.emissiveFactor,
+          .ao = matLayer.ao.getIndex(),
+          .metFactor = matLayer.metFactor,
+          .roughFactor = matLayer.roughFactor,
+          .specFactor = matLayer.specFactor,
+          .alphaCutoff = matLayer.alphaCutoff,
+      };
+
+      if (buffer.isMapped()) {
+        memcpy(buffer.mapping(), &gpuMat, sizeof(GpuMaterial));
+      } else {
+        requiredCopies.push_back({.material = gpuMat, .buffer = buffer, .offset = result.size() * sizeof(GpuMaterial)});
+        stagingBufferSize += sizeof(GpuMaterial);
+      }
+
+      result.emplace_back(buffer);
+    }
+
+    UploadResult<rendering::Material> resultStruct{
+        .resources = std::move(result),
+    };
+
+    if (stagingBufferSize > 0) {
+      VkBufferCreateInfo stagingBufferCreateInfo{
+          .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+          .size = stagingBufferSize,
+          .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+      };
+      VmaAllocationCreateInfo stagingAllocInfo{
+          .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+          .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+      };
+      VKH_MAKE(stagingBuffer,
+               AllocatedBuffer::create(m.vkcore.allocator, m.vkcore.device.logical, stagingBufferCreateInfo, stagingAllocInfo,
+                                       "Material staging buffer"),
+               "Failed to create staging buffer for material upload");
+
+      resultStruct.stagingBuffers.push_back(stagingBuffer);
+
+      for (const auto& copy : requiredCopies) {
+        memcpy(stagingBuffer.mapping() + copy.offset, &copy.material, sizeof(GpuMaterial));
+
+        VkBufferCopy copyRegion{
+            .srcOffset = copy.offset,
+            .dstOffset = 0,
+            .size = sizeof(GpuMaterial),
+        };
+
+        vkCmdCopyBuffer(transferCmd, stagingBuffer.buffer, copy.buffer.buffer, 1, &copyRegion);
+      }
+    }
 
     return std::move(resultStruct);
   }
