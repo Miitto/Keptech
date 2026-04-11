@@ -39,10 +39,73 @@ namespace kt::vkh {
     VKH_MAKE(globalDescriptorSets, createGlobalDescriptors(vkcore.device.logical), "Failed to create global descriptor sets.");
 
     VKH_MAKE(buffers, createBuffers(vkcore), "Failed to create buffers for renderer.");
+    VKH_MAKE(formats, findFormats(vkcore), "Failed to find suitable formats for renderer.");
+
+    VKH_MAKE(pipelines, createPipelines(vkcore, formats, globalDescriptorSets.layout), "Failed to create pipelines for renderer.");
+
+    auto d = SDL_GetDisplayForWindow(window.getHandle());
+    auto* dm = SDL_GetCurrentDisplayMode(d);
+
+    VKH_MAKE(renderTargets, createRenderTargets(vkcore, formats, glm::ivec2{dm->w, dm->h}),
+             "Failed to create render targets for renderer.");
 
     size_t offset = 0;
+    std::array imageInfos = {
+        VkDescriptorImageInfo{
+            .sampler = imGuiObjects.sampler,
+            .imageView = renderTargets.gBuffer.albedo.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        VkDescriptorImageInfo{
+            .sampler = imGuiObjects.sampler,
+            .imageView = renderTargets.gBuffer.normal.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        VkDescriptorImageInfo{
+            .sampler = imGuiObjects.sampler,
+            .imageView = renderTargets.gBuffer.emissive.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        VkDescriptorImageInfo{
+            .sampler = imGuiObjects.sampler,
+            .imageView = renderTargets.gBuffer.metRough.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        VkDescriptorImageInfo{
+            .sampler = imGuiObjects.sampler,
+            .imageView = renderTargets.gBuffer.depth.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        VkDescriptorImageInfo{
+            .sampler = imGuiObjects.sampler,
+            .imageView = renderTargets.lights.diffuse.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        VkDescriptorImageInfo{
+            .sampler = imGuiObjects.sampler,
+            .imageView = renderTargets.lights.specular.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        VkDescriptorImageInfo{
+            .sampler = imGuiObjects.sampler,
+            .imageView = renderTargets.lights.combined.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+    };
+    VkWriteDescriptorSet write{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstBinding = 1,
+        .dstArrayElement = 0,
+        .descriptorCount = 8,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .pImageInfo = imageInfos.data(),
+    };
+
     for (auto& set : globalDescriptorSets.sets) {
+      write.dstSet = set;
+      vkUpdateDescriptorSets(vkcore.device.logical, 1, &write, 0, nullptr);
       DescriptorWriter writer{};
+
       writer.writeBuffer(0,
                          VkDescriptorBufferInfo{
                              .buffer = buffers.camera.buffer,
@@ -56,16 +119,6 @@ namespace kt::vkh {
       offset += sizeof(components::Camera::Uniforms);
       offset = maths::roundToAlignment(offset, limits::minUniformBufferOffsetAlignment);
     }
-
-    VKH_MAKE(formats, findFormats(vkcore), "Failed to find suitable formats for renderer.");
-
-    VKH_MAKE(pipelines, createPipelines(vkcore, formats, globalDescriptorSets.layout), "Failed to create pipelines for renderer.");
-
-    auto d = SDL_GetDisplayForWindow(window.getHandle());
-    auto* dm = SDL_GetCurrentDisplayMode(d);
-
-    VKH_MAKE(renderTargets, createRenderTargets(vkcore, formats, glm::ivec2{dm->w, dm->h}),
-             "Failed to create render targets for renderer.");
 
     VK_DEBUG("Vulkan renderer created successfully.");
     Renderer r{{

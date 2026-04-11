@@ -103,5 +103,7 @@ kt::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
     output.metallicRoughness.g *= metallicRoughnessSample.g;
   }
 
+  output.normal.xyz = output.normal.xyz * 0.5 + 0.5;
+
   return output;
 }

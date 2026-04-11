@@ -5,6 +5,8 @@
 #include "keptech/vulkan/helpers/pipeline.hpp"
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
+#include <keptech/components/lights.hpp>
+#include <keptech/rendering/structs.hpp>
 #include <keptech/shaders/shader.h>
 #include <vulkan/vulkan.h>
 
@@ -12,6 +14,8 @@ namespace shaders {
   namespace {
 #include "shaders/keptech/basic.h"
 #include "shaders/keptech/deferred.h"
+#include "shaders/keptech/lightCombine.h"
+#include "shaders/keptech/pointLight.h"
   } // namespace
 } // namespace shaders
 
@@ -90,116 +94,159 @@ namespace kt::vkh::setup {
       };
     }
 
-  } // namespace
-  std::expected<Pipeline, std::string> createBasicPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
-                                                           const VkDescriptorSetLayout globalLayout) {
-    VK_DEBUG("Creating basic pipeline");
-    VKH_MAKE(shader, getShader(::shaders::basic, vkcore.device.logical), "Failed to create shader for basic pipeline.");
+    std::expected<Pipeline, std::string> createPipeline(const shaders::Shader& shader, GraphicsPipelineConfig&& pc,
+                                                        PipelineLayoutConfig&& plc, const VkDevice device) {
+      VKH_MAKE(vkShader, getShader(shader, device), "Failed to create shader for pipeline.");
+      pc.shaders = vkShader.stages;
 
-    GraphicsPipelineConfig config{
-        .rendering = {.colorAttachmentFormats = {formats.swapchain}},
-        .shaders = shader.stages,
-        .vertexInput = getVertexInputFromShader(::shaders::basic, {}),
-    };
+      auto vkConfig = pc.build();
+      auto vkLayoutInfo = plc.build();
 
-    PipelineLayoutConfig layoutConfig{
-        .setLayouts = {},
-        .pushConstantRanges = {{
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            .offset = 0,
-            .size = sizeof(glm::mat4) * 2,
-        }},
-    };
+      VkPipelineLayout vkLayout = nullptr;
+      VK_MAKE(vkCreatePipelineLayout(device, &vkLayoutInfo, nullptr, &vkLayout), "Failed to create pipeline layout.");
 
-    auto vkLayoutInfo = layoutConfig.build();
+      VkPipeline vkPipeline = nullptr;
+      vkConfig.layout = vkLayout;
+      VK_MAKE(vkCreateGraphicsPipelines(device, nullptr, 1, &vkConfig, nullptr, &vkPipeline), "Failed to create graphics pipeline.");
 
-    VkPipelineLayout vkLayout = nullptr;
-    VK_MAKE(vkCreatePipelineLayout(vkcore.device.logical, &vkLayoutInfo, nullptr, &vkLayout),
-            "Failed to create pipeline layout for basic pipeline.");
+      vkDestroyShaderModule(device, vkShader.module, nullptr);
 
-    auto vkConfig = config.build();
-    vkConfig.layout = vkLayout;
-    VkPipeline vkPipeline = nullptr;
-    VK_MAKE(vkCreateGraphicsPipelines(vkcore.device.logical, nullptr, 1, &vkConfig, nullptr, &vkPipeline),
-            "Failed to create graphics pipeline for basic pipeline.");
+      return Pipeline{
+          .layout = vkLayout,
+          .pipeline = vkPipeline,
+      };
+    }
 
-    vkDestroyShaderModule(vkcore.device.logical, shader.module, nullptr);
+    std::expected<Pipeline, std::string> createBasicPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                             const VkDescriptorSetLayout globalLayout) {
+      VK_DEBUG("Creating basic pipeline");
+      return createPipeline(::shaders::basic,
+                            GraphicsPipelineConfig{
+                                .rendering = {.colorAttachmentFormats = {formats.swapchain}},
+                                .vertexInput = getVertexInputFromShader(::shaders::basic, {}),
+                            },
+                            PipelineLayoutConfig{.setLayouts = {},
+                                                 .pushConstantRanges = {{
+                                                     .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                     .offset = 0,
+                                                     .size = sizeof(glm::mat4) * 2,
+                                                 }}},
+                            vkcore.device.logical);
+    }
 
-    return Pipeline{
-        .layout = vkLayout,
-        .pipeline = vkPipeline,
-    };
-  }
+    std::expected<Pipeline, std::string> createDeferredPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                                const VkDescriptorSetLayout globalLayout) {
+      VK_DEBUG("Creating deferred pipeline");
 
-  std::expected<Pipeline, std::string> createDeferredPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
-                                                              const VkDescriptorSetLayout globalLayout) {
-    VK_DEBUG("Creating deferred pipeline");
-    VKH_MAKE(shader, getShader(::shaders::deferred, vkcore.device.logical), "Failed to create shader for deferred pipeline.");
+      return createPipeline(::shaders::deferred,
+                            GraphicsPipelineConfig{
+                                .rendering =
+                                    {
+                                        .colorAttachmentFormats =
+                                            {
+                                                formats.render.albedo,
+                                                formats.render.normal,
+                                                formats.render.emissive,
+                                                formats.render.metRought,
+                                            },
+                                        .depthAttachmentFormat = formats.render.depth,
+                                    },
+                                .vertexInput = getVertexInputFromShader(::shaders::deferred, {}),
+                                .rasterizer =
+                                    {
+                                        .polygonMode = VK_POLYGON_MODE_FILL,
+                                        .cullMode = VK_CULL_MODE_BACK_BIT,
+                                        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                                        .lineWidth = 1.f,
+                                    },
+                                .depthStencilState =
+                                    {
+                                        .depthBoundsTestEnable = VK_TRUE,
+                                        .depthTestEnable = VK_TRUE,
+                                        .depthCompareOp = VK_COMPARE_OP_LESS,
+                                        .depthWriteEnable = VK_TRUE,
+                                        .minDepthBounds = 0.f,
+                                        .maxDepthBounds = 1.f,
+                                    },
+                            },
+                            PipelineLayoutConfig{
+                                .setLayouts = {globalLayout},
+                                .pushConstantRanges = {{
+                                    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                    .offset = 0,
+                                    .size = sizeof(glm::mat4) + sizeof(VkDeviceAddress),
+                                }},
+                            },
+                            vkcore.device.logical);
+    }
 
-    GraphicsPipelineConfig config{
-        .rendering =
-            {
-                .colorAttachmentFormats =
-                    {
-                        formats.render.albedo,
-                        formats.render.normal,
-                        formats.render.emissive,
-                        formats.render.metRought,
-                    },
-                .depthAttachmentFormat = formats.render.depth,
-            },
-        .shaders = shader.stages,
-        .vertexInput = getVertexInputFromShader(::shaders::deferred, {}),
-        .rasterizer =
-            {
-                .polygonMode = VK_POLYGON_MODE_FILL,
-                .cullMode = VK_CULL_MODE_BACK_BIT,
-                .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-                .lineWidth = 1.f,
-            },
-        .depthStencilState =
-            {
-                .depthBoundsTestEnable = VK_TRUE,
-                .depthTestEnable = VK_TRUE,
-                .depthCompareOp = VK_COMPARE_OP_LESS,
-                .depthWriteEnable = VK_TRUE,
-                .minDepthBounds = 0.f,
-                .maxDepthBounds = 1.f,
-            },
-    };
+    std::expected<Pipeline, std::string> createDeferredPointLightPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                                          const VkDescriptorSetLayout globalLayout) {
+      VK_DEBUG("Creating deferred point light pipeline");
 
-    PipelineLayoutConfig layoutConfig{
-        .setLayouts = {globalLayout},
-        .pushConstantRanges = {{
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            .offset = 0,
-            .size = sizeof(glm::mat4) + sizeof(VkDeviceAddress),
-        }},
-    };
+      return createPipeline(::shaders::pointLight,
+                            GraphicsPipelineConfig{
+                                .rendering =
+                                    {
+                                        .colorAttachmentFormats =
+                                            {
+                                                formats.render.hdr,
+                                                formats.render.hdr,
+                                            },
+                                    },
+                                .rasterizer =
+                                    {
+                                        .polygonMode = VK_POLYGON_MODE_FILL,
+                                        .cullMode = VK_CULL_MODE_FRONT_BIT,
+                                        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                                        .lineWidth = 1.f,
+                                    },
+                            },
+                            PipelineLayoutConfig{
+                                .setLayouts = {globalLayout},
+                                .pushConstantRanges = {{
+                                    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                    .offset = 0,
+                                    .size = sizeof(rendering::PointLight),
+                                }},
+                            },
+                            vkcore.device.logical);
+    }
 
-    auto vkLayoutInfo = layoutConfig.build();
-    auto vkConfig = config.build();
+    std::expected<Pipeline, std::string> createLightCombinePipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                                    const VkDescriptorSetLayout globalLayout) {
+      VK_DEBUG("Creating light combine pipeline");
 
-    Pipeline pipeline{};
-    VK_MAKE(vkCreatePipelineLayout(vkcore.device.logical, &vkLayoutInfo, nullptr, &pipeline.layout),
-            "Failed to create pipeline layout for deferred pipeline.");
-    vkConfig.layout = pipeline.layout;
-    VK_MAKE(vkCreateGraphicsPipelines(vkcore.device.logical, nullptr, 1, &vkConfig, nullptr, &pipeline.pipeline),
-            "Failed to create graphics pipeline for deferred pipeline.");
-
-    vkDestroyShaderModule(vkcore.device.logical, shader.module, nullptr);
-
-    return pipeline;
+      return createPipeline(::shaders::lightCombine,
+                            GraphicsPipelineConfig{
+                                .rendering =
+                                    {
+                                        .colorAttachmentFormats =
+                                            {
+                                                formats.render.hdr,
+                                            },
+                                    },
+                            },
+                            PipelineLayoutConfig{
+                                .setLayouts = {globalLayout},
+                            },
+                            vkcore.device.logical);
+    }
   } // namespace
 
   std::expected<Renderer::Pipelines, std::string> createPipelines(const Renderer::VulkanCore& vkcore, const Formats& formats,
                                                                   const VkDescriptorSetLayout globalLayout) {
     VKH_MAKE(basic, createBasicPipeline(vkcore, formats, globalLayout), "Failed to create basic pipeline.");
     VKH_MAKE(deferred, createDeferredPipeline(vkcore, formats, globalLayout), "Failed to create deferred pipeline.");
+    VKH_MAKE(deferredPointLight, createDeferredPointLightPipeline(vkcore, formats, globalLayout),
+             "Failed to create deferred point light pipeline.");
+    VKH_MAKE(lightCombine, createLightCombinePipeline(vkcore, formats, globalLayout), "Failed to create light combine pipeline.");
 
     return Renderer::Pipelines{
         .basic = basic,
         .deferred = deferred,
+        .deferredPointLight = deferredPointLight,
+        .deferredCombine = lightCombine,
     };
   }
 } // namespace kt::vkh::setup

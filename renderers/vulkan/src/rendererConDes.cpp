@@ -53,11 +53,11 @@ namespace kt::vkh {
     vkDestroyPipeline(device, deferred.pipeline, nullptr);
     vkDestroyPipelineLayout(device, deferred.layout, nullptr);
 
-    // vkDestroyPipeline(device, deferredPointLight.pipeline, nullptr);
-    // vkDestroyPipelineLayout(device, deferredPointLight.layout, nullptr);
-    //
-    // vkDestroyPipeline(device, deferredCombine.pipeline, nullptr);
-    // vkDestroyPipelineLayout(device, deferredCombine.layout, nullptr);
+    vkDestroyPipeline(device, deferredPointLight.pipeline, nullptr);
+    vkDestroyPipelineLayout(device, deferredPointLight.layout, nullptr);
+
+    vkDestroyPipeline(device, deferredCombine.pipeline, nullptr);
+    vkDestroyPipelineLayout(device, deferredCombine.layout, nullptr);
   }
 
   void Renderer::Buffers::destroy(VmaAllocator& allocator) { camera.destroy(allocator); }

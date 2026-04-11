@@ -36,7 +36,7 @@ public:
     lightTransform.getLocalMut().translate(glm::vec3(70.0f, 70.0f, -10.0f));
     pointLight.addComponent<kt::components::PointLight>(kt::components::PointLight{
         .color = {1.f, 0.985f, 0.95f},
-        .intensity = 3.f,
+        .intensity = 5.f,
         .radius = 500.f,
     });
 

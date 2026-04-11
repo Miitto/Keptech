@@ -1,21 +1,11 @@
 import keptech;
 
 static const float3 CUBE_VERTS[8] = {
-  { -1.f, -1.f, -1.f }, { 1.f, -1.f, -1.f }, { 1.f, 1.f, -1.f },
-  { -1.f, 1.f, -1.f },  { -1.f, -1.f, 1.f }, { 1.f, -1.f, 1.f },
-  { 1.f, 1.f, 1.f },    { -1.f, 1.f, 1.f },
+  { -1.f, -1.f, -1.f }, { 1.f, -1.f, -1.f }, { 1.f, 1.f, -1.f }, { -1.f, 1.f, -1.f },
+  { -1.f, -1.f, 1.f },  { 1.f, -1.f, 1.f },  { 1.f, 1.f, 1.f },  { -1.f, 1.f, 1.f },
 };
 static const uint CUBE_INDICES[36] = {
-  0, 1, 2, 0, 2, 3, 1, 5, 6, 1, 6, 2, 5, 4, 7, 5, 7, 6,
-  4, 0, 3, 4, 3, 7, 3, 2, 6, 3, 6, 7, 4, 5, 1, 4, 1, 0,
-};
-
-struct GBufferIndices {
-  uint albedoIndex;
-  uint normalIndex;
-  uint emissiveAoIndex;
-  uint metallicRoughnessIndex;
-  uint depthIndex;
+  0, 1, 2, 0, 2, 3, 1, 5, 6, 1, 6, 2, 5, 4, 7, 5, 7, 6, 4, 0, 3, 4, 3, 7, 3, 2, 6, 3, 6, 7, 4, 5, 1, 4, 1, 0,
 };
 
 struct v2f {
@@ -39,18 +29,15 @@ v2f vert(uint vid: SV_VertexID, uniform kt::PointLight light) {
 }
 
 [shader("pixel")]
-kt::DeferredLightingOutput frag(v2f input, uniform kt::PointLight light,
-                                uniform GBufferIndices gBufferIndices,
-                                float4 fragCoord: SV_Position) {
+kt::DeferredLightingOutput frag(v2f input, uniform kt::PointLight light, float4 fragCoord: SV_Position) {
   kt::DeferredLightingOutput output;
 
   float2 uv = fragCoord.xy / kt::camera.viewportSize;
 
-  let albedoTex = kt::textures.getTexture(gBufferIndices.albedoIndex);
-  let metallicRoughnessTex =
-      kt::textures.getTexture(gBufferIndices.metallicRoughnessIndex);
-  let normalTex = kt::textures.getTexture(gBufferIndices.normalIndex);
-  let depthTex = kt::textures.getTexture(gBufferIndices.depthIndex);
+  let albedoTex = kt::textures.getTexture(kt::constants::albedoIndex);
+  let metallicRoughnessTex = kt::textures.getTexture(kt::constants::metallicRoughnessIndex);
+  let normalTex = kt::textures.getTexture(kt::constants::normalIndex);
+  let depthTex = kt::textures.getTexture(kt::constants::depthIndex);
 
   let albedoSample = albedoTex.Sample(uv);
   let metallicRoughnessSample = metallicRoughnessTex.Sample(uv);
@@ -73,7 +60,7 @@ kt::DeferredLightingOutput frag(v2f input, uniform kt::PointLight light,
 
   float3 radiance = light.color * light.intensity * attenuation;
 
-  let normal = normalize(normalSample.xyz);
+  let normal = normalize(normalSample.xyz * 2.0 - 1.0);
 
   let incident = normalize(toLight);
   let viewDir = normalize(kt::camera.position - world);
@@ -95,9 +82,7 @@ kt::DeferredLightingOutput frag(v2f input, uniform kt::PointLight light,
 
   float3 numerator = NDF * G * F;
 
-  float denominator =
-      4.0 * max(dot(normal, viewDir), 0.0) * max(dot(normal, incident), 0.0) +
-      0.001;
+  float denominator = 4.0 * max(dot(normal, viewDir), 0.0) * max(dot(normal, incident), 0.0) + 0.001;
   float3 specular = numerator / denominator;
 
   float NdotL = clamp(dot(normal, incident), 0.0, 1.0);

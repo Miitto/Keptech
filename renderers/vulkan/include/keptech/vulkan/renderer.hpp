@@ -126,7 +126,7 @@ namespace kt::vkh {
 
       Frame frameInfo{};
 
-      size_t nextTextureIndex = 0;
+      size_t nextTextureIndex = 8;
 
       std::vector<AllocatedImage> loadedTextures{};
       std::vector<AllocatedBuffer> loadedBuffers{};
@@ -179,10 +179,15 @@ namespace kt::vkh {
 
     void updateCameraBuffer(VkCommandBuffer cmdBuf);
     void drawDeferred(VkCommandBuffer cmdBuf);
+    void drawLights(VkCommandBuffer cmdBuf);
+    void drawPointLights(VkCommandBuffer cmdBuf);
+    void combineLights(VkCommandBuffer cmdBuf);
 
     void renderImGui(VkCommandBuffer graphicsCmd);
     void endFrame(VkCommandBuffer graphicsCmd);
     void present();
+
+    void debugUi();
 
     void imGuiNewFrame() const;
     void shutdownImGui();

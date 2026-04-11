@@ -17,28 +17,14 @@ v2f vert(uint vid: SV_VertexID) {
   return output;
 }
 
-struct GBufferIndices {
-  uint albedoIndex;
-  uint normalIndex;
-  uint emissiveAoIndex;
-  uint metallicRoughnessIndex;
-  uint depthIndex;
-};
-
-struct LightBufferIndices {
-  uint diffuseIndex;
-  uint specularIndex;
-};
-
 [shader("pixel")]
-float4 frag(v2f input, uniform GBufferIndices gBufferIndices,
-            uniform LightBufferIndices lightBufferIndices) {
+float4 frag(v2f input) {
   float2 uv = input.uv;
 
-  let albedoTex = kt::textures.getTexture(gBufferIndices.albedoIndex);
-  let emissiveAoTex = kt::textures.getTexture(gBufferIndices.emissiveAoIndex);
-  let diffuseTex = kt::textures.getTexture(lightBufferIndices.diffuseIndex);
-  let specularTex = kt::textures.getTexture(lightBufferIndices.specularIndex);
+  let albedoTex = kt::textures.getTexture(kt::constants::albedoIndex);
+  let emissiveAoTex = kt::textures.getTexture(kt::constants::emissiveAoIndex);
+  let diffuseTex = kt::textures.getTexture(kt::constants::diffuseIndex);
+  let specularTex = kt::textures.getTexture(kt::constants::specularIndex);
 
   float3 albedo = albedoTex.Sample(uv).rgb;
   float4 emissiveAo = emissiveAoTex.Sample(uv);
@@ -47,12 +33,17 @@ float4 frag(v2f input, uniform GBufferIndices gBufferIndices,
 
   static const float3 ambientLight = float3(0.1, 0.1, 0.1);
 
-  float3 color = albedo * ambientLight;
-  color += albedo * diffuseLight;
-  color += specularLight;
+  float3 color = diffuseLight + specularLight;
 
   color *= emissiveAo.a;
+
+  color += albedo * ambientLight;
+
   color += emissiveAo.rgb;
+
+  // Tone map
+  // TODO: Move to post process
+  color = color / (color + float3(1.0));
 
   return float4(color, 1.0);
 }
