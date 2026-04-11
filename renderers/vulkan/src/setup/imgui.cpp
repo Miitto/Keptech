@@ -13,8 +13,8 @@
 namespace kt::vkh::setup {
   using namespace kt::vkh;
 
-  std::expected<Renderer::ImGuiVkObjects, std::string> setupImGui(const kt::core::window::Window& window,
-                                                                  const Renderer::VulkanCore& vkcore) {
+  std::expected<VkDescriptorPool, std::string> setupImGui(const kt::core::window::Window& window, const Renderer::VulkanCore& vkcore,
+                                                          const Renderer::Samplers& samplers) {
     rendering::initImGui();
     std::array<VkDescriptorPoolSize, 11> pool_sizes = {{
         {
@@ -109,20 +109,6 @@ namespace kt::vkh::setup {
 
     ImGui_ImplVulkan_Init(&init_info);
 
-    VkSampler linearSampler;
-    VkSamplerCreateInfo samplerInfo{
-        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-        .pNext = nullptr,
-        .magFilter = VK_FILTER_LINEAR,
-        .minFilter = VK_FILTER_LINEAR,
-        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-        .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-        .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-        .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-        .maxAnisotropy = 1.0f,
-    };
-    VK_MAKE(vkCreateSampler(vkcore.device.logical, &samplerInfo, nullptr, &linearSampler), "Failed to create ImGui linear sampler");
-
-    return Renderer::ImGuiVkObjects{.descriptorPool = imguiPool, .sampler = linearSampler};
+    return imguiPool;
   }
 } // namespace kt::vkh::setup

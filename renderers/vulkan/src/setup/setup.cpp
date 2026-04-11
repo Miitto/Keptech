@@ -34,7 +34,9 @@ namespace kt::vkh {
       limits::maxMemoryAllocationSize = p.maxMemoryAllocationSize;
     }
 
-    VKH_MAKE(imGuiObjects, setupImGui(window, vkcore), "Failed to set up ImGui for Vulkan.");
+    VKH_MAKE(samplers, createSamplers(vkcore.device.logical), "Failed to create samplers for renderer.");
+
+    VKH_MAKE(imGuiObjects, setupImGui(window, vkcore, samplers), "Failed to set up ImGui for Vulkan.");
 
     VKH_MAKE(globalDescriptorSets, createGlobalDescriptors(vkcore.device.logical), "Failed to create global descriptor sets.");
 
@@ -52,42 +54,37 @@ namespace kt::vkh {
     size_t offset = 0;
     std::array imageInfos = {
         VkDescriptorImageInfo{
-            .sampler = imGuiObjects.sampler,
+            .sampler = samplers.linearClamp,
             .imageView = renderTargets.gBuffer.albedo.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = imGuiObjects.sampler,
+            .sampler = samplers.linearClamp,
             .imageView = renderTargets.gBuffer.normal.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = imGuiObjects.sampler,
-            .imageView = renderTargets.gBuffer.emissive.view,
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        },
-        VkDescriptorImageInfo{
-            .sampler = imGuiObjects.sampler,
+            .sampler = samplers.linearClamp,
             .imageView = renderTargets.gBuffer.metRough.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = imGuiObjects.sampler,
+            .sampler = samplers.linearClamp,
             .imageView = renderTargets.gBuffer.depth.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = imGuiObjects.sampler,
+            .sampler = samplers.linearClamp,
             .imageView = renderTargets.lights.diffuse.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = imGuiObjects.sampler,
+            .sampler = samplers.linearClamp,
             .imageView = renderTargets.lights.specular.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = imGuiObjects.sampler,
+            .sampler = samplers.linearClamp,
             .imageView = renderTargets.lights.combined.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
@@ -124,7 +121,8 @@ namespace kt::vkh {
     Renderer r{{
         .window = &window,
         .vkcore = std::move(vkcore),
-        .imGuiObjects = imGuiObjects,
+        .samplers = samplers,
+        .imGuiDescriptorPool = imGuiObjects,
         .formats = formats,
         .renderTargets = renderTargets,
         .buffers = buffers,

@@ -21,8 +21,7 @@ namespace kt::vkh {
 
   void Renderer::shutdownImGui() {
     ImGui_ImplVulkan_Shutdown();
-    vkDestroyDescriptorPool(m.vkcore.device.logical, m.imGuiObjects.descriptorPool, nullptr);
-    vkDestroySampler(m.vkcore.device.logical, m.imGuiObjects.sampler, nullptr);
+    vkDestroyDescriptorPool(m.vkcore.device.logical, m.imGuiDescriptorPool, nullptr);
     VK_DEBUG("Shut down ImGui Vulkan backend");
     rendering::shutdownImGui();
   }
@@ -62,6 +61,13 @@ namespace kt::vkh {
 
   void Renderer::Buffers::destroy(VmaAllocator& allocator) { camera.destroy(allocator); }
 
+  void Renderer::Samplers::destroy(const VkDevice device) {
+    vkDestroySampler(device, linearRepeat, nullptr);
+    vkDestroySampler(device, linearClamp, nullptr);
+    vkDestroySampler(device, nearestRepeat, nullptr);
+    vkDestroySampler(device, nearestClamp, nullptr);
+  }
+
   Renderer::~Renderer() {
     if (m.moveGuard.moved()) {
       return;
@@ -92,6 +98,8 @@ namespace kt::vkh {
     for (auto& buffer : m.loadedBuffers) {
       buffer.destroy(allocator);
     }
+
+    m.samplers.destroy(device);
 
     m.pipelines.destroy(device);
 

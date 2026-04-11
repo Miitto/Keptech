@@ -10,6 +10,7 @@ target_sources(${PROJECT_NAME}
     setup/formats.cpp
     setup/imgui.cpp
     setup/pipelines.cpp
+    setup/samplers.cpp
     setup/setup.cpp
     setup/swapchain.cpp
     setup/targets.cpp
@@ -25,6 +26,7 @@ target_sources(${PROJECT_NAME}
     helpers/vmaImpl.cpp
 
     constants.cpp
+    renderUtils.cpp
     renderer.cpp
     rendererConDes.cpp
     resourceManagment.cpp

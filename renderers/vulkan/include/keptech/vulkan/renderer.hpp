@@ -46,11 +46,6 @@ namespace kt::vkh {
   class Renderer {
     // Structs
   public:
-    struct ImGuiVkObjects {
-      VkDescriptorPool descriptorPool;
-      VkSampler sampler;
-    };
-
     struct TextureUpdateInfo {
       AllocatedImage texture;
       size_t indexInDescriptorSet;
@@ -89,6 +84,15 @@ namespace kt::vkh {
       void destroy(const VkDevice& device);
     };
 
+    struct Samplers {
+      VkSampler linearRepeat;
+      VkSampler linearClamp;
+      VkSampler nearestRepeat;
+      VkSampler nearestClamp;
+
+      void destroy(const VkDevice device);
+    };
+
     struct VulkanCore {
       VkInstance instance;
       VkSurfaceKHR surface;
@@ -113,8 +117,9 @@ namespace kt::vkh {
 
       const core::window::Window* window;
       VulkanCore vkcore;
+      Samplers samplers;
 
-      ImGuiVkObjects imGuiObjects;
+      VkDescriptorPool imGuiDescriptorPool;
 
       Formats formats;
       RenderTargets renderTargets;
@@ -188,6 +193,18 @@ namespace kt::vkh {
     void present();
 
     void debugUi();
+
+    // Util
+    void updateTextureDescriptors();
+    void setupViewportAndScissor(VkCommandBuffer cmdBuf);
+    void deferredToRenderable(VkCommandBuffer cmdBuf);
+    void deferredBeginRendering(VkCommandBuffer cmdBuf);
+    void deferredToShaderRead(VkCommandBuffer cmdBuf);
+    void lightsToRenderable(VkCommandBuffer cmdBuf);
+    void seperatedLightsBeginRendering(VkCommandBuffer cmdBuf);
+    void seperatedLightsToShaderRead(VkCommandBuffer cmdBuf);
+    void combinedLightBeginRendering(VkCommandBuffer cmdBuf);
+    void combinedLightToShaderRead(VkCommandBuffer cmdBuf);
 
     void imGuiNewFrame() const;
     void shutdownImGui();

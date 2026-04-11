@@ -24,8 +24,9 @@ namespace kt::vkh::setup {
   std::expected<QueueIndices, std::string> findQueues(VkPhysicalDevice physDevice, VkSurfaceKHR surface);
   std::expected<VkDevice, std::string> createDevice(VkPhysicalDevice physDevice, const std::set<uint32_t>& uniqueQueueFamilies);
   std::expected<Queues, std::string> getQueues(VkDevice& device, QueueIndices& queueIndices, const std::set<uint32_t>& uniqueQueueFamilies);
-  std::expected<Renderer::ImGuiVkObjects, std::string> setupImGui(const kt::core::window::Window& window,
-                                                                  const Renderer::VulkanCore& vkcore);
+  std::expected<Renderer::Samplers, std::string> createSamplers(VkDevice device);
+  std::expected<VkDescriptorPool, std::string> setupImGui(const kt::core::window::Window& window, const Renderer::VulkanCore& vkcore,
+                                                          const Renderer::Samplers& samplers);
   std::expected<Swapchain, std::string> createSwapchain(const VkPhysicalDevice physicalDevice, glm::ivec2 framebufferSize,
                                                         const VkDevice device, const VkSurfaceKHR surface, const Queues& queues,
                                                         VkSwapchainKHR oldSwapchain);
