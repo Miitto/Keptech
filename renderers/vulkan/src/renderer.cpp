@@ -417,24 +417,20 @@ namespace kt::vkh {
       vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.pointLightShadows.pipeline);
       vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.pointLightShadows.layout, 0, 1,
                               &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
-      std::array<VkViewport, 6> viewports{};
-      std::array<VkRect2D, 6> scissors{};
-      for (size_t i = 0; i < 6; ++i) {
-        viewports[i] = VkViewport{
-            .x = 0.f,
-            .y = 0.f,
-            .width = static_cast<float>(SHADOW_MAP_SIZE),
-            .height = static_cast<float>(SHADOW_MAP_SIZE),
-            .minDepth = 0.f,
-            .maxDepth = 1.f,
-        };
-        scissors[i] = VkRect2D{
-            .offset = {.x = 0, .y = 0},
-            .extent = {.width = SHADOW_MAP_SIZE, .height = SHADOW_MAP_SIZE},
-        };
-      }
-      vkCmdSetViewport(cmdBuf, 0, viewports.size(), viewports.data());
-      vkCmdSetScissor(cmdBuf, 0, scissors.size(), scissors.data());
+      VkViewport viewport{
+          .x = 0.f,
+          .y = 0.f,
+          .width = static_cast<float>(SHADOW_MAP_SIZE),
+          .height = static_cast<float>(SHADOW_MAP_SIZE),
+          .minDepth = 0.f,
+          .maxDepth = 1.f,
+      };
+      VkRect2D scissor{
+          .offset = {.x = 0, .y = 0},
+          .extent = {.width = SHADOW_MAP_SIZE, .height = SHADOW_MAP_SIZE},
+      };
+      vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+      vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
       glm::mat4 shadowProj = glm::perspectiveLH_ZO(glm::radians(90.f), 1.f, 0.1f, pointLight.radius);
       glm::vec3 shadowCenter = transform.getGlobal()[3];

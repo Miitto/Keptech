@@ -43,7 +43,6 @@ namespace kt::vkh::setup {
 
       std::vector<VkPipelineShaderStageCreateInfo> stages(shader.stages.size());
       for (size_t i = 0; i < shader.stages.size(); ++i) {
-        VK_DEBUG("Creating shader stage: {}", shader.stages[i].name);
         stages[i] = VkPipelineShaderStageCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = from(shader.stages[i].stage),
@@ -104,10 +103,6 @@ namespace kt::vkh::setup {
       VK_ASSERT(vkShader.stages.size() == shader.stages.size(), "Shader stages size mismatch between shader and pipeline config.");
       pc.shaders = vkShader.stages;
 
-      for (auto& stage : pc.shaders) {
-        VK_DEBUG("Shader stage: {} with module: {}", stage.pName, fmt::ptr(stage.module));
-      }
-
       auto vkConfig = pc.build();
       auto vkLayoutInfo = plc.build();
 
@@ -117,14 +112,6 @@ namespace kt::vkh::setup {
       const void* const vertexInputAttributes =
           reinterpret_cast<const void* const>(vkConfig.pVertexInputState->pVertexAttributeDescriptions);
       const void* const shaderStages = reinterpret_cast<const void* const>(vkConfig.pStages);
-
-      VK_DEBUG("Pointers: colorAttchmentFormats: {}, vertexInputBindings: {}, vertexInputAttributes: {}, shaderStages: {}",
-               fmt::ptr(colorAttchmentFormats), fmt::ptr(vertexInputBindings), fmt::ptr(vertexInputAttributes), fmt::ptr(shaderStages));
-
-      VK_DEBUG("Stage count: {}", vkConfig.stageCount);
-      for (uint32_t i = 0; i < vkShader.stages.size(); ++i) {
-        VK_DEBUG("Shader stage {}: {} with module: {}", i, vkConfig.pStages[i].pName, fmt::ptr(vkShader.stages[i].module));
-      }
 
       VkPipelineLayout vkLayout = nullptr;
       VK_MAKE(vkCreatePipelineLayout(device, &vkLayoutInfo, nullptr, &vkLayout), "Failed to create pipeline layout.");
@@ -217,11 +204,6 @@ namespace kt::vkh::setup {
                                         .depthAttachmentFormat = formats.render.depth,
                                     },
                                 .vertexInput = getVertexInputFromShader(::shaders::pointLightShadows, {}),
-                                .viewport =
-                                    {
-                                        .viewportCount = 6,
-                                        .scissorCount = 6,
-                                    },
                                 .rasterizer =
                                     {
                                         .polygonMode = VK_POLYGON_MODE_FILL,

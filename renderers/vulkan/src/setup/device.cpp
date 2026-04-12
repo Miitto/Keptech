@@ -164,7 +164,6 @@ namespace kt::vkh::setup {
         .features =
             {
                 .geometryShader = true,
-                .multiViewport = true,
                 .samplerAnisotropy = true,
             },
     };
