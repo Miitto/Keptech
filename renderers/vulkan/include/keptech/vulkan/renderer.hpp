@@ -3,12 +3,12 @@
 #include "keptech/rendering/gltf/data.hpp"
 #include "keptech/rendering/texture.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
+#include "keptech/vulkan/helpers/instance.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
 #include <expected>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <keptech/components/transform.hpp>
 #include <keptech/core/base.hpp>
-#include <keptech/core/image.hpp>
 #include <keptech/core/moveGuard.hpp>
 #include <keptech/core/scene.hpp>
 #include <keptech/core/slotmap.hpp>
@@ -24,6 +24,8 @@
 #include <vulkan/vulkan.h>
 
 namespace kt::vkh {
+
+  constexpr uint32_t SHADOW_MAP_SIZE = 4096;
 
   struct GBuffer {
     using T = AllocatedImage;
@@ -78,6 +80,7 @@ namespace kt::vkh {
     struct Pipelines {
       Pipeline basic;
       Pipeline deferred;
+      Pipeline pointLightShadows;
       Pipeline deferredPointLight;
       Pipeline deferredCombine;
 
@@ -94,7 +97,7 @@ namespace kt::vkh {
     };
 
     struct VulkanCore {
-      VkInstance instance;
+      Instance instance;
       VkSurfaceKHR surface;
       Device device;
       VmaAllocator allocator;
@@ -142,7 +145,6 @@ namespace kt::vkh {
     std::expected<Renderer, std::string> static create(const RendererCreateInfo& createInfo, const core::window::Window& window);
 
     std::expected<gltf::Scene, std::string> loadMesh(std::string_view path);
-    std::expected<std::vector<Texture>, std::string> createImages(const std::vector<ImageUploadInfo>& imageInfos);
 
     void loadImGuiImageHandle(AllocatedImage& texture);
 
@@ -185,6 +187,7 @@ namespace kt::vkh {
     void updateCameraBuffer(VkCommandBuffer cmdBuf);
     void drawDeferred(VkCommandBuffer cmdBuf);
     void drawLights(VkCommandBuffer cmdBuf);
+    void drawPointLightShadowMaps(VkCommandBuffer cmdBuf);
     void drawPointLights(VkCommandBuffer cmdBuf);
     void combineLights(VkCommandBuffer cmdBuf);
 
@@ -197,9 +200,13 @@ namespace kt::vkh {
     // Util
     void updateTextureDescriptors();
     void setupViewportAndScissor(VkCommandBuffer cmdBuf);
+    void setupCustomViewportAndScissor(VkCommandBuffer cmdBuf, const glm::ivec2& offset, const glm::ivec2& size);
     void deferredToRenderable(VkCommandBuffer cmdBuf);
     void deferredBeginRendering(VkCommandBuffer cmdBuf);
     void deferredToShaderRead(VkCommandBuffer cmdBuf);
+    void shadowMapToRenderable(VkCommandBuffer cmdBuf, const AllocatedImage& shadowMap, bool isCube = false);
+    void shadowMapBeginRendering(VkCommandBuffer cmdBuf, const AllocatedImage& shadowMap, bool isCube = false);
+    void shadowMapToShaderRead(VkCommandBuffer cmdBuf, const AllocatedImage& shadowMap, bool isCube = false);
     void lightsToRenderable(VkCommandBuffer cmdBuf);
     void seperatedLightsBeginRendering(VkCommandBuffer cmdBuf);
     void seperatedLightsToShaderRead(VkCommandBuffer cmdBuf);

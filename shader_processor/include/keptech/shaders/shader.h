@@ -15,7 +15,8 @@ namespace kt::shaders {
   enum class ShaderStages : uint8_t {
     Vertex = BIT(0),
     Fragment = BIT(1),
-    Compute = BIT(2),
+    Geometry = BIT(2),
+    Compute = BIT(3),
   };
   enum class RenderingMode : uint8_t {
     Deferred,
@@ -91,17 +92,14 @@ namespace kt::shaders {
   };
 } // namespace kt::shaders
 
-template <>
-struct fmt::formatter<kt::shaders::DataType>
-    : fmt::formatter<std::string_view> {
-  template <typename FormatContext>
-  auto format(const kt::shaders::DataType t, FormatContext& ctx) const {
+template <> struct fmt::formatter<kt::shaders::DataType> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const kt::shaders::DataType t, FormatContext& ctx) const {
     using S = kt::shaders::DataType;
     std::string_view name = "";
 
-#define N(_n)                                                                  \
-  case S::_n:                                                                  \
-    name = #_n;                                                                \
+#define N(_n)                                                                                                                              \
+  case S::_n:                                                                                                                              \
+    name = #_n;                                                                                                                            \
     break;
 
     switch (t) {

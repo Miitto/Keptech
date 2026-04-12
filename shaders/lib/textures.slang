@@ -13,17 +13,10 @@ public static const uint specularIndex = 6u;
 public static const uint combineIndex = 7u;
 }
 
-public struct TexData {
-  Sampler2D textures[];
+public struct TexData<Sampler> {
+  Sampler textures[];
 
   public static bool isTextureValid(uint index) { return index != ~0u; }
-  public Sampler2D getTexture(uint index) { return textures[index]; }
-};
-
-public struct CubeMapData {
-  SamplerCube cubeMaps[];
-
-  public static bool isCubeMapValid(uint index) { return index != ~0u; }
-  public SamplerCube getTexture(uint index) { return cubeMaps[index]; }
+  public Sampler getTexture(uint index) { return textures[index]; }
 };
 }

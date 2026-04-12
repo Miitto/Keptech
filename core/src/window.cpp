@@ -1,3 +1,4 @@
+#include <SDL3/SDL_video.h>
 #include <keptech/core/window.hpp>
 
 #include "keptech/core/kt-logger.hpp"
@@ -14,8 +15,7 @@ namespace kt::core::window {
   void shutdown() { SDL_Quit(); }
 
   Window::Window(const CreateInfo& info)
-      : handle(SDL_CreateWindow(info.title, info.width, info.height,
-                                SDL_WINDOW_VULKAN | info.flags)) {
+      : handle(SDL_CreateWindow(info.title, info.width, info.height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | info.flags)) {
     updateSize();
     updateRenderSize();
   }

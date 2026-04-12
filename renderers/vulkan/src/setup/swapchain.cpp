@@ -4,6 +4,7 @@
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
 #include <SDL3/SDL_vulkan.h>
+#include <glm/glm.hpp>
 
 namespace kt::vkh::setup {
   using namespace kt::vkh;

@@ -7,14 +7,22 @@ __include textures;
 __include maths;
 
 public namespace kt {
+public struct Vertex {
+  public float3 position;
+  public float uvX;
+  public float3 normal;
+  public float uvY;
+  public float4 color;
+  public float4 tangent;
+};
+
 [[vk::binding(0, 0)]]
 public ConstantBuffer<Camera> camera : register(b0);
 
 [[vk::binding(1, 0)]]
-public ConstantBuffer<TexData> textures;
-
-[[vk::binding(2, 0)]]
-public ConstantBuffer<CubeMapData> cubeMaps;
+public ConstantBuffer<TexData<Sampler2D>> textures2D;
+[[vk::binding(1, 0)]]
+public ConstantBuffer<TexData<SamplerCube>> texturesCube;
 
 public struct DeferredOutput {
   public float4 albedo : SV_Target0;

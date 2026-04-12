@@ -1,5 +1,7 @@
 #pragma once
 
+#include "keptech/rendering/interface.hpp"
+#include "keptech/rendering/texture.hpp"
 #include <glm/glm.hpp>
 
 namespace kt::components {
@@ -7,5 +9,7 @@ namespace kt::components {
     glm::vec3 color{1.f, 1.f, 1.f};
     float intensity = 1.f;
     float radius = 1.f;
+    Texture shadowMap{};
+    rendering::Buffer shadowMatrixBuffer{};
   };
 } // namespace kt::components

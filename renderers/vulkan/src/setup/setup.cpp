@@ -54,37 +54,42 @@ namespace kt::vkh {
     size_t offset = 0;
     std::array imageInfos = {
         VkDescriptorImageInfo{
-            .sampler = samplers.linearClamp,
+            .sampler = samplers.linearRepeat,
             .imageView = renderTargets.gBuffer.albedo.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = samplers.linearClamp,
+            .sampler = samplers.linearRepeat,
             .imageView = renderTargets.gBuffer.normal.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = samplers.linearClamp,
+            .sampler = samplers.linearRepeat,
+            .imageView = renderTargets.gBuffer.emissive.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        VkDescriptorImageInfo{
+            .sampler = samplers.linearRepeat,
             .imageView = renderTargets.gBuffer.metRough.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = samplers.linearClamp,
+            .sampler = samplers.linearRepeat,
             .imageView = renderTargets.gBuffer.depth.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = samplers.linearClamp,
+            .sampler = samplers.linearRepeat,
             .imageView = renderTargets.lights.diffuse.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = samplers.linearClamp,
+            .sampler = samplers.linearRepeat,
             .imageView = renderTargets.lights.specular.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
-            .sampler = samplers.linearClamp,
+            .sampler = samplers.linearRepeat,
             .imageView = renderTargets.lights.combined.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },

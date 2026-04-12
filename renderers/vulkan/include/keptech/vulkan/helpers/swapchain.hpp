@@ -37,12 +37,14 @@ namespace kt::vkh {
       VkSemaphore renderFinishedSemaphore;
     };
 
-    Swapchain() = delete;
+    Swapchain() = default;
     Swapchain(const Swapchain&) = delete;
     Swapchain& operator=(const Swapchain&) = delete;
     Swapchain(Swapchain&&) noexcept;
     Swapchain& operator=(Swapchain&&) noexcept;
     ~Swapchain();
+
+    void destroy() noexcept;
 
     static auto create(const VkDevice& device, const SwapchainConfig& swapchainConfig, const VkPhysicalDevice& physicalDevice,
                        const VkSurfaceKHR& surface, const SwapchainQueues& queues, VkSwapchainKHR oldSwapchain)
@@ -84,9 +86,9 @@ namespace kt::vkh {
         -> std::expected<AcquireResult, std::string>;
 
   private:
-    VkDevice device;
+    VkDevice device = VK_NULL_HANDLE;
     SwapchainConfig _config;
-    VkSwapchainKHR swapchain;
+    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     std::vector<VkImage> imgs;
     std::vector<VkImageView> imageViews;
     std::vector<VkSemaphore> presentSemaphores;

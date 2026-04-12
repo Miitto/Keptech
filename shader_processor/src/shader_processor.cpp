@@ -56,6 +56,8 @@ namespace {
       return kt::shaders::ShaderStages::Vertex;
     case SLANG_STAGE_FRAGMENT:
       return kt::shaders::ShaderStages::Fragment;
+    case SLANG_STAGE_GEOMETRY:
+      return kt::shaders::ShaderStages::Geometry;
     case SLANG_STAGE_COMPUTE:
       return kt::shaders::ShaderStages::Compute;
     default:
@@ -293,7 +295,7 @@ namespace kt::shader_processor {
 
     slang::TargetDesc target;
     target.format = SLANG_SPIRV;
-    target.profile = globalSession->findProfile("spirv_1_4");
+    target.profile = globalSession->findProfile("spirv_1_6");
 
     slang::CompilerOptionEntry emitDirectlyToBinaryEntry;
     emitDirectlyToBinaryEntry.name = slang::CompilerOptionName::EmitSpirvDirectly;
@@ -388,12 +390,14 @@ namespace kt::shader_processor {
 
     shader.mode = kt::shaders::RenderingMode::Custom;
 
+    std::clog << "Shader '" << name << "' has " << entryPointCount << " entry point(s)\n";
     for (uint32_t i = 0; i < entryPointCount; ++i) {
       auto entryPoint = layout->getEntryPointByIndex(i);
       kt::shaders::ShaderStages stage = slangStagetoKeptechStage(entryPoint->getStage());
       switch (stage) {
       case kt::shaders::ShaderStages::Vertex: {
         auto paramCount = entryPoint->getParameterCount();
+        std::clog << "Processing vertex shader entry point '" << entryPoint->getName() << "' with " << paramCount << " parameters\n";
         for (auto i = 0; i < paramCount; ++i) {
           auto param = entryPoint->getParameterByIndex(i);
           auto category = param->getCategory();
@@ -401,8 +405,16 @@ namespace kt::shader_processor {
             continue; // Some sort of builtin, such as vertex ID
 
           auto types = slangTypeToKeptechTypes(param->getType());
+          std::clog << "  Parameter '" << param->getName() << "' mapped to " << types.size() << " vertex attribute(s)\n";
+          for (size_t i = 0; i < types.size(); ++i) {
+            auto slangT = param->getType()->getFieldByIndex(i);
+            auto str = fmt::format("    {} - {}\n", slangT->getName(), types[i]);
+            std::clog << str;
+          }
           vertexLayout.emplace_back(std::move(types));
         }
+
+        std::clog.flush();
         break;
       }
       case kt::shaders::ShaderStages::Fragment: {

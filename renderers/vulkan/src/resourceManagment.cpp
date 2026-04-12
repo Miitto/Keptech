@@ -1,4 +1,5 @@
 #include "keptech/vulkan/renderer.hpp"
+#include "stb/image.h"
 
 #include "keptech/vulkan/constants.hpp"
 #include "keptech/vulkan/helpers/formatting.hpp"
@@ -351,7 +352,7 @@ namespace kt::vkh {
           .depth = 1,
       };
 
-      VK_DEBUG("Creating image {} with format {} and extent {}x{}", tex.name, tex.format, imageCreateInfo.extent.width,
+      VK_TRACE("Creating image {} with format {} and extent {}x{}", tex.name, tex.format, imageCreateInfo.extent.width,
                imageCreateInfo.extent.height);
 
       memcpy(buf.buffer.mapping() + offset, tex.data, tex.size);
@@ -362,7 +363,7 @@ namespace kt::vkh {
                "Failed to create image for texture");
 
       auto index = m.nextTextureIndex++;
-      result.emplace_back(glm::ivec3{tex.width, tex.height, 1}, 1, tex.format, index);
+      result.emplace_back(Texture::Type::e2D, glm::ivec3{tex.width, tex.height, 1}, 1, tex.format, index, image);
 
       m.loadedTextures.push_back(image);
 
@@ -445,7 +446,7 @@ namespace kt::vkh {
       else
         stbi_image_free(tex.data);
 
-      VK_DEBUG("Uploaded image {} to GPU", tex.name);
+      VK_TRACE("Uploaded image {} to GPU", tex.name);
     }
 
     std::vector<AllocatedBuffer> stagingBufs;
@@ -459,11 +460,6 @@ namespace kt::vkh {
     };
 
     return std::move(results);
-  }
-
-  std::expected<std::vector<Texture>, std::string> Renderer::createImages(const std::vector<ImageUploadInfo>& infos) {
-    // TODO: Impl
-    return {};
   }
 
   std::expected<Renderer::UploadResult<Mesh>, std::string> Renderer::uploadMeshes(const std::vector<gltf::MeshData>& meshes,

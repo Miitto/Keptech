@@ -1,6 +1,7 @@
 #pragma once
 
 #include "keptech/vulkan/structs.hpp"
+#include "vk-logger.hpp"
 #include <optional>
 #include <span>
 #include <vector>
@@ -46,17 +47,19 @@ namespace kt::vkh {
   struct RenderingConfig {
     void* pNext = nullptr;
     uint32_t viewMask = 0;
-    std::vector<VkFormat> colorAttachmentFormats;
+    std::vector<VkFormat> colorAttachmentFormats{};
     VkFormat depthAttachmentFormat = VkFormat::VK_FORMAT_UNDEFINED;
     VkFormat stencilAttachmentFormat = VkFormat::VK_FORMAT_UNDEFINED;
 
     VkPipelineRenderingCreateInfo build() noexcept {
+      uint32_t colorAttachmentCount = static_cast<uint32_t>(colorAttachmentFormats.size());
+      VkFormat* colorAttachmentFormatsPtr = colorAttachmentFormats.empty() ? nullptr : colorAttachmentFormats.data();
       return VkPipelineRenderingCreateInfo{
           .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
           .pNext = pNext,
           .viewMask = viewMask,
-          .colorAttachmentCount = static_cast<uint32_t>(colorAttachmentFormats.size()),
-          .pColorAttachmentFormats = colorAttachmentFormats.data(),
+          .colorAttachmentCount = colorAttachmentCount,
+          .pColorAttachmentFormats = colorAttachmentFormatsPtr,
           .depthAttachmentFormat = depthAttachmentFormat,
           .stencilAttachmentFormat = stencilAttachmentFormat,
       };
@@ -114,11 +117,15 @@ namespace kt::vkh {
     std::optional<VkPipelineRenderingCreateInfo> _internalRenderingInfo = std::nullopt;
 
     VkGraphicsPipelineCreateInfo build() noexcept {
+      uint32_t vertexInputCount = static_cast<uint32_t>(vertexInput.bindings.size());
+      uint32_t vertexAttributeCount = static_cast<uint32_t>(vertexInput.attributes.size());
+      auto* vertexInputBindingsPtr = vertexInput.bindings.empty() ? nullptr : vertexInput.bindings.data();
+      auto* vertexInputAttributesPtr = vertexInput.attributes.empty() ? nullptr : vertexInput.attributes.data();
       _internalVertexInputInfo = {
-          .vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInput.bindings.size()),
-          .pVertexBindingDescriptions = vertexInput.bindings.data(),
-          .vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInput.attributes.size()),
-          .pVertexAttributeDescriptions = vertexInput.attributes.data(),
+          .vertexBindingDescriptionCount = vertexInputCount,
+          .pVertexBindingDescriptions = vertexInputBindingsPtr,
+          .vertexAttributeDescriptionCount = vertexAttributeCount,
+          .pVertexAttributeDescriptions = vertexInputAttributesPtr,
       };
 
       if (rendering.colorAttachmentFormats.size() > blendAttachments.size()) {
@@ -131,7 +138,7 @@ namespace kt::vkh {
       }
 
       blending.attachmentCount = static_cast<uint32_t>(blendAttachments.size());
-      blending.pAttachments = blendAttachments.data();
+      blending.pAttachments = blending.attachmentCount == 0 ? nullptr : blendAttachments.data();
 
       _internalRenderingInfo = rendering.build();
 
@@ -146,6 +153,8 @@ namespace kt::vkh {
       multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
       depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
       blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+
+      VK_ASSERT(shaders.size() > 0, "At least one shader stage must be provided for graphics pipeline.");
 
       return VkGraphicsPipelineCreateInfo{
           .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,

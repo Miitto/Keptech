@@ -16,7 +16,7 @@ namespace kt::vkh {
         auto imageIndex = update.indexInDescriptorSet;
 
         imageInfos.push_back(VkDescriptorImageInfo{
-            .sampler = m.samplers.linearClamp,
+            .sampler = m.samplers.linearRepeat,
             .imageView = update.texture.view,
             .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         });
@@ -38,19 +38,22 @@ namespace kt::vkh {
     }
   }
   void Renderer::setupViewportAndScissor(VkCommandBuffer cmdBuf) {
+    setupCustomViewportAndScissor(cmdBuf, {0, 0}, m.renderTargets.framebufferSize);
+  }
+  void Renderer::setupCustomViewportAndScissor(VkCommandBuffer cmdBuf, const glm::ivec2& offset, const glm::ivec2& extent) {
     VkRect2D scissor{
-        .offset = VkOffset2D{.x = 0, .y = 0},
+        .offset = VkOffset2D{.x = static_cast<int32_t>(offset.x), .y = static_cast<int32_t>(offset.y)},
         .extent =
             VkExtent2D{
-                .width = static_cast<uint32_t>(m.renderTargets.framebufferSize.x),
-                .height = static_cast<uint32_t>(m.renderTargets.framebufferSize.y),
+                .width = static_cast<uint32_t>(extent.x),
+                .height = static_cast<uint32_t>(extent.y),
             },
     };
     VkViewport viewport{
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = static_cast<float>(m.renderTargets.framebufferSize.x),
-        .height = static_cast<float>(m.renderTargets.framebufferSize.y),
+        .x = static_cast<float>(offset.x),
+        .y = static_cast<float>(offset.y),
+        .width = static_cast<float>(extent.x),
+        .height = static_cast<float>(extent.y),
         .minDepth = 0.0f,
         .maxDepth = 1.0f,
     };
@@ -353,6 +356,89 @@ namespace kt::vkh {
         .pImageMemoryBarriers = backTransitions.data(),
     };
     vkCmdPipelineBarrier2(cmdBuf, &backDepInfo);
+  }
+  void Renderer::shadowMapToRenderable(VkCommandBuffer cmdBuf, const AllocatedImage& shadowMap, bool isCube) {
+    VkImageMemoryBarrier2 transition{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
+        .srcAccessMask = 0,
+        .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+        .dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = shadowMap.image,
+        .subresourceRange =
+            VkImageSubresourceRange{
+                .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = isCube ? 6u : 1u,
+            },
+    };
+    VkDependencyInfo dependencyInfo{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &transition,
+    };
+    vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
+  }
+  void Renderer::shadowMapBeginRendering(VkCommandBuffer cmdBuf, const AllocatedImage& shadowMap, bool isCube) {
+    VkRenderingAttachmentInfo depthAttachment{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = shadowMap.view,
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue =
+            VkClearValue{
+                .depthStencil = VkClearDepthStencilValue{.depth = 1.f, .stencil = 0},
+            },
+    };
+
+    VkRenderingInfo renderingInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea =
+            VkRect2D{
+                .offset = VkOffset2D{.x = 0, .y = 0},
+                .extent = VkExtent2D{.width = SHADOW_MAP_SIZE, .height = SHADOW_MAP_SIZE},
+            },
+        .layerCount = isCube ? 6u : 1u,
+        .colorAttachmentCount = 0,
+        .pColorAttachments = nullptr,
+        .pDepthAttachment = &depthAttachment,
+    };
+    vkCmdBeginRendering(cmdBuf, &renderingInfo);
+  }
+  void Renderer::shadowMapToShaderRead(VkCommandBuffer cmdBuf, const AllocatedImage& shadowMap, bool isCube) {
+    VkImageMemoryBarrier2 transition{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+        .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+        .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = shadowMap.image,
+        .subresourceRange =
+            VkImageSubresourceRange{
+                .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = isCube ? 6u : 1u,
+            },
+    };
+    VkDependencyInfo dependencyInfo{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &transition,
+    };
+    vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
   }
   void Renderer::lightsToRenderable(VkCommandBuffer cmdBuf) {
     std::array transitions{

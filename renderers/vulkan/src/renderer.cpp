@@ -65,6 +65,12 @@ namespace kt::vkh {
   void Renderer::debugUi() {
     ImGui::Begin("Debug View");
 
+    auto camera = scene->getActiveCamera();
+    auto& camT = camera.getComponents<components::Transform>();
+    auto camPos = camT.getGlobal()[3];
+
+    ImGui::Text("Camera Position: %.2f, %.2f, %.2f", camPos.x, camPos.y, camPos.z);
+
     auto preview = fmt::format("{}", debugView);
 
     if (ImGui::BeginCombo("View", preview.c_str(), 0)) {
@@ -321,7 +327,170 @@ namespace kt::vkh {
     combinedLightToShaderRead(cmdBuf);
   }
 
+  void Renderer::drawPointLightShadowMaps(VkCommandBuffer cmdBuf) {
+    constexpr std::array<glm::vec3, 6> directions{
+        glm::vec3{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1},
+    };
+
+    constexpr std::array<glm::vec3, 6> upDirections{
+        glm::vec3{0, 1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {0, 1, 0}, {0, 1, 0},
+    };
+
+    auto shadowView = scene->getEcs().view<components::Transform, components::PointLight>();
+    for (auto [entity, transform, pointLight] : shadowView.each()) {
+      if (pointLight.shadowMap.getIndex() == ~0u) {
+        VkImageCreateInfo shadowMapCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+            .imageType = VkImageType::VK_IMAGE_TYPE_2D,
+            .format = m.formats.render.depth,
+            .extent =
+                VkExtent3D{
+                    .width = SHADOW_MAP_SIZE,
+                    .height = SHADOW_MAP_SIZE,
+                    .depth = 1,
+                },
+            .mipLevels = 1,
+            .arrayLayers = 6,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .tiling = VK_IMAGE_TILING_OPTIMAL,
+            .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        };
+        VmaAllocationCreateInfo shadowMapAllocInfo{
+            .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+        };
+        VkImageViewCreateInfo shadowMapViewCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .viewType = VK_IMAGE_VIEW_TYPE_CUBE,
+            .format = m.formats.render.depth,
+            .components =
+                {
+                    .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+                },
+            .subresourceRange =
+                {
+                    .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 6,
+                },
+        };
+
+        auto shadowMapRes = AllocatedImage::create(m.vkcore.allocator, m.vkcore.device.logical, shadowMapCreateInfo, shadowMapAllocInfo,
+                                                   shadowMapViewCreateInfo, false, "PointLightShadowMap");
+        VK_ASSERT(shadowMapRes.has_value(), "Failed to create shadow map for point light: {}", shadowMapRes.error());
+        auto index = m.nextTextureIndex++;
+        Texture shadowMap(Texture::Type::eCube, glm::ivec3{SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, 1}, 1, m.formats.render.depth, index,
+                          shadowMapRes.value());
+        m.loadedTextures.push_back(shadowMapRes.value());
+        for (auto& frame : m.vkcore.perFrame) {
+          frame.texToUpdate.emplace_back(shadowMapRes.value(), index);
+        }
+        pointLight.shadowMap = shadowMap;
+
+        constexpr VkDeviceSize shadowMatrixSize = sizeof(glm::mat4) * 6;
+        VkBufferCreateInfo shadowMatrixBufferCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size = shadowMatrixSize,
+            .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        };
+        VmaAllocationCreateInfo shadowMatrixBufferAllocInfo{
+            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+        };
+        auto bufferRes = AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, shadowMatrixBufferCreateInfo,
+                                                          shadowMatrixBufferAllocInfo, "PointLightShadowMatrices");
+        VK_ASSERT(bufferRes.has_value(), "Failed to create buffer for point light shadow matrices: {}", bufferRes.error());
+        VK_ASSERT(bufferRes.value().isMapped(), "Shadow matrix buffer for point light is not mapped");
+        m.loadedBuffers.push_back(bufferRes.value().downcast());
+        pointLight.shadowMatrixBuffer = bufferRes.value();
+      }
+
+      auto view = scene->getEcs().view<components::Transform, components::Mesh>();
+      shadowMapToRenderable(cmdBuf, pointLight.shadowMap.getImage(), true);
+      shadowMapBeginRendering(cmdBuf, pointLight.shadowMap.getImage(), true);
+
+      vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.pointLightShadows.pipeline);
+      vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.pointLightShadows.layout, 0, 1,
+                              &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+      std::array<VkViewport, 6> viewports{};
+      std::array<VkRect2D, 6> scissors{};
+      for (size_t i = 0; i < 6; ++i) {
+        viewports[i] = VkViewport{
+            .x = 0.f,
+            .y = 0.f,
+            .width = static_cast<float>(SHADOW_MAP_SIZE),
+            .height = static_cast<float>(SHADOW_MAP_SIZE),
+            .minDepth = 0.f,
+            .maxDepth = 1.f,
+        };
+        scissors[i] = VkRect2D{
+            .offset = {.x = 0, .y = 0},
+            .extent = {.width = SHADOW_MAP_SIZE, .height = SHADOW_MAP_SIZE},
+        };
+      }
+      vkCmdSetViewport(cmdBuf, 0, viewports.size(), viewports.data());
+      vkCmdSetScissor(cmdBuf, 0, scissors.size(), scissors.data());
+
+      glm::mat4 shadowProj = glm::perspectiveLH_ZO(glm::radians(90.f), 1.f, 0.1f, pointLight.radius);
+      glm::vec3 shadowCenter = transform.getGlobal()[3];
+      std::array<glm::mat4, 6> shadowViews = {
+          glm::lookAtLH(shadowCenter, shadowCenter + directions[0], upDirections[0]),
+          glm::lookAtLH(shadowCenter, shadowCenter + directions[1], upDirections[1]),
+          glm::lookAtLH(shadowCenter, shadowCenter + directions[2], upDirections[2]),
+          glm::lookAtLH(shadowCenter, shadowCenter + directions[3], upDirections[3]),
+          glm::lookAtLH(shadowCenter, shadowCenter + directions[4], upDirections[4]),
+          glm::lookAtLH(shadowCenter, shadowCenter + directions[5], upDirections[5]),
+      };
+
+      std::array<glm::mat4, 6> shadowViewProjs = {
+          shadowProj * shadowViews[0], shadowProj * shadowViews[1], shadowProj * shadowViews[2],
+          shadowProj * shadowViews[3], shadowProj * shadowViews[4], shadowProj * shadowViews[5],
+      };
+
+      memcpy(pointLight.shadowMatrixBuffer.mapping(), shadowViewProjs.data(), shadowViewProjs.size() * sizeof(glm::mat4));
+
+      struct LightInfo {
+        glm::vec4 position;
+        VkDeviceAddress shadowMatrixBufferAddress;
+      } info{
+          .position = glm::vec4(shadowCenter, pointLight.radius),
+          .shadowMatrixBufferAddress = pointLight.shadowMatrixBuffer.address,
+      };
+
+      vkCmdPushConstants(cmdBuf, m.pipelines.pointLightShadows.layout,
+                         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4),
+                         sizeof(LightInfo), &info);
+
+      constexpr VkDeviceSize vertexOffest = 0;
+      for (auto [entity, transform, mesh] : view.each()) {
+        vkCmdBindVertexBuffers(cmdBuf, 0, 1, &mesh.getRMesh().vertexBuffer.buffer, &vertexOffest);
+        vkCmdBindIndexBuffer(cmdBuf, mesh.getRMesh().indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+        auto model = transform.getGlobal();
+
+        vkCmdPushConstants(cmdBuf, m.pipelines.pointLightShadows.layout,
+                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4),
+                           &model);
+
+        for (const auto& submesh : mesh.getSubmeshes()) {
+          vkCmdDrawIndexed(cmdBuf, submesh.count, 1, submesh.start, 0, 0);
+        }
+      }
+
+      vkCmdEndRendering(cmdBuf);
+
+      shadowMapToShaderRead(cmdBuf, pointLight.shadowMap.getImage(), true);
+    }
+  } // namespace kt::vkh
+
   void Renderer::drawPointLights(VkCommandBuffer cmdBuf) {
+    drawPointLightShadowMaps(cmdBuf);
+
     seperatedLightsBeginRendering(cmdBuf);
 
     vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.deferredPointLight.pipeline);
@@ -338,8 +507,8 @@ namespace kt::vkh {
 
       light.position = {model[3].x, model[3].y, model[3].z};
       light.radius = pointLight.radius;
-      light.color = pointLight.color;
-      light.intensity = pointLight.intensity;
+      light.color = pointLight.color * pointLight.intensity;
+      light.shadowMapIndex = pointLight.shadowMap.getIndex();
 
       vkCmdPushConstants(cmdBuf, m.pipelines.deferredPointLight.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                          sizeof(rendering::PointLight), &light);

@@ -52,6 +52,9 @@ namespace kt::vkh {
     vkDestroyPipeline(device, deferred.pipeline, nullptr);
     vkDestroyPipelineLayout(device, deferred.layout, nullptr);
 
+    vkDestroyPipeline(device, pointLightShadows.pipeline, nullptr);
+    vkDestroyPipelineLayout(device, pointLightShadows.layout, nullptr);
+
     vkDestroyPipeline(device, deferredPointLight.pipeline, nullptr);
     vkDestroyPipelineLayout(device, deferredPointLight.layout, nullptr);
 
@@ -108,10 +111,13 @@ namespace kt::vkh {
     vmaDestroyAllocator(allocator);
 
     shutdownImGui();
-    m.vkcore.swapchain.~Swapchain();
+    m.vkcore.swapchain.destroy();
+
+    vkDeviceWaitIdle(device); // Sometimes complains that some of the swapchain resources havn't been destroyed yet.
     vkDestroyDevice(device, nullptr);
+
     vkDestroySurfaceKHR(m.vkcore.instance, m.vkcore.surface, nullptr);
-    vkDestroyInstance(m.vkcore.instance, nullptr);
+    m.vkcore.instance.destroy();
 
     VK_INFO("Vulkan renderer shut down cleanly");
   }

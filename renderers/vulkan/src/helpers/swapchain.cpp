@@ -185,15 +185,19 @@ namespace kt::vkh {
     return *this;
   }
 
+  void Swapchain::destroy() noexcept {
+    for (auto& semaphore : presentSemaphores) {
+      vkDestroySemaphore(device, semaphore, nullptr);
+    }
+    for (auto& imageView : imageViews) {
+      vkDestroyImageView(device, imageView, nullptr);
+    }
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
+  }
+
   Swapchain::~Swapchain() {
     if (swapchain != VK_NULL_HANDLE) {
-      for (auto& semaphore : presentSemaphores) {
-        vkDestroySemaphore(device, semaphore, nullptr);
-      }
-      for (auto& imageView : imageViews) {
-        vkDestroyImageView(device, imageView, nullptr);
-      }
-      vkDestroySwapchainKHR(device, swapchain, nullptr);
+      destroy();
     }
   }
 } // namespace kt::vkh

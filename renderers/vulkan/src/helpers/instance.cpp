@@ -11,19 +11,21 @@
 
 namespace kt::vkh {
 
-  VkBool32 debug_utils_messenger_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-                                          VkDebugUtilsMessageTypeFlagsEXT message_type,
-                                          const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* user_data) {
+  VKAPI_ATTR VkBool32 debug_utils_messenger_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+                                                     VkDebugUtilsMessageTypeFlagsEXT message_type,
+                                                     const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* user_data) {
     if (message_severity & VkDebugUtilsMessageSeverityFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
       VK_WARN("{} - {}: {}", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
     } else if (message_severity & VkDebugUtilsMessageSeverityFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
       VK_ERROR("{} - {}: {}", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
+    } else {
+      VK_INFO("{} - {}: {}", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
     }
     return VK_FALSE;
   }
 
   auto createInstance(const char* appName, const bool enableValidationLayers, const std::span<const char* const> extraExtensions,
-                      const std::span<const char* const> extraLayers) -> std::expected<VkInstance, std::string> {
+                      const std::span<const char* const> extraLayers) -> std::expected<Instance, std::string> {
     VK_TRACE("Creating Instance");
     auto appInfo = VkApplicationInfo{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -104,8 +106,19 @@ namespace kt::vkh {
     iCreateInfo.pNext = &debugCreateInfo;
 #endif
 
-    VkInstance instance;
-    VK_MAKE(vkCreateInstance(&iCreateInfo, nullptr, &instance), "Failed to create Vulkan Instance");
+    Instance instance;
+    VK_MAKE(vkCreateInstance(&iCreateInfo, nullptr, &instance.handle), "Failed to create Vulkan Instance");
+
+#ifndef NDEBUG
+    auto createDebugUtilsMessenger = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if (createDebugUtilsMessenger) {
+      VkDebugUtilsMessengerEXT debugMessenger;
+      VK_MAKE(createDebugUtilsMessenger(instance, &debugCreateInfo, nullptr, &debugMessenger), "Failed to create Debug Utils Messenger");
+      instance.debugMessenger = debugMessenger;
+    } else {
+      VK_ERROR("Could not load vkCreateDebugUtilsMessengerEXT function.");
+    }
+#endif
 
     return instance;
   }

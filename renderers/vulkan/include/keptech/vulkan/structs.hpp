@@ -1,10 +1,10 @@
 #pragma once
 
-#include "keptech/core/image.hpp"
 #include <expected>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
@@ -48,12 +48,6 @@ namespace kt::vkh {
     uint32_t mipLevels;
     uint32_t arrayLayers;
     VkImageUsageFlags usage;
-  };
-
-  struct ImageUploadInfo {
-    const Image* image;
-    VkImageUsageFlags usage;
-    uint32_t mipLevels;
   };
 
   template <size_t N> struct DescriptorPoolSet {

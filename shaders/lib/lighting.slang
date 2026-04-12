@@ -5,39 +5,26 @@ public struct PointLight {
   public float3 position;
   public float radius;
   public float3 color;
-  public float intensity;
+  public uint shadowMapIndex;
 };
 
-public float calculatePointLightOcclusion(float3 fragPos, PointLight light,
-                                          Optional<uint> shadowMapIndex) {
-  float3 worldToLight = fragPos - light.position;
+public float calculatePointLightOcclusion(float3 fragWorldPos, PointLight light) {
+  float3 worldToLight = light.position - fragWorldPos;
 
-  float shadow = 1.0f;
-
-  if (shadowMapIndex.hasValue) {
-    let shadowMap = cubeMaps.getTexture(shadowMapIndex.value);
-    float depthCenter = shadowMap.Sample(worldToLight).r;
-
-    float offset = 1.0f / 4096.0f; // assuming 2048x2048 shadow map resolution
-
-    float depthRight =
-        shadowMap.Sample(worldToLight + float3(offset, 0.0, 0.0)).r;
-    float depthLeft =
-        shadowMap.Sample(worldToLight + float3(-offset, 0.0, 0.0)).r;
-    float depthUp = shadowMap.Sample(worldToLight + float3(0.0, offset, 0.0)).r;
-    float depthDown =
-        shadowMap.Sample(worldToLight + float3(0.0, -offset, 0.0)).r;
-    float depth =
-        1.0 -
-        (depthCenter + depthRight + depthLeft + depthUp + depthDown) / 5.0;
-
-    depth *= light.radius;
-
-    float currentDepth = length(worldToLight);
-
-    float bias = 0.05;
-    float shadow = currentDepth - bias > depth ? 0.0 : 1.0;
+  if (light.shadowMapIndex == ~0u) {
+    return 1.f;
   }
+
+  let shadowMap = kt::texturesCube.getTexture(light.shadowMapIndex);
+  float depth = shadowMap.Sample(worldToLight).r;
+
+  depth *= light.radius;
+
+  float currentDepth = length(worldToLight);
+
+  float bias = 0.05;
+  float shadow = currentDepth - bias > depth ? 0.0 : 1.0;
+
   return shadow;
 }
 
@@ -54,9 +41,7 @@ public float DistributionGGX(float3 N, float3 H, float roughness) {
   return num / denom;
 }
 
-public float3 fresnelSchlick(float cosTheta, float3 F0) {
-  return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
+public float3 fresnelSchlick(float cosTheta, float3 F0) { return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0); }
 
 public float GeometrySchlickGGX(float NdotV, float roughness) {
   float r = (roughness + 1.0);

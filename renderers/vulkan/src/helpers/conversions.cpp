@@ -8,6 +8,8 @@ namespace kt::vkh {
       return VK_SHADER_STAGE_VERTEX_BIT;
     case shaders::ShaderStages::Fragment:
       return VK_SHADER_STAGE_FRAGMENT_BIT;
+    case shaders::ShaderStages::Geometry:
+      return VK_SHADER_STAGE_GEOMETRY_BIT;
     case shaders::ShaderStages::Compute:
       return VK_SHADER_STAGE_COMPUTE_BIT;
     default:

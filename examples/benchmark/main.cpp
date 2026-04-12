@@ -40,6 +40,15 @@ public:
         .radius = 500.f,
     });
 
+    auto smallPointLight = scene.createEntity("Small Point Light");
+    auto& smallLightTransform = smallPointLight.addComponent<kt::components::Transform>();
+    smallLightTransform.getLocalMut().translate(glm::vec3(12.0f, 4.0f, 4.0f));
+    smallPointLight.addComponent<kt::components::PointLight>(kt::components::PointLight{
+        .color = {0.95f, 0.95f, 1.f},
+        .intensity = 5.f,
+        .radius = 50.f,
+    });
+
     auto camera = scene.createEntity("Camera");
     camera.addComponent<kt::components::Transform>()
         .getLocalMut()

@@ -7,6 +7,6 @@ namespace kt::rendering {
     glm::vec3 position;
     float radius;
     glm::vec3 color;
-    float intensity;
+    uint32_t shadowMapIndex;
   };
 } // namespace kt::rendering

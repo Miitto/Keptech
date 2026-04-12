@@ -13,9 +13,8 @@
 
 namespace kt::vkh::setup {
   using namespace kt::vkh;
-  constexpr std::array<const char*, 2> REQUIRED_DEVICE_EXTENSIONS = {
+  constexpr std::array<const char*, 1> REQUIRED_DEVICE_EXTENSIONS = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-      VK_KHR_SPIRV_1_4_EXTENSION_NAME,
   };
 
   std::expected<VkPhysicalDevice, std::string> createPhysicalDevice(VkInstance instance, VkSurfaceKHR surface) {
@@ -138,6 +137,7 @@ namespace kt::vkh::setup {
     VkPhysicalDeviceVulkan13Features vulkan13Features{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
         .pNext = &extendedDynamicStateFeatures,
+        .shaderDemoteToHelperInvocation = true,
         .synchronization2 = true,
         .dynamicRendering = true,
     };
@@ -151,6 +151,7 @@ namespace kt::vkh::setup {
         .runtimeDescriptorArray = true,
         .timelineSemaphore = true,
         .bufferDeviceAddress = true,
+        .shaderOutputLayer = true,
     };
     VkPhysicalDeviceVulkan11Features vulkan11Features{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
@@ -160,6 +161,12 @@ namespace kt::vkh::setup {
     VkPhysicalDeviceFeatures2 deviceFeatures{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .pNext = &vulkan11Features,
+        .features =
+            {
+                .geometryShader = true,
+                .multiViewport = true,
+                .samplerAnisotropy = true,
+            },
     };
 
     VkDeviceCreateInfo deviceCreateInfo{

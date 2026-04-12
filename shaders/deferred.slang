@@ -1,14 +1,5 @@
 import keptech;
 
-struct Vertex {
-  float3 position;
-  float uvX;
-  float3 normal;
-  float uvY;
-  float4 color;
-  float4 tangent;
-};
-
 struct Material {
   uint albedo;
   uint bump;
@@ -39,7 +30,7 @@ struct VertexOutput {
 };
 
 [shader("vertex")]
-VertexOutput vert(Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID, uniform PushConstants PC) {
+VertexOutput vert(kt::Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID, uniform PushConstants PC) {
   VertexOutput output;
 
   float4 worldPosition = mul(float4(v.position, 1.0), PC.modelMatrix);
@@ -77,7 +68,7 @@ kt::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
   output.emissiveAo = float4(0.0, 0.0, 0.0, 1.f);
 
   if (mat.albedo != ~0u) {
-    output.albedo *= kt::textures.getTexture(mat.albedo).Sample(uv);
+    output.albedo *= kt::textures2D.getTexture(mat.albedo).Sample(uv);
   }
 
   if (output.albedo.a < mat.alphaCutoff) {
@@ -85,7 +76,7 @@ kt::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
   }
 
   if (mat.bump != ~0u) {
-    float3 normalSample = kt::textures.getTexture(mat.bump).Sample(uv).xyz * 2.0 - 1.0;
+    float3 normalSample = kt::textures2D.getTexture(mat.bump).Sample(uv).xyz * 2.0 - 1.0;
 
     float3x3 TBN = float3x3(normalize(input.tangent), normalize(input.bitangent), normalize(input.normal));
     float3 worldNormal = normalize(mul(normalSample, TBN));
@@ -94,11 +85,11 @@ kt::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
   }
 
   if (mat.emissive != ~0u) {
-    output.emissiveAo.rgb = kt::textures.getTexture(mat.emissive).Sample(uv).rgb * mat.emissiveFactor;
+    output.emissiveAo.rgb = kt::textures2D.getTexture(mat.emissive).Sample(uv).rgb * mat.emissiveFactor;
   }
 
   if (mat.metRough != ~0u) {
-    float4 metallicRoughnessSample = kt::textures.getTexture(mat.metRough).Sample(uv);
+    float4 metallicRoughnessSample = kt::textures2D.getTexture(mat.metRough).Sample(uv);
     output.metallicRoughness.r *= metallicRoughnessSample.b;
     output.metallicRoughness.g *= metallicRoughnessSample.g;
   }

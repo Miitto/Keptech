@@ -14,6 +14,7 @@ namespace kt {
     using Renderer = vkh::Renderer;
     using ImageFormat = VkFormat;
     using Buffer = vkh::AddressedAllocatedBuffer;
+    using Image = vkh::AllocatedImage;
     using RendererMesh = vkh::RendererMesh;
   } // namespace rendering
 } // namespace kt

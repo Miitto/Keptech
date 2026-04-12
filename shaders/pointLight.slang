@@ -34,10 +34,10 @@ kt::DeferredLightingOutput frag(v2f input, uniform kt::PointLight light, float4 
 
   float2 uv = fragCoord.xy / kt::camera.viewportSize;
 
-  let albedoTex = kt::textures.getTexture(kt::constants::albedoIndex);
-  let metallicRoughnessTex = kt::textures.getTexture(kt::constants::metallicRoughnessIndex);
-  let normalTex = kt::textures.getTexture(kt::constants::normalIndex);
-  let depthTex = kt::textures.getTexture(kt::constants::depthIndex);
+  let albedoTex = kt::textures2D.getTexture(kt::constants::albedoIndex);
+  let metallicRoughnessTex = kt::textures2D.getTexture(kt::constants::metallicRoughnessIndex);
+  let normalTex = kt::textures2D.getTexture(kt::constants::normalIndex);
+  let depthTex = kt::textures2D.getTexture(kt::constants::depthIndex);
 
   let albedoSample = albedoTex.Sample(uv);
   let metallicRoughnessSample = metallicRoughnessTex.Sample(uv);
@@ -50,6 +50,13 @@ kt::DeferredLightingOutput frag(v2f input, uniform kt::PointLight light, float4 
 
   let toLight = light.position - world;
 
+  float shadowMapSample = 0.f;
+
+  if (light.shadowMapIndex != ~0u) {
+    let shadowMap = kt::texturesCube.getTexture(light.shadowMapIndex);
+    shadowMapSample = shadowMap.Sample(toLight).r;
+  }
+
   float dist = length(toLight);
 
   float attenuation = 1.0 - clamp(dist / light.radius, 0.0, 1.0);
@@ -58,7 +65,19 @@ kt::DeferredLightingOutput frag(v2f input, uniform kt::PointLight light, float4 
     discard;
   }
 
-  float3 radiance = light.color * light.intensity * attenuation;
+  float3 radiance = light.color * attenuation;
+
+  float closestDepth = shadowMapSample * light.radius;
+  float currentDepth = length(toLight);
+
+  float bias = 0.05;
+  var shadow = currentDepth - bias > closestDepth ? 0.0 : 1.0;
+
+  if (light.shadowMapIndex == ~0u) {
+    shadow = 1.f;
+  }
+
+  radiance *= shadow;
 
   let normal = normalize(normalSample.xyz * 2.0 - 1.0);
 

@@ -25,6 +25,7 @@ compile_shader(${PROJECT_NAME} SPIRV
   SOURCES
     basic
     deferred
+    pointLightShadows
     pointLight
     lightCombine
 )
