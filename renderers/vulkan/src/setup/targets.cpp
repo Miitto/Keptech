@@ -98,10 +98,85 @@ namespace kt::vkh::setup {
         .combined = lightCombined,
     };
 
+    std::array<Renderer::RenderTargets::BloomMip, constants::BLOOM_MIP_LEVELS> bloomMips{};
+
+    VkImageCreateInfo bloomImgInfo = imgInfo;
+
+    glm::ivec2 mipSize = framebufferSize;
+    for (size_t i = 0; i < constants::BLOOM_MIP_LEVELS; i++) {
+      mipSize /= 2;
+
+      bloomImgInfo.extent.width = static_cast<uint32_t>(mipSize.x);
+      bloomImgInfo.extent.height = static_cast<uint32_t>(mipSize.y);
+
+      VKH_MAKE(bloomMip,
+               AllocatedImage::create(vkcore.allocator, vkcore.device.logical, bloomImgInfo, allocInfo, imgViewInfo, true,
+                                      "Bloom Mip " + std::to_string(i)),
+               "Failed to create bloom mip level");
+
+      bloomMips[i] = Renderer::RenderTargets::BloomMip{
+          .image = bloomMip,
+          .size = mipSize,
+      };
+    }
+
+#ifndef NDEBUG
+    PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT =
+        reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(vkGetDeviceProcAddr(vkcore.device.logical, "vkSetDebugUtilsObjectNameEXT"));
+
+    VkDebugUtilsObjectNameInfoEXT nameInfo{
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+        .objectType = VK_OBJECT_TYPE_IMAGE,
+    };
+
+    {
+      auto name = [&](VkImage image, const char* imageName) {
+        nameInfo.objectHandle = (uint64_t)image;
+        nameInfo.pObjectName = imageName;
+        vkSetDebugUtilsObjectNameEXT(vkcore.device.logical, &nameInfo);
+      };
+
+      name(gBuffer.albedo.image, "GBuffer Albedo");
+      name(gBuffer.normal.image, "GBuffer Normal");
+      name(gBuffer.emissive.image, "GBuffer Emissive");
+      name(gBuffer.metRough.image, "GBuffer MetRough");
+      name(gBuffer.depth.image, "GBuffer Depth");
+      name(lightBuffer.diffuse.image, "Light Buffer Diffuse");
+      name(lightBuffer.specular.image, "Light Buffer Specular");
+      name(lightBuffer.combined.image, "Light Buffer Combined");
+
+      for (size_t i = 0; i < bloomMips.size(); i++) {
+        name(bloomMips[i].image.image, ("Bloom Mip " + std::to_string(i)).c_str());
+      }
+    }
+
+    {
+      auto name = [&](VkImageView view, const char* viewName) {
+        nameInfo.objectType = VK_OBJECT_TYPE_IMAGE_VIEW;
+        nameInfo.objectHandle = (uint64_t)view;
+        nameInfo.pObjectName = viewName;
+        vkSetDebugUtilsObjectNameEXT(vkcore.device.logical, &nameInfo);
+      };
+
+      name(gBuffer.albedo.view, "GBuffer Albedo View");
+      name(gBuffer.normal.view, "GBuffer Normal View");
+      name(gBuffer.emissive.view, "GBuffer Emissive View");
+      name(gBuffer.metRough.view, "GBuffer MetRough View");
+      name(gBuffer.depth.view, "GBuffer Depth View");
+      name(lightBuffer.diffuse.view, "Light Buffer Diffuse View");
+      name(lightBuffer.specular.view, "Light Buffer Specular View");
+      name(lightBuffer.combined.view, "Light Buffer Combined View");
+      for (size_t i = 0; i < bloomMips.size(); i++) {
+        name(bloomMips[i].image.view, ("Bloom Mip " + std::to_string(i) + " View").c_str());
+      }
+    }
+#endif
+
     return Renderer::RenderTargets{
         .gBuffer = gBuffer,
         .lights = lightBuffer,
         .framebufferSize = framebufferSize,
+        .bloomMips = bloomMips,
     };
   }
 } // namespace kt::vkh::setup

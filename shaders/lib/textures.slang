@@ -11,6 +11,7 @@ public static const uint depthIndex = 4u;
 public static const uint diffuseIndex = 5u;
 public static const uint specularIndex = 6u;
 public static const uint combineIndex = 7u;
+public static const uint bloomIndex = 8u;
 }
 
 public struct TexData<Sampler> {

@@ -13,6 +13,7 @@
 
 namespace kt::vkh::setup {
   using namespace kt::vkh;
+
   constexpr std::array<const char*, 1> REQUIRED_DEVICE_EXTENSIONS = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME,
   };

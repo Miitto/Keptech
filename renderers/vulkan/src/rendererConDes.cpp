@@ -43,23 +43,25 @@ namespace kt::vkh {
   void Renderer::RenderTargets::destroy(const VmaAllocator& allocator, const VkDevice& device) {
     gBuffer.destroy(allocator, device);
     lights.destroy(allocator, device);
+
+    for (auto& bloomMip : bloomMips) {
+      bloomMip.image.destroy(allocator, device);
+    }
   }
 
   void Renderer::Pipelines::destroy(const VkDevice& device) {
-    vkDestroyPipeline(device, basic.pipeline, nullptr);
-    vkDestroyPipelineLayout(device, basic.layout, nullptr);
-
-    vkDestroyPipeline(device, deferred.pipeline, nullptr);
-    vkDestroyPipelineLayout(device, deferred.layout, nullptr);
-
-    vkDestroyPipeline(device, pointLightShadows.pipeline, nullptr);
-    vkDestroyPipelineLayout(device, pointLightShadows.layout, nullptr);
-
-    vkDestroyPipeline(device, deferredPointLight.pipeline, nullptr);
-    vkDestroyPipelineLayout(device, deferredPointLight.layout, nullptr);
-
-    vkDestroyPipeline(device, deferredCombine.pipeline, nullptr);
-    vkDestroyPipelineLayout(device, deferredCombine.layout, nullptr);
+    auto d = [&](Pipeline& pipeline) {
+      vkDestroyPipeline(device, pipeline.pipeline, nullptr);
+      vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
+    };
+    d(basic);
+    d(deferred);
+    d(pointLightShadows);
+    d(deferredPointLight);
+    d(deferredCombine);
+    d(bloomDownsample);
+    d(bloomUpsample);
+    d(bloomCombine);
   }
 
   void Renderer::Buffers::destroy(VmaAllocator& allocator) { camera.destroy(allocator); }

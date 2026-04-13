@@ -41,9 +41,5 @@ float4 frag(v2f input) {
 
   color += emissiveAo.rgb;
 
-  // Tone map
-  // TODO: Move to post process
-  color = color / (color + float3(1.0));
-
   return float4(color, 1.0);
 }

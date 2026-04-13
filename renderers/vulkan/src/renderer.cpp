@@ -24,8 +24,13 @@ namespace {
     Diffuse,
     Specular,
     Combined,
+    BloomResult,
+    PostProcess,
   };
-  static DebugView debugView = DebugView::Combined;
+  static DebugView debugView = DebugView::PostProcess;
+  static uint32_t debugBloomMip = 0;
+  static float bloomStrength = 0.03f;
+  static int32_t postProcessIndex = 0;
 } // namespace
 
 template <> struct fmt::formatter<DebugView> : fmt::formatter<std::string_view> {
@@ -52,6 +57,12 @@ template <> struct fmt::formatter<DebugView> : fmt::formatter<std::string_view> 
       break;
     case DebugView::Combined:
       name = "Combined";
+      break;
+    case DebugView::BloomResult:
+      name = "Bloom Result";
+      break;
+    case DebugView::PostProcess:
+      name = "PostProcess";
       break;
     }
 
@@ -95,7 +106,25 @@ namespace kt::vkh {
       if (ImGui::Selectable("Combined", debugView == DebugView::Combined)) {
         debugView = DebugView::Combined;
       }
+      if (ImGui::Selectable("Bloom Result", debugView == DebugView::BloomResult)) {
+        debugView = DebugView::BloomResult;
+      }
+      if (ImGui::Selectable("Post Process", debugView == DebugView::PostProcess)) {
+        debugView = DebugView::PostProcess;
+      }
       ImGui::EndCombo();
+    }
+
+    if (debugView == DebugView::BloomResult) {
+      ImGui::SliderInt("Bloom Mip", reinterpret_cast<int*>(&debugBloomMip), 0, constants::BLOOM_MIP_LEVELS - 1);
+    }
+
+    if (static_cast<uint8_t>(debugView) >= static_cast<uint8_t>(DebugView::BloomResult)) {
+      ImGui::SliderFloat("Bloom Strength", &bloomStrength, 0.0f, 0.1f);
+    }
+
+    if (debugView == DebugView::PostProcess) {
+      ImGui::SliderInt("Post Process Index", &postProcessIndex, 0, 1);
     }
 
     ImGui::End();
@@ -128,123 +157,9 @@ namespace kt::vkh {
     updateCameraBuffer(cmdBuf);
     drawDeferred(cmdBuf);
     drawLights(cmdBuf);
+    renderBloom(cmdBuf);
 
-#ifndef NDEBUG
-    {
-      VkImage i = nullptr;
-      switch (debugView) {
-      case DebugView::Albedo:
-        i = m.renderTargets.gBuffer.albedo.image;
-        break;
-      case DebugView::Normal:
-        i = m.renderTargets.gBuffer.normal.image;
-        break;
-      case DebugView::Emissive:
-        i = m.renderTargets.gBuffer.emissive.image;
-        break;
-      case DebugView::MetRough:
-        i = m.renderTargets.gBuffer.metRough.image;
-        break;
-      case DebugView::Diffuse:
-        i = m.renderTargets.lights.diffuse.image;
-        break;
-      case DebugView::Specular:
-        i = m.renderTargets.lights.specular.image;
-        break;
-      case DebugView::Combined:
-        i = m.renderTargets.lights.combined.image;
-        break;
-      }
-      std::array transitions{
-          VkImageMemoryBarrier2{
-              .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-              .srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-              .srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
-              .dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
-              .dstAccessMask = VK_ACCESS_2_NONE,
-              .oldLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
-              .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-              .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-              .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-              .image = i,
-              .subresourceRange =
-                  VkImageSubresourceRange{
-                      .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                      .baseMipLevel = 0,
-                      .levelCount = 1,
-                      .baseArrayLayer = 0,
-                      .layerCount = 1,
-                  },
-          },
-          VkImageMemoryBarrier2{
-              .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-              .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-              .srcAccessMask = VK_ACCESS_2_NONE,
-              .dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-              .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-              .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-              .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-              .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-              .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-              .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-              .subresourceRange =
-                  VkImageSubresourceRange{
-                      .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                      .baseMipLevel = 0,
-                      .levelCount = 1,
-                      .baseArrayLayer = 0,
-                      .layerCount = 1,
-                  },
-          },
-      };
-      VkDependencyInfo dependencyInfo{
-          .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-          .imageMemoryBarrierCount = transitions.size(),
-          .pImageMemoryBarriers = transitions.data(),
-      };
-      vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
-
-      VkImageBlit2 blitRegion{
-          .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
-          .srcSubresource =
-              {
-                  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                  .mipLevel = 0,
-                  .baseArrayLayer = 0,
-                  .layerCount = 1,
-              },
-          .srcOffsets =
-              {
-                  VkOffset3D{.x = 0, .y = 0, .z = 0},
-                  VkOffset3D{.x = m.renderTargets.framebufferSize.x, .y = m.renderTargets.framebufferSize.y, .z = 1},
-              },
-          .dstSubresource =
-              {
-                  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                  .mipLevel = 0,
-                  .baseArrayLayer = 0,
-                  .layerCount = 1,
-              },
-          .dstOffsets =
-              {
-                  VkOffset3D{.x = 0, .y = 0, .z = 0},
-                  VkOffset3D{.x = static_cast<int32_t>(m.vkcore.swapchain.config().extent.width),
-                             .y = static_cast<int32_t>(m.vkcore.swapchain.config().extent.height),
-                             .z = 1},
-              },
-      };
-      VkBlitImageInfo2 blitInfo{
-          .sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2,
-          .srcImage = i,
-          .srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-          .dstImage = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-          .dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-          .regionCount = 1,
-          .pRegions = &blitRegion,
-      };
-      vkCmdBlitImage2(cmdBuf, &blitInfo);
-    }
-
+#ifdef NDEBUG
     debugUi();
 #endif
     renderImGui(cmdBuf);
@@ -346,8 +261,8 @@ namespace kt::vkh {
             .format = m.formats.render.depth,
             .extent =
                 VkExtent3D{
-                    .width = SHADOW_MAP_SIZE,
-                    .height = SHADOW_MAP_SIZE,
+                    .width = constants::SHADOW_MAP_SIZE,
+                    .height = constants::SHADOW_MAP_SIZE,
                     .depth = 1,
                 },
             .mipLevels = 1,
@@ -384,8 +299,8 @@ namespace kt::vkh {
                                                    shadowMapViewCreateInfo, false, "PointLightShadowMap");
         VK_ASSERT(shadowMapRes.has_value(), "Failed to create shadow map for point light: {}", shadowMapRes.error());
         auto index = m.nextTextureIndex++;
-        Texture shadowMap(Texture::Type::eCube, glm::ivec3{SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, 1}, 1, m.formats.render.depth, index,
-                          shadowMapRes.value());
+        Texture shadowMap(Texture::Type::eCube, glm::ivec3{constants::SHADOW_MAP_SIZE, constants::SHADOW_MAP_SIZE, 1}, 1,
+                          m.formats.render.depth, index, shadowMapRes.value());
         m.loadedTextures.push_back(shadowMapRes.value());
         for (auto& frame : m.vkcore.perFrame) {
           frame.texToUpdate.emplace_back(shadowMapRes.value(), index);
@@ -417,20 +332,7 @@ namespace kt::vkh {
       vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.pointLightShadows.pipeline);
       vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.pointLightShadows.layout, 0, 1,
                               &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
-      VkViewport viewport{
-          .x = 0.f,
-          .y = 0.f,
-          .width = static_cast<float>(SHADOW_MAP_SIZE),
-          .height = static_cast<float>(SHADOW_MAP_SIZE),
-          .minDepth = 0.f,
-          .maxDepth = 1.f,
-      };
-      VkRect2D scissor{
-          .offset = {.x = 0, .y = 0},
-          .extent = {.width = SHADOW_MAP_SIZE, .height = SHADOW_MAP_SIZE},
-      };
-      vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
-      vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+      setupCustomViewportAndScissor(cmdBuf, {0, 0}, {constants::SHADOW_MAP_SIZE, constants::SHADOW_MAP_SIZE});
 
       glm::mat4 shadowProj = glm::perspectiveLH_ZO(glm::radians(90.f), 1.f, 0.1f, pointLight.radius);
       glm::vec3 shadowCenter = transform.getGlobal()[3];
@@ -529,6 +431,134 @@ namespace kt::vkh {
     vkCmdEndRendering(cmdBuf);
   }
 
+  void Renderer::renderBloom(VkCommandBuffer cmdBuf) {
+    glm::vec2 size = m.renderTargets.framebufferSize;
+
+    static float filterRadius = 0.005f;
+
+    uint32_t sampleIndex = constants::BLOOM_SOURCE_INDEX;
+
+    for (size_t i = 0; i < constants::BLOOM_MIP_LEVELS; i++) {
+      auto& mip = m.renderTargets.bloomMips[i];
+      colorImageToRenderable(cmdBuf, mip.image);
+      colorImageBeginRendering(cmdBuf, mip.image);
+
+      vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomDownsample.pipeline);
+      vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomDownsample.layout, 0, 1,
+                              &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+
+      setupCustomViewportAndScissor(cmdBuf, {}, {mip.size.x, mip.size.y});
+
+      struct PushConstants {
+        glm::vec2 texelSize;
+        uint32_t level;
+      } pushConstants{
+          .texelSize = 1.f / size,
+          .level = sampleIndex,
+      };
+      vkCmdPushConstants(cmdBuf, m.pipelines.bloomDownsample.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                         sizeof(PushConstants), &pushConstants);
+
+      vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+
+      vkCmdEndRendering(cmdBuf);
+
+      colorImageToShaderRead(cmdBuf, mip.image);
+
+      size = mip.size;
+      sampleIndex = constants::BLOOM_FIRST_MIP_INDEX + i;
+    }
+
+    for (size_t i = constants::BLOOM_MIP_LEVELS - 1; i > 0; i--) {
+      size_t downsampledIndex = i;
+      size_t upsampledIndex = i - 1;
+      auto& mip = m.renderTargets.bloomMips[upsampledIndex];
+      colorImageToRenderable(cmdBuf, mip.image);
+      colorImageBeginRendering(cmdBuf, mip.image, false);
+
+      vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomUpsample.pipeline);
+      vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomUpsample.layout, 0, 1,
+                              &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+
+      setupCustomViewportAndScissor(cmdBuf, {}, {mip.size.x, mip.size.y});
+
+      struct PushConstants {
+        float filterRadius;
+        uint32_t level;
+      } pushConstants{
+          .filterRadius = filterRadius,
+          .level = static_cast<uint32_t>(downsampledIndex),
+      };
+      vkCmdPushConstants(cmdBuf, m.pipelines.bloomUpsample.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                         sizeof(PushConstants), &pushConstants);
+
+      vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+
+      vkCmdEndRendering(cmdBuf);
+
+      colorImageToShaderRead(cmdBuf, mip.image);
+    }
+    VkImageMemoryBarrier2 imgBarrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+        .srcAccessMask = 0,
+        .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
+        .subresourceRange =
+            VkImageSubresourceRange{
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+    VkDependencyInfo depInfo{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &imgBarrier,
+    };
+    vkCmdPipelineBarrier2(cmdBuf, &depInfo);
+
+    VkRenderingAttachmentInfo swapAttachment{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = m.vkcore.swapchain.nView(m.frameInfo.imageIndex),
+        .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+    };
+
+    VkRenderingInfo renderingInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea =
+            VkRect2D{
+                .offset = VkOffset2D{.x = 0, .y = 0},
+                .extent = m.vkcore.swapchain.config().extent,
+            },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &swapAttachment,
+    };
+    vkCmdBeginRendering(cmdBuf, &renderingInfo);
+
+    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomCombine.pipeline);
+    vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomCombine.layout, 0, 1,
+                            &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+
+    setupCustomViewportAndScissor(cmdBuf, {}, {m.vkcore.swapchain.config().extent.width, m.vkcore.swapchain.config().extent.height});
+
+    vkCmdPushConstants(cmdBuf, m.pipelines.bloomCombine.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float),
+                       &bloomStrength);
+
+    vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+    vkCmdEndRendering(cmdBuf);
+  }
+
   void Renderer::newFrame() {
     imGuiNewFrame();
     auto& perFrame = m.vkcore.perFrame[m.frameInfo.index];
@@ -570,32 +600,6 @@ namespace kt::vkh {
 
   void Renderer::renderImGui(VkCommandBuffer cmdBuf) {
     ImGui::Render();
-    VkImageMemoryBarrier2 swapToRender{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-        .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-        .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-        .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-        .subresourceRange =
-            VkImageSubresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-    };
-    VkDependencyInfo swapDep{
-        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &swapToRender,
-    };
-    vkCmdPipelineBarrier2(cmdBuf, &swapDep);
 
     VkRenderingAttachmentInfo aInfo{
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,

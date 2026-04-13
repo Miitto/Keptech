@@ -28,4 +28,7 @@ compile_shader(${PROJECT_NAME} SPIRV
     pointLightShadows
     pointLight
     lightCombine
+    downsample
+    upsample
+    bloomCombine
 )

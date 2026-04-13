@@ -13,10 +13,14 @@
 namespace shaders {
   namespace {
 #include "shaders/keptech/basic.h"
+#include "shaders/keptech/bloomCombine.h"
 #include "shaders/keptech/deferred.h"
+#include "shaders/keptech/downsample.h"
+#include "shaders/keptech/fxaa.h"
 #include "shaders/keptech/lightCombine.h"
 #include "shaders/keptech/pointLight.h"
 #include "shaders/keptech/pointLightShadows.h"
+#include "shaders/keptech/upsample.h"
   } // namespace
 } // namespace shaders
 
@@ -307,6 +311,96 @@ namespace kt::vkh::setup {
                             },
                             vkcore.device.logical);
     }
+
+    std::expected<Pipeline, std::string> createBloomDownsamplePipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                                       const VkDescriptorSetLayout globalLayout) {
+      VK_DEBUG("Creating bloom downsample pipeline");
+
+      return createPipeline(::shaders::downsample,
+                            GraphicsPipelineConfig{
+                                .rendering =
+                                    {
+                                        .colorAttachmentFormats =
+                                            {
+                                                formats.render.hdr,
+                                            },
+                                    },
+                            },
+                            PipelineLayoutConfig{
+                                .setLayouts = {globalLayout},
+                                .pushConstantRanges = {{
+                                    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                    .offset = 0,
+                                    .size = sizeof(glm::vec2) + sizeof(uint32_t),
+                                }},
+                            },
+                            vkcore.device.logical);
+    }
+
+    std::expected<Pipeline, std::string> createBloomUpsamplePipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                                     const VkDescriptorSetLayout globalLayout) {
+      VK_DEBUG("Creating bloom upsample pipeline");
+
+      return createPipeline(::shaders::upsample,
+                            GraphicsPipelineConfig{
+                                .rendering =
+                                    {
+                                        .colorAttachmentFormats =
+                                            {
+                                                formats.render.hdr,
+                                            },
+                                    },
+                                .blendAttachments =
+                                    {
+                                        VkPipelineColorBlendAttachmentState{
+                                            .blendEnable = VK_TRUE,
+                                            .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+                                            .dstColorBlendFactor = VK_BLEND_FACTOR_ONE,
+                                            .colorBlendOp = VK_BLEND_OP_ADD,
+                                            .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                                            .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                                            .alphaBlendOp = VK_BLEND_OP_ADD,
+                                            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                                              VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+                                        },
+                                    },
+                            },
+                            PipelineLayoutConfig{
+                                .setLayouts = {globalLayout},
+                                .pushConstantRanges = {{
+                                    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                    .offset = 0,
+                                    .size = sizeof(float) + sizeof(uint32_t),
+                                }},
+                            },
+                            vkcore.device.logical);
+    }
+
+    std::expected<Pipeline, std::string> createBloomCombinePipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                                    const VkDescriptorSetLayout globalLayout) {
+      VK_DEBUG("Creating bloom combine pipeline");
+
+      return createPipeline(::shaders::bloomCombine,
+                            GraphicsPipelineConfig{
+                                .rendering =
+                                    {
+                                        .colorAttachmentFormats =
+                                            {
+                                                formats.swapchain,
+                                            },
+                                    },
+                            },
+                            PipelineLayoutConfig{
+                                .setLayouts = {globalLayout},
+                                .pushConstantRanges = {{
+                                    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                    .offset = 0,
+                                    .size = sizeof(uint32_t) + sizeof(float),
+                                }},
+                            },
+                            vkcore.device.logical);
+    }
+
   } // namespace
 
   std::expected<Renderer::Pipelines, std::string> createPipelines(const Renderer::VulkanCore& vkcore, const Formats& formats,
@@ -318,6 +412,9 @@ namespace kt::vkh::setup {
     VKH_MAKE(deferredPointLight, createDeferredPointLightPipeline(vkcore, formats, globalLayout),
              "Failed to create deferred point light pipeline.");
     VKH_MAKE(lightCombine, createLightCombinePipeline(vkcore, formats, globalLayout), "Failed to create light combine pipeline.");
+    VKH_MAKE(bloomDownsample, createBloomDownsamplePipeline(vkcore, formats, globalLayout), "Failed to create bloom downsample pipeline.");
+    VKH_MAKE(bloomUpsample, createBloomUpsamplePipeline(vkcore, formats, globalLayout), "Failed to create bloom upsample pipeline.");
+    VKH_MAKE(bloomCombine, createBloomCombinePipeline(vkcore, formats, globalLayout), "Failed to create bloom combine pipeline.");
 
     return Renderer::Pipelines{
         .basic = basic,
@@ -325,6 +422,9 @@ namespace kt::vkh::setup {
         .pointLightShadows = pointLightShadows,
         .deferredPointLight = deferredPointLight,
         .deferredCombine = lightCombine,
+        .bloomDownsample = bloomDownsample,
+        .bloomUpsample = bloomUpsample,
+        .bloomCombine = bloomCombine,
     };
   }
 } // namespace kt::vkh::setup

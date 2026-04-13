@@ -52,7 +52,7 @@ namespace kt::vkh {
              "Failed to create render targets for renderer.");
 
     size_t offset = 0;
-    std::array imageInfos = {
+    std::array<VkDescriptorImageInfo, constants::FIRST_USER_TEXTURE_INDEX> imageInfos = {
         VkDescriptorImageInfo{
             .sampler = samplers.linearRepeat,
             .imageView = renderTargets.gBuffer.albedo.view,
@@ -94,11 +94,20 @@ namespace kt::vkh {
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
     };
+
+    for (size_t i = 0; i < constants::BLOOM_MIP_LEVELS; i++) {
+      imageInfos[constants::BLOOM_FIRST_MIP_INDEX + i] = VkDescriptorImageInfo{
+          .sampler = samplers.linearClamp,
+          .imageView = renderTargets.bloomMips[i].image.view,
+          .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+      };
+    }
+
     VkWriteDescriptorSet write{
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstBinding = 1,
         .dstArrayElement = 0,
-        .descriptorCount = 8,
+        .descriptorCount = imageInfos.size(),
         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         .pImageInfo = imageInfos.data(),
     };

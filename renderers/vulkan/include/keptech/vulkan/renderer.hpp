@@ -2,6 +2,7 @@
 
 #include "keptech/rendering/gltf/data.hpp"
 #include "keptech/rendering/texture.hpp"
+#include "keptech/vulkan/constants.hpp"
 #include "keptech/vulkan/helpers/device.hpp"
 #include "keptech/vulkan/helpers/instance.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
@@ -24,8 +25,6 @@
 #include <vulkan/vulkan.h>
 
 namespace kt::vkh {
-
-  constexpr uint32_t SHADOW_MAP_SIZE = 4096;
 
   struct GBuffer {
     using T = AllocatedImage;
@@ -83,6 +82,9 @@ namespace kt::vkh {
       Pipeline pointLightShadows;
       Pipeline deferredPointLight;
       Pipeline deferredCombine;
+      Pipeline bloomDownsample;
+      Pipeline bloomUpsample;
+      Pipeline bloomCombine;
 
       void destroy(const VkDevice& device);
     };
@@ -112,6 +114,12 @@ namespace kt::vkh {
       LightBuffer lights;
       glm::ivec2 framebufferSize;
 
+      struct BloomMip {
+        AllocatedImage image;
+        glm::ivec2 size;
+      };
+      std::array<BloomMip, constants::BLOOM_MIP_LEVELS> bloomMips;
+
       void destroy(const VmaAllocator& allocator, const VkDevice& device);
     };
 
@@ -134,7 +142,7 @@ namespace kt::vkh {
 
       Frame frameInfo{};
 
-      size_t nextTextureIndex = 8;
+      size_t nextTextureIndex = constants::FIRST_USER_TEXTURE_INDEX;
 
       std::vector<AllocatedImage> loadedTextures{};
       std::vector<AllocatedBuffer> loadedBuffers{};
@@ -190,6 +198,7 @@ namespace kt::vkh {
     void drawPointLightShadowMaps(VkCommandBuffer cmdBuf);
     void drawPointLights(VkCommandBuffer cmdBuf);
     void combineLights(VkCommandBuffer cmdBuf);
+    void renderBloom(VkCommandBuffer cmdBuf);
 
     void renderImGui(VkCommandBuffer graphicsCmd);
     void endFrame(VkCommandBuffer graphicsCmd);
@@ -212,6 +221,9 @@ namespace kt::vkh {
     void seperatedLightsToShaderRead(VkCommandBuffer cmdBuf);
     void combinedLightBeginRendering(VkCommandBuffer cmdBuf);
     void combinedLightToShaderRead(VkCommandBuffer cmdBuf);
+    void colorImageToRenderable(VkCommandBuffer cmdBuf, const AllocatedImage& image);
+    void colorImageBeginRendering(VkCommandBuffer cmdBuf, const AllocatedImage& image, bool clear = true);
+    void colorImageToShaderRead(VkCommandBuffer cmdBuf, const AllocatedImage& image);
 
     void imGuiNewFrame() const;
     void shutdownImGui();
