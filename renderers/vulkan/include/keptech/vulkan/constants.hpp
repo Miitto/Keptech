@@ -6,9 +6,24 @@ namespace kt::vkh {
   namespace constants {
     constexpr size_t BLOOM_MIP_LEVELS = 5;
     constexpr uint32_t SHADOW_MAP_SIZE = 4096;
-    constexpr uint32_t BLOOM_SOURCE_INDEX = 7u;
-    constexpr uint32_t BLOOM_FIRST_MIP_INDEX = 8u;
-    constexpr uint32_t FIRST_USER_TEXTURE_INDEX = BLOOM_FIRST_MIP_INDEX + BLOOM_MIP_LEVELS;
+    constexpr uint32_t SSAO_KERNEL_SIZE = 64;
+    constexpr uint32_t SSAO_NOISE_SIZE = 4;
+    enum TextureIndices : uint32_t {
+      Albedo,
+      Normal,
+      Emissive,
+      MetRough,
+      Depth,
+      DiffuseLight,
+      SpecularLight,
+      SsaoResult,
+      SsaoNoise,
+      SsaoBlur,
+      CombinedLight,
+      BloomFirstMip,
+      FirstUserTexture = BloomFirstMip + BLOOM_MIP_LEVELS,
+      BloomSource = CombinedLight,
+    };
   } // namespace constants
 
   namespace limits {

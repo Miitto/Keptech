@@ -27,6 +27,8 @@ compile_shader(${PROJECT_NAME} SPIRV
     deferred
     pointLightShadows
     pointLight
+    ssao
+    ssaoBlur
     lightCombine
     downsample
     upsample

@@ -34,10 +34,10 @@ kt::DeferredLightingOutput frag(v2f input, uniform kt::PointLight light, float4 
 
   float2 uv = fragCoord.xy / kt::camera.viewportSize;
 
-  let albedoTex = kt::textures2D.getTexture(kt::constants::albedoIndex);
-  let metallicRoughnessTex = kt::textures2D.getTexture(kt::constants::metallicRoughnessIndex);
-  let normalTex = kt::textures2D.getTexture(kt::constants::normalIndex);
-  let depthTex = kt::textures2D.getTexture(kt::constants::depthIndex);
+  let albedoTex = kt::textures2D.getTexture(kt::TextureIndices::Albedo);
+  let metallicRoughnessTex = kt::textures2D.getTexture(kt::TextureIndices::MetallicRoughness);
+  let normalTex = kt::textures2D.getTexture(kt::TextureIndices::Normal);
+  let depthTex = kt::textures2D.getTexture(kt::TextureIndices::Depth);
 
   let albedoSample = albedoTex.Sample(uv);
   let metallicRoughnessSample = metallicRoughnessTex.Sample(uv);

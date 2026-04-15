@@ -15,61 +15,6 @@
 #include <keptech/core/window.hpp>
 #include <keptech/rendering/structs.hpp>
 
-namespace {
-  enum class DebugView : uint8_t {
-    Albedo,
-    Normal,
-    Emissive,
-    MetRough,
-    Diffuse,
-    Specular,
-    Combined,
-    BloomResult,
-    PostProcess,
-  };
-  static DebugView debugView = DebugView::PostProcess;
-  static uint32_t debugBloomMip = 0;
-  static float bloomStrength = 0.03f;
-  static int32_t postProcessIndex = 0;
-} // namespace
-
-template <> struct fmt::formatter<DebugView> : fmt::formatter<std::string_view> {
-  template <typename FormatContext> auto format(DebugView v, FormatContext& ctx) const {
-    std::string_view name = "Unknown";
-    switch (v) {
-    case DebugView::Albedo:
-      name = "Albedo";
-      break;
-    case DebugView::Normal:
-      name = "Normal";
-      break;
-    case DebugView::Emissive:
-      name = "Emissive";
-      break;
-    case DebugView::MetRough:
-      name = "Metalness/Roughness";
-      break;
-    case DebugView::Diffuse:
-      name = "Diffuse Light";
-      break;
-    case DebugView::Specular:
-      name = "Specular Light";
-      break;
-    case DebugView::Combined:
-      name = "Combined";
-      break;
-    case DebugView::BloomResult:
-      name = "Bloom Result";
-      break;
-    case DebugView::PostProcess:
-      name = "PostProcess";
-      break;
-    }
-
-    return fmt::formatter<std::string_view>::format(name, ctx);
-  }
-};
-
 namespace kt::vkh {
   static_assert(CRenderer<Renderer>, "Renderer does not satisfy CRenderer concept");
 
@@ -81,51 +26,6 @@ namespace kt::vkh {
     auto camPos = camT.getGlobal()[3];
 
     ImGui::Text("Camera Position: %.2f, %.2f, %.2f", camPos.x, camPos.y, camPos.z);
-
-    auto preview = fmt::format("{}", debugView);
-
-    if (ImGui::BeginCombo("View", preview.c_str(), 0)) {
-      if (ImGui::Selectable("Albedo", debugView == DebugView::Albedo)) {
-        debugView = DebugView::Albedo;
-      }
-      if (ImGui::Selectable("Normal", debugView == DebugView::Normal)) {
-        debugView = DebugView::Normal;
-      }
-      if (ImGui::Selectable("Emissive", debugView == DebugView::Emissive)) {
-        debugView = DebugView::Emissive;
-      }
-      if (ImGui::Selectable("Metalness/Roughness", debugView == DebugView::MetRough)) {
-        debugView = DebugView::MetRough;
-      }
-      if (ImGui::Selectable("Diffuse Light", debugView == DebugView::Diffuse)) {
-        debugView = DebugView::Diffuse;
-      }
-      if (ImGui::Selectable("Specular Light", debugView == DebugView::Specular)) {
-        debugView = DebugView::Specular;
-      }
-      if (ImGui::Selectable("Combined", debugView == DebugView::Combined)) {
-        debugView = DebugView::Combined;
-      }
-      if (ImGui::Selectable("Bloom Result", debugView == DebugView::BloomResult)) {
-        debugView = DebugView::BloomResult;
-      }
-      if (ImGui::Selectable("Post Process", debugView == DebugView::PostProcess)) {
-        debugView = DebugView::PostProcess;
-      }
-      ImGui::EndCombo();
-    }
-
-    if (debugView == DebugView::BloomResult) {
-      ImGui::SliderInt("Bloom Mip", reinterpret_cast<int*>(&debugBloomMip), 0, constants::BLOOM_MIP_LEVELS - 1);
-    }
-
-    if (static_cast<uint8_t>(debugView) >= static_cast<uint8_t>(DebugView::BloomResult)) {
-      ImGui::SliderFloat("Bloom Strength", &bloomStrength, 0.0f, 0.1f);
-    }
-
-    if (debugView == DebugView::PostProcess) {
-      ImGui::SliderInt("Post Process Index", &postProcessIndex, 0, 1);
-    }
 
     ImGui::End();
   }
@@ -159,7 +59,7 @@ namespace kt::vkh {
     drawLights(cmdBuf);
     renderBloom(cmdBuf);
 
-#ifdef NDEBUG
+#ifndef NDEBUG
     debugUi();
 #endif
     renderImGui(cmdBuf);
@@ -236,6 +136,8 @@ namespace kt::vkh {
     drawPointLights(cmdBuf);
 
     seperatedLightsToShaderRead(cmdBuf);
+
+    renderSsao(cmdBuf);
 
     combineLights(cmdBuf);
 
@@ -417,6 +319,41 @@ namespace kt::vkh {
     vkCmdEndRendering(cmdBuf);
   }
 
+  void Renderer::renderSsao(VkCommandBuffer cmdBuf) {
+    colorImageToRenderable(cmdBuf, m.renderTargets.lights.ssaoResult);
+    colorImageBeginRendering(cmdBuf, m.renderTargets.lights.ssaoResult);
+
+    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssao.pipeline);
+    vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssao.layout, 0, 1,
+                            &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+
+    setupViewportAndScissor(cmdBuf);
+
+    vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+
+    vkCmdEndRendering(cmdBuf);
+
+    colorImageToShaderRead(cmdBuf, m.renderTargets.lights.ssaoResult);
+
+    colorImageToRenderable(cmdBuf, m.renderTargets.lights.ssaoBlur);
+    colorImageBeginRendering(cmdBuf, m.renderTargets.lights.ssaoBlur, false);
+
+    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssaoBlur.pipeline);
+    vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssaoBlur.layout, 0, 1,
+                            &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+
+    setupViewportAndScissor(cmdBuf);
+
+    glm::vec2 texelSize = 1.f / glm::vec2(m.renderTargets.framebufferSize);
+    vkCmdPushConstants(cmdBuf, m.pipelines.ssaoBlur.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec2),
+                       &texelSize);
+
+    vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+    vkCmdEndRendering(cmdBuf);
+
+    colorImageToShaderRead(cmdBuf, m.renderTargets.lights.ssaoBlur);
+  }
+
   void Renderer::combineLights(VkCommandBuffer cmdBuf) {
     combinedLightBeginRendering(cmdBuf);
 
@@ -436,7 +373,7 @@ namespace kt::vkh {
 
     static float filterRadius = 0.005f;
 
-    uint32_t sampleIndex = constants::BLOOM_SOURCE_INDEX;
+    uint32_t sampleIndex = constants::BloomSource;
 
     for (size_t i = 0; i < constants::BLOOM_MIP_LEVELS; i++) {
       auto& mip = m.renderTargets.bloomMips[i];
@@ -466,7 +403,7 @@ namespace kt::vkh {
       colorImageToShaderRead(cmdBuf, mip.image);
 
       size = mip.size;
-      sampleIndex = constants::BLOOM_FIRST_MIP_INDEX + i;
+      sampleIndex = constants::BloomFirstMip + i;
     }
 
     for (size_t i = constants::BLOOM_MIP_LEVELS - 1; i > 0; i--) {
@@ -487,7 +424,7 @@ namespace kt::vkh {
         uint32_t level;
       } pushConstants{
           .filterRadius = filterRadius,
-          .level = static_cast<uint32_t>(downsampledIndex),
+          .level = static_cast<uint32_t>(constants::BloomFirstMip + downsampledIndex),
       };
       vkCmdPushConstants(cmdBuf, m.pipelines.bloomUpsample.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                          sizeof(PushConstants), &pushConstants);
@@ -498,62 +435,62 @@ namespace kt::vkh {
 
       colorImageToShaderRead(cmdBuf, mip.image);
     }
-    VkImageMemoryBarrier2 imgBarrier{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-        .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-        .srcAccessMask = 0,
-        .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-        .subresourceRange =
-            VkImageSubresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-    };
-    VkDependencyInfo depInfo{
-        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &imgBarrier,
-    };
-    vkCmdPipelineBarrier2(cmdBuf, &depInfo);
-
-    VkRenderingAttachmentInfo swapAttachment{
-        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = m.vkcore.swapchain.nView(m.frameInfo.imageIndex),
-        .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-    };
-
-    VkRenderingInfo renderingInfo{
-        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-        .renderArea =
-            VkRect2D{
-                .offset = VkOffset2D{.x = 0, .y = 0},
-                .extent = m.vkcore.swapchain.config().extent,
-            },
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &swapAttachment,
-    };
-    vkCmdBeginRendering(cmdBuf, &renderingInfo);
+    {
+      VkImageMemoryBarrier2 barrier{
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+          .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+          .srcAccessMask = VK_ACCESS_2_NONE,
+          .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+          .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+          .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+          .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+          .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+          .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+          .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
+          .subresourceRange =
+              VkImageSubresourceRange{
+                  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                  .baseMipLevel = 0,
+                  .levelCount = 1,
+                  .baseArrayLayer = 0,
+                  .layerCount = 1,
+              },
+      };
+      VkDependencyInfo dependencyInfo{
+          .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+          .imageMemoryBarrierCount = 1,
+          .pImageMemoryBarriers = &barrier,
+      };
+      vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
+    }
+    {
+      VkRenderingAttachmentInfo aInfo{
+          .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+          .imageView = m.vkcore.swapchain.nView(m.frameInfo.imageIndex),
+          .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+          .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+          .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+      };
+      VkRenderingInfo renderingInfo{
+          .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+          .renderArea =
+              VkRect2D{
+                  .offset = VkOffset2D{.x = 0, .y = 0},
+                  .extent = m.vkcore.swapchain.config().extent,
+              },
+          .layerCount = 1,
+          .colorAttachmentCount = 1,
+          .pColorAttachments = &aInfo,
+      };
+      vkCmdBeginRendering(cmdBuf, &renderingInfo);
+    }
 
     vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomCombine.pipeline);
     vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomCombine.layout, 0, 1,
                             &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
 
-    setupCustomViewportAndScissor(cmdBuf, {}, {m.vkcore.swapchain.config().extent.width, m.vkcore.swapchain.config().extent.height});
-
-    vkCmdPushConstants(cmdBuf, m.pipelines.bloomCombine.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float),
-                       &bloomStrength);
+    auto& extent = m.vkcore.swapchain.config().extent;
+    setupCustomViewportAndScissor(cmdBuf, {}, {extent.width, extent.height});
 
     vkCmdDraw(cmdBuf, 3, 1, 0, 0);
     vkCmdEndRendering(cmdBuf);

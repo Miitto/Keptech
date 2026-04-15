@@ -661,7 +661,7 @@ namespace kt::vkh {
     m.loadedBuffers.reserve(m.loadedBuffers.size() + materials.size());
 
     for (const auto& mat : materials) {
-      VK_DEBUG("Creating material {}", mat.name);
+      VK_TRACE("Creating material {}", mat.name);
       VKH_MAKE(buffer,
                AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, matBufferCreateInfo, matAllocInfo,
                                                 std::string(mat.name) + "_material"),

@@ -37,4 +37,6 @@ namespace kt::vkh::setup {
 
   std::expected<Renderer::RenderTargets, std::string> createRenderTargets(const Renderer::VulkanCore& vkcore, const Formats& formats,
                                                                           const glm::ivec2& framebufferSize);
+  std::expected<void, std::string> writeSsao(const Renderer::VulkanCore& vkcore, const Renderer::Buffers& buffers,
+                                             const Renderer::RenderTargets& renderTargets);
 } // namespace kt::vkh::setup

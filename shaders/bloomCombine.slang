@@ -1,8 +1,7 @@
 import keptech;
 
-struct PushConstants {
-  float bloomIntensity;
-};
+static const float bloomIntensity = 0.03;
+;
 
 struct v2f {
   float4 position : SV_Position;
@@ -22,16 +21,16 @@ v2f vert(uint vid: SV_VertexID) {
 }
 
 [shader("pixel")]
-float4 frag(v2f input, uniform PushConstants pc) : SV_Target {
+float4 frag(v2f input) : SV_Target {
   float2 uv = input.uv;
 
-  let sceneTex = kt::textures2D.getTexture(kt::constants::combineIndex);
-  let bloomTex = kt::textures2D.getTexture(kt::constants::bloomIndex);
+  let sceneTex = kt::textures2D.getTexture(kt::TextureIndices::Combine);
+  let bloomTex = kt::textures2D.getTexture(kt::TextureIndices::Bloom);
 
   float4 sceneColor = sceneTex.Sample(uv);
   float4 bloomColor = bloomTex.Sample(uv);
 
-  let bloom = lerp(sceneColor, bloomColor, pc.bloomIntensity);
+  let bloom = lerp(sceneColor, bloomColor, bloomIntensity);
 
   return bloom;
 }

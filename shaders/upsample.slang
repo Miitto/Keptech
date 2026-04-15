@@ -26,7 +26,7 @@ v2f vert(uint vid: SV_VertexID) {
 float4 frag(v2f input, uniform PushConstants pc) : SV_Target {
   float2 uv = input.uv;
 
-  let sourceTex = kt::textures2D.getTexture(kt::constants::bloomIndex + pc.sourceIndex);
+  let sourceTex = kt::textures2D.getTexture(pc.sourceIndex);
 
   float x = pc.filterRadius;
   float y = pc.filterRadius;

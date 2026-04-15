@@ -10,6 +10,8 @@ namespace kt::vkh::setup {
   // Formats
   namespace {
     constexpr std::array GBUFFER_ALBEDO_FORMATS = {VK_FORMAT_B8G8R8A8_SRGB};
+    constexpr std::array GBUFFER_POSITION_FORMATS = {VK_FORMAT_R16G16B16_SFLOAT, VK_FORMAT_R16G16B16A16_SFLOAT,
+                                                     VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R32G32B32A32_SFLOAT};
     constexpr std::array GBUFFER_NORMAL_FORMATS = {VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_FORMAT_R16G16B16_SFLOAT,
                                                    VK_FORMAT_R16G16B16A16_SFLOAT};
     constexpr std::array GBUFFER_EMISSIVE_FORMATS = {VK_FORMAT_B10G11R11_UFLOAT_PACK32};
@@ -50,6 +52,7 @@ namespace kt::vkh::setup {
         .render =
             {
                 .albedo = findColorAttachmentFormat(GBUFFER_ALBEDO_FORMATS),
+                .position = findColorAttachmentFormat(GBUFFER_POSITION_FORMATS),
                 .normal = findColorAttachmentFormat(GBUFFER_NORMAL_FORMATS),
                 .emissive = findColorAttachmentFormat(GBUFFER_EMISSIVE_FORMATS),
                 .metRought = findColorAttachmentFormat(GBUFFER_METROUGH_FORMATS),

@@ -37,6 +37,9 @@ namespace kt::vkh {
   void LightBuffer::destroy(const VmaAllocator& allocator, const VkDevice& device) {
     diffuse.destroy(allocator, device);
     specular.destroy(allocator, device);
+    ssaoResult.destroy(allocator, device);
+    ssaoNoise.destroy(allocator, device);
+    ssaoBlur.destroy(allocator, device);
     combined.destroy(allocator, device);
   }
 
@@ -58,13 +61,18 @@ namespace kt::vkh {
     d(deferred);
     d(pointLightShadows);
     d(deferredPointLight);
+    d(ssao);
+    d(ssaoBlur);
     d(deferredCombine);
     d(bloomDownsample);
     d(bloomUpsample);
     d(bloomCombine);
   }
 
-  void Renderer::Buffers::destroy(VmaAllocator& allocator) { camera.destroy(allocator); }
+  void Renderer::Buffers::destroy(VmaAllocator& allocator) {
+    camera.destroy(allocator);
+    ssaoKernel.destroy(allocator);
+  }
 
   void Renderer::Samplers::destroy(const VkDevice device) {
     vkDestroySampler(device, linearRepeat, nullptr);

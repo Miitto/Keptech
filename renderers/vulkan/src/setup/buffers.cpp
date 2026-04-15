@@ -33,11 +33,31 @@ namespace kt::vkh::setup {
 
     return AddressedAllocatedBuffer::create(vkcore.device.logical, vkcore.allocator, bufInfo, allocInfo, "Camera Uniform Buffer");
   }
+
+  std::expected<AddressedAllocatedBuffer, std::string> createSsaoKernelBuffer(const Renderer::VulkanCore& vkcore) {
+    size_t size = sizeof(glm::vec4) * constants::SSAO_KERNEL_SIZE;
+
+    VkBufferCreateInfo bufInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    };
+
+    VmaAllocationCreateInfo allocInfo{
+        .flags = hostWriteOrTransferFlags,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+    };
+
+    return AddressedAllocatedBuffer::create(vkcore.device.logical, vkcore.allocator, bufInfo, allocInfo, "SSAO Kernel Buffer");
+  }
+
   std::expected<Renderer::Buffers, std::string> createBuffers(const Renderer::VulkanCore& vkcore) {
     VKH_MAKE(camera, createCameraBuffer(vkcore), "Failed to create camera uniform buffer.");
+    VKH_MAKE(ssaoKernel, createSsaoKernelBuffer(vkcore), "Failed to create SSAO kernel buffer.");
 
     return Renderer::Buffers{
         .camera = camera,
+        .ssaoKernel = ssaoKernel,
     };
   }
 } // namespace kt::vkh::setup

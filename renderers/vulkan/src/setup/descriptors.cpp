@@ -8,18 +8,20 @@
 namespace kt::vkh::setup {
 
   std::expected<DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>, std::string> createGlobalDescriptors(VkDevice device) {
-    constexpr size_t descriptorBindingCount = 2;
+    constexpr size_t descriptorBindingCount = 3;
 
-    std::array<VkDescriptorPoolSize, descriptorBindingCount> sizes{
-        VkDescriptorPoolSize{
-            .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = MAX_FRAMES_IN_FLIGHT,
-        },
-        {
-            .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .descriptorCount = 1000 * MAX_FRAMES_IN_FLIGHT,
-        },
-    };
+    std::array sizes{VkDescriptorPoolSize{
+                         .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                         .descriptorCount = MAX_FRAMES_IN_FLIGHT + 1,
+                     },
+                     VkDescriptorPoolSize{
+                         .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                         .descriptorCount = 1000 * MAX_FRAMES_IN_FLIGHT,
+                     },
+                     VkDescriptorPoolSize{
+                         .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                         .descriptorCount = 1,
+                     }};
 
     VkDescriptorPoolCreateInfo poolCreateInfo{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -46,12 +48,20 @@ namespace kt::vkh::setup {
             .descriptorCount = 1000,
             .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_ALL,
         },
+        {
+            .binding = 2,
+            .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_ALL,
+        },
     };
 
     std::array<VkDescriptorBindingFlags, descriptorBindingCount> bindingFlags{
         VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
         VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
-            VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT};
+            VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+        VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+    };
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,

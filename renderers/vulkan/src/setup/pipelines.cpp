@@ -16,10 +16,11 @@ namespace shaders {
 #include "shaders/keptech/bloomCombine.h"
 #include "shaders/keptech/deferred.h"
 #include "shaders/keptech/downsample.h"
-#include "shaders/keptech/fxaa.h"
 #include "shaders/keptech/lightCombine.h"
 #include "shaders/keptech/pointLight.h"
 #include "shaders/keptech/pointLightShadows.h"
+#include "shaders/keptech/ssao.h"
+#include "shaders/keptech/ssaoBlur.h"
 #include "shaders/keptech/upsample.h"
   } // namespace
 } // namespace shaders
@@ -292,6 +293,52 @@ namespace kt::vkh::setup {
                             vkcore.device.logical);
     }
 
+    std::expected<Pipeline, std::string> createSsaoPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                            const VkDescriptorSetLayout globalLayout) {
+      VK_DEBUG("Creating SSAO pipeline");
+
+      return createPipeline(::shaders::ssao,
+                            GraphicsPipelineConfig{
+                                .rendering =
+                                    {
+                                        .colorAttachmentFormats =
+                                            {
+                                                VK_FORMAT_R8_UNORM,
+                                            },
+                                    },
+                            },
+                            PipelineLayoutConfig{
+                                .setLayouts = {globalLayout},
+                                .pushConstantRanges = {},
+                            },
+                            vkcore.device.logical);
+    }
+
+    std::expected<Pipeline, std::string> createSsaoBlurPipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
+                                                                const VkDescriptorSetLayout globalLayout) {
+      VK_DEBUG("Creating SSAO blur pipeline");
+
+      return createPipeline(::shaders::ssaoBlur,
+                            GraphicsPipelineConfig{
+                                .rendering =
+                                    {
+                                        .colorAttachmentFormats =
+                                            {
+                                                VK_FORMAT_R8_UNORM,
+                                            },
+                                    },
+                            },
+                            PipelineLayoutConfig{
+                                .setLayouts = {globalLayout},
+                                .pushConstantRanges = {{
+                                    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                    .offset = 0,
+                                    .size = sizeof(glm::vec2),
+                                }},
+                            },
+                            vkcore.device.logical);
+    }
+
     std::expected<Pipeline, std::string> createLightCombinePipeline(const Renderer::VulkanCore& vkcore, const Formats& formats,
                                                                     const VkDescriptorSetLayout globalLayout) {
       VK_DEBUG("Creating light combine pipeline");
@@ -392,11 +439,7 @@ namespace kt::vkh::setup {
                             },
                             PipelineLayoutConfig{
                                 .setLayouts = {globalLayout},
-                                .pushConstantRanges = {{
-                                    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                                    .offset = 0,
-                                    .size = sizeof(uint32_t) + sizeof(float),
-                                }},
+                                .pushConstantRanges = {},
                             },
                             vkcore.device.logical);
     }
@@ -411,6 +454,8 @@ namespace kt::vkh::setup {
              "Failed to create point light shadows pipeline.");
     VKH_MAKE(deferredPointLight, createDeferredPointLightPipeline(vkcore, formats, globalLayout),
              "Failed to create deferred point light pipeline.");
+    VKH_MAKE(ssao, createSsaoPipeline(vkcore, formats, globalLayout), "Failed to create SSAO pipeline.");
+    VKH_MAKE(ssaoBlur, createSsaoBlurPipeline(vkcore, formats, globalLayout), "Failed to create SSAO blur pipeline.");
     VKH_MAKE(lightCombine, createLightCombinePipeline(vkcore, formats, globalLayout), "Failed to create light combine pipeline.");
     VKH_MAKE(bloomDownsample, createBloomDownsamplePipeline(vkcore, formats, globalLayout), "Failed to create bloom downsample pipeline.");
     VKH_MAKE(bloomUpsample, createBloomUpsamplePipeline(vkcore, formats, globalLayout), "Failed to create bloom upsample pipeline.");
@@ -421,6 +466,8 @@ namespace kt::vkh::setup {
         .deferred = deferred,
         .pointLightShadows = pointLightShadows,
         .deferredPointLight = deferredPointLight,
+        .ssao = ssao,
+        .ssaoBlur = ssaoBlur,
         .deferredCombine = lightCombine,
         .bloomDownsample = bloomDownsample,
         .bloomUpsample = bloomUpsample,

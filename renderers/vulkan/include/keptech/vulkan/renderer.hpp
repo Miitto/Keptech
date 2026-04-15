@@ -40,7 +40,11 @@ namespace kt::vkh {
     using T = AllocatedImage;
     T diffuse;
     T specular;
+    T ssaoResult;
+    T ssaoNoise;
+    T ssaoBlur;
     T combined;
+
     void destroy(const VmaAllocator& allocator, const VkDevice& device);
   };
 
@@ -72,6 +76,7 @@ namespace kt::vkh {
     struct Buffers {
       using B = AddressedAllocatedBuffer;
       B camera;
+      B ssaoKernel;
 
       void destroy(VmaAllocator& allocator);
     };
@@ -81,6 +86,8 @@ namespace kt::vkh {
       Pipeline deferred;
       Pipeline pointLightShadows;
       Pipeline deferredPointLight;
+      Pipeline ssao;
+      Pipeline ssaoBlur;
       Pipeline deferredCombine;
       Pipeline bloomDownsample;
       Pipeline bloomUpsample;
@@ -142,7 +149,7 @@ namespace kt::vkh {
 
       Frame frameInfo{};
 
-      size_t nextTextureIndex = constants::FIRST_USER_TEXTURE_INDEX;
+      size_t nextTextureIndex = constants::FirstUserTexture;
 
       std::vector<AllocatedImage> loadedTextures{};
       std::vector<AllocatedBuffer> loadedBuffers{};
@@ -199,6 +206,7 @@ namespace kt::vkh {
     void drawPointLights(VkCommandBuffer cmdBuf);
     void combineLights(VkCommandBuffer cmdBuf);
     void renderBloom(VkCommandBuffer cmdBuf);
+    void renderSsao(VkCommandBuffer cmdBuf);
 
     void renderImGui(VkCommandBuffer graphicsCmd);
     void endFrame(VkCommandBuffer graphicsCmd);

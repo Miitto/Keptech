@@ -12,6 +12,7 @@ namespace kt::vkh {
 
   struct RenderFormats {
     VkFormat albedo = VK_FORMAT_B8G8R8A8_SRGB;
+    VkFormat position = VK_FORMAT_UNDEFINED;
     VkFormat normal = VK_FORMAT_UNDEFINED;
     VkFormat emissive = VK_FORMAT_UNDEFINED;
     VkFormat metRought = VK_FORMAT_UNDEFINED;
@@ -110,7 +111,7 @@ namespace kt::vkh {
                                                               const VkBufferCreateInfo& bufInfo, const VmaAllocationCreateInfo& allocInfo,
                                                               const std::optional<std::string>& name = std::nullopt);
 
-    inline void destroy(VmaAllocator& allocator) {
+    inline void destroy(const VmaAllocator& allocator) {
       if (alloc && !*destroyed) {
         vmaDestroyBuffer(allocator, buffer, alloc);
         buffer = nullptr;

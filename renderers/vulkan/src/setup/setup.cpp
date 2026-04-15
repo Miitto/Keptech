@@ -51,8 +51,16 @@ namespace kt::vkh {
     VKH_MAKE(renderTargets, createRenderTargets(vkcore, formats, glm::ivec2{dm->w, dm->h}),
              "Failed to create render targets for renderer.");
 
+    {
+      auto res = writeSsao(vkcore, buffers, renderTargets);
+      if (!res) {
+        VK_CRITICAL("Failed to write SSAO noise texture: {}", res.error());
+        abort();
+      }
+    }
+
     size_t offset = 0;
-    std::array<VkDescriptorImageInfo, constants::FIRST_USER_TEXTURE_INDEX> imageInfos = {
+    std::array<VkDescriptorImageInfo, constants::FirstUserTexture> imageInfos = {
         VkDescriptorImageInfo{
             .sampler = samplers.linearRepeat,
             .imageView = renderTargets.gBuffer.albedo.view,
@@ -89,6 +97,21 @@ namespace kt::vkh {
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         },
         VkDescriptorImageInfo{
+            .sampler = samplers.nearestRepeat,
+            .imageView = renderTargets.lights.ssaoResult.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        VkDescriptorImageInfo{
+            .sampler = samplers.nearestRepeat,
+            .imageView = renderTargets.lights.ssaoNoise.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        VkDescriptorImageInfo{
+            .sampler = samplers.nearestRepeat,
+            .imageView = renderTargets.lights.ssaoBlur.view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        VkDescriptorImageInfo{
             .sampler = samplers.linearRepeat,
             .imageView = renderTargets.lights.combined.view,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -96,7 +119,7 @@ namespace kt::vkh {
     };
 
     for (size_t i = 0; i < constants::BLOOM_MIP_LEVELS; i++) {
-      imageInfos[constants::BLOOM_FIRST_MIP_INDEX + i] = VkDescriptorImageInfo{
+      imageInfos[constants::BloomFirstMip + i] = VkDescriptorImageInfo{
           .sampler = samplers.linearClamp,
           .imageView = renderTargets.bloomMips[i].image.view,
           .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -124,12 +147,21 @@ namespace kt::vkh {
                              .range = sizeof(components::Camera::Uniforms),
                          },
                          DescriptorWriter::BufferType::Uniform);
+      writer.writeBuffer(2,
+                         VkDescriptorBufferInfo{
+                             .buffer = buffers.ssaoKernel.buffer,
+                             .offset = 0,
+                             .range = sizeof(glm::vec4) * constants::SSAO_KERNEL_SIZE,
+                         },
+                         DescriptorWriter::BufferType::Uniform);
 
       writer.update(vkcore.device.logical, set);
 
       offset += sizeof(components::Camera::Uniforms);
       offset = maths::roundToAlignment(offset, limits::minUniformBufferOffsetAlignment);
     }
+
+    vkDeviceWaitIdle(vkcore.device.logical);
 
     VK_DEBUG("Vulkan renderer created successfully.");
     Renderer r{{
