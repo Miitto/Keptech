@@ -219,6 +219,9 @@ namespace kt::vkh::setup {
     auto lerp = [](float a, float b, float f) { return a + f * (b - a); };
     for (uint32_t i = 0; i < constants::SSAO_KERNEL_SIZE; ++i) {
       glm::vec4 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.f, 1.f);
+      sample = glm::normalize(sample);
+      sample *= randomFloats(generator);
+
       float scale = static_cast<float>(i) / static_cast<float>(constants::SSAO_KERNEL_SIZE);
       scale = lerp(0.1f, 1.0f, scale * scale);
       sample *= scale;
