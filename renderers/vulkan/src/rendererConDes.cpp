@@ -1,6 +1,7 @@
 #include "keptech/vulkan/renderer.hpp"
 
 #include "keptech/rendering/imgui.hpp"
+#include "profile.hpp"
 #include "vk-logger.hpp"
 
 namespace kt::vkh {
@@ -90,6 +91,8 @@ namespace kt::vkh {
     auto& allocator = m.vkcore.allocator;
 
     vkDeviceWaitIdle(device);
+
+    KT_VK_CONTEXT_DESTROY(m.tracyContext);
 
     for (auto& perFrame : m.vkcore.perFrame) {
       vkDestroySemaphore(device, perFrame.imageAvailableSemaphore, nullptr);

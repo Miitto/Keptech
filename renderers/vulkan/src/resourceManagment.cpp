@@ -5,6 +5,7 @@
 #include "keptech/vulkan/helpers/formatting.hpp"
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
+#include "profile.hpp"
 #include "vk-logger.hpp"
 #include <cstring>
 #include <execution>
@@ -42,6 +43,7 @@ namespace kt::vkh {
   } // namespace
 
   std::expected<gltf::Scene, std::string> Renderer::loadMesh(std::string_view path) {
+    KT_PROFILE_FUNCTION
     VKH_MAKE(gltfData, gltf::Data::fromFile(path), "Failed to load glTF data from file");
 
     VkCommandBuffer transferCmd = nullptr;
@@ -84,8 +86,11 @@ namespace kt::vkh {
     vkQueueSubmit2(m.vkcore.queues.transfer.queue, 1, &submitInfo, transferFence);
 
     VkResult res = VK_SUCCESS;
-    while (res = vkWaitForFences(m.vkcore.device.logical, 1, &transferFence, VK_TRUE, UINT64_MAX), res == VK_TIMEOUT) {
-      std::this_thread::yield();
+    {
+      KT_PROFILE_SCOPE("Wait for Mesh Upload");
+      while (res = vkWaitForFences(m.vkcore.device.logical, 1, &transferFence, VK_TRUE, UINT64_MAX), res == VK_TIMEOUT) {
+        std::this_thread::yield();
+      }
     }
     VK_ASSERT(res == VK_SUCCESS, "Failed to wait for mesh upload fence");
     vkDestroyFence(m.vkcore.device.logical, transferFence, nullptr);
@@ -112,6 +117,7 @@ namespace kt::vkh {
 
   std::expected<Renderer::UploadResult<Texture>, std::string> Renderer::createImages(const gltf::Data& gltf,
                                                                                      const VkCommandBuffer transferCmd) {
+    KT_PROFILE_FUNCTION
     auto& gltfImages = gltf.images;
     VK_DEBUG("Loading {} images from glTF data", gltfImages.size());
     struct Tex {
@@ -465,6 +471,7 @@ namespace kt::vkh {
   std::expected<Renderer::UploadResult<Mesh>, std::string> Renderer::uploadMeshes(const std::vector<gltf::MeshData>& meshes,
                                                                                   const std::vector<rendering::Material>& materials,
                                                                                   const VkCommandBuffer transferCmd) {
+    KT_PROFILE_FUNCTION
     VK_DEBUG("Uploading {} meshes from glTF data", meshes.size());
     std::vector<Mesh> result;
     result.reserve(meshes.size());
@@ -607,6 +614,7 @@ namespace kt::vkh {
 
   std::expected<Renderer::UploadResult<rendering::Material>, std::string>
   Renderer::createMaterials(const gltf::Data& data, const std::vector<Texture>& textures, const VkCommandBuffer transferCmd) {
+    KT_PROFILE_FUNCTION
     auto& materials = data.materials;
     struct GpuMaterial {
       uint32_t albedo;

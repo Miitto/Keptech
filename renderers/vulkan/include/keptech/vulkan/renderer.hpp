@@ -24,6 +24,10 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
+#ifdef KT_PROFILE
+#include <tracy/TracyVulkan.hpp>
+#endif
+
 namespace kt::vkh {
 
   struct GBuffer {
@@ -153,6 +157,10 @@ namespace kt::vkh {
 
       std::vector<AllocatedImage> loadedTextures{};
       std::vector<AllocatedBuffer> loadedBuffers{};
+
+#ifdef KT_PROFILE
+      TracyVkCtx tracyContext;
+#endif
     };
 
     // Creation and destruction

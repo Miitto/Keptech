@@ -1,10 +1,12 @@
 #include "keptech/vulkan/renderer.hpp"
 
+#include "profile.hpp"
 #include "vk-logger.hpp"
 
 namespace kt::vkh {
 
   void Renderer::updateTextureDescriptors() {
+    KT_PROFILE_FUNCTION
     auto& textureUpdates = m.frameInfo.perFrame->texToUpdate;
     if (!textureUpdates.empty()) {
       auto& globalDescSet = m.globalDescriptorSets.sets[m.frameInfo.index];

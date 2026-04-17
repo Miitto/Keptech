@@ -14,8 +14,11 @@
 namespace kt::vkh::setup {
   using namespace kt::vkh;
 
-  constexpr std::array<const char*, 1> REQUIRED_DEVICE_EXTENSIONS = {
+  constexpr std::array REQUIRED_DEVICE_EXTENSIONS = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+#ifdef KT_PROFILE
+      VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME,
+#endif
   };
 
   std::expected<VkPhysicalDevice, std::string> createPhysicalDevice(VkInstance instance, VkSurfaceKHR surface) {
@@ -150,6 +153,7 @@ namespace kt::vkh::setup {
         .descriptorBindingSampledImageUpdateAfterBind = true,
         .descriptorBindingPartiallyBound = true,
         .runtimeDescriptorArray = true,
+        .hostQueryReset = true,
         .timelineSemaphore = true,
         .bufferDeviceAddress = true,
         .shaderOutputLayer = true,

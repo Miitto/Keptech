@@ -5,6 +5,7 @@
 #include "keptech/vulkan/helpers/descriptors.hpp"
 #include "keptech/vulkan/renderer.hpp"
 #include "macros.hpp"
+#include "profile.hpp"
 #include <SDL3/SDL_vulkan.h>
 #include <expected>
 #include <keptech/components/camera.hpp>
@@ -161,6 +162,15 @@ namespace kt::vkh {
       offset = maths::roundToAlignment(offset, limits::minUniformBufferOffsetAlignment);
     }
 
+#ifdef KT_PROFILE
+    ext::vkGetPhysicalDeviceCalibrateableTimeDomainsEXT = (PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT)vkGetInstanceProcAddr(
+        vkcore.instance, "vkGetPhysicalDeviceCalibrateableTimeDomainsEXT");
+    ext::vkGetCalibratedTimestampsEXT =
+        (PFN_vkGetCalibratedTimestampsEXT)vkGetInstanceProcAddr(vkcore.instance, "vkGetCalibratedTimestampsEXT");
+
+    auto ctx = KT_VK_CONTEXT(vkcore.device.physical, vkcore.device.logical);
+#endif
+
     vkDeviceWaitIdle(vkcore.device.logical);
 
     VK_DEBUG("Vulkan renderer created successfully.");
@@ -174,6 +184,9 @@ namespace kt::vkh {
         .buffers = buffers,
         .pipelines = pipelines,
         .globalDescriptorSets = globalDescriptorSets,
+#ifdef KT_PROFILE
+        .tracyContext = ctx,
+#endif
     }};
 
     return std::move(r);

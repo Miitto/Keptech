@@ -23,6 +23,8 @@ link_spdlog(${PROJECT_NAME} PUBLIC)
 include(sdl)
 link_sdl(${PROJECT_NAME} PUBLIC)
 
+
+
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     keptech::logging
@@ -55,6 +57,31 @@ target_link_libraries(${PROJECT_NAME}
   PUBLIC
     fastgltf::fastgltf
 )
+
+if (KT_PROFILE)
+  set(TRACY_ENABLE ON)
+  message(STATUS "Profiling enabled, linking Tracy")
+  FetchContent_Declare (
+    tracy
+    GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+    GIT_TAG v0.13.1
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+    SYSTEM
+  )
+  FetchContent_MakeAvailable(tracy)
+  target_link_libraries(${PROJECT_NAME}
+    PUBLIC
+    TracyClient
+  )
+  target_compile_definitions(${PROJECT_NAME}
+    PUBLIC
+    TRACY_ENABLE
+    KT_PROFILE
+  )
+else()
+  message(STATUS "Profiling disabled")
+endif()
 
 # Lint
 

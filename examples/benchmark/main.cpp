@@ -70,6 +70,8 @@ public:
     }
 
     scene.getEcs().sort<kt::components::Transform>([](const auto& a, const auto& b) { return a.getDepth() < b.getDepth(); });
+    // Sorts meshes to minimize cache misses when iterating with transforms
+    scene.getEcs().sort<kt::components::Mesh, kt::components::Transform>();
 
     freeController = kt::cameras::FreeCameraController(camera);
   }

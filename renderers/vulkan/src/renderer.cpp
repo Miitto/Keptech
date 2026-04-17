@@ -6,12 +6,14 @@
 #include <keptech/maths/maths.hpp>
 
 #include "keptech/vulkan/constants.hpp"
+#include "profile.hpp"
 #include "setup/setup.hpp"
 #include "vk-logger.hpp"
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
 #include <keptech/components/camera.hpp>
+#include <keptech/core/profile.hpp>
 #include <keptech/core/window.hpp>
 #include <keptech/rendering/structs.hpp>
 
@@ -30,15 +32,21 @@ namespace kt::vkh {
     ImGui::End();
   }
 
-  void Renderer::render() {
-    startFrame();
-
-    {
-      auto view = scene->getEcs().view<components::Transform>();
+  namespace {
+    void recalcGlobalTransforms(entt::registry& registry) {
+      KT_PROFILE_FUNCTION
+      auto view = registry.view<components::Transform>();
       for (auto [entity, transform] : view.each()) {
         transform.recalculateGlobalTransform();
       }
     }
+  } // namespace
+
+  void Renderer::render() {
+    KT_PROFILE_FUNCTION
+    startFrame();
+
+    recalcGlobalTransforms(scene->getEcs());
 
     VkCommandBuffer cmdBuf = nullptr;
     VkCommandBufferAllocateInfo allocInfo{
@@ -53,20 +61,60 @@ namespace kt::vkh {
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
     vkBeginCommandBuffer(cmdBuf, &beginInfo);
+    {
+      KT_VK_ZONE(m.tracyContext, cmdBuf, "Render");
 
-    updateCameraBuffer(cmdBuf);
-    drawDeferred(cmdBuf);
-    drawLights(cmdBuf);
-    renderBloom(cmdBuf);
+      updateCameraBuffer(cmdBuf);
+      KT_VK_COLLECT(m.tracyContext, cmdBuf);
+      drawDeferred(cmdBuf);
+      KT_VK_COLLECT(m.tracyContext, cmdBuf);
+      drawLights(cmdBuf);
+      KT_VK_COLLECT(m.tracyContext, cmdBuf);
+      renderBloom(cmdBuf);
+      KT_VK_COLLECT(m.tracyContext, cmdBuf);
 
 #ifndef NDEBUG
-    debugUi();
+      debugUi();
 #endif
-    renderImGui(cmdBuf);
+      renderImGui(cmdBuf);
+      VkImageMemoryBarrier2 barrier{
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+          .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+          .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+          .dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
+          .dstAccessMask = VK_ACCESS_2_NONE,
+          .oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+          .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+          .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+          .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+          .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
+          .subresourceRange =
+              VkImageSubresourceRange{
+                  .aspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT,
+                  .baseMipLevel = 0,
+                  .levelCount = 1,
+                  .baseArrayLayer = 0,
+                  .layerCount = 1,
+              },
+      };
+
+      VkDependencyInfo dependencyInfo{
+          .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+          .imageMemoryBarrierCount = 1,
+          .pImageMemoryBarriers = &barrier,
+      };
+
+      vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
+    }
+
+    KT_VK_COLLECT(m.tracyContext, cmdBuf);
+    vkEndCommandBuffer(cmdBuf);
     endFrame(cmdBuf);
   }
 
   void Renderer::updateCameraBuffer(VkCommandBuffer cmdBuf) {
+    KT_PROFILE_FUNCTION
+    KT_VK_ZONE(m.tracyContext, cmdBuf, "Update Camera Buffer");
     auto [camT, cam] = scene->getActiveCamera().getComponents<components::Transform, components::Camera>();
 
     cam.recalculateProjectionMatrix();
@@ -95,6 +143,8 @@ namespace kt::vkh {
   }
 
   void Renderer::drawDeferred(VkCommandBuffer cmdBuf) {
+    KT_PROFILE_FUNCTION
+    KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Deferred");
     deferredToRenderable(cmdBuf);
     deferredBeginRendering(cmdBuf);
 
@@ -130,9 +180,11 @@ namespace kt::vkh {
   }
 
   void Renderer::drawLights(VkCommandBuffer cmdBuf) {
-
+    KT_PROFILE_FUNCTION
+    KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Lights");
     lightsToRenderable(cmdBuf);
 
+    drawPointLightShadowMaps(cmdBuf);
     drawPointLights(cmdBuf);
 
     seperatedLightsToShaderRead(cmdBuf);
@@ -145,6 +197,8 @@ namespace kt::vkh {
   }
 
   void Renderer::drawPointLightShadowMaps(VkCommandBuffer cmdBuf) {
+    KT_PROFILE_FUNCTION
+    KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Point Light Shadow Maps");
     constexpr std::array<glm::vec3, 6> directions{
         glm::vec3{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1},
     };
@@ -236,23 +290,27 @@ namespace kt::vkh {
                               &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
       setupCustomViewportAndScissor(cmdBuf, {0, 0}, {constants::SHADOW_MAP_SIZE, constants::SHADOW_MAP_SIZE});
 
-      glm::mat4 shadowProj = glm::perspectiveLH_ZO(glm::radians(90.f), 1.f, 0.1f, pointLight.radius);
       glm::vec3 shadowCenter = transform.getGlobal()[3];
-      std::array<glm::mat4, 6> shadowViews = {
-          glm::lookAtLH(shadowCenter, shadowCenter + directions[0], upDirections[0]),
-          glm::lookAtLH(shadowCenter, shadowCenter + directions[1], upDirections[1]),
-          glm::lookAtLH(shadowCenter, shadowCenter + directions[2], upDirections[2]),
-          glm::lookAtLH(shadowCenter, shadowCenter + directions[3], upDirections[3]),
-          glm::lookAtLH(shadowCenter, shadowCenter + directions[4], upDirections[4]),
-          glm::lookAtLH(shadowCenter, shadowCenter + directions[5], upDirections[5]),
-      };
+      {
+        KT_PROFILE_SCOPE("Shadow Matrix Calculation");
 
-      std::array<glm::mat4, 6> shadowViewProjs = {
-          shadowProj * shadowViews[0], shadowProj * shadowViews[1], shadowProj * shadowViews[2],
-          shadowProj * shadowViews[3], shadowProj * shadowViews[4], shadowProj * shadowViews[5],
-      };
+        glm::mat4 shadowProj = glm::perspectiveLH_ZO(glm::radians(90.f), 1.f, 0.1f, pointLight.radius);
+        std::array<glm::mat4, 6> shadowViews = {
+            glm::lookAtLH(shadowCenter, shadowCenter + directions[0], upDirections[0]),
+            glm::lookAtLH(shadowCenter, shadowCenter + directions[1], upDirections[1]),
+            glm::lookAtLH(shadowCenter, shadowCenter + directions[2], upDirections[2]),
+            glm::lookAtLH(shadowCenter, shadowCenter + directions[3], upDirections[3]),
+            glm::lookAtLH(shadowCenter, shadowCenter + directions[4], upDirections[4]),
+            glm::lookAtLH(shadowCenter, shadowCenter + directions[5], upDirections[5]),
+        };
 
-      memcpy(pointLight.shadowMatrixBuffer.mapping(), shadowViewProjs.data(), shadowViewProjs.size() * sizeof(glm::mat4));
+        std::array<glm::mat4, 6> shadowViewProjs = {
+            shadowProj * shadowViews[0], shadowProj * shadowViews[1], shadowProj * shadowViews[2],
+            shadowProj * shadowViews[3], shadowProj * shadowViews[4], shadowProj * shadowViews[5],
+        };
+
+        memcpy(pointLight.shadowMatrixBuffer.mapping(), shadowViewProjs.data(), shadowViewProjs.size() * sizeof(glm::mat4));
+      }
 
       struct LightInfo {
         glm::vec4 position;
@@ -267,18 +325,22 @@ namespace kt::vkh {
                          sizeof(LightInfo), &info);
 
       constexpr VkDeviceSize vertexOffest = 0;
-      for (auto [entity, transform, mesh] : view.each()) {
-        vkCmdBindVertexBuffers(cmdBuf, 0, 1, &mesh.getRMesh().vertexBuffer.buffer, &vertexOffest);
-        vkCmdBindIndexBuffer(cmdBuf, mesh.getRMesh().indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+      {
+        KT_PROFILE_SCOPE("Shadow Map Draw Calls");
+        KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Shadow Casters");
+        for (auto [entity, transform, mesh] : view.each()) {
+          vkCmdBindVertexBuffers(cmdBuf, 0, 1, &mesh.getRMesh().vertexBuffer.buffer, &vertexOffest);
+          vkCmdBindIndexBuffer(cmdBuf, mesh.getRMesh().indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-        auto model = transform.getGlobal();
+          auto model = transform.getGlobal();
 
-        vkCmdPushConstants(cmdBuf, m.pipelines.pointLightShadows.layout,
-                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4),
-                           &model);
+          vkCmdPushConstants(cmdBuf, m.pipelines.pointLightShadows.layout,
+                             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4),
+                             &model);
 
-        for (const auto& submesh : mesh.getSubmeshes()) {
-          vkCmdDrawIndexed(cmdBuf, submesh.count, 1, submesh.start, 0, 0);
+          for (const auto& submesh : mesh.getSubmeshes()) {
+            vkCmdDrawIndexed(cmdBuf, submesh.count, 1, submesh.start, 0, 0);
+          }
         }
       }
 
@@ -289,7 +351,8 @@ namespace kt::vkh {
   } // namespace kt::vkh
 
   void Renderer::drawPointLights(VkCommandBuffer cmdBuf) {
-    drawPointLightShadowMaps(cmdBuf);
+    KT_PROFILE_FUNCTION
+    KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Point Lights");
 
     seperatedLightsBeginRendering(cmdBuf);
 
@@ -320,41 +383,51 @@ namespace kt::vkh {
   }
 
   void Renderer::renderSsao(VkCommandBuffer cmdBuf) {
-    colorImageToRenderable(cmdBuf, m.renderTargets.lights.ssaoResult);
-    colorImageBeginRendering(cmdBuf, m.renderTargets.lights.ssaoResult);
+    KT_PROFILE_FUNCTION
+    KT_VK_ZONE(m.tracyContext, cmdBuf, "Render SSAO");
+    {
+      KT_VK_ZONE(m.tracyContext, cmdBuf, "SSAO Pass");
+      colorImageToRenderable(cmdBuf, m.renderTargets.lights.ssaoResult);
+      colorImageBeginRendering(cmdBuf, m.renderTargets.lights.ssaoResult);
 
-    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssao.pipeline);
-    vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssao.layout, 0, 1,
-                            &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+      vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssao.pipeline);
+      vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssao.layout, 0, 1,
+                              &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
 
-    setupViewportAndScissor(cmdBuf);
+      setupViewportAndScissor(cmdBuf);
 
-    vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+      vkCmdDraw(cmdBuf, 3, 1, 0, 0);
 
-    vkCmdEndRendering(cmdBuf);
+      vkCmdEndRendering(cmdBuf);
 
-    colorImageToShaderRead(cmdBuf, m.renderTargets.lights.ssaoResult);
+      colorImageToShaderRead(cmdBuf, m.renderTargets.lights.ssaoResult);
+    }
 
-    colorImageToRenderable(cmdBuf, m.renderTargets.lights.ssaoBlur);
-    colorImageBeginRendering(cmdBuf, m.renderTargets.lights.ssaoBlur, false);
+    {
+      KT_VK_ZONE(m.tracyContext, cmdBuf, "SSAO Blur Pass");
+      colorImageToRenderable(cmdBuf, m.renderTargets.lights.ssaoBlur);
+      colorImageBeginRendering(cmdBuf, m.renderTargets.lights.ssaoBlur, false);
 
-    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssaoBlur.pipeline);
-    vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssaoBlur.layout, 0, 1,
-                            &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+      vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssaoBlur.pipeline);
+      vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssaoBlur.layout, 0, 1,
+                              &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
 
-    setupViewportAndScissor(cmdBuf);
+      setupViewportAndScissor(cmdBuf);
 
-    glm::vec2 texelSize = 1.f / glm::vec2(m.renderTargets.framebufferSize);
-    vkCmdPushConstants(cmdBuf, m.pipelines.ssaoBlur.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec2),
-                       &texelSize);
+      glm::vec2 texelSize = 1.f / glm::vec2(m.renderTargets.framebufferSize);
+      vkCmdPushConstants(cmdBuf, m.pipelines.ssaoBlur.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                         sizeof(glm::vec2), &texelSize);
 
-    vkCmdDraw(cmdBuf, 3, 1, 0, 0);
-    vkCmdEndRendering(cmdBuf);
+      vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+      vkCmdEndRendering(cmdBuf);
 
-    colorImageToShaderRead(cmdBuf, m.renderTargets.lights.ssaoBlur);
+      colorImageToShaderRead(cmdBuf, m.renderTargets.lights.ssaoBlur);
+    }
   }
 
   void Renderer::combineLights(VkCommandBuffer cmdBuf) {
+    KT_PROFILE_FUNCTION
+    KT_VK_ZONE(m.tracyContext, cmdBuf, "Combine Lights");
     combinedLightBeginRendering(cmdBuf);
 
     vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.deferredCombine.pipeline);
@@ -369,134 +442,146 @@ namespace kt::vkh {
   }
 
   void Renderer::renderBloom(VkCommandBuffer cmdBuf) {
+    KT_PROFILE_FUNCTION
+    KT_VK_ZONE(m.tracyContext, cmdBuf, "Render Bloom");
     glm::vec2 size = m.renderTargets.framebufferSize;
 
     static float filterRadius = 0.005f;
 
     uint32_t sampleIndex = constants::BloomSource;
 
-    for (size_t i = 0; i < constants::BLOOM_MIP_LEVELS; i++) {
-      auto& mip = m.renderTargets.bloomMips[i];
-      colorImageToRenderable(cmdBuf, mip.image);
-      colorImageBeginRendering(cmdBuf, mip.image);
+    {
+      KT_VK_ZONE(m.tracyContext, cmdBuf, "Bloom Downsample Passes");
+      for (size_t i = 0; i < constants::BLOOM_MIP_LEVELS; i++) {
+        auto& mip = m.renderTargets.bloomMips[i];
+        colorImageToRenderable(cmdBuf, mip.image);
+        colorImageBeginRendering(cmdBuf, mip.image);
 
-      vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomDownsample.pipeline);
-      vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomDownsample.layout, 0, 1,
-                              &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomDownsample.pipeline);
+        vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomDownsample.layout, 0, 1,
+                                &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
 
-      setupCustomViewportAndScissor(cmdBuf, {}, {mip.size.x, mip.size.y});
+        setupCustomViewportAndScissor(cmdBuf, {}, {mip.size.x, mip.size.y});
 
-      struct PushConstants {
-        glm::vec2 texelSize;
-        uint32_t level;
-      } pushConstants{
-          .texelSize = 1.f / size,
-          .level = sampleIndex,
-      };
-      vkCmdPushConstants(cmdBuf, m.pipelines.bloomDownsample.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                         sizeof(PushConstants), &pushConstants);
+        struct PushConstants {
+          glm::vec2 texelSize;
+          uint32_t level;
+        } pushConstants{
+            .texelSize = 1.f / size,
+            .level = sampleIndex,
+        };
+        vkCmdPushConstants(cmdBuf, m.pipelines.bloomDownsample.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                           sizeof(PushConstants), &pushConstants);
 
-      vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+        vkCmdDraw(cmdBuf, 3, 1, 0, 0);
 
-      vkCmdEndRendering(cmdBuf);
+        vkCmdEndRendering(cmdBuf);
 
-      colorImageToShaderRead(cmdBuf, mip.image);
+        colorImageToShaderRead(cmdBuf, mip.image);
 
-      size = mip.size;
-      sampleIndex = constants::BloomFirstMip + i;
+        size = mip.size;
+        sampleIndex = constants::BloomFirstMip + i;
+      }
     }
 
-    for (size_t i = constants::BLOOM_MIP_LEVELS - 1; i > 0; i--) {
-      size_t downsampledIndex = i;
-      size_t upsampledIndex = i - 1;
-      auto& mip = m.renderTargets.bloomMips[upsampledIndex];
-      colorImageToRenderable(cmdBuf, mip.image);
-      colorImageBeginRendering(cmdBuf, mip.image, false);
+    {
+      KT_VK_ZONE(m.tracyContext, cmdBuf, "Bloom Upsample Passes");
+      for (size_t i = constants::BLOOM_MIP_LEVELS - 1; i > 0; i--) {
+        size_t downsampledIndex = i;
+        size_t upsampledIndex = i - 1;
+        auto& mip = m.renderTargets.bloomMips[upsampledIndex];
+        colorImageToRenderable(cmdBuf, mip.image);
+        colorImageBeginRendering(cmdBuf, mip.image, false);
 
-      vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomUpsample.pipeline);
-      vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomUpsample.layout, 0, 1,
-                              &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+        vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomUpsample.pipeline);
+        vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomUpsample.layout, 0, 1,
+                                &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
 
-      setupCustomViewportAndScissor(cmdBuf, {}, {mip.size.x, mip.size.y});
+        setupCustomViewportAndScissor(cmdBuf, {}, {mip.size.x, mip.size.y});
 
-      struct PushConstants {
-        float filterRadius;
-        uint32_t level;
-      } pushConstants{
-          .filterRadius = filterRadius,
-          .level = static_cast<uint32_t>(constants::BloomFirstMip + downsampledIndex),
-      };
-      vkCmdPushConstants(cmdBuf, m.pipelines.bloomUpsample.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                         sizeof(PushConstants), &pushConstants);
+        struct PushConstants {
+          float filterRadius;
+          uint32_t level;
+        } pushConstants{
+            .filterRadius = filterRadius,
+            .level = static_cast<uint32_t>(constants::BloomFirstMip + downsampledIndex),
+        };
+        vkCmdPushConstants(cmdBuf, m.pipelines.bloomUpsample.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                           sizeof(PushConstants), &pushConstants);
 
-      vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+        vkCmdDraw(cmdBuf, 3, 1, 0, 0);
 
-      vkCmdEndRendering(cmdBuf);
+        vkCmdEndRendering(cmdBuf);
 
-      colorImageToShaderRead(cmdBuf, mip.image);
+        colorImageToShaderRead(cmdBuf, mip.image);
+      }
     }
     {
-      VkImageMemoryBarrier2 barrier{
-          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-          .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-          .srcAccessMask = VK_ACCESS_2_NONE,
-          .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-          .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-          .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-          .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-          .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-          .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-          .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-          .subresourceRange =
-              VkImageSubresourceRange{
-                  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                  .baseMipLevel = 0,
-                  .levelCount = 1,
-                  .baseArrayLayer = 0,
-                  .layerCount = 1,
-              },
-      };
-      VkDependencyInfo dependencyInfo{
-          .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-          .imageMemoryBarrierCount = 1,
-          .pImageMemoryBarriers = &barrier,
-      };
-      vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
+      KT_VK_ZONE(m.tracyContext, cmdBuf, "Bloom Combine Pass");
+      {
+        VkImageMemoryBarrier2 barrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+            .srcAccessMask = VK_ACCESS_2_NONE,
+            .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
+            .subresourceRange =
+                VkImageSubresourceRange{
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+        };
+        VkDependencyInfo dependencyInfo{
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &barrier,
+        };
+        vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
+      }
+      {
+        VkRenderingAttachmentInfo aInfo{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = m.vkcore.swapchain.nView(m.frameInfo.imageIndex),
+            .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        };
+        VkRenderingInfo renderingInfo{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .renderArea =
+                VkRect2D{
+                    .offset = VkOffset2D{.x = 0, .y = 0},
+                    .extent = m.vkcore.swapchain.config().extent,
+                },
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &aInfo,
+        };
+        vkCmdBeginRendering(cmdBuf, &renderingInfo);
+      }
+
+      vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomCombine.pipeline);
+      vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomCombine.layout, 0, 1,
+                              &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+
+      auto& extent = m.vkcore.swapchain.config().extent;
+      setupCustomViewportAndScissor(cmdBuf, {}, {extent.width, extent.height});
+
+      vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+      vkCmdEndRendering(cmdBuf);
     }
-    {
-      VkRenderingAttachmentInfo aInfo{
-          .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-          .imageView = m.vkcore.swapchain.nView(m.frameInfo.imageIndex),
-          .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-          .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-          .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-      };
-      VkRenderingInfo renderingInfo{
-          .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-          .renderArea =
-              VkRect2D{
-                  .offset = VkOffset2D{.x = 0, .y = 0},
-                  .extent = m.vkcore.swapchain.config().extent,
-              },
-          .layerCount = 1,
-          .colorAttachmentCount = 1,
-          .pColorAttachments = &aInfo,
-      };
-      vkCmdBeginRendering(cmdBuf, &renderingInfo);
-    }
-
-    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomCombine.pipeline);
-    vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.bloomCombine.layout, 0, 1,
-                            &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
-
-    auto& extent = m.vkcore.swapchain.config().extent;
-    setupCustomViewportAndScissor(cmdBuf, {}, {extent.width, extent.height});
-
-    vkCmdDraw(cmdBuf, 3, 1, 0, 0);
-    vkCmdEndRendering(cmdBuf);
   }
 
   void Renderer::newFrame() {
+    KT_PROFILE_FUNCTION
     imGuiNewFrame();
     auto& perFrame = m.vkcore.perFrame[m.frameInfo.index];
 
@@ -528,6 +613,7 @@ namespace kt::vkh {
   }
 
   void Renderer::startFrame() {
+    KT_PROFILE_FUNCTION
     VK_ASSERT(m.frameInfo.perFrame->pools.graphics.pool != VK_NULL_HANDLE, "Graphics command pool is null");
     VK_ASSERT(m.frameInfo.perFrame->pools.compute.pool != VK_NULL_HANDLE, "Compute command pool is null");
     m.frameInfo.perFrame->pools.resetAll(m.vkcore.device.logical);
@@ -536,6 +622,8 @@ namespace kt::vkh {
   }
 
   void Renderer::renderImGui(VkCommandBuffer cmdBuf) {
+    KT_PROFILE_FUNCTION
+    KT_VK_ZONE(m.tracyContext, cmdBuf, "Render ImGui");
     ImGui::Render();
 
     VkRenderingAttachmentInfo aInfo{
@@ -563,39 +651,7 @@ namespace kt::vkh {
     vkCmdEndRendering(cmdBuf);
   }
 
-  void Renderer::endFrame(VkCommandBuffer cmdBuf) { // NOLINT - The item in the UPtr is moved
-
-    VkImageMemoryBarrier2 barrier{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-        .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-        .dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
-        .dstAccessMask = VK_ACCESS_2_NONE,
-        .oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-        .subresourceRange =
-            VkImageSubresourceRange{
-                .aspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-    };
-
-    VkDependencyInfo dependencyInfo{
-        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &barrier,
-    };
-
-    vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
-
-    vkEndCommandBuffer(cmdBuf);
-
+  void Renderer::endFrame(VkCommandBuffer cmdBuf) {
     auto& sem = m.vkcore.swapchain.nPresentSemaphore(m.frameInfo.imageIndex);
 
     VkSemaphoreSubmitInfo imageAvailableWaitInfo{
@@ -670,6 +726,8 @@ namespace kt::vkh {
         abort();
       }
     }
+
+    KT_MARK_FRAME;
   }
 
   std::expected<void, std::string> Renderer::recreateSwapchain() {

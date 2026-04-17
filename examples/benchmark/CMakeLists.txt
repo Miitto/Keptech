@@ -1,5 +1,4 @@
 
-
 add_executable(benchmark)
 
 target_link_libraries(benchmark PRIVATE keptech::keptech keptech::shader_processor)

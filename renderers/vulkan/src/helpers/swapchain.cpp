@@ -3,6 +3,7 @@
 #include "vk-logger.hpp"
 #include <algorithm>
 #include <array>
+#include <keptech/core/profile.hpp>
 #include <macros.hpp>
 
 namespace {
@@ -139,14 +140,24 @@ namespace kt::vkh {
     return s;
   }
 
+  namespace {
+    void waitForImageAvailable(const VkDevice& device, VkFence& waitFence) {
+      KT_PROFILE_FUNCTION
+      while (VK_TIMEOUT == vkWaitForFences(device, 1, &waitFence, VK_TRUE, UINT64_MAX)) {
+        // Doubt will ever be hit
+        VK_WARN(
+            "Wait for fence timed out while acquiring next swapchain image. This should not happen, but if it does, it means the GPU is "
+            "taking a very long time to render a frame. Yielding thread to avoid busy waiting.");
+        std::this_thread::yield();
+      }
+    }
+  } // namespace
+
   auto Swapchain::getNextImage(const VkDevice& device, VkFence& waitFence, VkSemaphore& signalSemaphore) const noexcept
       -> std::expected<AcquireResult, std::string> {
-    while (VK_TIMEOUT == vkWaitForFences(device, 1, &waitFence, VK_TRUE, UINT64_MAX)) {
-      // Doubt will ever be hit
-      VK_WARN("Wait for fence timed out while acquiring next swapchain image. This should not happen, but if it does, it means the GPU is "
-              "taking a very long time to render a frame. Yielding thread to avoid busy waiting.");
-      std::this_thread::yield();
-    }
+    KT_PROFILE_FUNCTION
+    waitForImageAvailable(device, waitFence);
+
     vkResetFences(device, 1, &waitFence);
     uint32_t index = 0;
     auto result = vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(), signalSemaphore, VK_NULL_HANDLE, &index);
@@ -165,6 +176,7 @@ namespace kt::vkh {
 
     return AcquireResult(index, State::Ok);
   }
+
   Swapchain::Swapchain(Swapchain&& other) noexcept
       : device(other.device), swapchain(other.swapchain), imgs(std::move(other.imgs)), imageViews(std::move(other.imageViews)),
         presentSemaphores(std::move(other.presentSemaphores)), _config(other._config) {

@@ -5,12 +5,13 @@
 #include <fastgltf/core.hpp>
 #include <fastgltf/glm_element_traits.hpp>
 #include <keptech/core/fastgltf_formatting.hpp>
+#include <keptech/core/profile.hpp>
 #include <ranges>
 
 namespace kt::gltf {
   namespace {
     void loadMeshData(fastgltf::Asset& asset, Data& gltf) {
-
+      KT_PROFILE_FUNCTION
       size_t startMeshCount = gltf.meshes.size();
       gltf.meshes.resize(startMeshCount + asset.meshes.size());
 
@@ -61,9 +62,7 @@ namespace kt::gltf {
 
             fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, posAccessor, [&](glm::vec3 position, size_t index) {
               position.x = -position.x;
-              Vertex vertex{};
-              vertex.position = position;
-              vertices[startIndex + index] = vertex;
+              vertices[startIndex + index].position = position;
             });
           }
 
@@ -132,95 +131,85 @@ namespace kt::gltf {
   } // namespace
 
   std::expected<Data, std::string> Data::fromFile(std::string_view spath) {
+    KT_PROFILE_FUNCTION
 
-    std::filesystem::path path{spath};
+    fastgltf::Asset asset;
+    Data loadedGltf{};
+    {
+      KT_PROFILE_SCOPE("GLTF File Read");
+      std::filesystem::path path{spath};
 
-    constexpr auto extensions = fastgltf::Extensions::KHR_texture_basisu | fastgltf::Extensions::KHR_materials_specular;
-    constexpr auto options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble |
-                             fastgltf::Options::LoadExternalBuffers | fastgltf::Options::GenerateMeshIndices |
-                             fastgltf::Options::DecomposeNodeMatrices;
-    fastgltf::Parser parser(extensions);
+      constexpr auto extensions = fastgltf::Extensions::KHR_texture_basisu | fastgltf::Extensions::KHR_materials_specular;
+      constexpr auto options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble |
+                               fastgltf::Options::LoadExternalBuffers | fastgltf::Options::GenerateMeshIndices |
+                               fastgltf::Options::DecomposeNodeMatrices;
+      fastgltf::Parser parser(extensions);
 
-    KT_DEBUG("Loading glTF file from path: {}", path.string());
-    auto gltfFile = fastgltf::MappedGltfFile::FromPath(path);
-    if (!bool(gltfFile)) {
-      return std::unexpected(fmt::format("Failed to load glTF file: {}", gltfFile.error()));
+      KT_DEBUG("Loading glTF file from path: {}", path.string());
+      auto gltfFile = fastgltf::MappedGltfFile::FromPath(path);
+      if (!bool(gltfFile)) {
+        return std::unexpected(fmt::format("Failed to load glTF file: {}", gltfFile.error()));
+      }
+
+      std::filesystem::path basePath = path.parent_path();
+
+      auto asset_res = parser.loadGltf(gltfFile.get(), basePath, options);
+      if (!bool(asset_res)) {
+        return std::unexpected(fmt::format("Failed to parse glTF file: {}", asset_res.error()));
+      }
+
+      asset = std::move(asset_res.get());
+
+      loadedGltf.basePath = std::move(basePath);
     }
-
-    std::filesystem::path basePath = path.parent_path();
-
-    auto asset_res = parser.loadGltf(gltfFile.get(), basePath, options);
-    if (!bool(asset_res)) {
-      return std::unexpected(fmt::format("Failed to parse glTF file: {}", asset_res.error()));
-    }
-
-    auto& asset = asset_res.get();
-
-    Data loadedGltf{
-        .basePath = std::move(basePath),
-    };
 
     loadMeshData(asset, loadedGltf);
 
-    for (auto& material : asset.materials) {
-      loadedGltf.materials.emplace_back(std::move(material));
-    }
-
-    for (auto& texture : asset.textures) {
-      loadedGltf.textures.emplace_back(std::move(texture));
-    }
-
-    for (auto& image : asset.images) {
-      loadedGltf.images.emplace_back(std::move(image));
-    }
-
-    for (auto& sampler : asset.samplers) {
-      loadedGltf.samplers.emplace_back(std::move(sampler));
-    }
-
-    for (auto& bufferView : asset.bufferViews) {
-      loadedGltf.bufferViews.emplace_back(std::move(bufferView));
-    }
-
-    for (auto& buffer : asset.buffers) {
-      loadedGltf.buffers.emplace_back(std::move(buffer));
-    }
+    loadedGltf.materials = std::move(asset.materials);
+    loadedGltf.textures = std::move(asset.textures);
+    loadedGltf.images = std::move(asset.images);
+    loadedGltf.samplers = std::move(asset.samplers);
+    loadedGltf.bufferViews = std::move(asset.bufferViews);
+    loadedGltf.buffers = std::move(asset.buffers);
 
     std::vector<Node> nodes;
     nodes.reserve(asset.nodes.size());
 
-    for (auto& node : asset.nodes) {
-      auto trs = std::get<fastgltf::TRS>(node.transform);
-      glm::vec3 translation = glm::vec3(-trs.translation.x(), trs.translation.y(), trs.translation.z());
-      glm::quat backwardRotation = glm::quat(trs.rotation.w(), trs.rotation.x(), trs.rotation.y(), trs.rotation.z());
-      glm::vec3 euler = glm::eulerAngles(backwardRotation);
-      euler.z = -euler.z;
-      glm::quat rotation = glm::quat(euler);
-      glm::vec3 scale = glm::vec3(trs.scale.x(), trs.scale.y(), trs.scale.z());
+    {
+      KT_PROFILE_SCOPE("Process Nodes");
+      for (auto& node : asset.nodes) {
+        auto trs = std::get<fastgltf::TRS>(node.transform);
+        glm::vec3 translation = glm::vec3(-trs.translation.x(), trs.translation.y(), trs.translation.z());
+        glm::quat backwardRotation = glm::quat(trs.rotation.w(), trs.rotation.x(), trs.rotation.y(), trs.rotation.z());
+        glm::vec3 euler = glm::eulerAngles(backwardRotation);
+        euler.z = -euler.z;
+        glm::quat rotation = glm::quat(euler);
+        glm::vec3 scale = glm::vec3(trs.scale.x(), trs.scale.y(), trs.scale.z());
 
-      maths::Transform transform(translation, rotation, scale);
+        maths::Transform transform(translation, rotation, scale);
 
-      Node gltfNode{
-          .node = node,
-          .transform = transform,
-          .meshIndex = static_cast<uint32_t>(node.meshIndex.value_or(UINT32_MAX)),
-      };
+        Node gltfNode{
+            .node = node,
+            .transform = transform,
+            .meshIndex = static_cast<uint32_t>(node.meshIndex.value_or(UINT32_MAX)),
+        };
 
-      nodes.emplace_back(std::move(gltfNode));
-    }
-
-    std::vector<bool> isChildNode(nodes.size(), false);
-    for (auto& node : nodes) {
-      for (auto childIndex : node.node.children) {
-        node.children.push_back(std::move(nodes[childIndex]));
-        isChildNode[childIndex] = true;
+        nodes.emplace_back(std::move(gltfNode));
       }
-    }
 
-    for (size_t i = 0; i < nodes.size(); ++i) {
-      // If its been moved, means it's a child
-      if (!isChildNode[i]) {
-        loadedGltf.roots.emplace_back(std::move(nodes[i]));
+      std::vector<bool> isChildNode(nodes.size(), false);
+      for (auto& node : nodes) {
+        for (auto childIndex : node.node.children) {
+          node.children.push_back(std::move(nodes[childIndex]));
+          isChildNode[childIndex] = true;
+        }
+      }
+
+      for (size_t i = 0; i < nodes.size(); ++i) {
+        // If its been moved, means it's a child
+        if (!isChildNode[i]) {
+          loadedGltf.roots.emplace_back(std::move(nodes[i]));
+        }
       }
     }
 

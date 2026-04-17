@@ -6,6 +6,7 @@
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/imgui.h>
 #include <keptech/core/kt-logger.hpp>
+#include <keptech/core/profile.hpp>
 #include <string>
 
 #ifdef KEPTECH_RENDERER_VULKAN
@@ -103,6 +104,7 @@ int main() {
 
     kt::core::window::Event event;
     while (true) {
+      KT_PROFILE_SCOPE("Main Loop");
       KT_TRACE("Starting frame");
       auto newTime = std::chrono::high_resolution_clock::now();
 
@@ -110,6 +112,7 @@ int main() {
 
       now = newTime;
       while (window.pollEvent(event)) {
+        KT_PROFILE_SCOPE("Event Processing");
         ImGui_ImplSDL3_ProcessEvent(&event);
         if ((io.WantCaptureKeyboard && isKeyboardEvent(event)) || (io.WantCaptureMouse && isMouseEvent(event))) {
           KT_TRACE("Event sent to ImGui");

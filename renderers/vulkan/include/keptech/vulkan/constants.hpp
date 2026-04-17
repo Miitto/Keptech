@@ -32,4 +32,11 @@ namespace kt::vkh {
     extern VkDeviceSize maxPushConstantsSize;
     extern VkDeviceSize maxMemoryAllocationSize;
   } // namespace limits
+
+  namespace ext {
+#ifdef KT_PROFILE
+    extern PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT vkGetPhysicalDeviceCalibrateableTimeDomainsEXT;
+    extern PFN_vkGetCalibratedTimestampsEXT vkGetCalibratedTimestampsEXT;
+#endif
+  } // namespace ext
 } // namespace kt::vkh
