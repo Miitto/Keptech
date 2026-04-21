@@ -106,6 +106,7 @@ namespace kt::vkh {
     [[nodiscard]] uint8_t* mapping(VkDeviceSize offset = 0) const { return static_cast<uint8_t*>(allocInfo.pMappedData) + offset; }
 
     void setDebugName(const VkDevice& device, const std::string& name) const {}
+    [[nodiscard]] size_t size() const { return allocInfo.size; }
 
     static std::expected<AllocatedBuffer, std::string> create(const VmaAllocator& allocator, VkDevice device,
                                                               const VkBufferCreateInfo& bufInfo, const VmaAllocationCreateInfo& allocInfo,
@@ -147,7 +148,7 @@ namespace kt::vkh {
   };
 
   struct RendererMesh {
-    AddressedAllocatedBuffer vertexBuffer;
-    AddressedAllocatedBuffer indexBuffer;
+    size_t firstVertex;
+    size_t firstIndex;
   };
 } // namespace kt::vkh

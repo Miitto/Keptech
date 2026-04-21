@@ -20,6 +20,8 @@
 namespace kt::vkh {
   static_assert(CRenderer<Renderer>, "Renderer does not satisfy CRenderer concept");
 
+  constexpr VkDeviceSize NO_VERTEX_OFFSET = 0;
+
   void Renderer::debugUi() {
     ImGui::Begin("Debug View");
 
@@ -153,14 +155,15 @@ namespace kt::vkh {
                             &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
     setupViewportAndScissor(cmdBuf);
 
+    vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m.buffers.vertices.buffer.buffer, &NO_VERTEX_OFFSET);
+    vkCmdBindIndexBuffer(cmdBuf, m.buffers.indices.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
     auto view = scene->getEcs().view<components::Transform, components::Mesh>();
 
-    constexpr VkDeviceSize vertexOffest = 0;
-    for (auto [entity, transform, mesh] : view.each()) {
-      vkCmdBindVertexBuffers(cmdBuf, 0, 1, &mesh.getRMesh().vertexBuffer.buffer, &vertexOffest);
-      vkCmdBindIndexBuffer(cmdBuf, mesh.getRMesh().indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
+    for (const auto& [entity, transform, mesh] : view.each()) {
       auto model = transform.getGlobal();
+      int32_t firstVertex = static_cast<int32_t>(mesh.getRMesh().firstVertex);
+      uint32_t firstIndex = mesh.getRMesh().firstIndex;
 
       vkCmdPushConstants(cmdBuf, m.pipelines.deferred.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                          sizeof(glm::mat4), &model);
@@ -170,7 +173,7 @@ namespace kt::vkh {
         vkCmdPushConstants(cmdBuf, m.pipelines.deferred.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                            sizeof(glm::mat4), sizeof(VkDeviceAddress), &matAddress);
 
-        vkCmdDrawIndexed(cmdBuf, submesh.count, 1, submesh.start, 0, 0);
+        vkCmdDrawIndexed(cmdBuf, submesh.count, 1, submesh.start + firstIndex, firstVertex, 0);
       }
     }
 
@@ -324,14 +327,14 @@ namespace kt::vkh {
                          VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4),
                          sizeof(LightInfo), &info);
 
-      constexpr VkDeviceSize vertexOffest = 0;
       {
         KT_PROFILE_SCOPE("Shadow Map Draw Calls");
         KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Shadow Casters");
+        vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m.buffers.vertices.buffer.buffer, &NO_VERTEX_OFFSET);
+        vkCmdBindIndexBuffer(cmdBuf, m.buffers.indices.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
         for (auto [entity, transform, mesh] : view.each()) {
-          vkCmdBindVertexBuffers(cmdBuf, 0, 1, &mesh.getRMesh().vertexBuffer.buffer, &vertexOffest);
-          vkCmdBindIndexBuffer(cmdBuf, mesh.getRMesh().indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
+          int32_t firstVertex = static_cast<int32_t>(mesh.getRMesh().firstVertex);
+          uint32_t firstIndex = mesh.getRMesh().firstIndex;
           auto model = transform.getGlobal();
 
           vkCmdPushConstants(cmdBuf, m.pipelines.pointLightShadows.layout,
@@ -339,7 +342,7 @@ namespace kt::vkh {
                              &model);
 
           for (const auto& submesh : mesh.getSubmeshes()) {
-            vkCmdDrawIndexed(cmdBuf, submesh.count, 1, submesh.start, 0, 0);
+            vkCmdDrawIndexed(cmdBuf, submesh.count, 1, submesh.start + firstIndex, firstVertex, 0);
           }
         }
       }

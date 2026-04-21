@@ -77,10 +77,30 @@ namespace kt::vkh {
       bool suboptimalSwapchain = false;
     };
 
+    template <typename T> struct SubdivBuffer {
+      AddressedAllocatedBuffer buffer{};
+      size_t count = 0;
+
+      [[nodiscard]] T* end() const {
+        constexpr size_t elementSize = sizeof(T);
+        size_t offset = count * elementSize;
+
+        return reinterpret_cast<T*>(buffer.mapping(offset));
+      }
+
+      void write(const std::span<const T> data) {
+        memcpy(end(), data.data(), data.size() * sizeof(T));
+        count += data.size();
+      }
+    };
+
     struct Buffers {
       using B = AddressedAllocatedBuffer;
+      template <typename T> using SB = SubdivBuffer<T>;
       B camera;
       B ssaoKernel;
+      SB<Vertex> vertices;
+      SB<uint32_t> indices;
 
       void destroy(VmaAllocator& allocator);
     };
