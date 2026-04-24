@@ -16,7 +16,8 @@ struct Material {
 
 struct PushConstants {
   float4x4 modelMatrix;
-  Material *material;
+  Material *materialBuffer;
+  uint materialIndex;
 };
 
 struct VertexOutput {
@@ -53,11 +54,11 @@ VertexOutput vert(kt::Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID, 
 kt::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
   kt::DeferredOutput output;
 
-  if (!PC.material) {
+  if (PC.materialIndex == ~0u) {
     discard;
   }
 
-  Material mat = *PC.material;
+  Material mat = PC.materialBuffer[PC.materialIndex];
 
   float2 uv = float2(input.uvX, input.uvY);
 

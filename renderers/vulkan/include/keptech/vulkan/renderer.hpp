@@ -94,6 +94,20 @@ namespace kt::vkh {
       }
     };
 
+    struct GpuMaterial {
+      uint32_t albedo;
+      uint32_t bump;
+      uint32_t emissive;
+      uint32_t metRough;
+      glm::vec4 albedoFactor;
+      glm::vec3 emissiveFactor;
+      uint32_t ao;
+      float metFactor;
+      float roughFactor;
+      float specFactor = 1.f;
+      float alphaCutoff = 0.f;
+    };
+
     struct Buffers {
       using B = AddressedAllocatedBuffer;
       template <typename T> using SB = SubdivBuffer<T>;
@@ -101,6 +115,7 @@ namespace kt::vkh {
       B ssaoKernel;
       SB<Vertex> vertices;
       SB<uint32_t> indices;
+      SB<GpuMaterial> materials;
 
       void destroy(VmaAllocator& allocator);
     };

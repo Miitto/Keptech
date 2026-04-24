@@ -157,6 +157,9 @@ namespace kt::vkh {
 
     vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m.buffers.vertices.buffer.buffer, &NO_VERTEX_OFFSET);
     vkCmdBindIndexBuffer(cmdBuf, m.buffers.indices.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    VkDeviceAddress materialBufferAddress = m.buffers.materials.buffer.address;
+    vkCmdPushConstants(cmdBuf, m.pipelines.deferred.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4),
+                       sizeof(VkDeviceAddress), &materialBufferAddress);
 
     auto view = scene->getEcs().view<components::Transform, components::Mesh>();
 
@@ -169,9 +172,9 @@ namespace kt::vkh {
                          sizeof(glm::mat4), &model);
 
       for (const auto& submesh : mesh.getSubmeshes()) {
-        VkDeviceAddress matAddress = submesh.material.has_value() ? submesh.material->address : 0;
+        uint32_t meshIndex = submesh.material.has_value() ? submesh.material.value() : ~0u;
         vkCmdPushConstants(cmdBuf, m.pipelines.deferred.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                           sizeof(glm::mat4), sizeof(VkDeviceAddress), &matAddress);
+                           sizeof(glm::mat4) + sizeof(VkDeviceAddress), sizeof(uint32_t), &meshIndex);
 
         vkCmdDrawIndexed(cmdBuf, submesh.count, 1, submesh.start + firstIndex, firstVertex, 0);
       }

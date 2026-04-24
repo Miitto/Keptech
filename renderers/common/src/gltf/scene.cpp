@@ -19,10 +19,6 @@ namespace kt::gltf {
         entity.addComponent<components::Mesh>(node.mesh);
       }
 
-      if (node.material.address != 0) {
-        entity.addComponent<components::Material>(node.material);
-      }
-
       for (auto& child : node.children) {
         addNodeToEcsScene(child, scene, entity.getHandle());
       }

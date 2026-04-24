@@ -703,37 +703,6 @@ namespace kt::vkh {
   Renderer::createMaterials(const gltf::Data& data, const std::vector<Texture>& textures, const VkCommandBuffer transferCmd) {
     KT_PROFILE_FUNCTION
     auto& materials = data.materials;
-    struct GpuMaterial {
-      uint32_t albedo;
-      uint32_t bump;
-      uint32_t emissive;
-      uint32_t metRough;
-      glm::vec4 albedoFactor;
-      glm::vec3 emissiveFactor;
-      uint32_t ao;
-      float metFactor;
-      float roughFactor;
-      float specFactor = 1.f;
-      float alphaCutoff = 0.f;
-    };
-
-    VkBufferCreateInfo matBufferCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        .size = sizeof(GpuMaterial),
-    };
-    VmaAllocationCreateInfo matAllocInfo{
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
-                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
-        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-    };
-
-    size_t stagingBufferSize = materials.size() * sizeof(rendering::MaterialLayer);
-    struct Copy {
-      GpuMaterial material;
-      AddressedAllocatedBuffer buffer;
-      size_t offset;
-    };
 
     auto getTexture = [&](const fastgltf::TextureInfo& i) -> const Texture& {
       auto& tex = data.textures[i.textureIndex];
@@ -749,20 +718,15 @@ namespace kt::vkh {
     auto toGlmVec4 = [](const fastgltf::math::nvec4& g) { return glm::vec4(g.x(), g.y(), g.z(), g.w()); };
     auto toGlmVec3 = [](const fastgltf::math::nvec3& g) { return glm::vec3(g.x(), g.y(), g.z()); };
 
-    std::vector<Copy> requiredCopies;
     std::vector<rendering::Material> result;
     result.reserve(materials.size());
+    std::vector<GpuMaterial> gpuMaterials;
+    gpuMaterials.reserve(materials.size());
 
-    m.loadedBuffers.reserve(m.loadedBuffers.size() + materials.size());
+    uint32_t materialIndex = m.buffers.materials.count;
 
     for (const auto& mat : materials) {
       VK_TRACE("Creating material {}", mat.name);
-      VKH_MAKE(buffer,
-               AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, matBufferCreateInfo, matAllocInfo,
-                                                std::string(mat.name) + "_material"),
-               "Failed to create buffer for material");
-
-      m.loadedBuffers.push_back(buffer.downcast());
 
       rendering::MaterialLayer matLayer{
           .albedoFactor = toGlmVec4(mat.pbrData.baseColorFactor),
@@ -805,21 +769,19 @@ namespace kt::vkh {
           .alphaCutoff = matLayer.alphaCutoff,
       };
 
-      if (buffer.isMapped()) {
-        memcpy(buffer.mapping(), &gpuMat, sizeof(GpuMaterial));
-      } else {
-        requiredCopies.push_back({.material = gpuMat, .buffer = buffer, .offset = result.size() * sizeof(GpuMaterial)});
-        stagingBufferSize += sizeof(GpuMaterial);
-      }
+      gpuMaterials.push_back(gpuMat);
 
-      result.emplace_back(buffer);
+      result.emplace_back(materialIndex++);
     }
 
     UploadResult<rendering::Material> resultStruct{
         .resources = std::move(result),
     };
 
-    if (stagingBufferSize > 0) {
+    if (m.buffers.materials.buffer.isMapped()) {
+      m.buffers.materials.write(gpuMaterials);
+    } else {
+      const size_t stagingBufferSize = gpuMaterials.size() * sizeof(GpuMaterial);
       VkBufferCreateInfo stagingBufferCreateInfo{
           .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
           .size = stagingBufferSize,
@@ -836,17 +798,13 @@ namespace kt::vkh {
 
       resultStruct.stagingBuffers.push_back(stagingBuffer);
 
-      for (const auto& copy : requiredCopies) {
-        memcpy(stagingBuffer.mapping() + copy.offset, &copy.material, sizeof(GpuMaterial));
-
-        VkBufferCopy copyRegion{
-            .srcOffset = copy.offset,
-            .dstOffset = 0,
-            .size = sizeof(GpuMaterial),
-        };
-
-        vkCmdCopyBuffer(transferCmd, stagingBuffer.buffer, copy.buffer.buffer, 1, &copyRegion);
-      }
+      memcpy(stagingBuffer.mapping(), gpuMaterials.data(), stagingBufferSize);
+      VkBufferCopy copy{
+          .srcOffset = 0,
+          .dstOffset = m.buffers.materials.count * sizeof(GpuMaterial),
+          .size = stagingBufferSize,
+      };
+      vkCmdCopyBuffer(transferCmd, stagingBuffer.buffer, m.buffers.materials.buffer.buffer, 1, &copy);
     }
 
     return std::move(resultStruct);

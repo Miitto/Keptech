@@ -13,6 +13,7 @@ namespace {
 
   constexpr size_t INITIAL_VERTEX_COUNT = 1000;
   constexpr size_t INITIAL_INDEX_COUNT = 1000;
+  constexpr size_t INITIAL_MATERIAL_COUNT = 100;
 } // namespace
 
 namespace kt::vkh::setup {
@@ -90,17 +91,37 @@ namespace kt::vkh::setup {
     return AddressedAllocatedBuffer::create(vkcore.device.logical, vkcore.allocator, bufInfo, allocInfo, "Index Buffer");
   }
 
+  std::expected<AddressedAllocatedBuffer, std::string> createMaterialBuffer(const Renderer::VulkanCore& vkcore) {
+    size_t size = sizeof(Renderer::GpuMaterial) * INITIAL_MATERIAL_COUNT;
+
+    VkBufferCreateInfo bufInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    };
+
+    VmaAllocationCreateInfo allocInfo{
+        .flags = hostWriteOrTransferFlags,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+    };
+
+    return AddressedAllocatedBuffer::create(vkcore.device.logical, vkcore.allocator, bufInfo, allocInfo, "Material Buffer");
+  }
+
   std::expected<Renderer::Buffers, std::string> createBuffers(const Renderer::VulkanCore& vkcore) {
     VKH_MAKE(camera, createCameraBuffer(vkcore), "Failed to create camera uniform buffer.");
     VKH_MAKE(ssaoKernel, createSsaoKernelBuffer(vkcore), "Failed to create SSAO kernel buffer.");
     VKH_MAKE(vertexBuffer, createVertexBuffer(vkcore), "Failed to create vertex buffer.");
     VKH_MAKE(indexBuffer, createIndexBuffer(vkcore), "Failed to create index buffer.");
+    VKH_MAKE(materialBuffer, createMaterialBuffer(vkcore), "Failed to create material buffer.");
 
     return Renderer::Buffers{
         .camera = camera,
         .ssaoKernel = ssaoKernel,
         .vertices = {.buffer = vertexBuffer},
         .indices = {.buffer = indexBuffer},
+        .materials = {.buffer = materialBuffer},
     };
   }
 } // namespace kt::vkh::setup

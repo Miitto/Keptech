@@ -75,6 +75,7 @@ namespace kt::vkh {
     ssaoKernel.destroy(allocator);
     vertices.buffer.destroy(allocator);
     indices.buffer.destroy(allocator);
+    materials.buffer.destroy(allocator);
   }
 
   void Renderer::Samplers::destroy(const VkDevice device) {

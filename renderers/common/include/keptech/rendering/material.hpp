@@ -18,7 +18,7 @@ namespace kt {
       float alphaCutoff = 0.f;
     };
 
-    using Material = vkh::AddressedAllocatedBuffer;
+    using Material = uint32_t;
   } // namespace rendering
 
   namespace components {
