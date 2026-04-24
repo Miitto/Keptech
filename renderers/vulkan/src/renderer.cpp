@@ -50,35 +50,48 @@ namespace kt::vkh {
 
     recalcGlobalTransforms(scene->getEcs());
 
-    VkCommandBuffer cmdBuf = nullptr;
+    std::array<VkCommandBuffer, 3> cmdBuf{};
     VkCommandBufferAllocateInfo allocInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = m.frameInfo.perFrame->pools.graphics.pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
+        .commandBufferCount = 3,
     };
-    VK_CHECK(vkAllocateCommandBuffers(m.vkcore.device.logical, &allocInfo, &cmdBuf), "Failed to allocate command buffer for frame");
+    VK_CHECK(vkAllocateCommandBuffers(m.vkcore.device.logical, &allocInfo, cmdBuf.data()), "Failed to allocate command buffer for frame");
     VkCommandBufferBeginInfo beginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
-    vkBeginCommandBuffer(cmdBuf, &beginInfo);
+    vkBeginCommandBuffer(cmdBuf[0], &beginInfo);
     {
-      KT_VK_ZONE(m.tracyContext, cmdBuf, "Render");
+      KT_VK_ZONE(m.tracyContext, cmdBuf[0], "Render Deferred");
 
-      updateCameraBuffer(cmdBuf);
-      KT_VK_COLLECT(m.tracyContext, cmdBuf);
-      drawDeferred(cmdBuf);
-      KT_VK_COLLECT(m.tracyContext, cmdBuf);
-      drawLights(cmdBuf);
-      KT_VK_COLLECT(m.tracyContext, cmdBuf);
-      renderBloom(cmdBuf);
-      KT_VK_COLLECT(m.tracyContext, cmdBuf);
+      updateCameraBuffer(cmdBuf[0]);
+      KT_VK_COLLECT(m.tracyContext, cmdBuf[0]);
+      drawDeferred(cmdBuf[0]);
+      KT_VK_COLLECT(m.tracyContext, cmdBuf[0]);
+    }
+    vkEndCommandBuffer(cmdBuf[0]);
+    submitDeferred(cmdBuf[0]);
+
+    vkBeginCommandBuffer(cmdBuf[1], &beginInfo);
+    {
+      KT_VK_ZONE(m.tracyContext, cmdBuf[1], "Render Lights");
+      drawLights(cmdBuf[1]);
+      KT_VK_COLLECT(m.tracyContext, cmdBuf[1]);
+    }
+    vkEndCommandBuffer(cmdBuf[1]);
+    submitLights(cmdBuf[1]);
+    vkBeginCommandBuffer(cmdBuf[2], &beginInfo);
+    {
+      KT_VK_ZONE(m.tracyContext, cmdBuf[2], "Final Pass and UI");
+      renderBloom(cmdBuf[2]);
+      KT_VK_COLLECT(m.tracyContext, cmdBuf[2]);
 
 #ifndef NDEBUG
       debugUi();
 #endif
-      renderImGui(cmdBuf);
+      renderImGui(cmdBuf[2]);
       VkImageMemoryBarrier2 barrier{
           .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
           .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -106,12 +119,12 @@ namespace kt::vkh {
           .pImageMemoryBarriers = &barrier,
       };
 
-      vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
-    }
+      vkCmdPipelineBarrier2(cmdBuf[2], &dependencyInfo);
 
-    KT_VK_COLLECT(m.tracyContext, cmdBuf);
-    vkEndCommandBuffer(cmdBuf);
-    endFrame(cmdBuf);
+      KT_VK_COLLECT(m.tracyContext, cmdBuf[2]);
+    }
+    vkEndCommandBuffer(cmdBuf[2]);
+    endFrame(cmdBuf[2]);
   }
 
   void Renderer::updateCameraBuffer(VkCommandBuffer cmdBuf) {
@@ -183,6 +196,27 @@ namespace kt::vkh {
     vkCmdEndRendering(cmdBuf);
 
     deferredToShaderRead(cmdBuf);
+  }
+
+  void Renderer::submitDeferred(VkCommandBuffer cmdBuf) {
+    VkSemaphoreSubmitInfo semInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = m.frameInfo.perFrame->deferredRenderFinishedSemaphore,
+        .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+    };
+    VkCommandBufferSubmitInfo cmdBufInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .commandBuffer = cmdBuf,
+    };
+    VkSubmitInfo2 submitInfo{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .commandBufferInfoCount = 1,
+        .pCommandBufferInfos = &cmdBufInfo,
+        .signalSemaphoreInfoCount = 1,
+        .pSignalSemaphoreInfos = &semInfo,
+    };
+
+    vkQueueSubmit2(m.vkcore.queues.graphics.queue, 1, &submitInfo, nullptr);
   }
 
   void Renderer::drawLights(VkCommandBuffer cmdBuf) {
@@ -447,6 +481,33 @@ namespace kt::vkh {
     vkCmdEndRendering(cmdBuf);
   }
 
+  void Renderer::submitLights(VkCommandBuffer cmdBuf) {
+    VkSemaphoreSubmitInfo semInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = m.frameInfo.perFrame->lightsFinished,
+        .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+    };
+    VkCommandBufferSubmitInfo cmdBufInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .commandBuffer = cmdBuf,
+    };
+    VkSemaphoreSubmitInfo waitSemInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = m.frameInfo.perFrame->deferredRenderFinishedSemaphore,
+        .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+    };
+    VkSubmitInfo2 submitInfo{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .waitSemaphoreInfoCount = 1,
+        .pWaitSemaphoreInfos = &waitSemInfo,
+        .commandBufferInfoCount = 1,
+        .pCommandBufferInfos = &cmdBufInfo,
+        .signalSemaphoreInfoCount = 1,
+        .pSignalSemaphoreInfos = &semInfo,
+    };
+    vkQueueSubmit2(m.vkcore.queues.graphics.queue, 1, &submitInfo, nullptr);
+  }
+
   void Renderer::renderBloom(VkCommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
     KT_VK_ZONE(m.tracyContext, cmdBuf, "Render Bloom");
@@ -660,10 +721,17 @@ namespace kt::vkh {
   void Renderer::endFrame(VkCommandBuffer cmdBuf) {
     auto& sem = m.vkcore.swapchain.nPresentSemaphore(m.frameInfo.imageIndex);
 
-    VkSemaphoreSubmitInfo imageAvailableWaitInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = m.vkcore.perFrame[m.frameInfo.index].imageAvailableSemaphore,
-        .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+    std::array waitInfo{
+        VkSemaphoreSubmitInfo{
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .semaphore = m.vkcore.perFrame[m.frameInfo.index].imageAvailableSemaphore,
+            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+        },
+        VkSemaphoreSubmitInfo{
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .semaphore = m.vkcore.perFrame[m.frameInfo.index].lightsFinished,
+            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+        },
     };
 
     VkSemaphoreSubmitInfo signalInfo{
@@ -681,8 +749,8 @@ namespace kt::vkh {
 
     VkSubmitInfo2 submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-        .waitSemaphoreInfoCount = 1,
-        .pWaitSemaphoreInfos = &imageAvailableWaitInfo,
+        .waitSemaphoreInfoCount = waitInfo.size(),
+        .pWaitSemaphoreInfos = waitInfo.data(),
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &cmdBufInfo,
         .signalSemaphoreInfoCount = 1,

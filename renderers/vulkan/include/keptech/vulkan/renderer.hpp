@@ -63,6 +63,8 @@ namespace kt::vkh {
     struct PerFrame {
       VkFence inFlightFence;
       VkSemaphore imageAvailableSemaphore;
+      VkSemaphore deferredRenderFinishedSemaphore;
+      VkSemaphore lightsFinished;
       Pools pools;
       std::vector<TextureUpdateInfo> texToUpdate;
     };
@@ -244,10 +246,12 @@ namespace kt::vkh {
 
     void updateCameraBuffer(VkCommandBuffer cmdBuf);
     void drawDeferred(VkCommandBuffer cmdBuf);
+    void submitDeferred(VkCommandBuffer cmdBuf);
     void drawLights(VkCommandBuffer cmdBuf);
     void drawPointLightShadowMaps(VkCommandBuffer cmdBuf);
     void drawPointLights(VkCommandBuffer cmdBuf);
     void combineLights(VkCommandBuffer cmdBuf);
+    void submitLights(VkCommandBuffer cmdBuf);
     void renderBloom(VkCommandBuffer cmdBuf);
     void renderSsao(VkCommandBuffer cmdBuf);
 

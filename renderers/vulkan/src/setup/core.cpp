@@ -115,22 +115,26 @@ namespace kt::vkh::setup {
         .queue = queues.transfer,
     };
 
-    VkFence fence1 = nullptr;
-    VkFence fence2 = nullptr;
-    VkFenceCreateInfo fenceCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VkFenceCreateFlagBits::VK_FENCE_CREATE_SIGNALED_BIT,
-    };
-    VK_MAKE(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence1), "Failed to create fence1.");
-    VK_MAKE(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence2), "Failed to create fence2.")
+    std::array<Renderer::PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame{};
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+      perFrame[i].pools = poolsArray[i];
+      VkFenceCreateInfo fenceCreateInfo{
+          .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+          .flags = VkFenceCreateFlagBits::VK_FENCE_CREATE_SIGNALED_BIT,
+      };
+      VK_MAKE(vkCreateFence(device, &fenceCreateInfo, nullptr, &perFrame[i].inFlightFence), "Failed to create fence1.");
 
-    VkSemaphore sem1 = nullptr;
-    VkSemaphore sem2 = nullptr;
-    VkSemaphoreCreateInfo semaphoreCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-    };
-    VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &sem1), "Failed to create sem1");
-    VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &sem2), "Failed to create sem2");
+      VkSemaphore sem = nullptr;
+      VkSemaphoreCreateInfo semaphoreCreateInfo{
+          .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+      };
+      VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].imageAvailableSemaphore),
+              "Failed to create image available semaphore");
+      VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].deferredRenderFinishedSemaphore),
+              "Failed to create deferred render finished semaphore");
+      VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].lightsFinished),
+              "Failed to create lights finished semaphore");
+    }
 
     return Renderer::VulkanCore{
         .instance = instance,
@@ -139,19 +143,7 @@ namespace kt::vkh::setup {
         .allocator = allocator,
         .queues = queues,
         .swapchain = std::move(swapchain),
-        .perFrame =
-            {
-                Renderer::PerFrame{
-                    .inFlightFence = fence1,
-                    .imageAvailableSemaphore = sem1,
-                    .pools = poolsArray[0],
-                },
-                Renderer::PerFrame{
-                    .inFlightFence = fence2,
-                    .imageAvailableSemaphore = sem2,
-                    .pools = poolsArray[1],
-                },
-            },
+        .perFrame = perFrame,
         .transferPool = transferPoolStruct,
     };
   }

@@ -98,6 +98,8 @@ namespace kt::vkh {
     KT_VK_CONTEXT_DESTROY(m.tracyContext);
 
     for (auto& perFrame : m.vkcore.perFrame) {
+      vkDestroySemaphore(device, perFrame.lightsFinished, nullptr);
+      vkDestroySemaphore(device, perFrame.deferredRenderFinishedSemaphore, nullptr);
       vkDestroySemaphore(device, perFrame.imageAvailableSemaphore, nullptr);
       vkDestroyFence(device, perFrame.inFlightFence, nullptr);
 
