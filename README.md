@@ -105,3 +105,23 @@ This module provides functionality for processing Slang shaders. It uses the Sla
 ### Shader Embedder
 
 This is a small program used by CMake to generate header files for shaders at compile time. It uses the shader processor to parse the shader code then writes out the data to header files.
+
+## Branch Overview
+
+This repository holds some branches used for benchmarking different implementations of the Vulkan renderer. Each builds off of the previous unless otherwise noted.
+
+### Basic
+
+Per-mesh vertex buffers, no instancing, push constants for per object data.
+
+### Fat Buffers
+
+One large vertex buffer and one large index buffer for the entire scene, with offsets for each mesh. No instancing, push constants for per object data.
+
+### Seperate Submits
+
+Seperates out the rendering into three submits, one for the gBuffer pass, one for the lighting pass, and one for the post processing pass.
+
+### Object Buffers
+
+Writes per object data to a storage buffer each frame instead of using push constants. Allows the same data to be reused between passes, such as the object data for the gBuffer pass and then later for shadows. Draw calls are still per object and use indices into the storage buffer to get the per object data.
