@@ -10,11 +10,18 @@ static const uint CUBE_INDICES[36] = {
 
 struct v2f {
   float4 position : SV_Position;
+  nointerpolation kt::PointLight light : LIGHT;
+};
+
+struct PushConstants {
+  kt::PointLight *lightBuffer;
 };
 
 [shader("vertex")]
-v2f vert(uint vid: SV_VertexID, uniform kt::PointLight light) {
+v2f vert(uint vid: SV_VertexID, uint iid: SV_InstanceID, uint bid: SV_StartInstanceLocation, uniform PushConstants PC) {
   v2f output;
+
+  kt::PointLight light = PC.lightBuffer[iid + bid];
 
   float3 vertPos = CUBE_VERTS[CUBE_INDICES[vid]];
   float3 scaledPos = vertPos * light.radius;
@@ -25,12 +32,16 @@ v2f vert(uint vid: SV_VertexID, uniform kt::PointLight light) {
 
   output.position = kt::camera.worldToClip(worldPos);
 
+  output.light = light;
+
   return output;
 }
 
 [shader("pixel")]
-kt::DeferredLightingOutput frag(v2f input, uniform kt::PointLight light, float4 fragCoord: SV_Position) {
+kt::DeferredLightingOutput frag(v2f input, uniform PushConstants PC, float4 fragCoord: SV_Position) {
   kt::DeferredLightingOutput output;
+
+  kt::PointLight light = input.light;
 
   float2 uv = fragCoord.xy / kt::camera.viewportSize;
 

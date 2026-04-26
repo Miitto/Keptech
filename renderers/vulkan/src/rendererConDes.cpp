@@ -70,12 +70,22 @@ namespace kt::vkh {
     d(bloomCombine);
   }
 
+  void Renderer::PerFrameBuffers::destroy(VmaAllocator& allocator) {
+    objects.buffer.destroy(allocator);
+    pointLights.buffer.destroy(allocator);
+    shadowMatrices.buffer.destroy(allocator);
+  }
+
   void Renderer::Buffers::destroy(VmaAllocator& allocator) {
     camera.destroy(allocator);
     ssaoKernel.destroy(allocator);
     vertices.buffer.destroy(allocator);
     indices.buffer.destroy(allocator);
     materials.buffer.destroy(allocator);
+
+    for (auto& perFrame : perFrame) {
+      perFrame.destroy(allocator);
+    }
   }
 
   void Renderer::Samplers::destroy(const VkDevice device) {

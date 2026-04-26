@@ -10,6 +10,5 @@ namespace kt::components {
     float intensity = 1.f;
     float radius = 1.f;
     Texture shadowMap{};
-    rendering::Buffer shadowMatrixBuffer{};
   };
 } // namespace kt::components

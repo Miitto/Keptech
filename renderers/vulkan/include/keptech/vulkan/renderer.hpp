@@ -94,6 +94,11 @@ namespace kt::vkh {
         memcpy(end(), data.data(), data.size() * sizeof(T));
         count += data.size();
       }
+
+      void overwrite(const std::span<const T> data) {
+        count = 0;
+        write(data);
+      }
     };
 
     struct GpuMaterial {
@@ -110,6 +115,25 @@ namespace kt::vkh {
       float alphaCutoff = 0.f;
     };
 
+    struct GpuObject {
+      glm::mat4 model;
+      uint32_t materialIndex;
+      float pad1, pad2, pad3;
+    };
+
+    struct GpuPointLight {
+      glm::vec3 position;
+      float radius;
+      glm::vec3 color;
+      uint32_t shadowMapIndex;
+    };
+    struct PerFrameBuffers {
+      template <typename T> using SB = SubdivBuffer<T>;
+      SB<GpuObject> objects;
+      SB<GpuPointLight> pointLights;
+      SB<glm::mat4> shadowMatrices;
+      void destroy(VmaAllocator& allocator);
+    };
     struct Buffers {
       using B = AddressedAllocatedBuffer;
       template <typename T> using SB = SubdivBuffer<T>;
@@ -118,6 +142,7 @@ namespace kt::vkh {
       SB<Vertex> vertices;
       SB<uint32_t> indices;
       SB<GpuMaterial> materials;
+      std::array<PerFrameBuffers, MAX_FRAMES_IN_FLIGHT> perFrame;
 
       void destroy(VmaAllocator& allocator);
     };
@@ -234,6 +259,8 @@ namespace kt::vkh {
     [[nodiscard]] VkFormat backbufferFormat() const;
     [[nodiscard]] bool hasMoved() const noexcept { return m.moveGuard.moved(); }
 
+    PerFrameBuffers& fBufs() { return m.buffers.perFrame[m.frameInfo.index]; }
+
     // Render
   public:
     void newFrame();
@@ -245,11 +272,23 @@ namespace kt::vkh {
     void startFrame();
 
     void updateCameraBuffer(VkCommandBuffer cmdBuf);
-    void drawDeferred(VkCommandBuffer cmdBuf);
+
+    struct RenderInfo {
+      uint32_t indexCount;
+      uint32_t firstIndex;
+      int32_t vertexOffset;
+    };
+
+    std::vector<RenderInfo> updateObjectsBuffer();
+    void drawDeferred(VkCommandBuffer cmdBuf, const std::vector<RenderInfo>& renderInfos);
     void submitDeferred(VkCommandBuffer cmdBuf);
-    void drawLights(VkCommandBuffer cmdBuf);
-    void drawPointLightShadowMaps(VkCommandBuffer cmdBuf);
-    void drawPointLights(VkCommandBuffer cmdBuf);
+    void drawLights(VkCommandBuffer cmdBuf, const std::vector<RenderInfo>& renderInfos);
+    struct LightRenderInfo {
+      Texture shadowMap;
+    };
+    std::vector<LightRenderInfo> updatePointLightsBuffer();
+    void drawPointLightShadowMaps(VkCommandBuffer cmdBuf, const std::vector<LightRenderInfo>&, const std::vector<RenderInfo>& renderInfos);
+    void drawPointLights(VkCommandBuffer cmdBuf, size_t lightCount);
     void combineLights(VkCommandBuffer cmdBuf);
     void submitLights(VkCommandBuffer cmdBuf);
     void renderBloom(VkCommandBuffer cmdBuf);
@@ -282,7 +321,7 @@ namespace kt::vkh {
 
     void imGuiNewFrame() const;
     void shutdownImGui();
-    [[nodiscard]] const VkFormat& getSwapchainImageFormat() const { return m.vkcore.swapchain.config().format.format; }
+    [[nodiscard]] const VkFormat& getSwapchainImageFormat() const {}
 
     std::expected<void, std::string> recreateSwapchain();
 

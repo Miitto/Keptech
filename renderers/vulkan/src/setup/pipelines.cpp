@@ -191,7 +191,7 @@ namespace kt::vkh::setup {
                                 .pushConstantRanges = {{
                                     .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                     .offset = 0,
-                                    .size = sizeof(glm::mat4) + sizeof(VkDeviceAddress) + sizeof(uint32_t),
+                                    .size = sizeof(VkDeviceAddress) * 2,
                                 }},
                             },
                             vkcore.device.logical);
@@ -231,7 +231,7 @@ namespace kt::vkh::setup {
                                 .pushConstantRanges = {{
                                     .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                     .offset = 0,
-                                    .size = sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(VkDeviceAddress),
+                                    .size = sizeof(VkDeviceAddress) * 3 + sizeof(uint32_t) * 2,
                                 }},
                             },
                             vkcore.device.logical);
@@ -287,7 +287,7 @@ namespace kt::vkh::setup {
                                 .pushConstantRanges = {{
                                     .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                     .offset = 0,
-                                    .size = sizeof(rendering::PointLight),
+                                    .size = sizeof(VkDeviceAddress),
                                 }},
                             },
                             vkcore.device.logical);

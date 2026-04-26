@@ -14,10 +14,15 @@ struct Material {
   float alphaCutoff;
 };
 
-struct PushConstants {
+struct Object {
   float4x4 modelMatrix;
-  Material *materialBuffer;
   uint materialIndex;
+  float[3] padding;
+};
+
+struct PushConstants {
+  Object *objectBuffer;
+  Material *materialBuffer;
 };
 
 struct VertexOutput {
@@ -28,24 +33,30 @@ struct VertexOutput {
   float3 tangent : TANGENT0;
   float uvY : TEXCOORD1;
   float3 bitangent : BITANGENT0;
+  nointerpolation uint materialIndex : MATERIAL_INDEX;
 };
 
 [shader("vertex")]
-VertexOutput vert(kt::Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID, uniform PushConstants PC) {
+VertexOutput vert(kt::Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID, uint bid: SV_StartInstanceLocation,
+                  uniform PushConstants PC) {
   VertexOutput output;
 
-  float4 worldPosition = mul(float4(v.position, 1.0), PC.modelMatrix);
+  Object obj = PC.objectBuffer[iid + bid];
+
+  float4 worldPosition = mul(float4(v.position, 1.0), obj.modelMatrix);
 
   output.position = kt::camera.worldToClip(worldPosition);
   output.color = v.color;
   output.uvX = v.uvX;
   output.uvY = v.uvY;
 
-  float3x3 modelRotMatrix = (float3x3)PC.modelMatrix;
+  float3x3 modelRotMatrix = (float3x3)obj.modelMatrix;
 
   output.normal = normalize(mul(v.normal, modelRotMatrix));
   output.tangent = normalize(mul(v.tangent.xyz, modelRotMatrix));
   output.bitangent = normalize(cross(output.normal, output.tangent) * v.tangent.w);
+
+  output.materialIndex = obj.materialIndex;
 
   return output;
 }
@@ -54,11 +65,11 @@ VertexOutput vert(kt::Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID, 
 kt::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
   kt::DeferredOutput output;
 
-  if (PC.materialIndex == ~0u) {
+  if (input.materialIndex == ~0u) {
     discard;
   }
 
-  Material mat = PC.materialBuffer[PC.materialIndex];
+  Material mat = PC.materialBuffer[input.materialIndex];
 
   float2 uv = float2(input.uvX, input.uvY);
 

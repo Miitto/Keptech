@@ -382,7 +382,7 @@ namespace kt::vkh {
           .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
           .srcAccessMask = 0,
           .dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT,
-          .dstAccessMask = 0,
+          .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
           .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
           .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
           .image = image.image,

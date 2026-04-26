@@ -1,0 +1,1541 @@
+Launching Vulkan Application:
+- Executable: D:\C++\Keptech\__output\clang-x64\examples\benchmark\Debug\benchmark.exe
+- Working Directory: D:\C++\Keptech
+- Command-line Arguments:
+  - --suppress_popups
+  - --validate
+- Log file: D:\C++\Keptech\traces\log.txt
+[18:39:29.420] [Keptech] [D] [main.cpp:27] Creating renderer
+[18:39:29.431] [Vulkan] [T] [:] Available Vulkan Extensions:
+[18:39:29.432] [Vulkan] [T] [:]   - VK_KHR_device_group_creation
+[18:39:29.432] [Vulkan] [T] [:]   - VK_KHR_external_fence_capabilities
+[18:39:29.432] [Vulkan] [T] [:]   - VK_KHR_external_memory_capabilities
+[18:39:29.432] [Vulkan] [T] [:]   - VK_KHR_external_semaphore_capabilities
+[18:39:29.432] [Vulkan] [T] [:]   - VK_KHR_get_physical_device_properties2
+[18:39:29.432] [Vulkan] [T] [:]   - VK_KHR_get_surface_capabilities2
+[18:39:29.432] [Vulkan] [T] [:]   - VK_KHR_surface
+[18:39:29.432] [Vulkan] [T] [:]   - VK_KHR_surface_maintenance1
+[18:39:29.432] [Vulkan] [T] [:]   - VK_KHR_win32_surface
+[18:39:29.432] [Vulkan] [T] [:]   - VK_EXT_debug_report
+[18:39:29.432] [Vulkan] [T] [:]   - VK_EXT_debug_utils
+[18:39:29.432] [Vulkan] [T] [:]   - VK_EXT_swapchain_colorspace
+[18:39:29.432] [Vulkan] [T] [:]   - VK_KHR_portability_enumeration
+[18:39:29.432] [Vulkan] [T] [:]   - VK_LUNARG_direct_driver_loading
+[18:39:29.452] [Vulkan] [D] [instance.cpp:77] Enabled Instance Extensions:
+[18:39:29.452] [Vulkan] [D] [instance.cpp:79]   - VK_KHR_surface
+[18:39:29.452] [Vulkan] [D] [instance.cpp:79]   - VK_KHR_win32_surface
+[18:39:29.452] [Vulkan] [D] [instance.cpp:79]   - VK_EXT_debug_report
+[18:39:29.452] [Vulkan] [D] [instance.cpp:79]   - VK_EXT_debug_utils
+[18:39:29.452] [Vulkan] [D] [instance.cpp:82] Enabled Instance Layers:
+[18:39:29.452] [Vulkan] [D] [instance.cpp:84]   - VK_LAYER_KHRONOS_validation
+[18:39:29.456] [Vulkan] [W] [instance.cpp:18] 0 - Loader Message: Layer VK_LAYER_OBS_HOOK uses API version 1.3 which is older than the application specified API version of 1.4. May cause issues.
+[18:39:29.461] [Vulkan] [W] [instance.cpp:18] 668201318 - WARNING-legacy-extension: vkCreateInstance(): Attempting to enable legacy extension VK_EXT_debug_report, but this extension has been superseded by VK_EXT_debug_utils.
+Validation Warning: [ WARNING-legacy-extension ] | MessageID = 0x27d3f166
+vkCreateInstance(): Attempting to enable legacy extension VK_EXT_debug_report, but this extension has been superseded by VK_EXT_debug_utils.
+
+Validation Information: [ WARNING-CreateInstance-status-message ] | MessageID = 0x23dfd876
+vkCreateInstance(): Khronos Validation Layer Active:
+    Current Enables: VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT, VALIDATION_CHECK_ENABLE_VENDOR_SPECIFIC_AMD, VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT, VK_VALIDATION_LEGACY_DETECTION.
+    Current Disables: VK_VALIDATION_FEATURE_DISABLE_THREAD_SAFETY_EXT.
+
+Objects: 1
+    [0] VkInstance 0x1fa25c0f700
+
+Validation Warning: [ WARNING-legacy-gpdp2 ] | MessageID = 0xde900250
+vkGetPhysicalDeviceProperties(): vkGetPhysicalDeviceProperties is a legacy command and this VkInstance was created with VK_VERSION_1_1 which contains vkGetPhysicalDeviceProperties2 that can be used instead.
+See more information about this legacy in the specification: https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2
+Objects: 1
+    [0] VkPhysicalDevice 0x1fa25cb1550
+
+[18:39:29.489] [Vulkan] [W] [instance.cpp:18] -560987568 - WARNING-legacy-gpdp2: vkGetPhysicalDeviceProperties(): vkGetPhysicalDeviceProperties is a legacy command and this VkInstance was created with VK_VERSION_1_1 which contains vkGetPhysicalDeviceProperties2 that can be used instead.
+See more information about this legacy in the specification: https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2
+Validation Warning: [ WARNING-legacy-gpdp2 ] | MessageID = 0xde900250
+vkGetPhysicalDeviceFeatures(): vkGetPhysicalDeviceFeatures is a legacy command and this VkInstance was created with VK_VERSION_1_1 which contains vkGetPhysicalDeviceFeatures2 that can be used instead.
+See more information about this legacy in the specification: https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2
+Objects: 1
+    [0] VkPhysicalDevice 0x1fa25cb1550
+
+[18:39:29.489] [Vulkan] [W] [instance.cpp:18] -560987568 - WARNING-legacy-gpdp2: vkGetPhysicalDeviceFeatures(): vkGetPhysicalDeviceFeatures is a legacy command and this VkInstance was created with VK_VERSION_1_1 which contains vkGetPhysicalDeviceFeatures2 that can be used instead.
+See more information about this legacy in the specification: https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2
+Validation Warning: [ WARNING-legacy-gpdp2 ] | MessageID = 0xde900250
+vkGetPhysicalDeviceMemoryProperties(): vkGetPhysicalDeviceMemoryProperties is a legacy command and this VkInstance was created with VK_VERSION_1_1 which contains vkGetPhysicalDeviceMemoryProperties2 that can be used instead.
+See more information about this legacy in the specification: https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2
+Objects: 1
+    [0] VkPhysicalDevice 0x1fa25cb1550
+
+[18:39:29.489] [Vulkan] [W] [instance.cpp:18] -560987568 - WARNING-legacy-gpdp2: vkGetPhysicalDeviceMemoryProperties(): vkGetPhysicalDeviceMemoryProperties is a legacy command and this VkInstance was created with VK_VERSION_1_1 which contains vkGetPhysicalDeviceMemoryProperties2 that can be used instead.
+See more information about this legacy in the specification: https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2
+Validation Warning: [ WARNING-legacy-gpdp2 ] | MessageID = 0xde900250
+vkGetPhysicalDeviceQueueFamilyProperties(): vkGetPhysicalDeviceQueueFamilyProperties is a legacy command and this VkInstance was created with VK_VERSION_1_1 which contains vkGetPhysicalDeviceQueueFamilyProperties2 that can be used instead.
+See more information about this legacy in the specification: https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2
+Objects: 1
+    [0] VkPhysicalDevice 0x1fa25cb1550
+
+[18:39:29.489] [Vulkan] [W] [instance.cpp:18] -560987568 - WARNING-legacy-gpdp2: vkGetPhysicalDeviceQueueFamilyProperties(): vkGetPhysicalDeviceQueueFamilyProperties is a legacy command and this VkInstance was created with VK_VERSION_1_1 which contains vkGetPhysicalDeviceQueueFamilyProperties2 that can be used instead.
+See more information about this legacy in the specification: https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2
+[18:39:29.489] [Vulkan] [D] [physicalDevice.cpp:126] Requiring API version: 1.4.0
+[18:39:29.489] [Vulkan] [D] [physicalDevice.cpp:55] Requiring extensions:
+[18:39:29.489] [Vulkan] [D] [physicalDevice.cpp:57]   - VK_KHR_swapchain
+[18:39:29.489] [Vulkan] [D] [physicalDevice.cpp:57]   - VK_EXT_calibrated_timestamps
+[18:39:29.489] [Vulkan] [D] [physicalDevice.cpp:139] Scoring devices
+[18:39:29.489] [Vulkan] [D] [physicalDevice.cpp:151] Selecting devices
+[18:39:29.489] [Vulkan] [I] [device.cpp:51] Selected physical device: AMD Radeon RX 9070 XT
+[18:39:29.490] [Vulkan] [D] [device.cpp:84] Found combined graphics/present queue at index 0
+[18:39:29.490] [Vulkan] [D] [device.cpp:88] Found dedicated compute queue at index 1
+[18:39:29.490] [Vulkan] [D] [device.cpp:92] Found dedicated transfer queue at index 2
+Validation Warning: [ WARNING-legacy-extension ] | MessageID = 0x27d3f166
+vkCreateDevice(): Attempting to enable legacy extension VK_EXT_calibrated_timestamps, but this extension has been promoted to VK_KHR_calibrated_timestamps.
+Objects: 1
+    [0] VkInstance 0x1fa25c0f700
+
+[18:39:29.491] [Vulkan] [W] [instance.cpp:18] 668201318 - WARNING-legacy-extension: vkCreateDevice(): Attempting to enable legacy extension VK_EXT_calibrated_timestamps, but this extension has been promoted to VK_KHR_calibrated_timestamps.
+[18:39:29.524] [Vulkan] [D] [swapchain.cpp:33] Min image count for swapchain: 2
+[18:39:29.524] [Vulkan] [D] [swapchain.cpp:70] Requested 2 swapchain images
+Validation Performance Warning: [ BestPractices-vkCreateSwapchainKHR-suboptimal-swapchain-image-count ] | MessageID = 0x54ede350
+vkCreateSwapchainKHR(): A Swapchain is being created with minImageCount set to 2, which means double buffering is going to be used. Using double buffering and vsync locks rendering to an integer fraction of the vsync rate. In turn, reducing the performance of the application if rendering is slower than vsync. Consider setting minImageCount to 3 to use triple buffering to maximize performance in such cases.
+
+[18:39:29.524] [Vulkan] [W] [instance.cpp:18] 1424876368 - BestPractices-vkCreateSwapchainKHR-suboptimal-swapchain-image-count: vkCreateSwapchainKHR(): A Swapchain is being created with minImageCount set to 2, which means double buffering is going to be used. Using double buffering and vsync locks rendering to an integer fraction of the vsync rate. In turn, reducing the performance of the application if rendering is slower than vsync. Consider setting minImageCount to 3 to use triple buffering to maximize performance in such cases.
+[18:39:29.593] [Vulkan] [I] [swapchain.cpp:107] Swapchain created with 2 images
+Validation Warning: [ WARNING-legacy-gpdp2 ] | MessageID = 0xde900250
+vkGetPhysicalDeviceFormatProperties(): vkGetPhysicalDeviceFormatProperties is a legacy command and this VkInstance was created with VK_VERSION_1_1 which contains vkGetPhysicalDeviceFormatProperties2 that can be used instead.
+See more information about this legacy in the specification: https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2
+Objects: 1
+    [0] VkPhysicalDevice 0x1fa25cb1550
+
+[18:39:29.600] [Vulkan] [W] [instance.cpp:18] -560987568 - WARNING-legacy-gpdp2: vkGetPhysicalDeviceFormatProperties(): vkGetPhysicalDeviceFormatProperties is a legacy command and this VkInstance was created with VK_VERSION_1_1 which contains vkGetPhysicalDeviceFormatProperties2 that can be used instead.
+See more information about this legacy in the specification: https://docs.vulkan.org/spec/latest/appendices/legacy.html#legacy-gpdp2
+[18:39:29.600] [Vulkan] [D] [formats.cpp:92] Selected formats:
+[18:39:29.600] [Vulkan] [D] [formats.cpp:93]   Albedo: B8G8R8A8_SRGB
+[18:39:29.600] [Vulkan] [D] [formats.cpp:94]   Normal: A2B10G10R10_UNORM_PACK32
+[18:39:29.600] [Vulkan] [D] [formats.cpp:95]   Emissive: B10G11R11_UFLOAT_PACK32
+[18:39:29.600] [Vulkan] [D] [formats.cpp:96]   Metallic-Roughness: R8G8_UNORM
+[18:39:29.600] [Vulkan] [D] [formats.cpp:97]   Depth: D32_SFLOAT
+[18:39:29.600] [Vulkan] [D] [formats.cpp:98]   HDR: R16G16B16A16_SFLOAT
+[18:39:29.600] [Vulkan] [D] [formats.cpp:99]   Texture Albedo: BC7_SRGB_BLOCK
+[18:39:29.600] [Vulkan] [D] [formats.cpp:100]   Texture Normal: BC5_UNORM_BLOCK
+[18:39:29.600] [Vulkan] [D] [formats.cpp:101]   Texture Metallic-Roughness: BC5_UNORM_BLOCK
+[18:39:29.600] [Vulkan] [D] [formats.cpp:102]   Texture Emissive: B10G11R11_UFLOAT_PACK32
+[18:39:29.600] [Vulkan] [D] [formats.cpp:103]   Swapchain: B8G8R8A8_SRGB
+[18:39:29.600] [Vulkan] [D] [pipelines.cpp:139] Creating basic pipeline
+Validation Performance Warning: [ BestPractices-AMD-CreatePipelinesLayout-KeepLayoutSmall ] | MessageID = 0x881c2e85
+vkCreatePipelineLayout(): [AMD] pipeline layout size is too large. Prefer smaller pipeline layouts. Descriptor sets cost 1 DWORD each. Dynamic buffers cost 2 DWORDs each when robust buffer access is OFF. Dynamic buffers cost 4 DWORDs each when robust buffer access is ON. Push constants cost 1 DWORD per 4 bytes in the Push constant range. 
+
+[18:39:29.600] [Vulkan] [W] [instance.cpp:18] -2011419003 - BestPractices-AMD-CreatePipelinesLayout-KeepLayoutSmall: vkCreatePipelineLayout(): [AMD] pipeline layout size is too large. Prefer smaller pipeline layouts. Descriptor sets cost 1 DWORD each. Dynamic buffers cost 2 DWORDs each when robust buffer access is OFF. Dynamic buffers cost 4 DWORDs each when robust buffer access is ON. Push constants cost 1 DWORD per 4 bytes in the Push constant range. 
+Validation Performance Warning: [ WARNING-Shader-OutputNotConsumed ] | MessageID = 0xc81ad50e
+vkCreateGraphicsPipelines(): pCreateInfos[0] (SPIR-V Interface) VK_SHADER_STAGE_VERTEX_BIT has an Output value declared at Location 2 Component 0, but there is no corresponding Input declared in VK_SHADER_STAGE_FRAGMENT_BIT.
+This is not invalid, but might the write to to the unused Output is discarded.
+The Output variable is:
+  pointer to Output -> float32
+Objects: 2
+    [0] VkShaderModule 0x330000000033
+    [1] VkShaderModule 0x330000000033
+
+[18:39:29.601] [Vulkan] [W] [instance.cpp:18] -937765618 - WARNING-Shader-OutputNotConsumed: vkCreateGraphicsPipelines(): pCreateInfos[0] (SPIR-V Interface) VK_SHADER_STAGE_VERTEX_BIT has an Output value declared at Location 2 Component 0, but there is no corresponding Input declared in VK_SHADER_STAGE_FRAGMENT_BIT.
+This is not invalid, but might the write to to the unused Output is discarded.
+The Output variable is:
+  pointer to Output -> float32
+Validation Performance Warning: [ WARNING-Shader-OutputNotConsumed ] | MessageID = 0xc81ad50e
+vkCreateGraphicsPipelines(): pCreateInfos[0] (SPIR-V Interface) VK_SHADER_STAGE_VERTEX_BIT has an Output value declared at Location 4 Component 0, but there is no corresponding Input declared in VK_SHADER_STAGE_FRAGMENT_BIT.
+This is not invalid, but might the write to to the unused Output is discarded.
+The Output variable is:
+  pointer to Output -> float32
+Objects: 2
+    [0] VkShaderModule 0x330000000033
+    [1] VkShaderModule 0x330000000033
+
+[18:39:29.601] [Vulkan] [W] [instance.cpp:18] -937765618 - WARNING-Shader-OutputNotConsumed: vkCreateGraphicsPipelines(): pCreateInfos[0] (SPIR-V Interface) VK_SHADER_STAGE_VERTEX_BIT has an Output value declared at Location 4 Component 0, but there is no corresponding Input declared in VK_SHADER_STAGE_FRAGMENT_BIT.
+This is not invalid, but might the write to to the unused Output is discarded.
+The Output variable is:
+  pointer to Output -> float32
+[18:39:29.601] [Vulkan] [D] [pipelines.cpp:156] Creating deferred pipeline
+[18:39:29.601] [Vulkan] [D] [pipelines.cpp:202] Creating point light shadows pipeline
+Validation Performance Warning: [ WARNING-Shader-OutputNotConsumed ] | MessageID = 0xc81ad50e
+vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 1 not consumed by vertex shader.
+Objects: 1
+    [0] VkShaderModule 0x390000000039
+
+[18:39:29.601] [Vulkan] [W] [instance.cpp:18] -937765618 - WARNING-Shader-OutputNotConsumed: vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 1 not consumed by vertex shader.
+Validation Performance Warning: [ WARNING-Shader-OutputNotConsumed ] | MessageID = 0xc81ad50e
+vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 2 not consumed by vertex shader.
+Objects: 1
+    [0] VkShaderModule 0x390000000039
+
+[18:39:29.601] [Vulkan] [W] [instance.cpp:18] -937765618 - WARNING-Shader-OutputNotConsumed: vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 2 not consumed by vertex shader.
+Validation Performance Warning: [ WARNING-Shader-OutputNotConsumed ] | MessageID = 0xc81ad50e
+vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 3 not consumed by vertex shader.
+Objects: 1
+    [0] VkShaderModule 0x390000000039
+
+[18:39:29.601] [Vulkan] [W] [instance.cpp:18] -937765618 - WARNING-Shader-OutputNotConsumed: vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 3 not consumed by vertex shader.
+Validation Performance Warning: [ WARNING-Shader-OutputNotConsumed ] | MessageID = 0xc81ad50e
+vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 4 not consumed by vertex shader.
+Objects: 1
+    [0] VkShaderModule 0x390000000039
+
+[18:39:29.601] [Vulkan] [W] [instance.cpp:18] -937765618 - WARNING-Shader-OutputNotConsumed: vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 4 not consumed by vertex shader.
+Validation Performance Warning: [ WARNING-Shader-OutputNotConsumed ] | MessageID = 0xc81ad50e
+vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 5 not consumed by vertex shader.
+Objects: 1
+    [0] VkShaderModule 0x390000000039
+
+[18:39:29.601] [Vulkan] [W] [instance.cpp:18] -937765618 - WARNING-Shader-OutputNotConsumed: vkCreateGraphicsPipelines(): pCreateInfos[0].pVertexInputState Vertex attribute at location 5 not consumed by vertex shader.
+[18:39:29.602] [Vulkan] [D] [pipelines.cpp:242] Creating deferred point light pipeline
+[18:39:29.602] [Vulkan] [D] [pipelines.cpp:298] Creating SSAO pipeline
+[18:39:29.602] [Vulkan] [D] [pipelines.cpp:319] Creating SSAO blur pipeline
+[18:39:29.603] [Vulkan] [D] [pipelines.cpp:344] Creating light combine pipeline
+[18:39:29.603] [Vulkan] [D] [pipelines.cpp:364] Creating bloom downsample pipeline
+[18:39:29.603] [Vulkan] [D] [pipelines.cpp:389] Creating bloom upsample pipeline
+[18:39:29.603] [Vulkan] [D] [pipelines.cpp:428] Creating bloom combine pipeline
+[18:39:29.817] [Vulkan] [D] [setup.cpp:176] Vulkan renderer created successfully.
+[18:39:29.817] [Keptech] [D] [main.cpp:33] Renderer created successfully
+[18:39:29.817] [Keptech] [D] [data.cpp:148] Loading glTF file from path: D:/C++/Keptech/examples/assets/meshes/BistroExterior.gltf
+[18:39:34.006] [Vulkan] [D] [resourceManagment.cpp:122] Loading 405 images from glTF data
+Validation Warning: [ BestPractices-ImageBarrierAccessLayout ] | MessageID = 0xf35d019f
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x790000000079 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Objects: 1
+    [0] VkImage 0x790000000079
+
+[18:39:34.496] [Vulkan] [W] [instance.cpp:18] -212008545 - BestPractices-ImageBarrierAccessLayout: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x790000000079 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Validation Warning: [ BestPractices-ImageBarrierAccessLayout ] | MessageID = 0xf35d019f
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x7b000000007b and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Objects: 1
+    [0] VkImage 0x7b000000007b
+
+[18:39:34.496] [Vulkan] [W] [instance.cpp:18] -212008545 - BestPractices-ImageBarrierAccessLayout: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x7b000000007b and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Validation Warning: [ BestPractices-ImageBarrierAccessLayout ] | MessageID = 0xf35d019f
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x7d000000007d and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Objects: 1
+    [0] VkImage 0x7d000000007d
+
+[18:39:34.497] [Vulkan] [W] [instance.cpp:18] -212008545 - BestPractices-ImageBarrierAccessLayout: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x7d000000007d and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Validation Warning: [ BestPractices-ImageBarrierAccessLayout ] | MessageID = 0xf35d019f
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x7f000000007f and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Objects: 1
+    [0] VkImage 0x7f000000007f
+
+[18:39:34.497] [Vulkan] [W] [instance.cpp:18] -212008545 - BestPractices-ImageBarrierAccessLayout: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x7f000000007f and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Validation Warning: [ BestPractices-ImageBarrierAccessLayout ] | MessageID = 0xf35d019f
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x810000000081 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Objects: 1
+    [0] VkImage 0x810000000081
+
+[18:39:34.497] [Vulkan] [W] [instance.cpp:18] -212008545 - BestPractices-ImageBarrierAccessLayout: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x810000000081 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Validation Warning: [ BestPractices-ImageBarrierAccessLayout ] | MessageID = 0xf35d019f
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x830000000083 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Objects: 1
+    [0] VkImage 0x830000000083
+
+[18:39:34.497] [Vulkan] [W] [instance.cpp:18] -212008545 - BestPractices-ImageBarrierAccessLayout: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x830000000083 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Validation Warning: [ BestPractices-ImageBarrierAccessLayout ] | MessageID = 0xf35d019f
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x850000000085 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Objects: 1
+    [0] VkImage 0x850000000085
+
+[18:39:34.498] [Vulkan] [W] [instance.cpp:18] -212008545 - BestPractices-ImageBarrierAccessLayout: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x850000000085 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Validation Warning: [ BestPractices-ImageBarrierAccessLayout ] | MessageID = 0xf35d019f
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x870000000087 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Objects: 1
+    [0] VkImage 0x870000000087
+
+[18:39:34.498] [Vulkan] [W] [instance.cpp:18] -212008545 - BestPractices-ImageBarrierAccessLayout: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x870000000087 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Validation Warning: [ BestPractices-ImageBarrierAccessLayout ] | MessageID = 0xf35d019f
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x890000000089 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Objects: 1
+    [0] VkImage 0x890000000089
+
+[18:39:34.498] [Vulkan] [W] [instance.cpp:18] -212008545 - BestPractices-ImageBarrierAccessLayout: vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x890000000089 and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Validation Warning: [ BestPractices-ImageBarrierAccessLayout ] | MessageID = 0xf35d019f
+(Warning - This VUID has now been reported 10 times, which is the duplicate_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x8b000000008b and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+Objects: 1
+    [0] VkImage 0x8b000000008b
+
+[18:39:34.498] [Vulkan] [W] [instance.cpp:18] -212008545 - BestPractices-ImageBarrierAccessLayout: (Warning - This VUID has now been reported 10 times, which is the duplicate_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier2(): pDependencyInfo->pImageMemoryBarriers[0] image is VkImage 0x8b000000008b and accessMask is VK_ACCESS_2_TRANSFER_READ_BIT|VK_ACCESS_2_TRANSFER_WRITE_BIT, but for layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL expected accessMask are VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_READ_BIT|VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_2_SHADER_SAMPLED_READ_BIT|VK_ACCESS_2_SHADER_STORAGE_READ_BIT|VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR.
+[18:39:34.627] [Vulkan] [D] [resourceManagment.cpp:475] Uploading 1296 meshes from glTF data
+[18:39:34.627] [Vulkan] [D] [resourceManagment.cpp:498] Current vertex buffer size 64000 is too small for 2896695 vertices, creating new buffer
+[18:39:34.652] [Vulkan] [D] [resourceManagment.cpp:522] Current index buffer size 4000 is too small for 8487678 indices, creating new buffer
+[18:39:34.670] [Vulkan] [D] [resourceManagment.cpp:580] Vertex and index buffers are mapped, writing mesh data directly to buffers
+[18:39:34.684] [Vulkan] [D] [resourceManagment.cpp:617] Old vertex buffer mapped | New vertex buffer mapped
+[18:39:34.684] [Vulkan] [D] [resourceManagment.cpp:634] Old index buffer mapped | New index buffer mapped
+[18:39:34.799] [Keptech] [D] [scene.cpp:29] Adding glTF scene to ECS scene with 1 roots
+[18:39:34.820] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:34.820] [Vulkan] [D] [renderUtils.cpp:37] Updating 405 texture descriptors for frame 0
+[18:39:34.824] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:34.824] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:34.825] [Vulkan] [D] [renderer.cpp:218] Resized object buffer to fit 1591 objects
+[18:39:34.825] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:34.832] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+Validation Error: [ SYNC-HAZARD-WRITE-AFTER-WRITE ] | MessageID = 0x5c0ec5d6
+vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+Objects: 2
+    [0] VkCommandBuffer 0x1fabb98ddb0
+    [1] VkImage 0x5b000000005b[GBuffer Depth]
+
+[18:39:34.832] [Vulkan] [E] [instance.cpp:20] 1544472022 - SYNC-HAZARD-WRITE-AFTER-WRITE: vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+[18:39:34.832] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:34.833] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:34.863] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+Validation Performance Warning: [ BestPractices-Pipeline-SortAndBind ] | MessageID = 0x6d0c146d
+vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x3b000000003b was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Objects: 1
+    [0] VkCommandBuffer 0x1fabb8d54d0
+
+[18:39:34.864] [Vulkan] [W] [instance.cpp:18] 1829508205 - BestPractices-Pipeline-SortAndBind: vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x3b000000003b was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+[18:39:34.869] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:34.870] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:34.873] [Vulkan] [D] [renderer.cpp:96] Post Processing
+Validation Performance Warning: [ BestPractices-Pipeline-SortAndBind ] | MessageID = 0x6d0c146d
+vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4a000000004a was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Objects: 1
+    [0] VkCommandBuffer 0x1fabb9c0430
+
+[18:39:34.873] [Vulkan] [W] [instance.cpp:18] 1829508205 - BestPractices-Pipeline-SortAndBind: vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4a000000004a was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Validation Performance Warning: [ BestPractices-Pipeline-SortAndBind ] | MessageID = 0x6d0c146d
+vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4a000000004a was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Objects: 1
+    [0] VkCommandBuffer 0x1fabb9c0430
+
+[18:39:34.874] [Vulkan] [W] [instance.cpp:18] 1829508205 - BestPractices-Pipeline-SortAndBind: vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4a000000004a was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Validation Performance Warning: [ BestPractices-Pipeline-SortAndBind ] | MessageID = 0x6d0c146d
+vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4a000000004a was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Objects: 1
+    [0] VkCommandBuffer 0x1fabb9c0430
+
+[18:39:34.874] [Vulkan] [W] [instance.cpp:18] 1829508205 - BestPractices-Pipeline-SortAndBind: vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4a000000004a was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Validation Performance Warning: [ BestPractices-Pipeline-SortAndBind ] | MessageID = 0x6d0c146d
+vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4a000000004a was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Objects: 1
+    [0] VkCommandBuffer 0x1fabb9c0430
+
+[18:39:34.874] [Vulkan] [W] [instance.cpp:18] 1829508205 - BestPractices-Pipeline-SortAndBind: vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4a000000004a was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Validation Performance Warning: [ BestPractices-Pipeline-SortAndBind ] | MessageID = 0x6d0c146d
+vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4d000000004d was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Objects: 1
+    [0] VkCommandBuffer 0x1fabb9c0430
+
+[18:39:34.874] [Vulkan] [W] [instance.cpp:18] 1829508205 - BestPractices-Pipeline-SortAndBind: vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4d000000004d was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Validation Performance Warning: [ BestPractices-Pipeline-SortAndBind ] | MessageID = 0x6d0c146d
+vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4d000000004d was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Objects: 1
+    [0] VkCommandBuffer 0x1fabb9c0430
+
+[18:39:34.874] [Vulkan] [W] [instance.cpp:18] 1829508205 - BestPractices-Pipeline-SortAndBind: vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4d000000004d was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Validation Performance Warning: [ BestPractices-Pipeline-SortAndBind ] | MessageID = 0x6d0c146d
+vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4d000000004d was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Objects: 1
+    [0] VkCommandBuffer 0x1fabb9c0430
+
+[18:39:34.874] [Vulkan] [W] [instance.cpp:18] 1829508205 - BestPractices-Pipeline-SortAndBind: vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4d000000004d was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Validation Performance Warning: [ BestPractices-vkBindImageMemory-small-dedicated-allocation ] | MessageID = 0x44604b49
+vkBindImageMemory(): Trying to bind VkImage 0x3b300000003b3 to a memory block which is fully consumed by the image. The required size of the allocation is 262144, but smaller images like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+
+[18:39:34.876] [Vulkan] [W] [instance.cpp:18] 1147161417 - BestPractices-vkBindImageMemory-small-dedicated-allocation: vkBindImageMemory(): Trying to bind VkImage 0x3b300000003b3 to a memory block which is fully consumed by the image. The required size of the allocation is 262144, but smaller images like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+Validation Performance Warning: [ BestPractices-vkBindBufferMemory-small-dedicated-allocation ] | MessageID = 0x10b59d4b
+vkBindBufferMemory(): Trying to bind VkBuffer 0x3b700000003b7 to a memory block which is fully consumed by the buffer. The required size of the allocation is 262144, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+
+[18:39:34.876] [Vulkan] [W] [instance.cpp:18] 280337739 - BestPractices-vkBindBufferMemory-small-dedicated-allocation: vkBindBufferMemory(): Trying to bind VkBuffer 0x3b700000003b7 to a memory block which is fully consumed by the buffer. The required size of the allocation is 262144, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+[18:39:34.892] [Vulkan] [D] [renderer.cpp:136] Present
+Validation Performance Warning: [ BestPractices-vkCreateSharedSwapchainsKHR-SuboptimalSwapchain ] | MessageID = 0x690efa69
+vkQueuePresentKHR(): pPresentInfo[0] VK_SUBOPTIMAL_KHR was returned. VK_SUBOPTIMAL_KHR - Presentation will still succeed, subject to the window resize behavior, but the swapchain (VkSwapchainKHR 0x30000000003) is no longer configured optimally for the surface it targets.
+Applications should query updated surface information and recreate their swapchain at the next convenient opportunity.
+Objects: 1
+    [0] VkSwapchainKHR 0x30000000003
+
+[18:39:34.903] [Vulkan] [W] [instance.cpp:18] 1762589289 - BestPractices-vkCreateSharedSwapchainsKHR-SuboptimalSwapchain: vkQueuePresentKHR(): pPresentInfo[0] VK_SUBOPTIMAL_KHR was returned. VK_SUBOPTIMAL_KHR - Presentation will still succeed, subject to the window resize behavior, but the swapchain (VkSwapchainKHR 0x30000000003) is no longer configured optimally for the surface it targets.
+Applications should query updated surface information and recreate their swapchain at the next convenient opportunity.
+[18:39:34.903] [Vulkan] [D] [renderer.cpp:913] Swapchain is suboptimal during present
+[18:39:34.903] [Vulkan] [D] [swapchain.cpp:33] Min image count for swapchain: 2
+[18:39:34.903] [Vulkan] [D] [swapchain.cpp:70] Requested 2 swapchain images
+Validation Performance Warning: [ BestPractices-vkCreateSwapchainKHR-suboptimal-swapchain-image-count ] | MessageID = 0x54ede350
+vkCreateSwapchainKHR(): A Swapchain is being created with minImageCount set to 2, which means double buffering is going to be used. Using double buffering and vsync locks rendering to an integer fraction of the vsync rate. In turn, reducing the performance of the application if rendering is slower than vsync. Consider setting minImageCount to 3 to use triple buffering to maximize performance in such cases.
+
+[18:39:34.903] [Vulkan] [W] [instance.cpp:18] 1424876368 - BestPractices-vkCreateSwapchainKHR-suboptimal-swapchain-image-count: vkCreateSwapchainKHR(): A Swapchain is being created with minImageCount set to 2, which means double buffering is going to be used. Using double buffering and vsync locks rendering to an integer fraction of the vsync rate. In turn, reducing the performance of the application if rendering is slower than vsync. Consider setting minImageCount to 3 to use triple buffering to maximize performance in such cases.
+[18:39:34.909] [Vulkan] [I] [swapchain.cpp:107] Swapchain created with 2 images
+[18:39:34.909] [Vulkan] [D] [renderer.cpp:943] Waiting for device idle after swapchain recreation
+[18:39:34.909] [Vulkan] [D] [renderer.cpp:949] Swapchain recreated.
+[18:39:34.910] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:34.910] [Vulkan] [D] [renderUtils.cpp:37] Updating 407 texture descriptors for frame 1
+[18:39:34.915] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:34.915] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:34.916] [Vulkan] [D] [renderer.cpp:218] Resized object buffer to fit 1591 objects
+[18:39:34.916] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:34.922] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+Validation Error: [ SYNC-HAZARD-WRITE-AFTER-WRITE ] | MessageID = 0x5c0ec5d6
+vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+Objects: 2
+    [0] VkCommandBuffer 0x1fabb075010
+    [1] VkImage 0x5b000000005b[GBuffer Depth]
+
+[18:39:34.923] [Vulkan] [E] [instance.cpp:20] 1544472022 - SYNC-HAZARD-WRITE-AFTER-WRITE: vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+[18:39:34.923] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:34.923] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:34.927] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+Validation Performance Warning: [ BestPractices-Pipeline-SortAndBind ] | MessageID = 0x6d0c146d
+vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x3b000000003b was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Objects: 1
+    [0] VkCommandBuffer 0x1faeab56020
+
+[18:39:34.927] [Vulkan] [W] [instance.cpp:18] 1829508205 - BestPractices-Pipeline-SortAndBind: vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x3b000000003b was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+[18:39:34.931] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:34.931] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:34.932] [Vulkan] [D] [renderer.cpp:96] Post Processing
+Validation Performance Warning: [ BestPractices-Pipeline-SortAndBind ] | MessageID = 0x6d0c146d
+(Warning - This VUID has now been reported 10 times, which is the duplicate_message_limit value, this will be the last time reporting it).
+vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4a000000004a was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Objects: 1
+    [0] VkCommandBuffer 0x1fabb0eae00
+
+[18:39:34.932] [Vulkan] [W] [instance.cpp:18] 1829508205 - BestPractices-Pipeline-SortAndBind: (Warning - This VUID has now been reported 10 times, which is the duplicate_message_limit value, this will be the last time reporting it).
+vkCmdBindPipeline(): [AMD] [NVIDIA] Pipeline VkPipeline 0x4a000000004a was bound twice in the frame. Keep pipeline state changes to a minimum, for example, by sorting draw calls by pipeline.
+Validation Performance Warning: [ BestPractices-vkBindBufferMemory-small-dedicated-allocation ] | MessageID = 0x10b59d4b
+vkBindBufferMemory(): Trying to bind VkBuffer 0x3c100000003c1 to a memory block which is fully consumed by the buffer. The required size of the allocation is 640, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+
+[18:39:34.933] [Vulkan] [W] [instance.cpp:18] 280337739 - BestPractices-vkBindBufferMemory-small-dedicated-allocation: vkBindBufferMemory(): Trying to bind VkBuffer 0x3c100000003c1 to a memory block which is fully consumed by the buffer. The required size of the allocation is 640, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+Validation Performance Warning: [ BestPractices-vkBindBufferMemory-small-dedicated-allocation ] | MessageID = 0x10b59d4b
+vkBindBufferMemory(): Trying to bind VkBuffer 0x3c300000003c3 to a memory block which is fully consumed by the buffer. The required size of the allocation is 7168, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+
+[18:39:34.949] [Vulkan] [W] [instance.cpp:18] 280337739 - BestPractices-vkBindBufferMemory-small-dedicated-allocation: vkBindBufferMemory(): Trying to bind VkBuffer 0x3c300000003c3 to a memory block which is fully consumed by the buffer. The required size of the allocation is 7168, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+Validation Performance Warning: [ BestPractices-vkBindBufferMemory-small-dedicated-allocation ] | MessageID = 0x10b59d4b
+vkBindBufferMemory(): Trying to bind VkBuffer 0x3c500000003c5 to a memory block which is fully consumed by the buffer. The required size of the allocation is 1280, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+
+[18:39:34.950] [Vulkan] [W] [instance.cpp:18] 280337739 - BestPractices-vkBindBufferMemory-small-dedicated-allocation: vkBindBufferMemory(): Trying to bind VkBuffer 0x3c500000003c5 to a memory block which is fully consumed by the buffer. The required size of the allocation is 1280, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+[18:39:34.950] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:34.952] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:34.952] [Vulkan] [D] [renderUtils.cpp:37] Updating 2 texture descriptors for frame 0
+[18:39:34.956] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:34.956] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:34.957] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:34.963] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+Validation Error: [ SYNC-HAZARD-WRITE-AFTER-WRITE ] | MessageID = 0x5c0ec5d6
+vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+Objects: 2
+    [0] VkCommandBuffer 0x1fae1f18c20
+    [1] VkImage 0x5b000000005b[GBuffer Depth]
+
+[18:39:34.963] [Vulkan] [E] [instance.cpp:20] 1544472022 - SYNC-HAZARD-WRITE-AFTER-WRITE: vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+[18:39:34.963] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:34.963] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:34.966] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:34.971] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:34.971] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:34.972] [Vulkan] [D] [renderer.cpp:96] Post Processing
+Validation Performance Warning: [ BestPractices-vkBindBufferMemory-small-dedicated-allocation ] | MessageID = 0x10b59d4b
+vkBindBufferMemory(): Trying to bind VkBuffer 0x3c700000003c7 to a memory block which is fully consumed by the buffer. The required size of the allocation is 256, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+
+[18:39:34.973] [Vulkan] [W] [instance.cpp:18] 280337739 - BestPractices-vkBindBufferMemory-small-dedicated-allocation: vkBindBufferMemory(): Trying to bind VkBuffer 0x3c700000003c7 to a memory block which is fully consumed by the buffer. The required size of the allocation is 256, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+Validation Performance Warning: [ BestPractices-vkBindBufferMemory-small-dedicated-allocation ] | MessageID = 0x10b59d4b
+vkBindBufferMemory(): Trying to bind VkBuffer 0x3c900000003c9 to a memory block which is fully consumed by the buffer. The required size of the allocation is 7168, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+
+[18:39:34.989] [Vulkan] [W] [instance.cpp:18] 280337739 - BestPractices-vkBindBufferMemory-small-dedicated-allocation: vkBindBufferMemory(): Trying to bind VkBuffer 0x3c900000003c9 to a memory block which is fully consumed by the buffer. The required size of the allocation is 7168, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+Validation Performance Warning: [ BestPractices-vkBindBufferMemory-small-dedicated-allocation ] | MessageID = 0x10b59d4b
+vkBindBufferMemory(): Trying to bind VkBuffer 0x3cb00000003cb to a memory block which is fully consumed by the buffer. The required size of the allocation is 1280, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+
+[18:39:34.990] [Vulkan] [W] [instance.cpp:18] 280337739 - BestPractices-vkBindBufferMemory-small-dedicated-allocation: vkBindBufferMemory(): Trying to bind VkBuffer 0x3cb00000003cb to a memory block which is fully consumed by the buffer. The required size of the allocation is 1280, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+[18:39:34.991] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:34.992] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:34.996] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:34.996] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:34.997] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.003] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+Validation Error: [ SYNC-HAZARD-WRITE-AFTER-WRITE ] | MessageID = 0x5c0ec5d6
+vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+Objects: 2
+    [0] VkCommandBuffer 0x1fabb330010
+    [1] VkImage 0x5b000000005b[GBuffer Depth]
+
+[18:39:35.003] [Vulkan] [E] [instance.cpp:20] 1544472022 - SYNC-HAZARD-WRITE-AFTER-WRITE: vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+[18:39:35.004] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.004] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.007] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.011] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.012] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.013] [Vulkan] [D] [renderer.cpp:96] Post Processing
+Validation Performance Warning: [ BestPractices-vkBindBufferMemory-small-dedicated-allocation ] | MessageID = 0x10b59d4b
+vkBindBufferMemory(): Trying to bind VkBuffer 0x3cd00000003cd to a memory block which is fully consumed by the buffer. The required size of the allocation is 7168, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+
+[18:39:35.014] [Vulkan] [W] [instance.cpp:18] 280337739 - BestPractices-vkBindBufferMemory-small-dedicated-allocation: vkBindBufferMemory(): Trying to bind VkBuffer 0x3cd00000003cd to a memory block which is fully consumed by the buffer. The required size of the allocation is 7168, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+Validation Performance Warning: [ BestPractices-vkBindBufferMemory-small-dedicated-allocation ] | MessageID = 0x10b59d4b
+vkBindBufferMemory(): Trying to bind VkBuffer 0x3cf00000003cf to a memory block which is fully consumed by the buffer. The required size of the allocation is 1280, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+
+[18:39:35.014] [Vulkan] [W] [instance.cpp:18] 280337739 - BestPractices-vkBindBufferMemory-small-dedicated-allocation: vkBindBufferMemory(): Trying to bind VkBuffer 0x3cf00000003cf to a memory block which is fully consumed by the buffer. The required size of the allocation is 1280, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+[18:39:35.014] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.016] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.019] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.019] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.020] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.025] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+Validation Error: [ SYNC-HAZARD-WRITE-AFTER-WRITE ] | MessageID = 0x5c0ec5d6
+vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+Objects: 2
+    [0] VkCommandBuffer 0x1fae13516d0
+    [1] VkImage 0x5b000000005b[GBuffer Depth]
+
+[18:39:35.025] [Vulkan] [E] [instance.cpp:20] 1544472022 - SYNC-HAZARD-WRITE-AFTER-WRITE: vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+[18:39:35.025] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.026] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.029] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.033] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.033] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.034] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.035] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.036] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.040] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.040] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.041] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.046] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+Validation Error: [ SYNC-HAZARD-WRITE-AFTER-WRITE ] | MessageID = 0x5c0ec5d6
+vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+Objects: 2
+    [0] VkCommandBuffer 0x1faef6619d0
+    [1] VkImage 0x5b000000005b[GBuffer Depth]
+
+[18:39:35.046] [Vulkan] [E] [instance.cpp:20] 1544472022 - SYNC-HAZARD-WRITE-AFTER-WRITE: vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+[18:39:35.046] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.047] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.050] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.053] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.054] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.054] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.055] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.056] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.060] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.060] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.061] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.066] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+Validation Error: [ SYNC-HAZARD-WRITE-AFTER-WRITE ] | MessageID = 0x5c0ec5d6
+vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+Objects: 2
+    [0] VkCommandBuffer 0x1faed31d020
+    [1] VkImage 0x5b000000005b[GBuffer Depth]
+
+[18:39:35.066] [Vulkan] [E] [instance.cpp:20] 1544472022 - SYNC-HAZARD-WRITE-AFTER-WRITE: vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+[18:39:35.066] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.067] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.070] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.073] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.073] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.074] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.075] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.087] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.090] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.090] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.091] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.096] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+Validation Error: [ SYNC-HAZARD-WRITE-AFTER-WRITE ] | MessageID = 0x5c0ec5d6
+vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+Objects: 2
+    [0] VkCommandBuffer 0x1faed52c050
+    [1] VkImage 0x5b000000005b[GBuffer Depth]
+
+[18:39:35.096] [Vulkan] [E] [instance.cpp:20] 1544472022 - SYNC-HAZARD-WRITE-AFTER-WRITE: vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+[18:39:35.097] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.097] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.100] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.103] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.104] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.104] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.105] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.115] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.118] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.118] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.119] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.124] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+Validation Error: [ SYNC-HAZARD-WRITE-AFTER-WRITE ] | MessageID = 0x5c0ec5d6
+vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+Objects: 2
+    [0] VkCommandBuffer 0x1faed509020
+    [1] VkImage 0x5b000000005b[GBuffer Depth]
+
+[18:39:35.124] [Vulkan] [E] [instance.cpp:20] 1544472022 - SYNC-HAZARD-WRITE-AFTER-WRITE: vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+[18:39:35.124] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.125] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.128] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.131] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.131] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.132] [Vulkan] [D] [renderer.cpp:96] Post Processing
+Validation Performance Warning: [ BestPractices-vkBindBufferMemory-small-dedicated-allocation ] | MessageID = 0x10b59d4b
+(Warning - This VUID has now been reported 10 times, which is the duplicate_message_limit value, this will be the last time reporting it).
+vkBindBufferMemory(): Trying to bind VkBuffer 0x3d100000003d1 to a memory block which is fully consumed by the buffer. The required size of the allocation is 256, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+
+[18:39:35.133] [Vulkan] [W] [instance.cpp:18] 280337739 - BestPractices-vkBindBufferMemory-small-dedicated-allocation: (Warning - This VUID has now been reported 10 times, which is the duplicate_message_limit value, this will be the last time reporting it).
+vkBindBufferMemory(): Trying to bind VkBuffer 0x3d100000003d1 to a memory block which is fully consumed by the buffer. The required size of the allocation is 256, but smaller buffers like this should be sub-allocated from larger memory blocks. (Current threshold is 1048576 bytes)
+[18:39:35.147] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.148] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.151] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.151] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.152] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.157] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+Validation Error: [ SYNC-HAZARD-WRITE-AFTER-WRITE ] | MessageID = 0x5c0ec5d6
+(Warning - This VUID has now been reported 10 times, which is the duplicate_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+Objects: 2
+    [0] VkCommandBuffer 0x1faecaf66d0
+    [1] VkImage 0x5b000000005b[GBuffer Depth]
+
+[18:39:35.157] [Vulkan] [E] [instance.cpp:20] 1544472022 - SYNC-HAZARD-WRITE-AFTER-WRITE: (Warning - This VUID has now been reported 10 times, which is the duplicate_message_limit value, this will be the last time reporting it).
+vkCmdPipelineBarrier2(): WRITE_AFTER_WRITE hazard detected. vkCmdPipelineBarrier2 performs image layout transition on the VkImage 0x5b000000005b[GBuffer Depth], which was previously written by vkCmdEndRendering. 
+No sufficient synchronization is present to ensure that a layout transition does not conflict with a prior write (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT) at VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT.
+pImageMemoryBarriers[4]: {
+  srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+  srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+  dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+  dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+}
+
+[18:39:35.157] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.158] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.161] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.164] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.164] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.165] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.165] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.178] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.181] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.181] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.182] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.187] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.187] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.188] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.191] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.194] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.194] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.195] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.196] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.208] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.211] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.211] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.212] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.217] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.217] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.218] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.221] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.224] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.225] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.225] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.226] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.238] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.241] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.241] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.242] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.247] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.247] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.248] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.251] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.254] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.254] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.255] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.256] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.268] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.271] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.271] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.272] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.277] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.277] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.278] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.281] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.284] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.284] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.285] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.285] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.297] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.301] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.301] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.302] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.307] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.307] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.308] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.311] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.314] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.314] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.315] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.315] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.327] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.331] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.331] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.331] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.336] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.337] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.337] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.340] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.343] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.344] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.344] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.345] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.357] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.361] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.361] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.362] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.367] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.367] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.368] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.371] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.374] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.374] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.375] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.375] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.387] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.391] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.391] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.392] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.397] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.397] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.398] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.401] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.404] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.404] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.405] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.405] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.417] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.421] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.421] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.422] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.427] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.427] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.428] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.431] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.434] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.434] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.435] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.435] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.448] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.451] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.451] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.452] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.457] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.457] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.458] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.461] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.464] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.464] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.465] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.466] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.478] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.481] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.481] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.482] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.487] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.487] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.488] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.491] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.494] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.494] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.495] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.496] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.508] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.511] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.511] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.512] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.517] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.517] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.518] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.521] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.524] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.525] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.525] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.526] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.538] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.541] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.541] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.542] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.547] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.547] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.548] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.551] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.554] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.554] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.555] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.555] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.567] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.571] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.571] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.572] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.577] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.577] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.578] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.581] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.584] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.584] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.585] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.585] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.597] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.601] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.601] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.601] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.606] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.607] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.607] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.610] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.613] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.614] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.614] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.615] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.627] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.630] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.630] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.631] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.636] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.636] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.637] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.640] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.643] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.643] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.644] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.645] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.656] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.659] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.660] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.660] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.665] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.665] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.666] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.669] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.672] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.672] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.673] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.674] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.685] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.689] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.689] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.689] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.695] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.695] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.695] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.698] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.701] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.702] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.703] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.703] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.714] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.718] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.718] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.719] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.724] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.724] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.725] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.728] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.731] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.731] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.732] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.732] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.744] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.748] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.748] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.748] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.754] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.754] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.755] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.758] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.761] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.761] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.762] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.763] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.774] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.778] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.778] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.778] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.783] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.784] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.784] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.787] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.790] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.791] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.792] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.792] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.805] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.809] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.809] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.810] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.816] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.817] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.819] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.822] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.827] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.827] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.828] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.828] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.839] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.843] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.843] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.844] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.849] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.849] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.850] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.853] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.856] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.856] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.857] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.857] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.870] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.874] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.874] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.875] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.880] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.880] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.880] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.884] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.887] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.887] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.888] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.888] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.898] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.901] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.901] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.902] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.907] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.907] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.908] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.911] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.914] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.914] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.915] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.915] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.924] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.927] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.927] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.928] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.933] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.933] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.934] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.937] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.940] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.940] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.941] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.941] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.948] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.952] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.952] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.953] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.958] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.958] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.959] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.962] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.965] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.965] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.966] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.967] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.972] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.975] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.975] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.976] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:35.981] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:35.981] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:35.982] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:35.985] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:35.988] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:35.988] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:35.989] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:35.990] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:35.994] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:35.997] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:35.997] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:35.998] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.003] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.003] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.004] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.007] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.010] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.010] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.011] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.012] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.014] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.018] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.018] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.019] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.024] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.024] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.025] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.028] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.031] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.031] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.032] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.032] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.035] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.039] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.039] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.040] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.045] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.045] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.046] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.049] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.051] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.052] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.053] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.053] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.055] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.058] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.058] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.059] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.064] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.064] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.065] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.068] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.071] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.071] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.072] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.073] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.075] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.078] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.078] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.079] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.084] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.084] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.085] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.088] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.091] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.092] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.093] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.093] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.095] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.099] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.099] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.100] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.105] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.105] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.106] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.109] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.112] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.112] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.113] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.114] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.116] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.120] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.120] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.120] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.125] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.126] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.126] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.129] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.132] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.133] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.134] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.134] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.136] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.140] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.140] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.141] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.146] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.146] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.147] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.150] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.153] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.153] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.154] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.154] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.156] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.160] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.160] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.161] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.166] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.166] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.167] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.170] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.173] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.173] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.174] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.175] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.177] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.180] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.180] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.181] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.186] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.186] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.187] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.190] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.193] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.194] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.194] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.195] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.197] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.201] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.201] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.202] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.207] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.208] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.208] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.212] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.215] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.215] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.216] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.217] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.219] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.223] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.223] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.224] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.229] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.229] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.230] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.233] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.236] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.236] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.237] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.238] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.240] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.244] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.244] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.245] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.250] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.250] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.251] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.254] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.257] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.258] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.259] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.259] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.261] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.265] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.265] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.265] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.271] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.271] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.272] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.275] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.278] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.278] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.279] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.280] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.282] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.285] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.285] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.286] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.291] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.291] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.292] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.295] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.298] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.299] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.300] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.300] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.302] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.306] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.306] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.307] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.312] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.312] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.313] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.316] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.319] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.319] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.320] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.321] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.323] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.326] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.326] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.327] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.332] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.333] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.333] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.337] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.340] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.340] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.341] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.341] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.343] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.347] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.347] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.348] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.353] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.353] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.354] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.357] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.360] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.361] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.361] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.362] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.364] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.368] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.368] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.368] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.374] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.374] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.375] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.378] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.381] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.381] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.382] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.383] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.384] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.388] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.388] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.389] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.394] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.394] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.395] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.398] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.401] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.401] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.402] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.403] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.405] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.408] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.408] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.409] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.414] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.414] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.415] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.418] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.421] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.422] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.423] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.423] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.425] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.428] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.428] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.429] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.434] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.434] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.435] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.438] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.441] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.442] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.443] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.443] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.445] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.448] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.448] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.449] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.454] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.455] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.455] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.458] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.461] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.462] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.463] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.463] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.465] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.469] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.469] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.470] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.475] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.475] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.476] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.479] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.483] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.483] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.484] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.484] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.486] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.490] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.490] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.490] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.495] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.496] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.496] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.500] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.503] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.503] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.504] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.504] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.506] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.510] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.510] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.511] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.516] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.516] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.517] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.520] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.523] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.523] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.524] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.525] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.527] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.530] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.530] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.531] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.536] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.536] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.537] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.540] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.543] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.544] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.544] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.545] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.547] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.550] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.550] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.551] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.556] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.557] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.557] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.561] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.564] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.564] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.565] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.565] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.567] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.571] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.571] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.572] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.577] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.577] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.578] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.581] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.584] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.584] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.585] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.586] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.587] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.591] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.591] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.592] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.597] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.597] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.598] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.601] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.604] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.604] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.605] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.605] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.607] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.611] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.611] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.612] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.617] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.617] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.618] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.621] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.624] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.624] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.625] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.626] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.628] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.631] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.631] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.632] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.637] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.637] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.638] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.641] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.644] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.644] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.645] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.646] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.648] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.651] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.651] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.652] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.657] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.657] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.658] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.661] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.664] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.664] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.665] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.666] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.667] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.671] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.671] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.672] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.677] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.677] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.678] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.681] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.684] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.684] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.685] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.685] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.687] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.691] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.691] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.692] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.697] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.697] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.698] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.701] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.704] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.704] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.705] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.705] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.707] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.711] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.711] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.711] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.716] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.717] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.717] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.720] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.723] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.724] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.725] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.725] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.727] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.731] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.731] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.732] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.737] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.737] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.738] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.741] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.744] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.744] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.745] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.746] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.748] [Vulkan] [D] [renderer.cpp:49] Frame Start
+[18:39:36.751] [Vulkan] [D] [renderer.cpp:71] Camera Buffer Update
+[18:39:36.751] [Vulkan] [D] [renderer.cpp:73] Objects Buffer Update
+[18:39:36.752] [Vulkan] [D] [renderer.cpp:75] Draw Deferred
+[18:39:36.757] [Vulkan] [D] [renderer.cpp:255] Drew 1591 objects in deferred pass
+[18:39:36.758] [Vulkan] [D] [renderer.cpp:80] Submit Deferred
+[18:39:36.758] [Vulkan] [D] [renderer.cpp:86] Draw Lights
+[18:39:36.761] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 0
+[18:39:36.764] [Vulkan] [D] [renderer.cpp:512] Drew 1591 objects for shadow map of light 1
+[18:39:36.765] [Vulkan] [D] [renderer.cpp:91] Submit Lights
+[18:39:36.765] [Vulkan] [D] [renderer.cpp:96] Post Processing
+[18:39:36.766] [Vulkan] [D] [renderer.cpp:136] Present
+[18:39:36.831] [Keptech] [I] [window.cpp:44] Exit requested
+[18:39:36.831] [Keptech] [I] [main.cpp:149] Starting shutdown
+[18:39:36.888] [Vulkan] [D] [rendererConDes.cpp:26] Shut down ImGui Vulkan backend
+[18:39:36.919] [Vulkan] [I] [rendererConDes.cpp:150] Vulkan renderer shut down cleanly
+Process terminated

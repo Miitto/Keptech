@@ -10,22 +10,27 @@ struct g2f {
   int layer : SV_RenderTargetArrayIndex;
 };
 
-struct ShadowMatrices {
-  float4x4 m[6];
+struct Object {
+  float4x4 modelMatrix;
+  uint materialIndex;
+  float padding[3];
 };
 
 struct PushConstants {
-  float4x4 modelMatrix;
-  float3 lightPos;
-  float lightRadius;
-  ShadowMatrices *matrices;
+  Object *objectBuffer;
+  kt::PointLight *lightBuffer;
+  float4x4 *shadowMatrixBuffer;
+  uint lightIndex;
+  uint shadowMapIndex;
 };
 
 [shader("vertex")]
-v2g vert(kt::Vertex v, uniform PushConstants PC) {
+v2g vert(kt::Vertex v, uint iid: SV_InstanceID, uint bid: SV_StartInstanceLocation, uniform PushConstants PC) {
   v2g output;
 
-  output.worldPosition = mul(float4(v.position, 1.0), PC.modelMatrix).xyz;
+  Object obj = PC.objectBuffer[iid + bid];
+
+  output.worldPosition = mul(float4(v.position, 1.0), obj.modelMatrix).xyz;
 
   return output;
 }
@@ -38,7 +43,7 @@ void geom(triangle v2g input[3], uniform PushConstants PC, uint layer: SV_GSInst
     g2f output;
     output.layer = layer;
     output.worldPosition = input[vertex].worldPosition;
-    output.position = mul(float4(output.worldPosition, 1.0), PC.matrices.m[layer]);
+    output.position = mul(float4(output.worldPosition, 1.0), PC.shadowMatrixBuffer[PC.shadowMapIndex + layer]);
     outputStream.Append(output);
   }
   outputStream.RestartStrip();
@@ -46,8 +51,10 @@ void geom(triangle v2g input[3], uniform PushConstants PC, uint layer: SV_GSInst
 
 [shader("pixel")]
 float frag(g2f input, uniform PushConstants PC) : SV_Depth {
-  float lightDistance = distance(input.worldPosition, PC.lightPos);
-  lightDistance /= PC.lightRadius;
+  kt::PointLight light = PC.lightBuffer[PC.lightIndex];
+  float lightDistance = distance(input.worldPosition, light.position);
+
+  lightDistance /= light.radius;
 
   return lightDistance;
 }
