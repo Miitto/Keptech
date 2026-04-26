@@ -40,14 +40,28 @@ float frag(v2f v) : SV_Target {
   float3x3 tbn = float3x3(tangent, bitangent, normal);
 
   float occlusion = 0.f;
+  struct Sample {
+    float3 samplePos;
+    float2 position;
+    float depth;
+  };
+  Sample samples[kt::constants::SSAO_KERNEL_SIZE];
+  [ForceUnroll]
   for (uint i = 0; i < kt::constants::SSAO_KERNEL_SIZE; i++) {
     let sampleVec = mul(kt::ssaoKernel[i], tbn);
-    let samplePos = view + sampleVec * kt::constants::SSAO_RADIUS;
+    samples[i].samplePos = view + sampleVec * kt::constants::SSAO_RADIUS;
 
-    float4 offsetNdc = kt::camera.cameraToClip(float4(samplePos, 1.0));
-    float2 offsetScreen = (offsetNdc.xy / offsetNdc.w) * 0.5 + 0.5;
+    float4 offsetNdc = kt::camera.cameraToClip(float4(samples[i].samplePos, 1.0));
+    samples[i].position = (offsetNdc.xy / offsetNdc.w) * 0.5 + 0.5;
 
-    float sampleDepth = depthTex.Sample(offsetScreen).r;
+    samples[i].depth = depthTex.Sample(samples[i].position).r;
+  }
+
+  [ForceUnroll]
+  for (uint i = 0; i < kt::constants::SSAO_KERNEL_SIZE; i++) {
+    let samplePos = samples[i].samplePos;
+    let offsetScreen = samples[i].position;
+    let sampleDepth = samples[i].depth;
     float4 sampleNdc = float4(offsetScreen * 2.0 - 1.0, sampleDepth, 1.0);
     let invClip = kt::camera.clipToCamera(sampleNdc);
     let sampleView = invClip.xyz / invClip.w;
