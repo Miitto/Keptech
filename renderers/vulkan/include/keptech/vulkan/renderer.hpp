@@ -132,6 +132,8 @@ namespace kt::vkh {
       SB<GpuObject> objects;
       SB<GpuPointLight> pointLights;
       SB<glm::mat4> shadowMatrices;
+      SB<VkDrawIndexedIndirectCommand> drawCommands;
+
       void destroy(VmaAllocator& allocator);
     };
     struct Buffers {
@@ -273,22 +275,16 @@ namespace kt::vkh {
 
     void updateCameraBuffer(VkCommandBuffer cmdBuf);
 
-    struct RenderInfo {
-      uint32_t indexCount;
-      uint32_t firstIndex;
-      int32_t vertexOffset;
-    };
-
-    std::vector<RenderInfo> updateObjectsBuffer();
-    void drawDeferred(VkCommandBuffer cmdBuf, const std::vector<RenderInfo>& renderInfos);
+    void updateObjectsBuffer();
+    void drawDeferred(VkCommandBuffer cmdBuf);
     void submitDeferred(VkCommandBuffer cmdBuf);
-    void drawLights(VkCommandBuffer cmdBuf, const std::vector<RenderInfo>& renderInfos);
+    void drawLights(VkCommandBuffer cmdBuf);
     struct LightRenderInfo {
       Texture shadowMap;
     };
     std::vector<LightRenderInfo> updatePointLightsBuffer();
-    void drawPointLightShadowMaps(VkCommandBuffer cmdBuf, const std::vector<LightRenderInfo>&, const std::vector<RenderInfo>& renderInfos);
-    void drawPointLights(VkCommandBuffer cmdBuf, size_t lightCount);
+    void drawPointLightShadowMaps(VkCommandBuffer cmdBuf, const std::vector<LightRenderInfo>&);
+    void drawPointLights(VkCommandBuffer cmdBuf);
     void combineLights(VkCommandBuffer cmdBuf);
     void submitLights(VkCommandBuffer cmdBuf);
     void renderBloom(VkCommandBuffer cmdBuf);

@@ -64,16 +64,15 @@ namespace kt::vkh {
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
     vkBeginCommandBuffer(cmdBuf[0], &beginInfo);
-    std::vector<RenderInfo> renderInfos;
     {
       KT_VK_ZONE(m.tracyContext, cmdBuf[0], "Render Deferred");
 
       VK_TRACE("Camera Buffer Update");
       updateCameraBuffer(cmdBuf[0]);
       VK_TRACE("Objects Buffer Update");
-      renderInfos = updateObjectsBuffer();
+      updateObjectsBuffer();
       VK_TRACE("Draw Deferred");
-      drawDeferred(cmdBuf[0], renderInfos);
+      drawDeferred(cmdBuf[0]);
       KT_VK_COLLECT(m.tracyContext, cmdBuf[0]);
     }
     vkEndCommandBuffer(cmdBuf[0]);
@@ -84,7 +83,7 @@ namespace kt::vkh {
     {
       KT_VK_ZONE(m.tracyContext, cmdBuf[1], "Render Lights");
       VK_TRACE("Draw Lights");
-      drawLights(cmdBuf[1], renderInfos);
+      drawLights(cmdBuf[1]);
       KT_VK_COLLECT(m.tracyContext, cmdBuf[1]);
     }
     vkEndCommandBuffer(cmdBuf[1]);
@@ -167,16 +166,18 @@ namespace kt::vkh {
     memcpy(m.buffers.camera.mapping() + offset, &camUniforms, sizeof(components::Camera::Uniforms));
   }
 
-  std::vector<Renderer::RenderInfo> Renderer::updateObjectsBuffer() {
+  void Renderer::updateObjectsBuffer() {
+    KT_PROFILE_FUNCTION
     auto& buf = fBufs().objects;
-    auto view = scene->getEcs().view<components::Transform, components::Mesh>();
+    auto& drawBuf = fBufs().drawCommands;
+    auto view = scene->getEcs().view<components::Mesh, components::Transform>();
 
     std::vector<Renderer::GpuObject> gpuObjects;
-    std::vector<Renderer::RenderInfo> renderInfos;
+    std::vector<VkDrawIndexedIndirectCommand> drawCommands;
     gpuObjects.reserve(view.size_hint());
-    renderInfos.reserve(view.size_hint());
+    drawCommands.reserve(view.size_hint());
 
-    for (const auto& [entity, transform, mesh] : view.each()) {
+    for (const auto& [entity, mesh, transform] : view.each()) {
       uint32_t firstIndex = mesh.getRMesh().firstIndex;
       int32_t vertexOffset = static_cast<int32_t>(mesh.getRMesh().firstVertex);
       for (const auto& submesh : mesh.getSubmeshes()) {
@@ -186,16 +187,19 @@ namespace kt::vkh {
         };
         gpuObjects.push_back(gpuObject);
 
-        Renderer::RenderInfo renderInfo{
+        VkDrawIndexedIndirectCommand drawCommand{
             .indexCount = submesh.count,
-            .firstIndex = submesh.start + firstIndex,
+            .instanceCount = 1,
+            .firstIndex = firstIndex + submesh.start,
             .vertexOffset = vertexOffset,
+            .firstInstance = static_cast<uint32_t>(gpuObjects.size() - 1),
         };
-        renderInfos.push_back(renderInfo);
+        drawCommands.push_back(drawCommand);
       }
     }
 
     const size_t objectRequiredSize = gpuObjects.size() * sizeof(Renderer::GpuObject);
+    const size_t drawCommandRequiredSize = drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand);
 
     if (objectRequiredSize > buf.buffer.size()) {
       buf.buffer.destroy(m.vkcore.allocator);
@@ -218,14 +222,35 @@ namespace kt::vkh {
       VK_DEBUG("Resized object buffer to fit {} objects", gpuObjects.size());
     }
 
+    if (drawCommandRequiredSize > drawBuf.buffer.size()) {
+      drawBuf.buffer.destroy(m.vkcore.allocator);
+      VkBufferCreateInfo bufInfo{
+          .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+          .size = drawCommandRequiredSize,
+          .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+      };
+
+      VmaAllocationCreateInfo allocInfo{
+          .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+          .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+      };
+
+      auto res = AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, bufInfo, allocInfo, "Draw Command Buffer");
+      VK_ASSERT(res.has_value(), "Failed to create draw command buffer: {}", res.error());
+
+      drawBuf = {.buffer = res.value()};
+
+      VK_DEBUG("Resized draw command buffer to fit {} draw commands", drawCommands.size());
+    }
+
     if (!gpuObjects.empty()) {
       buf.overwrite(gpuObjects);
     }
 
-    return renderInfos;
+    drawBuf.overwrite(drawCommands);
   }
 
-  void Renderer::drawDeferred(VkCommandBuffer cmdBuf, const std::vector<RenderInfo>& renderInfos) {
+  void Renderer::drawDeferred(VkCommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
     KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Deferred");
     deferredToRenderable(cmdBuf);
@@ -248,11 +273,9 @@ namespace kt::vkh {
     vkCmdPushConstants(cmdBuf, m.pipelines.deferred.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Addresses),
                        &addresses);
 
-    for (uint32_t i = 0; i < renderInfos.size(); i++) {
-      const auto& renderInfo = renderInfos[i];
-      vkCmdDrawIndexed(cmdBuf, renderInfo.indexCount, 1, renderInfo.firstIndex, renderInfo.vertexOffset, i);
-    }
-    VK_TRACE("Drew {} objects in deferred pass", renderInfos.size());
+    auto& drawBuf = fBufs().drawCommands;
+    vkCmdDrawIndexedIndirect(cmdBuf, drawBuf.buffer, 0, drawBuf.count, sizeof(VkDrawIndexedIndirectCommand));
+    VK_TRACE("Drew {} objects in deferred pass", drawCount);
 
     vkCmdEndRendering(cmdBuf);
 
@@ -281,14 +304,14 @@ namespace kt::vkh {
     VK_ASSERT(res == VK_SUCCESS, "Failed to submit deferred command buffer: {}", res);
   }
 
-  void Renderer::drawLights(VkCommandBuffer cmdBuf, const std::vector<RenderInfo>& renderInfos) {
+  void Renderer::drawLights(VkCommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
     KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Lights");
     lightsToRenderable(cmdBuf);
 
     auto lightInfo = updatePointLightsBuffer();
-    drawPointLightShadowMaps(cmdBuf, lightInfo, renderInfos);
-    drawPointLights(cmdBuf, lightInfo.size());
+    drawPointLightShadowMaps(cmdBuf, lightInfo);
+    drawPointLights(cmdBuf);
 
     seperatedLightsToShaderRead(cmdBuf);
 
@@ -458,8 +481,7 @@ namespace kt::vkh {
     return shadowMaps;
   }
 
-  void Renderer::drawPointLightShadowMaps(VkCommandBuffer cmdBuf, const std::vector<LightRenderInfo>& lightInfo,
-                                          const std::vector<RenderInfo>& renderInfos) {
+  void Renderer::drawPointLightShadowMaps(VkCommandBuffer cmdBuf, const std::vector<LightRenderInfo>& lightInfo) {
     KT_PROFILE_FUNCTION
     KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Point Light Shadow Maps");
 
@@ -477,6 +499,7 @@ namespace kt::vkh {
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Addresses),
                        &addresses);
 
+    auto& drawBuf = fBufs().drawCommands;
     for (uint32_t i = 0; i < lightInfo.size(); i++) {
       KT_PROFILE_SCOPE("Shadow Map Draw Calls");
       KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Shadow Casters");
@@ -506,17 +529,15 @@ namespace kt::vkh {
                          VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Addresses),
                          sizeof(Indices), &indices);
 
-      for (uint32_t j = 0; j < renderInfos.size(); j++) {
-        vkCmdDrawIndexed(cmdBuf, renderInfos[j].indexCount, 1, renderInfos[j].firstIndex, renderInfos[j].vertexOffset, j);
-      }
-      VK_TRACE("Drew {} objects for shadow map of light {}", renderInfos.size(), i);
+      vkCmdDrawIndexedIndirect(cmdBuf, drawBuf.buffer, 0, drawBuf.count, sizeof(VkDrawIndexedIndirectCommand));
+      VK_TRACE("Drew {} objects for shadow map of light {}", drawBuf.count, i);
 
       vkCmdEndRendering(cmdBuf);
       shadowMapToShaderRead(cmdBuf, lightInfo[i].shadowMap.getImage(), true);
     }
   }
 
-  void Renderer::drawPointLights(VkCommandBuffer cmdBuf, size_t lightCount) {
+  void Renderer::drawPointLights(VkCommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
     KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Point Lights");
 
@@ -536,9 +557,7 @@ namespace kt::vkh {
     vkCmdPushConstants(cmdBuf, m.pipelines.deferredPointLight.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(Addresses), &addresses);
 
-    for (uint32_t i = 0; i < lightCount; i++) {
-      vkCmdDraw(cmdBuf, 36, 1, 0, i);
-    }
+    vkCmdDraw(cmdBuf, 36, fBufs().pointLights.count, 0, 0);
 
     vkCmdEndRendering(cmdBuf);
   }
@@ -841,6 +860,7 @@ namespace kt::vkh {
   }
 
   void Renderer::endFrame(VkCommandBuffer cmdBuf) {
+    KT_PROFILE_FUNCTION
     auto& sem = m.vkcore.swapchain.nPresentSemaphore(m.frameInfo.imageIndex);
 
     std::array waitInfo{
@@ -888,6 +908,7 @@ namespace kt::vkh {
   }
 
   void Renderer::present() {
+    KT_PROFILE_FUNCTION
     uint32_t imageIndex = m.frameInfo.imageIndex;
     auto& sem = m.vkcore.swapchain.nPresentSemaphore(imageIndex);
 
@@ -928,6 +949,7 @@ namespace kt::vkh {
   }
 
   std::expected<void, std::string> Renderer::recreateSwapchain() {
+    KT_PROFILE_FUNCTION
     VK_TRACE("Recreating swapchain");
     VKH_MAKE(newSwapchain,
              setup::createSwapchain(m.vkcore.device.physical, m.window->getRenderSize(), m.vkcore.device.logical, m.vkcore.surface,

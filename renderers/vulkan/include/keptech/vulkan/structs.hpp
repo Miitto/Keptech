@@ -108,6 +108,8 @@ namespace kt::vkh {
     void setDebugName(const VkDevice& device, const std::string& name) const {}
     [[nodiscard]] size_t size() const { return allocInfo.size; }
 
+    operator VkBuffer() const { return buffer; }
+
     static std::expected<AllocatedBuffer, std::string> create(const VmaAllocator& allocator, VkDevice device,
                                                               const VkBufferCreateInfo& bufInfo, const VmaAllocationCreateInfo& allocInfo,
                                                               const std::optional<std::string>& name = std::nullopt);
