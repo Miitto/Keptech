@@ -921,7 +921,11 @@ namespace kt::vkh {
         .pImageIndices = &imageIndex,
     };
 
-    auto result = vkQueuePresentKHR(m.vkcore.queues.present.queue, &presentInfo);
+    VkResult result = VK_SUCCESS;
+    {
+      KT_PROFILE_SCOPE("vkQueuePresentKHR");
+      result = vkQueuePresentKHR(m.vkcore.queues.present.queue, &presentInfo);
+    }
 
     m.frameInfo.index = m.frameInfo.nextIndex; // Advance to next frame index
 

@@ -338,6 +338,28 @@ fmt::format_context::iterator fmt::formatter<VkFormat>::format(VkFormat format, 
   case VK_FORMAT_MAX_ENUM:
     break;
   }
+#undef CASE
 
+  return fmt::format_to(ctx.out(), "{}", name);
+}
+
+fmt::format_context::iterator fmt::formatter<VkPresentModeKHR>::format(VkPresentModeKHR format, fmt::format_context& ctx) const {
+  std::string_view name = "Unknown";
+#define CASE(x)                                                                                                                            \
+  case VK_##x:                                                                                                                             \
+    name = #x;                                                                                                                             \
+    break;
+
+  switch (format) {
+    CASE(PRESENT_MODE_IMMEDIATE_KHR)
+    CASE(PRESENT_MODE_MAILBOX_KHR)
+    CASE(PRESENT_MODE_FIFO_KHR)
+    CASE(PRESENT_MODE_FIFO_RELAXED_KHR)
+    CASE(PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR)
+    CASE(PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR)
+    CASE(PRESENT_MODE_FIFO_LATEST_READY_KHR)
+    CASE(PRESENT_MODE_MAX_ENUM_KHR)
+  }
+#undef CASE
   return fmt::format_to(ctx.out(), "{}", name);
 }

@@ -28,8 +28,9 @@ namespace kt::vkh::setup {
     auto presentMode = chooseSwapPresentMode(presentModes);
 
     auto extent = chooseSwapExtent(framebufferSize.x, framebufferSize.y, surfaceCapabilities, true);
-    auto minImageCount = kt::vkh::minImageCount(surfaceCapabilities, MAX_FRAMES_IN_FLIGHT);
+    auto minImageCount = kt::vkh::minImageCount(surfaceCapabilities, 3);
 
+    VK_DEBUG("Using {} present mode", presentMode);
     VK_DEBUG("Min image count for swapchain: {}", minImageCount);
 
     SwapchainConfig swapchainConfig{.format = format, .presentMode = presentMode, .extent = extent, .imageCount = minImageCount};
