@@ -75,6 +75,7 @@ namespace kt::vkh {
     pointLights.buffer.destroy(allocator);
     shadowMatrices.buffer.destroy(allocator);
     drawCommands.buffer.destroy(allocator);
+    shadowDrawCommands.buffer.destroy(allocator);
   }
 
   void Renderer::Buffers::destroy(VmaAllocator& allocator) {

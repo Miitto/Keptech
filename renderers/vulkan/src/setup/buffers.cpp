@@ -179,6 +179,22 @@ namespace kt::vkh::setup {
 
     return AddressedAllocatedBuffer::create(vkcore.device.logical, vkcore.allocator, bufInfo, allocInfo, "Draw Command Buffer");
   }
+  std::expected<AddressedAllocatedBuffer, std::string> createShadowDrawCommandBuffer(const Renderer::VulkanCore& vkcore) {
+    size_t size = sizeof(VkDrawIndexedIndirectCommand) * INITIAL_OBJECT_COUNT * INITIAL_POINT_LIGHT_COUNT;
+
+    VkBufferCreateInfo bufInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    };
+
+    VmaAllocationCreateInfo allocInfo{
+        .flags = hostWriteFlags,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+    };
+
+    return AddressedAllocatedBuffer::create(vkcore.device.logical, vkcore.allocator, bufInfo, allocInfo, "Draw Command Buffer");
+  }
 
   std::expected<Renderer::Buffers, std::string> createBuffers(const Renderer::VulkanCore& vkcore) {
     VKH_MAKE(camera, createCameraBuffer(vkcore), "Failed to create camera uniform buffer.");
@@ -194,12 +210,14 @@ namespace kt::vkh::setup {
       VKH_MAKE(pointLightBuffer, createPointLightBuffer(vkcore), "Failed to create point light buffer.");
       VKH_MAKE(shadowMatrixBuffer, createShadowMatrixBuffer(vkcore), "Failed to create shadow matrix buffer.");
       VKH_MAKE(drawCommandBuffer, createDrawCommandBuffer(vkcore), "Failed to create draw command buffer.");
+      VKH_MAKE(shadowDrawCommandBuffer, createShadowDrawCommandBuffer(vkcore), "Failed to create shadow draw command buffer.");
 
       perFrameBuffers[i] = Renderer::PerFrameBuffers{
           .objects = {.buffer = objectBuffer},
           .pointLights = {.buffer = pointLightBuffer},
           .shadowMatrices = {.buffer = shadowMatrixBuffer},
           .drawCommands = {.buffer = drawCommandBuffer},
+          .shadowDrawCommands = {.buffer = shadowDrawCommandBuffer},
       };
     }
 

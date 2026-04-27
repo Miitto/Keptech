@@ -4,6 +4,7 @@
 #include "keptech/rendering/material.hpp"
 #include <cstdint>
 #include <glm/glm.hpp>
+#include <keptech/maths/sphere.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,6 +28,7 @@ namespace kt {
     uint32_t start;
     uint32_t count;
     std::optional<rendering::Material> material;
+    kt::maths::Sphere boundingSphere;
   };
 
   class Mesh {

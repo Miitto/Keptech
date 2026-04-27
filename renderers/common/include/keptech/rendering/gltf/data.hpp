@@ -15,6 +15,7 @@ namespace kt::gltf {
     uint32_t indexCount;
     uint32_t indexOffset;
     uint32_t materialIndex;
+    kt::maths::Sphere boundingSphere;
   };
 
   struct MeshData {

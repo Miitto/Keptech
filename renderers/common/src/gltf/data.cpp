@@ -4,6 +4,7 @@
 #include <execution>
 #include <fastgltf/core.hpp>
 #include <fastgltf/glm_element_traits.hpp>
+#include <fastgltf/util.hpp>
 #include <keptech/core/fastgltf_formatting.hpp>
 #include <keptech/core/profile.hpp>
 #include <ranges>
@@ -60,10 +61,30 @@ namespace kt::gltf {
             auto& posAccessor = asset.accessors[primitive.findAttribute("POSITION")->accessorIndex];
             vertices.resize(vertices.size() + static_cast<size_t>(posAccessor.count));
 
+            glm::vec3 minPos{std::numeric_limits<float>::max()};
+            glm::vec3 maxPos{std::numeric_limits<float>::lowest()};
             fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, posAccessor, [&](glm::vec3 position, size_t index) {
               position.x = -position.x;
               vertices[startIndex + index].position = position;
+
+              minPos.x = std::min(minPos.x, position.x);
+              minPos.y = std::min(minPos.y, position.y);
+              minPos.z = std::min(minPos.z, position.z);
+              maxPos.x = std::max(maxPos.x, position.x);
+              maxPos.y = std::max(maxPos.y, position.y);
+              maxPos.z = std::max(maxPos.z, position.z);
             });
+
+            submeshes.back().boundingSphere.center = (minPos + maxPos) * 0.5f;
+            glm::vec3 maxExtent = abs(minPos);
+            maxExtent.x = std::max(maxExtent.x, abs(maxPos.x));
+            maxExtent.y = std::max(maxExtent.y, abs(maxPos.y));
+            maxExtent.z = std::max(maxExtent.z, abs(maxPos.z));
+
+            glm::vec3 radiusVec = maxExtent - submeshes.back().boundingSphere.center;
+            float radius = glm::length(radiusVec);
+
+            submeshes.back().boundingSphere.radius = radius;
           }
 
           // Normals

@@ -133,6 +133,7 @@ namespace kt::vkh {
       SB<GpuPointLight> pointLights;
       SB<glm::mat4> shadowMatrices;
       SB<VkDrawIndexedIndirectCommand> drawCommands;
+      SB<VkDrawIndexedIndirectCommand> shadowDrawCommands;
 
       void destroy(VmaAllocator& allocator);
     };

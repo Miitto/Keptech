@@ -562,6 +562,7 @@ namespace kt::vkh {
         Submesh submesh{
             .start = primitive.indexOffset,
             .count = primitive.indexCount,
+            .boundingSphere = primitive.boundingSphere,
         };
         if (primitive.materialIndex < materials.size()) {
           submesh.material = materials[primitive.materialIndex];
