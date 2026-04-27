@@ -95,9 +95,11 @@ namespace kt::vkh::setup {
         "Failed to create combined image for light buffer.");
 
     imgInfo.format = VK_FORMAT_R8_UNORM;
+    VkImageCreateInfo ssaoImgInfo = imgInfo;
+    ssaoImgInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
 
     VKH_MAKE(ssaoResult,
-             AllocatedImage::create(vkcore.allocator, vkcore.device.logical, imgInfo, allocInfo, imgViewInfo, true, "SSAO Result"),
+             AllocatedImage::create(vkcore.allocator, vkcore.device.logical, ssaoImgInfo, allocInfo, imgViewInfo, true, "SSAO Result"),
              "Failed to create SSAO result image.");
     VKH_MAKE(ssaoBlur, AllocatedImage::create(vkcore.allocator, vkcore.device.logical, imgInfo, allocInfo, imgViewInfo, true, "SSAO Blur"),
              "Failed to create SSAO blur image.");

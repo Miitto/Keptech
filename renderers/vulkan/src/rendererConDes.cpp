@@ -121,6 +121,9 @@ namespace kt::vkh {
     vkDestroyDescriptorSetLayout(device, m.globalDescriptorSets.layout, nullptr);
     vkDestroyDescriptorPool(device, m.globalDescriptorSets.pool, nullptr);
 
+    vkDestroyDescriptorSetLayout(device, m.staticDescriptors.layout, nullptr);
+    vkDestroyDescriptorPool(device, m.staticDescriptors.pool, nullptr);
+
     m.buffers.destroy(allocator);
 
     for (auto& texture : m.loadedTextures) {
@@ -135,6 +138,8 @@ namespace kt::vkh {
     m.pipelines.destroy(device);
 
     m.renderTargets.destroy(allocator, device);
+
+    vkDestroySemaphore(device, m.vkcore.timelineSemaphore, nullptr);
 
     vmaDestroyAllocator(allocator);
 

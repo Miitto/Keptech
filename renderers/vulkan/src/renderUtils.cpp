@@ -39,6 +39,7 @@ namespace kt::vkh {
       textureUpdates.clear();
     }
   }
+
   void Renderer::setupViewportAndScissor(VkCommandBuffer cmdBuf) {
     setupCustomViewportAndScissor(cmdBuf, {0, 0}, m.renderTargets.framebufferSize);
   }

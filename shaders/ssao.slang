@@ -1,35 +1,34 @@
 import keptech;
 
-struct v2f {
-  float4 position : SV_Position;
-  float2 uv : TEXCOORD0;
-};
+[[vk::binding(0, 1)]]
+public ConstantBuffer<float3[64]> ssaoKernel;
+[vk::binding(1, 1)]
+uniform RWTexture2D<float> ssaoOutput : register(u0);
 
-[shader("vertex")]
-v2f vert(uint vid: SV_VertexID) {
-  v2f output;
+[shader("compute")]
+[numthreads(32, 32, 1)]
+void ssao(uint3 dispatchThreadID: SV_DispatchThreadID) {
 
-  float3 vertPos = kt::getFullscreenTriangleVertex(vid);
+  uint2 pixelCoord = dispatchThreadID.xy;
 
-  output.position = float4(vertPos, 1.0);
-  output.uv = vertPos.xy * 0.5 + 0.5;
+  int2 imageSize = int2(kt::camera.viewportSize);
 
-  return output;
-}
+  if (pixelCoord.x >= imageSize.x || pixelCoord.y >= imageSize.y) {
+    return;
+  }
+  float2 uv = (float2(pixelCoord) + 0.5) / kt::camera.viewportSize;
 
-[shader("pixel")]
-float frag(v2f v) : SV_Target {
   let noiseScale = float2(kt::camera.viewportSize / kt::constants::SSAO_NOISE_SIZE);
 
   let normalTex = kt::textures2D.getTexture(kt::TextureIndices::Normal);
   let depthTex = kt::textures2D.getTexture(kt::TextureIndices::Depth);
   let ssaoNoiseTex = kt::textures2D.getTexture(kt::TextureIndices::SsaoNoise);
 
-  let normalSample = normalTex.Sample(v.uv).xyz;
-  float depth = depthTex.Sample(v.uv).r;
-  let noiseSample = ssaoNoiseTex.Sample(v.uv * noiseScale).xyz;
+  let normalSample = normalTex.Sample(uv).xyz;
+  float depth = depthTex.Sample(uv).r;
+  let noiseSample = ssaoNoiseTex.Sample(uv * noiseScale).xyz;
 
-  float3 ndc = { v.uv * 2.0 - 1.0, depth };
+  float3 ndc = { uv * 2.0 - 1.0, depth };
   float4 invClip = kt::camera.clipToCamera(float4(ndc, 1.0));
   float3 view = invClip.xyz / invClip.w;
 
@@ -71,5 +70,7 @@ float frag(v2f v) : SV_Target {
     occlusion += (sampleView.z + bias <= samplePos.z ? 1.f : 0.f) * rangeCheck;
   }
 
-  return pow(1.f - (occlusion / kt::constants::SSAO_KERNEL_SIZE), 2.f);
+  float result = pow(1.f - (occlusion / kt::constants::SSAO_KERNEL_SIZE), 2.f);
+
+  ssaoOutput[pixelCoord] = result;
 }

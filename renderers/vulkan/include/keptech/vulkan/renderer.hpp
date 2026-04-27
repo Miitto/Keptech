@@ -73,6 +73,8 @@ namespace kt::vkh {
       uint8_t index = 0;
       uint8_t nextIndex = 1;
       uint8_t imageIndex = INVALID_INDEX;
+      uint64_t deferredTimelineSubmit = 0;
+      uint64_t ssaoTimelineSubmit = 0;
       size_t culledDraws = 0;
       size_t culledShadowDraws = 0;
       size_t culledLights = 0;
@@ -184,6 +186,8 @@ namespace kt::vkh {
       Swapchain swapchain;
       std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame;
       CommandPool transferPool;
+      VkSemaphore timelineSemaphore;
+      uint64_t timelineValue = 0;
     };
 
     struct RenderTargets {
@@ -198,6 +202,12 @@ namespace kt::vkh {
       std::array<BloomMip, constants::BLOOM_MIP_LEVELS> bloomMips;
 
       void destroy(const VmaAllocator& allocator, const VkDevice& device);
+    };
+
+    struct StaticDescriptors {
+      VkDescriptorPool pool;
+      VkDescriptorSetLayout layout;
+      VkDescriptorSet set;
     };
 
     struct Members {
@@ -216,6 +226,7 @@ namespace kt::vkh {
       Pipelines pipelines;
 
       DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
+      StaticDescriptors staticDescriptors;
 
       Frame frameInfo{};
 
@@ -280,7 +291,7 @@ namespace kt::vkh {
     void updateObjectsBuffer(const kt::maths::Frustum& frustum);
     void drawDeferred(VkCommandBuffer cmdBuf);
     void submitDeferred(VkCommandBuffer cmdBuf);
-    void drawLights(VkCommandBuffer cmdBuf, const kt::maths::Frustum& frustum);
+    void drawLights(VkCommandBuffer cmdBuf, VkCommandBuffer combineCmdBuf, const kt::maths::Frustum& frustum);
     struct LightRenderInfo {
       Texture shadowMap;
       uint32_t drawCount;

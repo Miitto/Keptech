@@ -134,8 +134,14 @@ namespace kt::vkh::setup {
       });
     }
 
+    VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR computeDerivativesFeatures{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_KHR,
+        .computeDerivativeGroupQuads = true,
+        .computeDerivativeGroupLinear = true,
+    };
     VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicStateFeatures{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
+        .pNext = &computeDerivativesFeatures,
         .extendedDynamicState = true,
     };
     VkPhysicalDeviceVulkan13Features vulkan13Features{
@@ -151,6 +157,7 @@ namespace kt::vkh::setup {
         .descriptorIndexing = true,
         .descriptorBindingUniformBufferUpdateAfterBind = true,
         .descriptorBindingSampledImageUpdateAfterBind = true,
+        .descriptorBindingStorageImageUpdateAfterBind = true,
         .descriptorBindingPartiallyBound = true,
         .runtimeDescriptorArray = true,
         .hostQueryReset = true,

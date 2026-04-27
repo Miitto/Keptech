@@ -1,6 +1,7 @@
 #include "keptech/shader_processor/shader_processor.hpp"
 
 #include "printing.hpp"
+#include <array>
 #include <expected>
 #include <iostream>
 #include <slang-com-ptr.h>
@@ -297,12 +298,19 @@ namespace kt::shader_processor {
     target.format = SLANG_SPIRV;
     target.profile = globalSession->findProfile("spirv_1_6");
 
-    slang::CompilerOptionEntry emitDirectlyToBinaryEntry;
-    emitDirectlyToBinaryEntry.name = slang::CompilerOptionName::EmitSpirvDirectly;
-    emitDirectlyToBinaryEntry.value.intValue0 = true;
+    std::array compilerOptions{
+        slang::CompilerOptionEntry{
+            .name = slang::CompilerOptionName::EmitSpirvDirectly,
+            .value{.intValue0 = true},
+        },
+        slang::CompilerOptionEntry{
+            .name = slang::CompilerOptionName::VulkanUseEntryPointName,
+            .value{.intValue0 = true},
+        },
+    };
 
-    target.compilerOptionEntries = &emitDirectlyToBinaryEntry;
-    target.compilerOptionEntryCount = 1;
+    target.compilerOptionEntryCount = compilerOptions.size();
+    target.compilerOptionEntries = compilerOptions.data();
 
     sessionDesc.targets = &target;
     sessionDesc.targetCount = 1;

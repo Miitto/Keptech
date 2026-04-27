@@ -65,6 +65,25 @@ namespace kt::vkh {
         .commandBufferCount = 3,
     };
     VK_CHECK(vkAllocateCommandBuffers(m.vkcore.device.logical, &allocInfo, cmdBuf.data()), "Failed to allocate command buffer for frame");
+
+#ifndef NDEBUG
+    PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT =
+        reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(vkGetDeviceProcAddr(m.vkcore.device.logical, "vkSetDebugUtilsObjectNameEXT"));
+    VkDebugUtilsObjectNameInfoEXT nameInfo{
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+        .objectType = VK_OBJECT_TYPE_COMMAND_BUFFER,
+        .objectHandle = reinterpret_cast<uint64_t>(cmdBuf[0]),
+        .pObjectName = "Deferred Command Buffer",
+    };
+    vkSetDebugUtilsObjectNameEXT(m.vkcore.device.logical, &nameInfo);
+    nameInfo.objectHandle = reinterpret_cast<uint64_t>(cmdBuf[1]);
+    nameInfo.pObjectName = "Lights Command Buffer";
+    vkSetDebugUtilsObjectNameEXT(m.vkcore.device.logical, &nameInfo);
+    nameInfo.objectHandle = reinterpret_cast<uint64_t>(cmdBuf[2]);
+    nameInfo.pObjectName = "Final Pass Command Buffer";
+    vkSetDebugUtilsObjectNameEXT(m.vkcore.device.logical, &nameInfo);
+#endif
+
     VkCommandBufferBeginInfo beginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
@@ -87,16 +106,16 @@ namespace kt::vkh {
     submitDeferred(cmdBuf[0]);
 
     vkBeginCommandBuffer(cmdBuf[1], &beginInfo);
+    vkBeginCommandBuffer(cmdBuf[2], &beginInfo);
     {
       KT_VK_ZONE(m.tracyContext, cmdBuf[1], "Render Lights");
       VK_TRACE("Draw Lights");
-      drawLights(cmdBuf[1], frustum);
+      drawLights(cmdBuf[1], cmdBuf[2], frustum);
       KT_VK_COLLECT(m.tracyContext, cmdBuf[1]);
     }
     vkEndCommandBuffer(cmdBuf[1]);
     VK_TRACE("Submit Lights");
     submitLights(cmdBuf[1]);
-    vkBeginCommandBuffer(cmdBuf[2], &beginInfo);
     {
       KT_VK_ZONE(m.tracyContext, cmdBuf[2], "Final Pass and UI");
       VK_TRACE("Post Processing");
@@ -293,6 +312,34 @@ namespace kt::vkh {
     vkCmdEndRendering(cmdBuf);
 
     deferredToShaderRead(cmdBuf);
+
+    // Release SSAO Image to compute shader
+    VkImageMemoryBarrier2 barrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+        .srcAccessMask = VK_ACCESS_2_NONE,
+        .dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        .dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .srcQueueFamilyIndex = m.vkcore.queues.graphics.index,
+        .dstQueueFamilyIndex = m.vkcore.queues.compute.index,
+        .image = m.renderTargets.lights.ssaoResult.image,
+        .subresourceRange =
+            VkImageSubresourceRange{
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+    };
+    VkDependencyInfo dependencyInfo{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &barrier,
+    };
+    vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
   }
 
   void Renderer::submitDeferred(VkCommandBuffer cmdBuf) {
@@ -300,32 +347,45 @@ namespace kt::vkh {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
         .commandBuffer = cmdBuf,
     };
+    VkSemaphoreSubmitInfo signalSemaphoreInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = m.vkcore.timelineSemaphore,
+        .value = ++m.vkcore.timelineValue,
+        .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+                     VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+    };
     VkSubmitInfo2 submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &cmdBufInfo,
+        .signalSemaphoreInfoCount = 1,
+        .pSignalSemaphoreInfos = &signalSemaphoreInfo,
     };
 
     auto res = vkQueueSubmit2(m.vkcore.queues.graphics.queue, 1, &submitInfo, nullptr);
     VK_ASSERT(res == VK_SUCCESS, "Failed to submit deferred command buffer: {}", res);
+
+    m.frameInfo.deferredTimelineSubmit = m.vkcore.timelineValue;
   }
 
-  void Renderer::drawLights(VkCommandBuffer cmdBuf, const kt::maths::Frustum& frustum) {
-    KT_PROFILE_FUNCTION
-    KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Lights");
-    lightsToRenderable(cmdBuf);
+  void Renderer::drawLights(VkCommandBuffer cmdBuf, VkCommandBuffer combineCmdBuf, const kt::maths::Frustum& frustum) {
+    KT_PROFILE_FUNCTION {
+      KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Lights");
+      lightsToRenderable(cmdBuf);
 
-    auto lightInfo = updatePointLightsBuffer(frustum);
-    drawPointLightShadowMaps(cmdBuf, lightInfo);
-    drawPointLights(cmdBuf);
+      renderSsao(combineCmdBuf);
 
-    seperatedLightsToShaderRead(cmdBuf);
+      auto lightInfo = updatePointLightsBuffer(frustum);
+      drawPointLightShadowMaps(cmdBuf, lightInfo);
+      drawPointLights(cmdBuf);
 
-    renderSsao(cmdBuf);
+      seperatedLightsToShaderRead(cmdBuf);
+    }
 
-    combineLights(cmdBuf);
+    KT_VK_ZONE(m.tracyContext, combineCmdBuf, "Combine Lights");
+    combineLights(combineCmdBuf);
 
-    combinedLightToShaderRead(cmdBuf);
+    combinedLightToShaderRead(combineCmdBuf);
   }
 
   std::vector<Renderer::LightRenderInfo> Renderer::updatePointLightsBuffer(const kt::maths::Frustum& frustum) {
@@ -643,24 +703,128 @@ namespace kt::vkh {
 
   void Renderer::renderSsao(VkCommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
-    KT_VK_ZONE(m.tracyContext, cmdBuf, "Render SSAO");
+
+    VkCommandBufferAllocateInfo allocInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = m.frameInfo.perFrame->pools.compute.pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+    VkCommandBuffer compBuf = nullptr;
+    VK_CHECK(vkAllocateCommandBuffers(m.vkcore.device.logical, &allocInfo, &compBuf), "Failed to allocate command buffer for SSAO");
+
+    VkCommandBufferBeginInfo beginInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    vkBeginCommandBuffer(compBuf, &beginInfo);
+
     {
-      KT_VK_ZONE(m.tracyContext, cmdBuf, "SSAO Pass");
-      colorImageToRenderable(cmdBuf, m.renderTargets.lights.ssaoResult);
-      colorImageBeginRendering(cmdBuf, m.renderTargets.lights.ssaoResult);
+      KT_VK_ZONE(m.tracyContext, compBuf, "Calculate SSAO");
 
-      vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssao.pipeline);
-      vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.ssao.layout, 0, 1,
-                              &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+      // Aquire SSAO Image for compute shader write
+      {
+        VkImageMemoryBarrier2 barrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+            .srcAccessMask = VK_ACCESS_2_NONE,
+            .dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+            .dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .srcQueueFamilyIndex = m.vkcore.queues.graphics.index,
+            .dstQueueFamilyIndex = m.vkcore.queues.compute.index,
+            .image = m.renderTargets.lights.ssaoResult.image,
+            .subresourceRange =
+                VkImageSubresourceRange{
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+        };
+        VkDependencyInfo dependencyInfo{
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &barrier,
+        };
+        vkCmdPipelineBarrier2(compBuf, &dependencyInfo);
+      }
 
-      setupViewportAndScissor(cmdBuf);
+      vkCmdBindPipeline(compBuf, VK_PIPELINE_BIND_POINT_COMPUTE, m.pipelines.ssao.pipeline);
+      std::array<VkDescriptorSet, 2> descriptorSets = {m.globalDescriptorSets.sets[m.frameInfo.index], m.staticDescriptors.set};
+      vkCmdBindDescriptorSets(compBuf, VK_PIPELINE_BIND_POINT_COMPUTE, m.pipelines.ssao.layout, 0, descriptorSets.size(),
+                              descriptorSets.data(), 0, nullptr);
 
-      vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+      glm::uvec2 imageSize = m.renderTargets.framebufferSize;
+      glm::uvec2 groupCount = (imageSize / 32u) + 1u;
+      vkCmdDispatch(compBuf, groupCount.x, groupCount.y, 1);
 
-      vkCmdEndRendering(cmdBuf);
+      VkImageMemoryBarrier2 barrier{
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+          .srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+          .srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
+          .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+          .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+          .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+          .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+          .srcQueueFamilyIndex = m.vkcore.queues.compute.index,
+          .dstQueueFamilyIndex = m.vkcore.queues.graphics.index,
+          .image = m.renderTargets.lights.ssaoResult.image,
+          .subresourceRange =
+              VkImageSubresourceRange{
+                  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                  .baseMipLevel = 0,
+                  .levelCount = 1,
+                  .baseArrayLayer = 0,
+                  .layerCount = 1,
+              },
+      };
 
-      colorImageToShaderRead(cmdBuf, m.renderTargets.lights.ssaoResult);
+      VkDependencyInfo dependencyInfo{
+          .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+          .imageMemoryBarrierCount = 1,
+          .pImageMemoryBarriers = &barrier,
+      };
+
+      // Release and aquire SSAO Image for graphics shader read
+      vkCmdPipelineBarrier2(compBuf, &dependencyInfo);
+      vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
     }
+
+    KT_VK_COLLECT(m.tracyContext, compBuf);
+
+    vkEndCommandBuffer(compBuf);
+
+    VkSemaphoreSubmitInfo waitSemaphoreInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = m.vkcore.timelineSemaphore,
+        .value = m.frameInfo.deferredTimelineSubmit,
+    };
+    VkCommandBufferSubmitInfo cmdBufInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .commandBuffer = compBuf,
+    };
+    VkSemaphoreSubmitInfo signalSemaphoreInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = m.vkcore.timelineSemaphore,
+        .value = ++m.vkcore.timelineValue,
+    };
+    VkSubmitInfo2 submitInfo{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .waitSemaphoreInfoCount = 1,
+        .pWaitSemaphoreInfos = &waitSemaphoreInfo,
+        .commandBufferInfoCount = 1,
+        .pCommandBufferInfos = &cmdBufInfo,
+        .signalSemaphoreInfoCount = 1,
+        .pSignalSemaphoreInfos = &signalSemaphoreInfo,
+    };
+
+    auto res = vkQueueSubmit2(m.vkcore.queues.compute.queue, 1, &submitInfo, nullptr);
+    VK_ASSERT(res == VK_SUCCESS, "Failed to submit SSAO compute command buffer: {}", res);
+
+    m.frameInfo.ssaoTimelineSubmit = m.vkcore.timelineValue;
 
     {
       KT_VK_ZONE(m.tracyContext, cmdBuf, "SSAO Blur Pass");
@@ -932,10 +1096,18 @@ namespace kt::vkh {
     KT_PROFILE_FUNCTION
     auto& sem = m.vkcore.swapchain.nPresentSemaphore(m.frameInfo.imageIndex);
 
-    VkSemaphoreSubmitInfo waitInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = m.vkcore.perFrame[m.frameInfo.index].imageAvailableSemaphore,
-        .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+    std::array<VkSemaphoreSubmitInfo, 2> waitInfo{
+        VkSemaphoreSubmitInfo{
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .semaphore = m.vkcore.perFrame[m.frameInfo.index].imageAvailableSemaphore,
+            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .semaphore = m.vkcore.timelineSemaphore,
+            .value = m.frameInfo.ssaoTimelineSubmit,
+            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+        },
     };
 
     VkSemaphoreSubmitInfo signalInfo{
@@ -953,8 +1125,8 @@ namespace kt::vkh {
 
     VkSubmitInfo2 submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-        .waitSemaphoreInfoCount = 1,
-        .pWaitSemaphoreInfos = &waitInfo,
+        .waitSemaphoreInfoCount = waitInfo.size(),
+        .pWaitSemaphoreInfos = waitInfo.data(),
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &cmdBufInfo,
         .signalSemaphoreInfoCount = 1,

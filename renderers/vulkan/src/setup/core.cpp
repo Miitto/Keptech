@@ -132,6 +132,19 @@ namespace kt::vkh::setup {
               "Failed to create image available semaphore");
     }
 
+    VkSemaphoreTypeCreateInfo timelineSemaphoreTypeInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
+        .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
+        .initialValue = 0,
+    };
+    VkSemaphoreCreateInfo timelineSemaphoreCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        .pNext = &timelineSemaphoreTypeInfo,
+        .flags = 0,
+    };
+    VkSemaphore timelineSemaphore = nullptr;
+    VK_CHECK(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &timelineSemaphore), "Failed to create timeline semaphore.");
+
     return Renderer::VulkanCore{
         .instance = instance,
         .surface = surface,
@@ -141,6 +154,7 @@ namespace kt::vkh::setup {
         .swapchain = std::move(swapchain),
         .perFrame = perFrame,
         .transferPool = transferPoolStruct,
+        .timelineSemaphore = timelineSemaphore,
     };
   }
 } // namespace kt::vkh::setup

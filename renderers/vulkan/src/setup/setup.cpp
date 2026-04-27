@@ -40,11 +40,13 @@ namespace kt::vkh {
     VKH_MAKE(imGuiObjects, setupImGui(window, vkcore, samplers), "Failed to set up ImGui for Vulkan.");
 
     VKH_MAKE(globalDescriptorSets, createGlobalDescriptors(vkcore.device.logical), "Failed to create global descriptor sets.");
+    VKH_MAKE(staticDescriptorSets, createStaticDescriptors(vkcore), "Failed to create static descriptor sets.");
 
     VKH_MAKE(buffers, createBuffers(vkcore), "Failed to create buffers for renderer.");
     VKH_MAKE(formats, findFormats(vkcore), "Failed to find suitable formats for renderer.");
 
-    VKH_MAKE(pipelines, createPipelines(vkcore, formats, globalDescriptorSets.layout), "Failed to create pipelines for renderer.");
+    VKH_MAKE(pipelines, createPipelines(vkcore, formats, globalDescriptorSets.layout, staticDescriptorSets.layout),
+             "Failed to create pipelines for renderer.");
 
     auto d = SDL_GetDisplayForWindow(window.getHandle());
     auto* dm = SDL_GetCurrentDisplayMode(d);
@@ -148,18 +150,30 @@ namespace kt::vkh {
                              .range = sizeof(components::Camera::Uniforms),
                          },
                          DescriptorWriter::BufferType::Uniform);
-      writer.writeBuffer(2,
+
+      writer.update(vkcore.device.logical, set);
+
+      offset += sizeof(components::Camera::Uniforms);
+      offset = maths::roundToAlignment(offset, limits::minUniformBufferOffsetAlignment);
+    }
+
+    {
+      DescriptorWriter writer{};
+      writer.writeBuffer(0,
                          VkDescriptorBufferInfo{
                              .buffer = buffers.ssaoKernel.buffer,
                              .offset = 0,
                              .range = sizeof(glm::vec4) * constants::SSAO_KERNEL_SIZE,
                          },
                          DescriptorWriter::BufferType::Uniform);
+      writer.writeImage(1,
+                        VkDescriptorImageInfo{
+                            .imageView = renderTargets.lights.ssaoResult.view,
+                            .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                        },
+                        DescriptorWriter::ImageType::StorageImage);
 
-      writer.update(vkcore.device.logical, set);
-
-      offset += sizeof(components::Camera::Uniforms);
-      offset = maths::roundToAlignment(offset, limits::minUniformBufferOffsetAlignment);
+      writer.update(vkcore.device.logical, staticDescriptorSets.set);
     }
 
 #ifdef KT_PROFILE
@@ -184,6 +198,7 @@ namespace kt::vkh {
         .buffers = buffers,
         .pipelines = pipelines,
         .globalDescriptorSets = globalDescriptorSets,
+        .staticDescriptors = staticDescriptorSets,
 #ifdef KT_PROFILE
         .tracyContext = ctx,
 #endif
