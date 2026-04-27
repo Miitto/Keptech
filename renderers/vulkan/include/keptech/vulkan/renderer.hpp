@@ -63,8 +63,6 @@ namespace kt::vkh {
     struct PerFrame {
       VkFence inFlightFence;
       VkSemaphore imageAvailableSemaphore;
-      VkSemaphore deferredRenderFinishedSemaphore;
-      VkSemaphore lightsFinished;
       Pools pools;
       std::vector<TextureUpdateInfo> texToUpdate;
     };

@@ -289,11 +289,6 @@ namespace kt::vkh {
   }
 
   void Renderer::submitDeferred(VkCommandBuffer cmdBuf) {
-    VkSemaphoreSubmitInfo semInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = m.frameInfo.perFrame->deferredRenderFinishedSemaphore,
-        .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-    };
     VkCommandBufferSubmitInfo cmdBufInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
         .commandBuffer = cmdBuf,
@@ -302,8 +297,6 @@ namespace kt::vkh {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &cmdBufInfo,
-        .signalSemaphoreInfoCount = 1,
-        .pSignalSemaphoreInfos = &semInfo,
     };
 
     auto res = vkQueueSubmit2(m.vkcore.queues.graphics.queue, 1, &submitInfo, nullptr);
@@ -697,28 +690,14 @@ namespace kt::vkh {
   }
 
   void Renderer::submitLights(VkCommandBuffer cmdBuf) {
-    VkSemaphoreSubmitInfo semInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = m.frameInfo.perFrame->lightsFinished,
-        .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-    };
     VkCommandBufferSubmitInfo cmdBufInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
         .commandBuffer = cmdBuf,
     };
-    VkSemaphoreSubmitInfo waitSemInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = m.frameInfo.perFrame->deferredRenderFinishedSemaphore,
-        .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-    };
     VkSubmitInfo2 submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-        .waitSemaphoreInfoCount = 1,
-        .pWaitSemaphoreInfos = &waitSemInfo,
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &cmdBufInfo,
-        .signalSemaphoreInfoCount = 1,
-        .pSignalSemaphoreInfos = &semInfo,
     };
     auto res = vkQueueSubmit2(m.vkcore.queues.graphics.queue, 1, &submitInfo, nullptr);
     VK_ASSERT(res == VK_SUCCESS, "Failed to submit light command buffer: {}", res);
@@ -938,17 +917,10 @@ namespace kt::vkh {
     KT_PROFILE_FUNCTION
     auto& sem = m.vkcore.swapchain.nPresentSemaphore(m.frameInfo.imageIndex);
 
-    std::array waitInfo{
-        VkSemaphoreSubmitInfo{
-            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-            .semaphore = m.vkcore.perFrame[m.frameInfo.index].imageAvailableSemaphore,
-            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-        },
-        VkSemaphoreSubmitInfo{
-            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-            .semaphore = m.vkcore.perFrame[m.frameInfo.index].lightsFinished,
-            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-        },
+    VkSemaphoreSubmitInfo waitInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = m.vkcore.perFrame[m.frameInfo.index].imageAvailableSemaphore,
+        .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
     };
 
     VkSemaphoreSubmitInfo signalInfo{
@@ -966,8 +938,8 @@ namespace kt::vkh {
 
     VkSubmitInfo2 submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-        .waitSemaphoreInfoCount = waitInfo.size(),
-        .pWaitSemaphoreInfos = waitInfo.data(),
+        .waitSemaphoreInfoCount = 1,
+        .pWaitSemaphoreInfos = &waitInfo,
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &cmdBufInfo,
         .signalSemaphoreInfoCount = 1,

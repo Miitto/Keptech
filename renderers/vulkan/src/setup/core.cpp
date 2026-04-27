@@ -130,10 +130,6 @@ namespace kt::vkh::setup {
       };
       VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].imageAvailableSemaphore),
               "Failed to create image available semaphore");
-      VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].deferredRenderFinishedSemaphore),
-              "Failed to create deferred render finished semaphore");
-      VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].lightsFinished),
-              "Failed to create lights finished semaphore");
     }
 
     return Renderer::VulkanCore{
