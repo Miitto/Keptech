@@ -557,6 +557,7 @@ namespace kt::vkh {
     };
     vkCmdBeginRendering(cmdBuf, &renderInfo);
   }
+
   void Renderer::seperatedLightsToShaderRead(VkCommandBuffer cmdBuf) {
     std::array transitions{
         VkImageMemoryBarrier2{

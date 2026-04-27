@@ -274,16 +274,17 @@ namespace kt::vkh {
 
     void startFrame();
 
-    void updateCameraBuffer(VkCommandBuffer cmdBuf);
+    kt::maths::Frustum updateCameraBuffer(VkCommandBuffer cmdBuf);
 
-    void updateObjectsBuffer();
+    void updateObjectsBuffer(const kt::maths::Frustum& frustum);
     void drawDeferred(VkCommandBuffer cmdBuf);
     void submitDeferred(VkCommandBuffer cmdBuf);
-    void drawLights(VkCommandBuffer cmdBuf);
+    void drawLights(VkCommandBuffer cmdBuf, const kt::maths::Frustum& frustum);
     struct LightRenderInfo {
       Texture shadowMap;
+      uint32_t drawCount;
     };
-    std::vector<LightRenderInfo> updatePointLightsBuffer();
+    std::vector<LightRenderInfo> updatePointLightsBuffer(const kt::maths::Frustum& frustum);
     void drawPointLightShadowMaps(VkCommandBuffer cmdBuf, const std::vector<LightRenderInfo>&);
     void drawPointLights(VkCommandBuffer cmdBuf);
     void combineLights(VkCommandBuffer cmdBuf);

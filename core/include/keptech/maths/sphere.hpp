@@ -15,24 +15,17 @@ namespace kt::maths {
     glm::vec3 center;
     float radius;
 
-    template <SphereIntersectable T>
-    [[nodiscard]] IntersectionType intersects(const T& obj) const {
-      return obj.inSphere(*this);
-    }
+    template <SphereIntersectable T> [[nodiscard]] IntersectionType intersects(const T& obj) const { return obj.inSphere(*this); }
 
-    [[nodiscard]] IntersectionType inPlane(float dist) const {
-      if (dist > radius) {
+    [[nodiscard]] IntersectionType intersects(const Plane& plane) const {
+      float dist = plane.getSignedDistance(center);
+      if (dist < -radius) {
         return IntersectionType::eNone;
-      } else if (dist < -radius) {
+      } else if (dist > radius) {
         return IntersectionType::eWhole;
       } else {
         return IntersectionType::ePartial;
       }
-    }
-
-    [[nodiscard]] IntersectionType intersects(const Plane& plane) const {
-      float dist = plane.getSignedDistance(center);
-      return inPlane(dist);
     }
 
     [[nodiscard]] IntersectionType inSphere(const Sphere& other) const {
@@ -47,10 +40,15 @@ namespace kt::maths {
         return IntersectionType::ePartial;
       }
     }
+
+    [[nodiscard]] Sphere apply(const glm::mat4& transform) const {
+      glm::vec3 newCenter = glm::vec3(transform * glm::vec4(center, 1.f));
+      float maxScale =
+          std::max({glm::length(glm::vec3(transform[0])), glm::length(glm::vec3(transform[1])), glm::length(glm::vec3(transform[2]))});
+      return Sphere{.center = newCenter, .radius = radius * maxScale};
+    }
   };
 
-  static_assert(SphereIntersectable<Sphere>,
-                "Sphere does not satisfy SphereIntersectable concept");
-  static_assert(PlaneIntersectable<Sphere>,
-                "Sphere does not satisfy PlaneIntersectable concept");
+  static_assert(SphereIntersectable<Sphere>, "Sphere does not satisfy SphereIntersectable concept");
+  static_assert(PlaneIntersectable<Sphere>, "Sphere does not satisfy PlaneIntersectable concept");
 } // namespace kt::maths

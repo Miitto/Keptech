@@ -11,3 +11,5 @@ out/
 
 imgui.ini
 *.cap
+
+traces/log.txt

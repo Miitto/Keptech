@@ -8,13 +8,19 @@ namespace kt::maths {
 
   template <class T>
   concept PlaneIntersectable = requires(const T& obj, float dist, const Plane& plane) {
-    { obj.inPlane(dist) } -> std::same_as<IntersectionType>;
     { obj.intersects(plane) } -> std::same_as<IntersectionType>;
   };
 
   struct Plane {
     glm::vec3 normal;
     float distance;
+
+    Plane() = default;
+    Plane(glm::vec3 normal, float distance) : normal(normal), distance(distance) {
+      float length = glm::length(normal);
+      this->normal /= length;
+      this->distance /= length;
+    }
 
     [[nodiscard]] float getSignedDistance(glm::vec3 point) const { return glm::dot(normal, point) + distance; }
 
