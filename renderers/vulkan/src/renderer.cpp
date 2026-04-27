@@ -32,6 +32,11 @@ namespace kt::vkh {
 
     ImGui::Text("Camera Position: %.2f, %.2f, %.2f", camPos.x, camPos.y, camPos.z);
 
+    ImGui::Text("Draw Calls: %zu", fBufs().drawCommands.count);
+    ImGui::Text("Culled Draws: %zu", m.frameInfo.culledDraws);
+    ImGui::Text("Culled Shadow Draws: %zu", m.frameInfo.culledShadowDraws);
+    ImGui::Text("Culled Lights: %zu", m.frameInfo.culledLights);
+
     ImGui::End();
   }
 
@@ -200,6 +205,8 @@ namespace kt::vkh {
               .firstInstance = static_cast<uint32_t>(gpuObjects.size() - 1),
           };
           drawCommands.push_back(drawCommand);
+        } else {
+          ++m.frameInfo.culledDraws;
         }
       }
     }
@@ -352,6 +359,7 @@ namespace kt::vkh {
       kt::maths::Sphere lightSphere{.center = shadowCenter, .radius = pointLight.radius};
 
       if (frustum.intersects(lightSphere) == kt::maths::IntersectionType::eNone) {
+        ++m.frameInfo.culledLights;
         continue;
       }
 
@@ -439,10 +447,11 @@ namespace kt::vkh {
       uint32_t objectIndex = 0;
       for (const auto& [entity, mesh, transform] : sceneView.each()) {
         for (const auto& submesh : mesh.getSubmeshes()) {
+          auto bound = submesh.boundingSphere.apply(transform.getGlobal());
           glm::vec3 objToLight = shadowCenter - glm::vec3(transform.getGlobal()[3]);
           float distanceToLight = glm::length(objToLight);
 
-          if (distanceToLight - submesh.boundingSphere.radius < pointLight.radius) {
+          if (distanceToLight - bound.radius < pointLight.radius) {
             VkDrawIndexedIndirectCommand drawCommand{
                 .indexCount = submesh.count,
                 .instanceCount = 1,
@@ -452,6 +461,8 @@ namespace kt::vkh {
             };
             drawCommands.push_back(drawCommand);
             ++drawCount;
+          } else {
+            ++m.frameInfo.culledShadowDraws;
           }
           ++objectIndex;
         }
@@ -879,6 +890,10 @@ namespace kt::vkh {
     VK_ASSERT(m.frameInfo.perFrame->pools.graphics.pool != VK_NULL_HANDLE, "Graphics command pool is null");
     VK_ASSERT(m.frameInfo.perFrame->pools.compute.pool != VK_NULL_HANDLE, "Compute command pool is null");
     m.frameInfo.perFrame->pools.resetAll(m.vkcore.device.logical);
+
+    m.frameInfo.culledDraws = 0;
+    m.frameInfo.culledShadowDraws = 0;
+    m.frameInfo.culledLights = 0;
 
     updateTextureDescriptors();
   }

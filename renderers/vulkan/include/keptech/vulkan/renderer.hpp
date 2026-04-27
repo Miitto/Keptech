@@ -73,6 +73,9 @@ namespace kt::vkh {
       uint8_t index = 0;
       uint8_t nextIndex = 1;
       uint8_t imageIndex = INVALID_INDEX;
+      size_t culledDraws = 0;
+      size_t culledShadowDraws = 0;
+      size_t culledLights = 0;
       PerFrame* perFrame = nullptr;
       bool suboptimalSwapchain = false;
     };
