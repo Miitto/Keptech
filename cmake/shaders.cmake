@@ -2,6 +2,10 @@ find_program(SLANGC_EXECUTABLE NAMES slangc REQUIRED)
 
 set(KT_SHADERS "${KT_SHADER_DIR}/lib/camera.slang" "${KT_SHADER_DIR}/lib/keptech.slang")
 
+set(KT_SHADER_OPT_LEVELS "0" "1" "3")
+set(KT_SHADER_OPT_LEVEL_DEBUG "0" CACHE STRING "Optimization level for shader compilation in Debug mode")
+set(KT_SHADER_OPT_LEVEL_RELEASE "3" CACHE STRING "Optimization level for shader compilation in Release mode")
+
 function(compile_shader target shader_target)
   set(SINGLEVALUE BASE_DIR OUTPUT_DIR)
   set(MULTIVALUE SOURCES INCLUDES)
@@ -39,12 +43,14 @@ function(compile_shader target shader_target)
     endif()
 
     add_custom_command(
-    OUTPUT ${OUT_FILE}
-    DEPENDS ${IN_FILE} ${INCLUDED_FILES} Keptech_shader_embedder
-    COMMAND Keptech_shader_embedder ${source} ${IN_FILE} ${OUT_FILE}
-    COMMENT "Embedding shaders into header for target ${target}"
-    VERBATIM
-  )
+      OUTPUT ${OUT_FILE}
+      DEPENDS ${IN_FILE} ${INCLUDED_FILES} Keptech_shader_embedder
+      COMMAND Keptech_shader_embedder ${source} ${IN_FILE} ${OUT_FILE}
+      $<$<CONFIG:DEBUG>:${KT_SHADER_OPT_LEVEL_DEBUG}>$<$<CONFIG:RELWITHDEBINFO>:${KT_SHADER_OPT_LEVEL_RELEASE}>$<$<CONFIG:RELEASE>:${KT_SHADER_OPT_LEVEL_RELEASE}>
+      $<$<CONFIG:DEBUG>:d>$<$<CONFIG:RELWITHDEBINFO>:d>
+      COMMENT "Compiling shader [$<$<CONFIG:DEBUG>:${KT_SHADER_OPT_LEVEL_DEBUG}>$<$<CONFIG:RELWITHDEBINFO>:${KT_SHADER_OPT_LEVEL_RELEASE}>$<$<CONFIG:RELEASE>:${KT_SHADER_OPT_LEVEL_RELEASE}>] [$<$<CONFIG:DEBUG>:d>$<$<CONFIG:RELWITHDEBINFO>:d>]: ${IN_FILE} -> ${OUT_FILE}"
+      VERBATIM
+    )
 
     list(APPEND OUT_HEADERS ${OUT_FILE})
   endforeach()

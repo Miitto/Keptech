@@ -9,9 +9,9 @@
 using namespace kt::shader_processor;
 
 int main(int argc, char** argv) {
-  if (argc < 4 || argc > 5) {
+  if (argc < 4 || argc > 6) {
     std::cerr << "Usage: shader_embedder <var_name> <input_file> <output_file> "
-                 "[optimization_level (0|d|1|3)]\n";
+                 "[optimization_level (0|1|3)] [debug_info d]\n";
     return -1;
   }
 
@@ -22,13 +22,10 @@ int main(int argc, char** argv) {
   kt::shader_processor::init();
 
   SessionConfig config;
-  if (argc == 4) {
+  if (argc > 3) {
     switch (argv[3][0]) {
     case '0':
       config.optimizationLevel = OptimizationLevel::None;
-      break;
-    case 'd':
-      config.optimizationLevel = OptimizationLevel::Debug;
       break;
     case '1':
       config.optimizationLevel = OptimizationLevel::Basic;
@@ -39,6 +36,10 @@ int main(int argc, char** argv) {
     default:
       break;
     }
+  }
+
+  if (argc > 4) {
+    config.debugInfo = argv[4][0] == 'd';
   }
 
   CompilerSession session(config);

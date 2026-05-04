@@ -11,10 +11,8 @@ namespace kt::shader_processor {
   void init();
 
   enum class OptimizationLevel : uint8_t {
-    /// No optimization, no debug info
+    /// No optimization
     None,
-    /// No optimization, with debug info
-    Debug,
     /// Optimized with O1
     Basic,
     /// Optimized with O3
@@ -23,13 +21,14 @@ namespace kt::shader_processor {
 
   struct SessionConfig {
 #ifndef NDEBUG
-    /// Optimization level for the shader processor session. Default is Debug in
-    /// debug builds.
-    OptimizationLevel optimizationLevel = OptimizationLevel::Debug;
+    /// Optimization level for the shader processor session. Default is None in debug builds.
+    OptimizationLevel optimizationLevel = OptimizationLevel::None;
+    bool debugInfo = true;
 #else
     /// Optimization level for the shader processor session. Default is
     /// Aggressive in release builds.
     OptimizationLevel optimizationLevel = OptimizationLevel::Aggressive;
+    bool debugInfo = false;
 #endif
   };
 
@@ -49,12 +48,9 @@ namespace kt::shader_processor {
 
     [[nodiscard]] Kernel getCode() const;
 
-    [[nodiscard]] slang::ProgramLayout* getLayout() const {
-      return program->getLayout();
-    }
+    [[nodiscard]] slang::ProgramLayout* getLayout() const { return program->getLayout(); }
 
-    [[nodiscard]] std::expected<kt::shaders::Shader, std::string>
-    toShader(const char* name) const;
+    [[nodiscard]] std::expected<kt::shaders::Shader, std::string> toShader(const char* name) const;
 
   private:
     Slang::ComPtr<slang::IComponentType> program;
@@ -64,9 +60,8 @@ namespace kt::shader_processor {
   public:
     CompilerSession(SessionConfig config);
 
-    std::pair<slang::IModule*, Slang::ComPtr<slang::IBlob>>
-    loadModule(const char* moduleName, const std::string& source,
-               const char* path = nullptr);
+    std::pair<slang::IModule*, Slang::ComPtr<slang::IBlob>> loadModule(const char* moduleName, const std::string& source,
+                                                                       const char* path = nullptr);
 
     std::pair<Program, Slang::ComPtr<slang::IBlob>> link();
 

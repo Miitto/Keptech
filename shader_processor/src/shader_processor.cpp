@@ -265,7 +265,6 @@ namespace kt::shader_processor {
       SlangOptimizationLevel level = SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_DEFAULT;
       switch (config.optimizationLevel) {
       case OptimizationLevel::None:
-      case OptimizationLevel::Debug:
         level = SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_NONE;
         break;
       case OptimizationLevel::Basic:
@@ -280,7 +279,7 @@ namespace kt::shader_processor {
       compilerOptionEntries.push_back({.name = name, .value = value});
     }
 
-    if (config.optimizationLevel == OptimizationLevel::Debug) {
+    if (config.debugInfo) {
       slang::CompilerOptionValue value;
       value.intValue0 = true;
       compilerOptionEntries.push_back({.name = slang::CompilerOptionName::DebugInformation, .value = value});
