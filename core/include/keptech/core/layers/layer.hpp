@@ -8,6 +8,7 @@
 namespace kt::core::layers {
   class Layer {
   public:
+    Layer() = default;
 #ifndef NDEBUG
     Layer(std::string name) : debugName(std::move(name)) {}
     [[nodiscard]] const std::string& getDebugName() const { return debugName; }
@@ -24,8 +25,7 @@ namespace kt::core::layers {
     virtual void onAttach() {}
     virtual void onDetach() {}
     virtual void onUpdate([[maybe_unused]] Timestep ts) {}
-    virtual void onEvent([[maybe_unused]] events::Event& event,
-                         [[maybe_unused]] Timestep ts) {}
+    virtual void onEvent([[maybe_unused]] events::Event& event, [[maybe_unused]] Timestep ts) {}
 
   private:
 #ifndef NDEBUG
