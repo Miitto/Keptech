@@ -27,7 +27,6 @@ struct PushConstants {
 
 struct VertexOutput {
   float4 position : SV_Position;
-  float4 color : COLOR0;
   float3 normal : NORMAL0;
   float uvX : TEXCOORD0;
   float3 tangent : TANGENT0;
@@ -46,7 +45,6 @@ VertexOutput vert(kt::Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID, 
   float4 worldPosition = mul(float4(v.position, 1.0), obj.modelMatrix);
 
   output.position = kt::camera.worldToClip(worldPosition);
-  output.color = v.color;
   output.uvX = v.uvX;
   output.uvY = v.uvY;
 
@@ -73,7 +71,7 @@ kt::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
 
   float2 uv = float2(input.uvX, input.uvY);
 
-  output.albedo = input.color;
+  output.albedo = mat.albedoFactor;
   output.normal = float4(input.normal, 1.f);
 
   output.metallicRoughness = float4(mat.metFactor, mat.roughFactor, 0.f, 1.f);

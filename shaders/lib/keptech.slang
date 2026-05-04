@@ -13,7 +13,6 @@ public struct Vertex {
   public float uvX;
   public float3 normal;
   public float uvY;
-  public float4 color;
   public float4 tangent;
 };
 

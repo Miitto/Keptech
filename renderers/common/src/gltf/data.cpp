@@ -113,17 +113,6 @@ namespace kt::gltf {
             }
           }
 
-          // Colors
-          {
-            auto colors = primitive.findAttribute("COLOR_0");
-            if (colors != primitive.attributes.end()) {
-              auto& colorAccessor = asset.accessors[colors->accessorIndex];
-
-              fastgltf::iterateAccessorWithIndex<glm::vec4>(
-                  asset, colorAccessor, [&](glm::vec4 color, size_t index) { vertices[startIndex + index].color = color; });
-            }
-          }
-
           // Tangents
           {
             auto tangents = primitive.findAttribute("TANGENT");

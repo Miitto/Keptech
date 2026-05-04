@@ -16,11 +16,10 @@ namespace kt {
     float uvX;
     glm::vec3 normal;
     float uvY;
-    glm::vec4 color{1.f};
     glm::vec4 tangent{1.f, 0.f, 0.f, 1.f};
 
-    constexpr inline static Vertex create(glm::vec3 pos, glm::vec2 uv, glm::vec3 norm, glm::vec4 col, glm::vec4 tang = glm::vec4(0.0f)) {
-      return Vertex{.position = pos, .uvX = uv.x, .normal = norm, .uvY = uv.y, .color = col, .tangent = tang};
+    constexpr inline static Vertex create(glm::vec3 pos, glm::vec2 uv, glm::vec3 norm, glm::vec4 tang = glm::vec4(0.0f)) {
+      return Vertex{.position = pos, .uvX = uv.x, .normal = norm, .uvY = uv.y, .tangent = tang};
     }
   };
 
