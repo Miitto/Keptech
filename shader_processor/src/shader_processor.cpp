@@ -280,9 +280,10 @@ namespace kt::shader_processor {
     }
 
     if (config.debugInfo) {
-      slang::CompilerOptionValue value;
-      value.intValue0 = true;
-      compilerOptionEntries.push_back({.name = slang::CompilerOptionName::DebugInformation, .value = value});
+      compilerOptionEntries.push_back({.name = slang::CompilerOptionName::DebugInformation,
+                                       .value = {.intValue0 = SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL}});
+      compilerOptionEntries.push_back({.name = slang::CompilerOptionName::DebugInformationFormat,
+                                       .value = {.intValue0 = SlangDebugInfoFormat::SLANG_DEBUG_INFO_FORMAT_DEFAULT}});
     }
 
     std::vector<const char*> searchPaths{KEPTECH_SHADER_DIR "/lib"};
@@ -404,13 +405,14 @@ namespace kt::shader_processor {
       switch (stage) {
       case kt::shaders::ShaderStages::Vertex: {
         auto paramCount = entryPoint->getParameterCount();
-        std::clog << "Processing vertex shader entry point '" << entryPoint->getName() << "' with " << paramCount << " parameters\n";
+        size_t userParamCount = 0;
         for (auto i = 0; i < paramCount; ++i) {
           auto param = entryPoint->getParameterByIndex(i);
           auto category = param->getCategory();
           if (category != slang::ParameterCategory::VaryingInput && category != slang::ParameterCategory::Mixed)
             continue; // Some sort of builtin, such as vertex ID
 
+          ++userParamCount;
           auto types = slangTypeToKeptechTypes(param->getType());
           std::clog << "  Parameter '" << param->getName() << "' mapped to " << types.size() << " vertex attribute(s)\n";
           for (size_t i = 0; i < types.size(); ++i) {
@@ -420,6 +422,8 @@ namespace kt::shader_processor {
           }
           vertexLayout.emplace_back(std::move(types));
         }
+        std::clog << "Processing vertex shader entry point '" << entryPoint->getName() << "' with " << userParamCount
+                  << " user parameters\n";
 
         std::clog.flush();
         break;
