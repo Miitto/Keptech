@@ -47,7 +47,7 @@ void ssao(uint3 dispatchThreadID: SV_DispatchThreadID) {
   Sample samples[kt::constants::SSAO_KERNEL_SIZE];
   [ForceUnroll]
   for (uint i = 0; i < kt::constants::SSAO_KERNEL_SIZE; i++) {
-    let sampleVec = mul(kt::ssaoKernel[i], tbn);
+    let sampleVec = mul(ssaoKernel[i], tbn);
     samples[i].samplePos = view + sampleVec * kt::constants::SSAO_RADIUS;
 
     float4 offsetNdc = kt::camera.cameraToClip(float4(samples[i].samplePos, 1.0));
