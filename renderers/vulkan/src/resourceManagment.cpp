@@ -134,7 +134,7 @@ namespace kt::vkh {
     constexpr ktxTextureCreateFlags createFlags = KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT;
 
     auto isKtxFile = [](const std::span<const std::byte>& bytes) {
-      return bytes.size() >= 12 && memcmp(bytes.data(), "\xABKTX 11\xBB\r\n\x1A\n", 12) == 0;
+      return bytes.size() >= 12 && memcmp(bytes.data(), "\xABKTX 20\xBB\r\n\x1A\n", 12) == 0;
     };
 
     VK_ASSERT(gltfImages.size() == textures.size(), "Texture count mismatch between glTF data and texture array");
@@ -424,8 +424,8 @@ namespace kt::vkh {
           .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
           .srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT,
           .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-          .dstStageMask = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
-          .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_2_TRANSFER_READ_BIT,
+          .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+          .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
           .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
           .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
           .image = image.image,
@@ -464,6 +464,9 @@ namespace kt::vkh {
         .resources = std::move(result),
         .stagingBuffers = std::move(stagingBufs),
     };
+
+    VK_DEBUG("Finished uploading images, total {} bytes in {} staging buffers. Last texture index: {}", offset, stagingBuffers.size(),
+             m.nextTextureIndex - 1);
 
     return std::move(results);
   }
