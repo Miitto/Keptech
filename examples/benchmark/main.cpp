@@ -23,7 +23,7 @@ public:
   BenchmarkLayer(kt::Window& window, kt::rendering::Renderer& renderer) : kt::core::layers::Layer("Benchkark"), window(window), scene({}) {
     renderer.setScene(scene);
 
-    auto bistroMeshRes = renderer.loadMesh(ASSET_DIR "meshes/BistroExterior.gltf");
+    auto bistroMeshRes = renderer.loadMesh(ASSET_DIR "meshes/BistroExterior.glb");
     if (!bistroMeshRes) {
       KT_CRITICAL("Failed to load bistro mesh: {}", bistroMeshRes.error());
       abort();

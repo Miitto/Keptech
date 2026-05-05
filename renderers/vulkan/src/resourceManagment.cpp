@@ -120,13 +120,14 @@ namespace kt::vkh {
     KT_PROFILE_FUNCTION
     auto& gltfImages = gltf.images;
     VK_DEBUG("Loading {} images from glTF data", gltfImages.size());
+    struct Mip {
+      size_t offset;
+      uint32_t width;
+      uint32_t height;
+    };
+
     struct Tex {
       std::string name;
-      size_t size = 0;
-      uint8_t* data = nullptr;
-      VkFormat format = VK_FORMAT_UNDEFINED;
-      uint32_t width = 0;
-      uint32_t height = 0;
       ktxTexture2* ktx = nullptr;
     };
 
@@ -154,16 +155,15 @@ namespace kt::vkh {
 
         VK_ASSERT(tex->vkFormat != VK_FORMAT_UNDEFINED, "ktxTexture has undefined Vulkan format");
         VK_ASSERT(tex->pData != nullptr, "ktxTexture data pointer is null");
-        auto size = ktxTexture_GetImageSize(reinterpret_cast<ktxTexture*>(tex), 0);
-        VK_ASSERT(size > 0, "ktx image size is 0.");
+        VK_ASSERT(tex->dataSize > 0, "ktx image size is 0.");
+
+        std::vector<size_t> dataOffsets(tex->numLevels - 1);
+        for (uint32_t level = 1; level < tex->numLevels; ++level) {
+          ktxTexture2_GetImageOffset(tex, level, 0, 0, &dataOffsets[level - 1]);
+        }
 
         return Tex{
             .name = std::string(img.name),
-            .size = size,
-            .data = tex->pData,
-            .format = static_cast<VkFormat>(tex->vkFormat),
-            .width = tex->baseWidth,
-            .height = tex->baseHeight,
             .ktx = tex,
         };
       };
@@ -176,21 +176,8 @@ namespace kt::vkh {
           return fromKtx(ktxTexture, err);
 
         } else {
-          int width = 0, height = 0, channels = 0;
-          auto data = stbi_load_from_memory(reinterpret_cast<const uint8_t*>(bytes.data()), static_cast<int>(bytes.size()), &width, &height,
-                                            &channels, 4);
-          if (!data) {
-            VK_CRITICAL("Failed to load image from memory: {}", stbi_failure_reason());
-            abort();
-          }
-          return Tex{
-              .name = std::string(img.name),
-              .size = static_cast<size_t>(width * height * channels),
-              .data = data,
-              .format = VK_FORMAT_R8G8B8A8_UNORM,
-              .width = static_cast<uint32_t>(width),
-              .height = static_cast<uint32_t>(height),
-          };
+          VK_CRITICAL("Unsupported image source format for image {}, expected ktx2 format in memory", img.name);
+          abort();
         }
       };
 
@@ -219,20 +206,8 @@ namespace kt::vkh {
                   ktx_error_code_e err = ktxTexture2_CreateFromNamedFile(assetPath.string().c_str(), createFlags, &ktxTexture);
                   return fromKtx(ktxTexture, err);
                 } else {
-                  int width = 0, height = 0, channels = 0;
-                  uint8_t* data = stbi_load(assetPath.string().c_str(), &width, &height, &channels, 4);
-                  if (!data) {
-                    VK_CRITICAL("Failed to load image from file {}: {}", assetPath.string(), stbi_failure_reason());
-                    abort();
-                  }
-                  return Tex{
-                      .name = std::string(img.name),
-                      .size = static_cast<size_t>(width * height * channels),
-                      .data = data,
-                      .format = VK_FORMAT_R8G8B8A8_UNORM,
-                      .width = static_cast<uint32_t>(width),
-                      .height = static_cast<uint32_t>(height),
-                  };
+                  VK_CRITICAL("Unsupported image file extension {} for image {}, expected .ktx2", extension.string(), img.name);
+                  abort();
                 }
               },
               [&](const fastgltf::sources::Vector& vector) { return fromMemory(vector.bytes); },
@@ -272,10 +247,10 @@ namespace kt::vkh {
     std::vector<SBuf> stagingBuffers(1);
 
     for (auto& tex : textures) {
-      if (stagingBuffers.back().size + tex.size > limits::maxMemoryAllocationSize) {
+      if (stagingBuffers.back().size + tex.ktx->dataSize > limits::maxMemoryAllocationSize) {
         stagingBuffers.push_back({});
       }
-      stagingBuffers.back().size += tex.size;
+      stagingBuffers.back().size += tex.ktx->dataSize;
     }
 
     {
@@ -340,28 +315,31 @@ namespace kt::vkh {
     m.loadedTextures.reserve(m.loadedTextures.size() + textures.size());
 
     for (const auto& tex : textures) {
-      if (offset + tex.size > stagingBuffers[bufIdx].size) {
+      if (offset + tex.ktx->dataSize > stagingBuffers[bufIdx].size) {
         ++bufIdx;
         offset = 0;
       }
       auto& buf = stagingBuffers[bufIdx];
       VK_ASSERT(buf.buffer.isMapped(), "Staging buffer for image upload is not mapped");
-      VK_ASSERT(tex.data != nullptr, "Texture data is null for image {}", tex.name);
-      VK_ASSERT(tex.size > 0, "Texture size is zero for image {}", tex.name);
-      VK_ASSERT(tex.format != VK_FORMAT_UNDEFINED, "Texture format is undefined for image {}", tex.name);
-      VK_ASSERT(offset + tex.size <= buf.size, "Texture data does not fit in staging buffer for image {}", tex.name);
+      VK_ASSERT(tex.ktx->pData != nullptr, "Texture data is null for image {}", tex.name);
+      VK_ASSERT(tex.ktx->dataSize > 0, "Texture size is zero for image {}", tex.name);
+      VK_ASSERT(tex.ktx->vkFormat != VK_FORMAT_UNDEFINED, "Texture format is undefined for image {}", tex.name);
+      VK_ASSERT(tex.ktx->baseWidth > 0 && tex.ktx->baseHeight > 0, "Texture dimensions are invalid for image {}", tex.name);
+      VK_ASSERT(tex.ktx->numLevels > 0, "Texture has no mip levels for image {}", tex.name);
 
-      imageCreateInfo.format = tex.format;
+      imageCreateInfo.format = (VkFormat)tex.ktx->vkFormat;
       imageCreateInfo.extent = VkExtent3D{
-          .width = tex.width,
-          .height = tex.height,
+          .width = tex.ktx->baseWidth,
+          .height = tex.ktx->baseHeight,
           .depth = 1,
       };
+      imageCreateInfo.mipLevels = tex.ktx->numLevels;
+      imageViewCreateInfo.subresourceRange.levelCount = imageCreateInfo.mipLevels;
 
       VK_TRACE("Creating image {} with format {} and extent {}x{}", tex.name, tex.format, imageCreateInfo.extent.width,
                imageCreateInfo.extent.height);
 
-      memcpy(buf.buffer.mapping() + offset, tex.data, tex.size);
+      memcpy(buf.buffer.mapping() + offset, tex.ktx->pData, tex.ktx->dataSize);
 
       VKH_MAKE(image,
                AllocatedImage::create(m.vkcore.allocator, m.vkcore.device.logical, imageCreateInfo, imageAllocInfo, imageViewCreateInfo,
@@ -369,7 +347,8 @@ namespace kt::vkh {
                "Failed to create image for texture");
 
       auto index = m.nextTextureIndex++;
-      result.emplace_back(Texture::Type::e2D, glm::ivec3{tex.width, tex.height, 1}, 1, tex.format, index, image);
+      result.emplace_back(Texture::Type::e2D, glm::ivec3{tex.ktx->baseWidth, tex.ktx->baseHeight, 1}, 1, (VkFormat)tex.ktx->vkFormat, index,
+                          image);
 
       m.loadedTextures.push_back(image);
 
@@ -390,7 +369,7 @@ namespace kt::vkh {
               {
                   .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                   .baseMipLevel = 0,
-                  .levelCount = 1,
+                  .levelCount = imageCreateInfo.mipLevels,
                   .baseArrayLayer = 0,
                   .layerCount = 1,
               },
@@ -403,22 +382,24 @@ namespace kt::vkh {
       };
       vkCmdPipelineBarrier2(transferCmd, &transferDepInfo);
 
-      VkBufferImageCopy copyRegion{
-          .bufferOffset = offset,
-          .bufferRowLength = 0,
-          .bufferImageHeight = 0,
-          .imageSubresource =
-              {
-                  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                  .mipLevel = 0,
-                  .baseArrayLayer = 0,
-                  .layerCount = 1,
-              },
-          .imageOffset = {.x = 0, .y = 0, .z = 0},
-          .imageExtent = imageCreateInfo.extent,
-      };
+      for (uint32_t level = 0; level < tex.ktx->numLevels; ++level) {
+        ktx_size_t o = 0;
+        ktxTexture2_GetImageOffset(tex.ktx, level, 0, 0, &o);
 
-      vkCmdCopyBufferToImage(transferCmd, buf.buffer.buffer, image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+        VkBufferImageCopy region{
+            .bufferOffset = offset + o,
+            .imageSubresource =
+                {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .mipLevel = level,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+            .imageExtent = {.width = tex.ktx->baseWidth >> level, .height = tex.ktx->baseHeight >> level, .depth = 1},
+        };
+
+        vkCmdCopyBufferToImage(transferCmd, buf.buffer.buffer, image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+      }
 
       VkImageMemoryBarrier2 imgUseBarrier{
           .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
@@ -433,7 +414,7 @@ namespace kt::vkh {
               {
                   .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                   .baseMipLevel = 0,
-                  .levelCount = 1,
+                  .levelCount = imageCreateInfo.mipLevels,
                   .baseArrayLayer = 0,
                   .layerCount = 1,
               },
@@ -445,12 +426,9 @@ namespace kt::vkh {
       };
       vkCmdPipelineBarrier2(transferCmd, &useDepInfo);
 
-      offset += tex.size;
+      offset += tex.ktx->dataSize;
 
-      if (tex.ktx)
-        ktxTexture2_Destroy(tex.ktx);
-      else
-        stbi_image_free(tex.data);
+      ktxTexture2_Destroy(tex.ktx);
 
       VK_TRACE("Uploaded image {} to GPU", tex.name);
     }
