@@ -8,6 +8,7 @@ target_sources(${PROJECT_NAME}
     layers/layerStack.cpp
     maths/transform.cpp
     events.cpp
+    fastgltf_formatting.cpp
     gui.cpp
     kt-logger.cpp
     window.cpp
