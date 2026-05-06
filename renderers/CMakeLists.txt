@@ -31,6 +31,9 @@ target_link_libraries(${PROJECT_NAME}
     imgui::imgui
 )
 
+include(mesh_optimizer)
+link_mesh_optimizer(${PROJECT_NAME} PUBLIC)
+
 add_subdirectory(common)
 
 if(RENDERER STREQUAL "Vulkan")
