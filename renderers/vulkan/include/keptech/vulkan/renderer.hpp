@@ -231,6 +231,7 @@ namespace kt::vkh {
       Frame frameInfo{};
 
       size_t nextTextureIndex = constants::FirstUserTexture;
+      uint32_t nextMeshIndex = 0;
 
       std::vector<AllocatedImage> loadedTextures{};
       std::vector<AllocatedBuffer> loadedBuffers{};

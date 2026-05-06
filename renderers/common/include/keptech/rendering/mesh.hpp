@@ -17,10 +17,6 @@ namespace kt {
     glm::vec3 normal;
     float uvY;
     glm::vec4 tangent{1.f, 0.f, 0.f, 1.f};
-
-    constexpr inline static Vertex create(glm::vec3 pos, glm::vec2 uv, glm::vec3 norm, glm::vec4 tang = glm::vec4(0.0f)) {
-      return Vertex{.position = pos, .uvX = uv.x, .normal = norm, .uvY = uv.y, .tangent = tang};
-    }
   };
 
   struct Submesh {
@@ -28,6 +24,7 @@ namespace kt {
     uint32_t count;
     std::optional<rendering::Material> material;
     kt::maths::Sphere boundingSphere;
+    uint32_t id = ~0u;
   };
 
   class Mesh {
