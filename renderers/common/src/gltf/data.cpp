@@ -165,6 +165,8 @@ namespace kt::gltf {
 
       std::filesystem::path basePath = path.parent_path();
 
+      KT_DEBUG("GLTF Base Path: {}", basePath.string());
+
       auto asset_res = parser.loadGltf(gltfFile.get(), basePath, options);
       if (!bool(asset_res)) {
         return std::unexpected(fmt::format("Failed to parse glTF file: {}", asset_res.error()));
