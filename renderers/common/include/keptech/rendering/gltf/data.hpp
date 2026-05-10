@@ -16,6 +16,8 @@ namespace kt::gltf {
     uint32_t indexCount;
     uint32_t indexOffset;
     uint32_t materialIndex;
+    uint32_t meshletCount;
+    uint32_t meshletOffset;
     kt::maths::Sphere boundingSphere;
   };
 
@@ -26,6 +28,9 @@ namespace kt::gltf {
     std::vector<uint32_t> indices;
     std::vector<uint32_t> shadowIndices;
     std::vector<Submesh> submeshes;
+    std::vector<Meshlet> meshlets;
+    std::vector<uint32_t> meshletVertices;
+    std::vector<uint8_t> meshletTriangles;
   };
 
   struct Data {

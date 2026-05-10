@@ -8,6 +8,7 @@ function(find_vulkan VERSION)
     VULKAN_HPP_NO_CONSTRUCTORS=1
     VULKAN_HPP_NO_EXCEPTIONS=1
     VULKAN_HPP_RAII_NO_EXCEPTIONS=1
+    VK_NO_PROTOTYPES=1
 )
 
   set_target_properties(Vulkan::Vulkan PROPERTIES
@@ -24,11 +25,12 @@ function(link_vulkan target ACCESS)
   target_include_directories(${target} ${ACCESS}
       "${Vulkan_INCLUDE_DIR}"
       "${Vulkan_INCLUDE_DIR}/vma"
+      "${Vulkan_INCLUDE_DIR}/Volk"
   )
 
   if (KT_USE_PCH)
     target_precompile_headers(${target} ${ACCESS}
-      <vulkan/vulkan.h>
+      <Volk/volk.h>
     )
   endif()
 endfunction()

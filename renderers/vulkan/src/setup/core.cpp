@@ -7,6 +7,7 @@
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
 #include <SDL3/SDL_vulkan.h>
+#include <Volk/volk.h>
 #include <array>
 #include <expected>
 #include <keptech/components/camera.hpp>
@@ -60,6 +61,8 @@ namespace kt::vkh::setup {
   std::expected<Renderer::VulkanCore, std::string> createVulkanCore(const RendererCreateInfo& createInfo,
                                                                     const core::window::Window& window) {
 
+    VK_CHECK(volkInitialize(), "Failed to initialize Volk.");
+
     constexpr bool enableValidationLayers =
 #ifndef NDEBUG
         true;
@@ -72,6 +75,8 @@ namespace kt::vkh::setup {
       return std::unexpected(instance_res.error());
     }
     auto& instance = instance_res.value();
+
+    volkLoadInstanceOnly(instance);
 
     VkSurfaceKHR surface = nullptr;
     if (!SDL_Vulkan_CreateSurface(window.getHandle(), instance, nullptr, &surface)) {
@@ -86,13 +91,39 @@ namespace kt::vkh::setup {
 
     VKH_MAKE(device, createDevice(physDevice, uniqueQueueFamilies), "Failed to create logical device.");
 
+    volkLoadDevice(device);
+
     VKH_MAKE(queues, getQueues(device, queueIndices, uniqueQueueFamilies), "Failed to get device queues.");
 
     VmaAllocator allocator = nullptr;
+
+    VmaVulkanFunctions vulkanFunctions{
+        .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
+        .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
+        .vkAllocateMemory = vkAllocateMemory,
+        .vkBindBufferMemory = vkBindBufferMemory,
+        .vkBindImageMemory = vkBindImageMemory,
+        .vkCreateBuffer = vkCreateBuffer,
+        .vkCreateImage = vkCreateImage,
+        .vkDestroyBuffer = vkDestroyBuffer,
+        .vkDestroyImage = vkDestroyImage,
+        .vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges,
+        .vkFreeMemory = vkFreeMemory,
+        .vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements,
+        .vkGetImageMemoryRequirements = vkGetImageMemoryRequirements,
+        .vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties,
+        .vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties,
+        .vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges,
+        .vkMapMemory = vkMapMemory,
+        .vkUnmapMemory = vkUnmapMemory,
+        .vkCmdCopyBuffer = vkCmdCopyBuffer,
+    };
+
     VmaAllocatorCreateInfo allocInfo{
         .flags = VmaAllocatorCreateFlagBits::VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
         .physicalDevice = physDevice,
         .device = device,
+        .pVulkanFunctions = &vulkanFunctions,
         .instance = instance,
     };
     VK_MAKE(vmaCreateAllocator(&allocInfo, &allocator), "Failed to create VMA allocator.");

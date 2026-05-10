@@ -12,6 +12,10 @@ namespace kt::vkh {
       return VK_SHADER_STAGE_GEOMETRY_BIT;
     case shaders::ShaderStages::Compute:
       return VK_SHADER_STAGE_COMPUTE_BIT;
+    case shaders::ShaderStages::Mesh:
+      return VK_SHADER_STAGE_MESH_BIT_EXT;
+    case shaders::ShaderStages::Task:
+      return VK_SHADER_STAGE_TASK_BIT_EXT;
     default:
       VK_CRITICAL("Unsupported shader stage: {}", static_cast<int>(stage));
       std::abort();

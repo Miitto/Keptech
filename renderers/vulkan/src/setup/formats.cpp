@@ -3,8 +3,8 @@
 #include "keptech/vulkan/helpers/formatting.hpp"
 #include "keptech/vulkan/structs.hpp"
 #include "vk-logger.hpp"
+#include <Volk/volk.h>
 #include <keptech/shaders/shader.h>
-#include <vulkan/vulkan.h>
 
 namespace kt::vkh::setup {
   // Formats

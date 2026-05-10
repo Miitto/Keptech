@@ -5,10 +5,10 @@
 #include "keptech/vulkan/helpers/pipeline.hpp"
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
+#include <Volk/volk.h>
 #include <keptech/components/lights.hpp>
 #include <keptech/rendering/structs.hpp>
 #include <keptech/shaders/shader.h>
-#include <vulkan/vulkan.h>
 
 namespace shaders {
   namespace {
@@ -225,9 +225,9 @@ namespace kt::vkh::setup {
                             PipelineLayoutConfig{
                                 .setLayouts = {globalLayout},
                                 .pushConstantRanges = {{
-                                    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                    .stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                     .offset = 0,
-                                    .size = sizeof(VkDeviceAddress) * 2,
+                                    .size = sizeof(VkDeviceAddress) * 7 + sizeof(uint32_t) * 5,
                                 }},
                             },
                             vkcore.device.logical);

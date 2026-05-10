@@ -74,8 +74,6 @@ namespace kt::vkh {
     objects.buffer.destroy(allocator);
     pointLights.buffer.destroy(allocator);
     shadowMatrices.buffer.destroy(allocator);
-    drawCommands.buffer.destroy(allocator);
-    shadowDrawCommands.buffer.destroy(allocator);
   }
 
   void Renderer::Buffers::destroy(VmaAllocator& allocator) {
@@ -83,8 +81,9 @@ namespace kt::vkh {
     ssaoKernel.destroy(allocator);
     vertexPositions.buffer.destroy(allocator);
     vertexAttribs.buffer.destroy(allocator);
-    indices.buffer.destroy(allocator);
-    shadowIndices.buffer.destroy(allocator);
+    meshlets.buffer.destroy(allocator);
+    meshletVertices.buffer.destroy(allocator);
+    meshletTriangles.buffer.destroy(allocator);
     materials.buffer.destroy(allocator);
 
     for (auto& perFrame : perFrame) {

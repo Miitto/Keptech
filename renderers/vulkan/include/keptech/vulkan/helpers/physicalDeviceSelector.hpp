@@ -1,10 +1,10 @@
 #pragma once
 
+#include <Volk/volk.h>
 #include <expected>
 #include <functional>
 #include <span>
 #include <string>
-#include <vulkan/vulkan.h>
 
 namespace kt::vkh {
 
@@ -21,28 +21,19 @@ namespace kt::vkh {
       uint32_t score = 0;
     };
 
-    static auto create(const VkInstance& instance)
-        -> std::expected<PhysicalDeviceSelector, std::string>;
-    void
-    requireExtensions(const std::span<const char* const> extensions) noexcept;
-    void
-    requireFeatures(const std::function<bool(const VkPhysicalDeviceFeatures&)>&
-                        featureCheck) noexcept;
+    static auto create(const VkInstance& instance) -> std::expected<PhysicalDeviceSelector, std::string>;
+    void requireExtensions(const std::span<const char* const> extensions) noexcept;
+    void requireFeatures(const std::function<bool(const VkPhysicalDeviceFeatures&)>& featureCheck) noexcept;
     void requireQueueFamily(VkQueueFlags queueFlags) noexcept;
-    void requireMemoryType(uint32_t typeBits,
-                           VkMemoryPropertyFlags properties) noexcept;
-    void requireVersion(uint32_t major, uint32_t minor,
-                        uint32_t patch) noexcept;
-    void scoreDevices(const std::function<uint32_t(
-                          const vkh::PhysicalDeviceSelector::DeviceSpecs&)>&
-                          scoreFn) noexcept;
+    void requireMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties) noexcept;
+    void requireVersion(uint32_t major, uint32_t minor, uint32_t patch) noexcept;
+    void scoreDevices(const std::function<uint32_t(const vkh::PhysicalDeviceSelector::DeviceSpecs&)>& scoreFn) noexcept;
     void sortDevices() noexcept;
     auto select() -> std::vector<VkPhysicalDevice>;
 
   private:
     std::vector<DeviceSpecs> physicalDevices;
 
-    PhysicalDeviceSelector(std::vector<DeviceSpecs>& specs) noexcept
-        : physicalDevices(std::move(specs)) {}
+    PhysicalDeviceSelector(std::vector<DeviceSpecs>& specs) noexcept : physicalDevices(std::move(specs)) {}
   };
 } // namespace kt::vkh

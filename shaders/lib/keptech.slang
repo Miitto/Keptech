@@ -18,6 +18,15 @@ public struct VertexAttribs {
   }
 };
 
+public struct Meshlet {
+  public uint vertexOffset;
+  public uint vertexCount;
+  public uint triangleOffset;
+  public uint triangleCount;
+  public float3 center;
+  public float radius;
+};
+
 [[vk::binding(0, 0)]]
 public ConstantBuffer<Camera> camera : register(b0);
 

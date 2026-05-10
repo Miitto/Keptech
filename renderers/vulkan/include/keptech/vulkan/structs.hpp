@@ -1,12 +1,12 @@
 #pragma once
 
+#include <Volk/volk.h>
 #include <expected>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 #include <vk_mem_alloc.h>
-#include <vulkan/vulkan.h>
 
 namespace kt::vkh {
 
@@ -151,6 +151,5 @@ namespace kt::vkh {
 
   struct RendererMesh {
     size_t firstVertex;
-    size_t firstIndex;
   };
 } // namespace kt::vkh

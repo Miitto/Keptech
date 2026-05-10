@@ -3,8 +3,8 @@
 #include "keptech/vulkan/renderer.hpp"
 #include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
+#include <Volk/volk.h>
 #include <array>
-#include <vulkan/vulkan.h>
 
 namespace kt::vkh::setup {
 

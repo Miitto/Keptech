@@ -16,6 +16,15 @@ namespace kt::vkh::setup {
   std::expected<VkDescriptorPool, std::string> setupImGui(const kt::core::window::Window& window, const Renderer::VulkanCore& vkcore,
                                                           const Renderer::Samplers& samplers) {
     rendering::initImGui();
+
+    auto funcLoader = [](const char* funcName, void* d) {
+      Renderer::VulkanCore* vkcore = static_cast<Renderer::VulkanCore*>(d);
+      PFN_vkVoidFunction instanceAddr = vkGetInstanceProcAddr(vkcore->instance, funcName);
+      PFN_vkVoidFunction deviceAddr = vkGetDeviceProcAddr(vkcore->device.logical, funcName);
+      return deviceAddr ? deviceAddr : instanceAddr;
+    };
+    const bool funcsLoaded = ImGui_ImplVulkan_LoadFunctions(VK_API_VERSION_1_4, funcLoader, (void*)&vkcore);
+
     std::array<VkDescriptorPoolSize, 11> pool_sizes = {{
         {
             .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,

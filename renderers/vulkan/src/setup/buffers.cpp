@@ -17,6 +17,9 @@ namespace {
   constexpr size_t INITIAL_OBJECT_COUNT = 100;
   constexpr size_t INITIAL_POINT_LIGHT_COUNT = 2;
   constexpr size_t INITIAL_SHADOW_MATRIX_COUNT = (INITIAL_POINT_LIGHT_COUNT * 6);
+  constexpr size_t INITIAL_MESHLET_COUNT = 100;
+  constexpr size_t INITIAL_MESHLET_VERTEX_COUNT = INITIAL_MESHLET_COUNT * kt::constants::VERTICES_PER_MESHLET;
+  constexpr size_t INITIAL_MESHLET_PRIMITIVE_COUNT = INITIAL_MESHLET_COUNT * kt::constants::PRIMITIVES_PER_MESHLET;
 } // namespace
 
 namespace kt::vkh::setup {
@@ -73,10 +76,14 @@ namespace kt::vkh::setup {
     VKH_MAKE(vertexAttribBuffer,
              createBuffer<VertexAttribs>(vkcore, INITIAL_VERTEX_COUNT, "Vertex Attrib Buffer", VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, true),
              "Failed to create vertex buffer.");
-    VKH_MAKE(indexBuffer, createBuffer<uint32_t>(vkcore, INITIAL_INDEX_COUNT, "Index Buffer", VK_BUFFER_USAGE_INDEX_BUFFER_BIT, true),
-             "Failed to create index buffer.");
     VKH_MAKE(materialBuffer, createBuffer<Renderer::GpuMaterial>(vkcore, INITIAL_MATERIAL_COUNT, "Material Buffer", 0, true),
              "Failed to create material buffer.");
+    VKH_MAKE(meshletBuffer, createBuffer<Meshlet>(vkcore, INITIAL_MESHLET_COUNT, "Meshlet Buffer", 0, true),
+             "Failed to create meshlet buffer.");
+    VKH_MAKE(meshletVertexBuffer, createBuffer<uint32_t>(vkcore, INITIAL_MESHLET_VERTEX_COUNT, "Meshlet Vertex Buffer", 0, true),
+             "Failed to create meshlet vertex buffer.");
+    VKH_MAKE(meshletPrimitiveBuffer, createBuffer<uint8_t>(vkcore, INITIAL_MESHLET_PRIMITIVE_COUNT, "Meshlet Primitive Buffer", 0, true),
+             "Failed to create meshlet primitive buffer.");
 
     std::array<Renderer::PerFrameBuffers, MAX_FRAMES_IN_FLIGHT> perFrameBuffers;
 
@@ -87,21 +94,11 @@ namespace kt::vkh::setup {
                "Failed to create point light buffer.");
       VKH_MAKE(shadowMatrixBuffer, createBuffer<glm::mat4>(vkcore, INITIAL_SHADOW_MATRIX_COUNT, "Shadow Matrix Buffer"),
                "Failed to create shadow matrix buffer.");
-      VKH_MAKE(drawCommandBuffer,
-               createBuffer<VkDrawIndexedIndirectCommand>(vkcore, INITIAL_OBJECT_COUNT, "Draw Command Buffer",
-                                                          VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT),
-               "Failed to create draw command buffer.");
-      VKH_MAKE(shadowDrawCommandBuffer,
-               createBuffer<VkDrawIndexedIndirectCommand>(vkcore, INITIAL_OBJECT_COUNT * INITIAL_POINT_LIGHT_COUNT,
-                                                          "Shadow Draw Command Buffer", VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT),
-               "Failed to create shadow draw command buffer.");
 
       perFrameBuffers[i] = Renderer::PerFrameBuffers{
           .objects = {.buffer = objectBuffer},
           .pointLights = {.buffer = pointLightBuffer},
           .shadowMatrices = {.buffer = shadowMatrixBuffer},
-          .drawCommands = {.buffer = drawCommandBuffer},
-          .shadowDrawCommands = {.buffer = shadowDrawCommandBuffer},
       };
     }
 
@@ -110,7 +107,9 @@ namespace kt::vkh::setup {
         .ssaoKernel = ssaoKernel,
         .vertexPositions = {.buffer = vertexPosBuffer},
         .vertexAttribs = {.buffer = vertexAttribBuffer},
-        .indices = {.buffer = indexBuffer},
+        .meshlets = {.buffer = meshletBuffer},
+        .meshletVertices = {.buffer = meshletVertexBuffer},
+        .meshletTriangles = {.buffer = meshletPrimitiveBuffer},
         .materials = {.buffer = materialBuffer},
         .perFrame = perFrameBuffers,
     };

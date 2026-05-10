@@ -17,6 +17,8 @@ namespace kt::shaders {
     Fragment = BIT(1),
     Geometry = BIT(2),
     Compute = BIT(3),
+    Mesh = BIT(4),
+    Task = BIT(5),
   };
   enum class RenderingMode : uint8_t {
     Deferred,

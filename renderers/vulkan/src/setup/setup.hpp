@@ -2,9 +2,9 @@
 
 #include "keptech/vulkan/renderer.hpp"
 #include "keptech/vulkan/structs.hpp"
+#include <Volk/volk.h>
 #include <expected>
 #include <set>
-#include <vulkan/vulkan.h>
 
 namespace kt::vkh::setup {
   struct QueueIndices {

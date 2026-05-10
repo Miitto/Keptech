@@ -1,6 +1,6 @@
 #include "keptech/vulkan/helpers/descriptors.hpp"
 #include "macros.hpp"
-#include <vulkan/vulkan.h>
+#include <Volk/volk.h>
 
 namespace kt::vkh {
   void DescriptorLayoutBuilder::addBinding(uint32_t binding, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags,

@@ -456,32 +456,41 @@ namespace kt::vkh {
     VK_DEBUG("Uploading {} meshes from glTF data", meshes.size());
 
     size_t newVertexCount = 0;
-    size_t newIndexCount = 0;
+    size_t newMeshletCount = 0;
+    size_t newMeshletVertexCount = 0;
+    size_t newMeshletTriangleCount = 0;
 
     for (const auto& mesh : meshes) {
       newVertexCount += mesh.positions.size();
-      newIndexCount += mesh.indices.size();
+      newMeshletCount += mesh.meshlets.size();
+      newMeshletVertexCount += mesh.meshletVertices.size();
+      newMeshletTriangleCount += mesh.meshletTriangles.size();
     }
 
     size_t newPostionsSize = newVertexCount * sizeof(glm::vec3);
     size_t newVertexAttribsSize = newVertexCount * sizeof(VertexAttribs);
-    size_t newIndicesSize = newIndexCount * sizeof(uint32_t);
+    size_t newMeshletsSize = newMeshletCount * sizeof(Meshlet);
+    size_t newMeshletVerticesSize = newMeshletVertexCount * sizeof(uint32_t);
+    size_t newMeshletTrianglesSize = newMeshletTriangleCount * sizeof(uint8_t);
 
     size_t totalVerticesCount = m.buffers.vertexPositions.count + newVertexCount;
-    size_t totalIndicesCount = m.buffers.indices.count + newIndexCount;
+    size_t totalMeshletCount = m.buffers.meshlets.count + newMeshletCount;
+    size_t totalMeshletVertexCount = m.buffers.meshletVertices.count + newMeshletVertexCount;
+    size_t totalMeshletTriangleCount = m.buffers.meshletTriangles.count + newMeshletTriangleCount;
 
     size_t totalPositionsSize = totalVerticesCount * sizeof(glm::vec3);
     size_t totalVertexAttribsSize = totalVerticesCount * sizeof(VertexAttribs);
-    size_t totalIndicesSize = totalIndicesCount * sizeof(uint32_t);
+    size_t totalMeshletsSize = totalMeshletCount * sizeof(Meshlet);
+    size_t totalMeshletVerticesSize = totalMeshletVertexCount * sizeof(uint32_t);
+    size_t totalMeshletTrianglesSize = totalMeshletTriangleCount * sizeof(uint8_t);
 
     std::optional<SubdivBuffer<glm::vec3>> oldPositionBuffer;
     std::optional<SubdivBuffer<VertexAttribs>> oldAttribBuffer;
-    std::optional<SubdivBuffer<uint32_t>> oldIndexBuffer;
-    std::optional<SubdivBuffer<uint32_t>> oldShadowIndexBuffer;
-    if (totalPositionsSize > m.buffers.vertexPositions.buffer.size()) {
-      VK_DEBUG("Current vertex position buffer size {} is too small for {} vertices, creating new buffer",
-               m.buffers.vertexPositions.buffer.size(), totalVerticesCount);
-      oldPositionBuffer = m.buffers.vertexPositions;
+    std::optional<SubdivBuffer<Meshlet>> oldMeshletBuffer;
+    std::optional<SubdivBuffer<uint32_t>> oldMeshletVertexBuffer;
+    std::optional<SubdivBuffer<uint8_t>> oldMeshletTriangleBuffer;
+
+    auto newBuffer = [&](size_t size, std::string name, VkBufferUsageFlags extraUsage = 0) {
       VkBufferCreateInfo vertexBufferCreateInfo{
           .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
           .size = totalPositionsSize,
@@ -493,10 +502,17 @@ namespace kt::vkh {
                    VMA_ALLOCATION_CREATE_MAPPED_BIT,
           .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
       };
-      VKH_MAKE(vertexBuffer,
-               AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, vertexBufferCreateInfo, vertexAllocInfo,
-                                                "Mesh vertex buffer"),
-               "Failed to create vertex buffer for mesh upload");
+      return AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, vertexBufferCreateInfo, vertexAllocInfo, name);
+    };
+
+    if (totalPositionsSize > m.buffers.vertexPositions.buffer.size()) {
+      VK_DEBUG("Current vertex position buffer size {} is too small for {} vertices, creating new buffer",
+               m.buffers.vertexPositions.buffer.size(), totalVerticesCount);
+      oldPositionBuffer = m.buffers.vertexPositions;
+
+      VKH_MAKE(vertexBuffer, newBuffer(totalPositionsSize, "Mesh vertex position buffer", VK_BUFFER_USAGE_VERTEX_BUFFER_BIT),
+               "Failed to create vertex position buffer for mesh upload");
+
       m.buffers.vertexPositions = SubdivBuffer<glm::vec3>{
           .buffer = vertexBuffer,
           .count = oldPositionBuffer->count,
@@ -507,20 +523,7 @@ namespace kt::vkh {
       VK_DEBUG("Current vertex attrib buffer size {} is too small for {} vertices, creating new buffer",
                m.buffers.vertexAttribs.buffer.size(), totalVerticesCount);
       oldAttribBuffer = m.buffers.vertexAttribs;
-      VkBufferCreateInfo vertexBufferCreateInfo{
-          .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-          .size = totalVertexAttribsSize,
-          .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-      };
-      VmaAllocationCreateInfo vertexAllocInfo{
-          .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
-                   VMA_ALLOCATION_CREATE_MAPPED_BIT,
-          .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-      };
-      VKH_MAKE(vertexBuffer,
-               AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, vertexBufferCreateInfo, vertexAllocInfo,
-                                                "Mesh vertex attrib buffer"),
+      VKH_MAKE(vertexBuffer, newBuffer(totalVertexAttribsSize, "Mesh vertex attrib buffer", VK_BUFFER_USAGE_VERTEX_BUFFER_BIT),
                "Failed to create vertex attrib buffer for mesh upload");
       m.buffers.vertexAttribs = SubdivBuffer<VertexAttribs>{
           .buffer = vertexBuffer,
@@ -528,42 +531,44 @@ namespace kt::vkh {
       };
     }
 
-    if (totalIndicesSize > m.buffers.indices.buffer.size()) {
-      VK_DEBUG("Current index buffer size {} is too small for {} indices, creating new buffer", m.buffers.indices.buffer.size(),
-               totalIndicesCount);
-      oldIndexBuffer = m.buffers.indices;
-      oldShadowIndexBuffer = m.buffers.shadowIndices;
-      VkBufferCreateInfo indexBufferCreateInfo{
-          .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-          .size = totalIndicesSize,
-          .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    if (totalMeshletsSize > m.buffers.meshlets.buffer.size()) {
+      VK_DEBUG("Current meshlet buffer size {} is too small for {} meshlets, creating new buffer", m.buffers.meshlets.buffer.size(),
+               totalMeshletCount);
+      oldMeshletBuffer = m.buffers.meshlets;
+      VKH_MAKE(meshletBuffer, newBuffer(totalMeshletsSize, "Mesh meshlet buffer"), "Failed to create meshlet buffer for mesh upload");
+      m.buffers.meshlets = SubdivBuffer<Meshlet>{
+          .buffer = meshletBuffer,
+          .count = oldMeshletBuffer->count,
       };
-      VmaAllocationCreateInfo allocInfo{
-          .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
-                   VMA_ALLOCATION_CREATE_MAPPED_BIT,
-          .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+    }
+
+    if (totalMeshletVertexCount > m.buffers.meshletVertices.buffer.size()) {
+      VK_DEBUG("Current meshlet vertex buffer size {} is too small for {} meshlet vertices, creating new buffer",
+               m.buffers.meshletVertices.buffer.size(), totalMeshletVertexCount);
+      oldMeshletVertexBuffer = m.buffers.meshletVertices;
+      VKH_MAKE(meshletVertexBuffer, newBuffer(totalMeshletVerticesSize, "Mesh meshlet vertex buffer"),
+               "Failed to create meshlet vertex buffer for mesh upload");
+      m.buffers.meshletVertices = SubdivBuffer<uint32_t>{
+          .buffer = meshletVertexBuffer,
+          .count = oldMeshletVertexBuffer->count,
       };
-      VKH_MAKE(indexBuffer,
-               AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, indexBufferCreateInfo, allocInfo,
-                                                "Mesh index buffer"),
-               "Failed to create index buffer for mesh upload");
-      VKH_MAKE(shadowIndexBuffer,
-               AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, indexBufferCreateInfo, allocInfo,
-                                                "Mesh shadow index buffer"),
-               "Failed to create shadow index buffer for mesh upload");
-      m.buffers.indices = SubdivBuffer<uint32_t>{
-          .buffer = indexBuffer,
-          .count = oldIndexBuffer->count,
-      };
-      m.buffers.shadowIndices = SubdivBuffer<uint32_t>{
-          .buffer = shadowIndexBuffer,
-          .count = oldShadowIndexBuffer->count,
+    }
+
+    if (totalMeshletTriangleCount > m.buffers.meshletTriangles.buffer.size()) {
+      VK_DEBUG("Current meshlet triangle buffer size {} is too small for {} meshlet triangles, creating new buffer",
+               m.buffers.meshletTriangles.buffer.size(), totalMeshletTriangleCount);
+      oldMeshletTriangleBuffer = m.buffers.meshletTriangles;
+      VKH_MAKE(meshletTriangleBuffer, newBuffer(totalMeshletTrianglesSize, "Mesh meshlet triangle buffer"),
+               "Failed to create meshlet triangle buffer for mesh upload");
+      m.buffers.meshletTriangles = SubdivBuffer<uint8_t>{
+          .buffer = meshletTriangleBuffer,
+          .count = oldMeshletTriangleBuffer->count,
       };
     }
 
     bool canWriteDirectly = m.buffers.vertexPositions.buffer.isMapped() && m.buffers.vertexAttribs.buffer.isMapped() &&
-                            m.buffers.indices.buffer.isMapped() && m.buffers.shadowIndices.buffer.isMapped();
+                            m.buffers.meshlets.buffer.isMapped() && m.buffers.meshletVertices.buffer.isMapped() &&
+                            m.buffers.meshletTriangles.buffer.isMapped();
 
     std::vector<Mesh> result;
     result.reserve(meshes.size());
@@ -572,8 +577,9 @@ namespace kt::vkh {
       size_t mesh;
       size_t positionOffset;
       size_t attribOffset;
-      size_t indexOffset;
-      size_t shadowIndexOffset;
+      size_t meshletOffset;
+      size_t meshletVertexOffset;
+      size_t meshletTriangleOffset;
     };
     size_t requiredStagingSize = 0;
     std::vector<RequiredCopy> requiredCopies{};
@@ -584,8 +590,10 @@ namespace kt::vkh {
       for (const auto& primitive : mesh.submeshes) {
         Submesh submesh{
             .vertexOffset = static_cast<int32_t>(primitive.vertexOffset),
-            .start = primitive.indexOffset,
-            .count = primitive.indexCount,
+            .meshletOffset = static_cast<uint32_t>(primitive.meshletOffset + m.buffers.meshlets.count),
+            .meshletCount = primitive.meshletCount,
+            .meshletVertexOffset = static_cast<uint32_t>(m.buffers.meshletVertices.count),
+            .meshletTriangleOffset = static_cast<uint32_t>(m.buffers.meshletTriangles.count),
             .boundingSphere = primitive.boundingSphere,
             .id = m.nextMeshIndex++,
         };
@@ -599,7 +607,6 @@ namespace kt::vkh {
 
     RendererMesh rendererMesh{
         .firstVertex = m.buffers.vertexPositions.count,
-        .firstIndex = m.buffers.indices.count,
     };
 
     if (canWriteDirectly) {
@@ -608,17 +615,19 @@ namespace kt::vkh {
 
         m.buffers.vertexPositions.write(mesh.positions);
         m.buffers.vertexAttribs.write(mesh.vertexAttribs);
-        m.buffers.indices.write(mesh.indices);
-        m.buffers.shadowIndices.write(mesh.shadowIndices);
+        m.buffers.meshlets.write(mesh.meshlets);
+        m.buffers.meshletVertices.write(mesh.meshletVertices);
+        m.buffers.meshletTriangles.write(mesh.meshletTriangles);
 
         auto submeshes = addSubmeshes(mesh);
 
-        result.emplace_back(mesh.positions.size(), mesh.indices.size(), rendererMesh, std::move(submeshes), mesh.name);
+        result.emplace_back(mesh.positions.size(), rendererMesh, std::move(submeshes), mesh.name);
 
         rendererMesh.firstVertex += mesh.positions.size();
-        rendererMesh.firstIndex += mesh.indices.size();
       }
     } else {
+      VK_CRITICAL("TODO: None ReBAR");
+      abort();
       VK_DEBUG("Vertex and index buffers are not mapped, staging mesh data in CPU memory for upload");
       for (const auto& mesh : meshes) {
         size_t positionBufferSize = mesh.positions.size() * sizeof(glm::vec3);
@@ -629,113 +638,42 @@ namespace kt::vkh {
             .mesh = result.size(),
             .positionOffset = requiredStagingSize,
             .attribOffset = requiredStagingSize + positionBufferSize,
-            .indexOffset = requiredStagingSize + positionBufferSize + vertexAttribsBufferSize,
-            .shadowIndexOffset = requiredStagingSize + positionBufferSize + vertexAttribsBufferSize + indexBufferSize,
         });
         requiredStagingSize += positionBufferSize + vertexAttribsBufferSize + (indexBufferSize * 2);
         auto submeshes = addSubmeshes(mesh);
 
-        result.emplace_back(mesh.positions.size(), mesh.indices.size(), rendererMesh, std::move(submeshes), mesh.name);
+        result.emplace_back(mesh.positions.size(), rendererMesh, std::move(submeshes), mesh.name);
 
         rendererMesh.firstVertex += mesh.positions.size();
-        rendererMesh.firstIndex += mesh.indices.size();
       }
     }
 
     UploadResult<Mesh> resultStruct{};
     if (oldPositionBuffer.has_value()) {
-      VkBufferCopy copyRegion{
-          .srcOffset = 0,
-          .dstOffset = 0,
-          .size = oldPositionBuffer->count * sizeof(glm::vec3),
-      };
-      if (copyRegion.size > 0) {
-        vkCmdCopyBuffer(transferCmd, oldPositionBuffer->buffer.buffer, m.buffers.vertexPositions.buffer.buffer, 1, &copyRegion);
-      }
+      oldPositionBuffer->copyCmd(transferCmd, m.buffers.vertexPositions.buffer);
       resultStruct.stagingBuffers.push_back(oldPositionBuffer->buffer.downcast());
     }
     if (oldAttribBuffer.has_value()) {
-      VkBufferCopy copyRegion{
-          .srcOffset = 0,
-          .dstOffset = 0,
-          .size = oldAttribBuffer->count * sizeof(VertexAttribs),
-      };
-      if (copyRegion.size > 0) {
-        vkCmdCopyBuffer(transferCmd, oldAttribBuffer->buffer.buffer, m.buffers.vertexAttribs.buffer.buffer, 1, &copyRegion);
-      }
+      oldAttribBuffer->copyCmd(transferCmd, m.buffers.vertexAttribs.buffer);
       resultStruct.stagingBuffers.push_back(oldAttribBuffer->buffer.downcast());
     }
-    if (oldIndexBuffer.has_value()) {
-      VkBufferCopy copyRegion{
-          .srcOffset = 0,
-          .dstOffset = 0,
-          .size = oldIndexBuffer->count * sizeof(uint32_t),
-      };
-      if (copyRegion.size > 0) {
-        vkCmdCopyBuffer(transferCmd, oldIndexBuffer->buffer.buffer, m.buffers.indices.buffer.buffer, 1, &copyRegion);
-        vkCmdCopyBuffer(transferCmd, oldShadowIndexBuffer->buffer.buffer, m.buffers.shadowIndices.buffer.buffer, 1, &copyRegion);
-      }
-      resultStruct.stagingBuffers.push_back(oldIndexBuffer->buffer.downcast());
-      resultStruct.stagingBuffers.push_back(oldShadowIndexBuffer->buffer.downcast());
+    if (oldMeshletBuffer.has_value()) {
+      oldMeshletBuffer->copyCmd(transferCmd, m.buffers.meshlets.buffer);
+      resultStruct.stagingBuffers.push_back(oldMeshletBuffer->buffer.downcast());
+    }
+    if (oldMeshletVertexBuffer.has_value()) {
+      oldMeshletVertexBuffer->copyCmd(transferCmd, m.buffers.meshletVertices.buffer);
+      resultStruct.stagingBuffers.push_back(oldMeshletVertexBuffer->buffer.downcast());
+    }
+    if (oldMeshletTriangleBuffer.has_value()) {
+      oldMeshletTriangleBuffer->copyCmd(transferCmd, m.buffers.meshletTriangles.buffer);
+      resultStruct.stagingBuffers.push_back(oldMeshletTriangleBuffer->buffer.downcast());
     }
 
     if (requiredStagingSize > 0) {
-      VkBufferCreateInfo stagingBufferCreateInfo{
-          .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-          .size = requiredStagingSize,
-          .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-      };
-
-      VmaAllocationCreateInfo stagingAllocInfo{
-          .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-          .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-      };
-
-      VKH_MAKE(stagingBuffer,
-               AllocatedBuffer::create(m.vkcore.allocator, m.vkcore.device.logical, stagingBufferCreateInfo, stagingAllocInfo,
-                                       "Mesh staging buffer."),
-               "Failed to create staging buffer for mesh upload");
-
-      if (stagingBuffer.isMapped()) {
-        uint8_t* mappedPtr = static_cast<uint8_t*>(stagingBuffer.mapping());
-        for (const auto& copy : requiredCopies) {
-          const auto& mesh = meshes[copy.mesh];
-          memcpy(mappedPtr + copy.positionOffset, mesh.positions.data(), mesh.positions.size() * sizeof(glm::vec3));
-          memcpy(mappedPtr + copy.attribOffset, mesh.vertexAttribs.data(), mesh.vertexAttribs.size() * sizeof(VertexAttribs));
-          memcpy(mappedPtr + copy.indexOffset, mesh.indices.data(), mesh.indices.size() * sizeof(uint32_t));
-          memcpy(mappedPtr + copy.shadowIndexOffset, mesh.shadowIndices.data(), mesh.shadowIndices.size() * sizeof(uint32_t));
-        }
-      } else {
-        stagingBuffer.destroy(m.vkcore.allocator);
-        return std::unexpected("Failed to map staging buffer for mesh upload");
-      }
-
-      VkBufferCopy copyRegion{};
-      for (const auto& copy : requiredCopies) {
-        const auto& mesh = result[copy.mesh];
-        copyRegion.srcOffset = copy.positionOffset;
-        copyRegion.dstOffset = mesh.getRMesh().firstVertex * sizeof(glm::vec3);
-        copyRegion.size = mesh.getVertexCount() * sizeof(glm::vec3);
-        vkCmdCopyBuffer(transferCmd, stagingBuffer.buffer, m.buffers.vertexPositions.buffer.buffer, 1, &copyRegion);
-        m.buffers.vertexPositions.count += mesh.getVertexCount();
-
-        copyRegion.srcOffset = copy.attribOffset;
-        copyRegion.dstOffset = mesh.getRMesh().firstVertex * sizeof(VertexAttribs);
-        copyRegion.size = mesh.getVertexCount() * sizeof(VertexAttribs);
-        vkCmdCopyBuffer(transferCmd, stagingBuffer.buffer, m.buffers.vertexAttribs.buffer.buffer, 1, &copyRegion);
-        m.buffers.vertexAttribs.count += mesh.getVertexCount();
-
-        copyRegion.srcOffset = copy.indexOffset;
-        copyRegion.dstOffset = mesh.getRMesh().firstIndex * sizeof(uint32_t);
-        copyRegion.size = mesh.getIndexCount() * sizeof(uint32_t);
-        vkCmdCopyBuffer(transferCmd, stagingBuffer.buffer, m.buffers.indices.buffer.buffer, 1, &copyRegion);
-        copyRegion.srcOffset = copy.shadowIndexOffset;
-        vkCmdCopyBuffer(transferCmd, stagingBuffer.buffer, m.buffers.shadowIndices.buffer.buffer, 1, &copyRegion);
-        m.buffers.indices.count += mesh.getIndexCount();
-        m.buffers.shadowIndices.count += mesh.getIndexCount();
-      }
-
-      resultStruct.stagingBuffers.push_back(stagingBuffer);
+      VK_CRITICAL("Buffers are not large enough to hold new mesh data, staging upload is required. Total staging buffer size: {} bytes",
+                  requiredStagingSize);
+      abort();
     }
 
     resultStruct.resources = std::move(result);

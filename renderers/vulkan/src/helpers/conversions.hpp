@@ -1,7 +1,7 @@
 #pragma once
 
+#include <Volk/volk.h>
 #include <keptech/shaders/shader.h>
-#include <vulkan/vulkan.h>
 
 namespace kt::vkh {
   VkShaderStageFlagBits from(shaders::ShaderStages stage);

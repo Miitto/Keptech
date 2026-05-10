@@ -6,6 +6,7 @@
 #include "keptech/vulkan/helpers/device.hpp"
 #include "keptech/vulkan/helpers/instance.hpp"
 #include "keptech/vulkan/helpers/swapchain.hpp"
+#include <Volk/volk.h>
 #include <expected>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <keptech/components/transform.hpp>
@@ -20,9 +21,9 @@
 #include <keptech/rendering/renderer.hpp>
 #include <keptech/shaders/shader.h>
 #include <keptech/vulkan/structs.hpp>
+#include <meshoptimizer.h>
 #include <string>
 #include <vk_mem_alloc.h>
-#include <vulkan/vulkan.h>
 
 #ifdef KT_PROFILE
 #include <tracy/TracyVulkan.hpp>
@@ -94,6 +95,8 @@ namespace kt::vkh {
       }
 
       void write(const std::span<const T> data) {
+        if (data.empty())
+          return;
         memcpy(end(), data.data(), data.size() * sizeof(T));
         count += data.size();
       }
@@ -101,6 +104,17 @@ namespace kt::vkh {
       void overwrite(const std::span<const T> data) {
         count = 0;
         write(data);
+      }
+
+      void copyCmd(VkCommandBuffer cmdBuf, VkBuffer to) {
+        if (count == 0)
+          return;
+        VkBufferCopy copyRegion{
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = count * sizeof(T),
+        };
+        vkCmdCopyBuffer(cmdBuf, buffer.buffer, to, 1, &copyRegion);
       }
     };
 
@@ -135,8 +149,6 @@ namespace kt::vkh {
       SB<GpuObject> objects;
       SB<GpuPointLight> pointLights;
       SB<glm::mat4> shadowMatrices;
-      SB<VkDrawIndexedIndirectCommand> drawCommands;
-      SB<VkDrawIndexedIndirectCommand> shadowDrawCommands;
 
       void destroy(VmaAllocator& allocator);
     };
@@ -147,8 +159,9 @@ namespace kt::vkh {
       B ssaoKernel;
       SB<glm::vec3> vertexPositions;
       SB<VertexAttribs> vertexAttribs;
-      SB<uint32_t> indices;
-      SB<uint32_t> shadowIndices;
+      SB<Meshlet> meshlets;
+      SB<uint32_t> meshletVertices;
+      SB<uint8_t> meshletTriangles;
       SB<GpuMaterial> materials;
       std::array<PerFrameBuffers, MAX_FRAMES_IN_FLIGHT> perFrame;
 
@@ -292,16 +305,24 @@ namespace kt::vkh {
 
     kt::maths::Frustum updateCameraBuffer(VkCommandBuffer cmdBuf);
 
-    void updateObjectsBuffer(const kt::maths::Frustum& frustum);
-    void drawDeferred(VkCommandBuffer cmdBuf);
+    struct ObjectMeshlets {
+      uint32_t meshletCount;
+      uint32_t meshletOffset;
+      uint32_t vertexOffset;
+      uint32_t meshletVertexOffset;
+      uint32_t meshletTriangleOffset;
+    };
+    std::vector<ObjectMeshlets> updateObjectsBuffer(const kt::maths::Frustum& frustum);
+    void drawDeferred(VkCommandBuffer cmdBuf, const std::vector<ObjectMeshlets>& meshlets);
     void submitDeferred(VkCommandBuffer cmdBuf);
-    void drawLights(VkCommandBuffer cmdBuf, VkCommandBuffer combineCmdBuf, const kt::maths::Frustum& frustum);
+    void drawLights(VkCommandBuffer cmdBuf, VkCommandBuffer combineCmdBuf, const kt::maths::Frustum& frustum,
+                    const std::vector<ObjectMeshlets>& meshlets);
     struct LightRenderInfo {
       Texture shadowMap;
       uint32_t drawCount;
     };
     std::vector<LightRenderInfo> updatePointLightsBuffer(const kt::maths::Frustum& frustum);
-    void drawPointLightShadowMaps(VkCommandBuffer cmdBuf, const std::vector<LightRenderInfo>&);
+    void drawPointLightShadowMaps(VkCommandBuffer cmdBuf, const std::vector<LightRenderInfo>&, const std::vector<ObjectMeshlets>& meshlets);
     void drawPointLights(VkCommandBuffer cmdBuf);
     void combineLights(VkCommandBuffer cmdBuf);
     void submitLights(VkCommandBuffer cmdBuf);

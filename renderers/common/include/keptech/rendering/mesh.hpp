@@ -21,10 +21,21 @@ namespace kt {
     void setUv(glm::vec2 uv) { encodedUv = encodeUv(uv); }
   };
 
+  struct Meshlet {
+    uint32_t vertexOffset;
+    uint32_t vertexCount;
+    uint32_t triangleOffset;
+    uint32_t triangleCount;
+    kt::maths::Sphere boundingSphere;
+  };
+
   struct Submesh {
     int32_t vertexOffset;
-    uint32_t start;
-    uint32_t count;
+    uint32_t meshletOffset;
+    uint32_t meshletCount;
+    uint32_t meshletVertexOffset;
+    uint32_t meshletTriangleOffset;
+
     std::optional<rendering::Material> material;
     kt::maths::Sphere boundingSphere;
     uint32_t id = ~0u;
@@ -32,9 +43,8 @@ namespace kt {
 
   class Mesh {
   public:
-    [[nodiscard]] bool isValid() const { return vertexCount > 0 && indexCount > 0; }
+    [[nodiscard]] bool isValid() const { return vertexCount > 0; }
     [[nodiscard]] uint32_t getVertexCount() const { return vertexCount; }
-    [[nodiscard]] uint32_t getIndexCount() const { return indexCount; }
     [[nodiscard]] const std::vector<Submesh>& getSubmeshes() const { return submeshes; }
     [[nodiscard]] const rendering::RendererMesh& getRMesh() const { return rMesh; }
     rendering::RendererMesh& getRMesh() { return rMesh; }
@@ -44,8 +54,8 @@ namespace kt {
 #endif
 
     Mesh() = default;
-    Mesh(uint32_t vertexCount, uint32_t indexCount, rendering::RendererMesh rData, std::vector<Submesh> submeshes, std::string name = {})
-        : vertexCount(vertexCount), indexCount(indexCount), rMesh(std::move(rData)), submeshes(std::move(submeshes))
+    Mesh(uint32_t vertexCount, rendering::RendererMesh rData, std::vector<Submesh> submeshes, std::string name = {})
+        : vertexCount(vertexCount), rMesh(std::move(rData)), submeshes(std::move(submeshes))
 #ifdef KT_ADD_RESOURCE_INFO
           ,
           name(std::move(name))
@@ -55,7 +65,6 @@ namespace kt {
 
   protected:
     uint32_t vertexCount = 0;
-    uint32_t indexCount = 0;
     rendering::RendererMesh rMesh;
     std::vector<Submesh> submeshes;
 
@@ -72,6 +81,5 @@ namespace kt {
     std::string name;
     std::vector<glm::vec3> positions;
     std::vector<VertexAttribs> vertexAttribs;
-    std::vector<uint32_t> indices = {};
   };
 } // namespace kt

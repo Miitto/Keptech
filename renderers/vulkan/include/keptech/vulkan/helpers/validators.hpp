@@ -1,9 +1,9 @@
 #pragma once
 
+#include <Volk/volk.h>
 #include <span>
 #include <spdlog/fwd.h>
 #include <vector>
-#include <vulkan/vulkan.h>
 
 namespace kt::vkh {
 

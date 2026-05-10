@@ -16,6 +16,8 @@ namespace kt::vkh::setup {
 
   constexpr std::array REQUIRED_DEVICE_EXTENSIONS = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+      VK_EXT_MESH_SHADER_EXTENSION_NAME,
+      VK_KHR_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME,
 #ifdef KT_PROFILE
       VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME,
 #endif
@@ -134,8 +136,14 @@ namespace kt::vkh::setup {
       });
     }
 
+    VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT,
+        .meshShader = true,
+    };
+
     VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR computeDerivativesFeatures{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_KHR,
+        .pNext = &meshShaderFeatures,
         .computeDerivativeGroupQuads = true,
         .computeDerivativeGroupLinear = true,
     };
@@ -154,6 +162,8 @@ namespace kt::vkh::setup {
     VkPhysicalDeviceVulkan12Features vulkan12Features{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
         .pNext = &vulkan13Features,
+        .shaderFloat16 = true,
+        .shaderInt8 = true,
         .descriptorIndexing = true,
         .descriptorBindingUniformBufferUpdateAfterBind = true,
         .descriptorBindingSampledImageUpdateAfterBind = true,

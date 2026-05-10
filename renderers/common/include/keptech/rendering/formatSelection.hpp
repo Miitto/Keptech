@@ -1,7 +1,7 @@
 #pragma once
 
+#include <Volk/volk.h>
 #include <concepts>
-#include <vulkan/vulkan.h>
 
 namespace kt {
   template <typename T>

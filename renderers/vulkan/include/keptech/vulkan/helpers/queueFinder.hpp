@@ -1,9 +1,9 @@
 #pragma once
 
+#include <Volk/volk.h>
 #include <cstdint>
 #include <functional>
 #include <keptech/core/bitflag.hpp>
-#include <vulkan/vulkan.h>
 
 namespace kt::vkh {
 
@@ -40,14 +40,11 @@ namespace kt::vkh {
       QueueTypeParams params = QueueTypeParams{.none = nullptr};
     };
 
-    QueueFinder(const VkPhysicalDevice& physicalDevice) noexcept
-        : queueFamilyProperties(std::vector<QueueFamily>{}) {
+    QueueFinder(const VkPhysicalDevice& physicalDevice) noexcept : queueFamilyProperties(std::vector<QueueFamily>{}) {
       uint32_t queueFamilyCount = 0;
-      vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice,
-                                               &queueFamilyCount, nullptr);
+      vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
       std::vector<VkQueueFamilyProperties> props(queueFamilyCount);
-      vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice,
-                                               &queueFamilyCount, props.data());
+      vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, props.data());
 
       queueFamilyProperties.reserve(props.size());
 
@@ -56,58 +53,30 @@ namespace kt::vkh {
       }
     }
 
-    QueueFinder(std::vector<QueueFamily>&& queueFamilyProperties) noexcept
-        : queueFamilyProperties(std::move(queueFamilyProperties)) {}
+    QueueFinder(std::vector<QueueFamily>&& queueFamilyProperties) noexcept : queueFamilyProperties(std::move(queueFamilyProperties)) {}
 
-    [[nodiscard]] auto
-    find(const std::function<bool(QueueFamily)>& finder) const -> QueueFinder;
+    [[nodiscard]] auto find(const std::function<bool(QueueFamily)>& finder) const -> QueueFinder;
     [[nodiscard]] auto findType(const QueueType type) const -> QueueFinder;
-    [[nodiscard]] auto findCombined(const std::vector<QueueType>& types) const
-        -> QueueFinder;
-    [[nodiscard]] auto filterTypes(Bitflag<QueueTypeFlags> type) const
-        -> QueueFinder;
+    [[nodiscard]] auto findCombined(const std::vector<QueueType>& types) const -> QueueFinder;
+    [[nodiscard]] auto filterTypes(Bitflag<QueueTypeFlags> type) const -> QueueFinder;
 
-    [[nodiscard]] auto queues() const noexcept
-        -> const std::vector<QueueFamily>& {
-      return queueFamilyProperties;
-    }
+    [[nodiscard]] auto queues() const noexcept -> const std::vector<QueueFamily>& { return queueFamilyProperties; }
 
-    [[nodiscard]] auto hasQueue() const noexcept -> bool {
-      return !queueFamilyProperties.empty();
-    }
+    [[nodiscard]] auto hasQueue() const noexcept -> bool { return !queueFamilyProperties.empty(); }
 
-    [[nodiscard]] auto size() const noexcept -> size_t {
-      return queueFamilyProperties.size();
-    }
+    [[nodiscard]] auto size() const noexcept -> size_t { return queueFamilyProperties.size(); }
 
-    [[nodiscard]] auto operator[](size_t index) const noexcept
-        -> const QueueFamily& {
-      return queueFamilyProperties[index];
-    }
+    [[nodiscard]] auto operator[](size_t index) const noexcept -> const QueueFamily& { return queueFamilyProperties[index]; }
 
-    [[nodiscard]] auto begin() const noexcept
-        -> std::vector<QueueFamily>::const_iterator {
-      return queueFamilyProperties.begin();
-    }
+    [[nodiscard]] auto begin() const noexcept -> std::vector<QueueFamily>::const_iterator { return queueFamilyProperties.begin(); }
 
-    [[nodiscard]] auto end() const noexcept
-        -> std::vector<QueueFamily>::const_iterator {
-      return queueFamilyProperties.end();
-    }
+    [[nodiscard]] auto end() const noexcept -> std::vector<QueueFamily>::const_iterator { return queueFamilyProperties.end(); }
 
-    [[nodiscard]] auto cbegin() const noexcept
-        -> std::vector<QueueFamily>::const_iterator {
-      return queueFamilyProperties.cbegin();
-    }
+    [[nodiscard]] auto cbegin() const noexcept -> std::vector<QueueFamily>::const_iterator { return queueFamilyProperties.cbegin(); }
 
-    [[nodiscard]] auto cend() const noexcept
-        -> std::vector<QueueFamily>::const_iterator {
-      return queueFamilyProperties.cend();
-    }
+    [[nodiscard]] auto cend() const noexcept -> std::vector<QueueFamily>::const_iterator { return queueFamilyProperties.cend(); }
 
-    [[nodiscard]] auto first() const noexcept -> const QueueFamily& {
-      return queueFamilyProperties.front();
-    }
+    [[nodiscard]] auto first() const noexcept -> const QueueFamily& { return queueFamilyProperties.front(); }
   };
 } // namespace kt::vkh
 

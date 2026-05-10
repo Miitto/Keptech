@@ -23,6 +23,16 @@ struct Object {
 struct PushConstants {
   Object *objectBuffer;
   Material *materialBuffer;
+  float3 *vertexPositions;
+  kt::VertexAttribs *vertexAttribs;
+  kt::Meshlet *meshletBuffer;
+  uint *meshletVertices;
+  uint8_t *meshletTriangles;
+  uint objectId;
+  uint vertexOffset;
+  uint meshletOffset;
+  uint meshletVertexOffset;
+  uint meshletTriangleOffset;
 };
 
 struct VertexOutput {
@@ -35,29 +45,57 @@ struct VertexOutput {
   nointerpolation uint materialIndex : MATERIAL_INDEX;
 };
 
-[shader("vertex")]
-VertexOutput vert(float3 pos, kt::VertexAttribs v, uint vid: SV_VertexID, uint iid: SV_InstanceID, uint bid: SV_StartInstanceLocation,
-                  uniform PushConstants PC) {
-  VertexOutput output;
+const static uint MESH_SHADER_DISPATCH_SIZE = 64;
+const static uint MAX_VERTICES_PER_MESHLET = 64;
+const static uint MAX_TRIANGLES_PER_MESHLET = 64;
 
-  Object obj = PC.objectBuffer[iid + bid];
+[shader("mesh")]
+[outputtopology("triangle")]
+[numthreads(MESH_SHADER_DISPATCH_SIZE, 1, 1)]
+void mesh(out indices uint3 triangles[MAX_TRIANGLES_PER_MESHLET], out vertices VertexOutput vertices[MAX_VERTICES_PER_MESHLET],
+          uint3 groupId: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
+  uint meshletId = groupId.x + PC.meshletOffset;
 
-  float4 worldPosition = mul(float4(pos, 1.0), obj.modelMatrix);
+  kt::Meshlet meshlet = PC.meshletBuffer[meshletId];
 
-  output.position = kt::camera.worldToClip(worldPosition);
-  let uv = v.uv;
-  output.uvX = uv.x;
-  output.uvY = uv.y;
+  SetMeshOutputCounts(meshlet.vertexCount, meshlet.triangleCount);
 
-  float3x3 modelRotMatrix = (float3x3)obj.modelMatrix;
+  Object obj = PC.objectBuffer[PC.objectId];
 
-  output.normal = normalize(mul(v.normal, modelRotMatrix));
-  output.tangent = normalize(mul(v.tangent.xyz, modelRotMatrix));
-  output.bitangent = normalize(cross(output.normal, output.tangent) * v.tangent.w);
+  uint instanceIndex = gtid.x;
 
-  output.materialIndex = obj.materialIndex;
+  for (uint i = instanceIndex; i < meshlet.vertexCount; i += MESH_SHADER_DISPATCH_SIZE) {
+    uint localIndex = PC.meshletVertices[PC.meshletVertexOffset + meshlet.vertexOffset + i];
 
-  return output;
+    float3 pos = PC.vertexPositions[PC.vertexOffset + localIndex];
+    kt::VertexAttribs v = PC.vertexAttribs[PC.vertexOffset + localIndex];
+
+    VertexOutput output;
+    float4 worldPosition = mul(float4(pos, 1.0), obj.modelMatrix);
+
+    output.position = kt::camera.worldToClip(worldPosition);
+    let uv = v.uv;
+    output.uvX = uv.x;
+    output.uvY = uv.y;
+
+    float3x3 modelRotMatrix = (float3x3)obj.modelMatrix;
+
+    output.normal = normalize(mul(v.normal, modelRotMatrix));
+    output.tangent = normalize(mul(v.tangent.xyz, modelRotMatrix));
+    output.bitangent = normalize(cross(output.normal, output.tangent) * v.tangent.w);
+
+    output.materialIndex = obj.materialIndex;
+
+    vertices[i] = output;
+  }
+
+  for (uint i = instanceIndex; i < meshlet.triangleCount; i += MESH_SHADER_DISPATCH_SIZE) {
+    uint triangleIndex = PC.meshletTriangleOffset + meshlet.triangleOffset + i * 3;
+
+    uint3 tri = uint3(PC.meshletVertices[triangleIndex], PC.meshletVertices[triangleIndex + 1], PC.meshletVertices[triangleIndex + 2]);
+
+    triangles[i] = tri;
+  }
 }
 
 [shader("pixel")]

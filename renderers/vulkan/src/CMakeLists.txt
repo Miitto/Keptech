@@ -33,4 +33,5 @@ target_sources(${PROJECT_NAME}
     structs.cpp
     vk-logger.cpp
     vmaImpl.cpp
+    volk.cpp
 )

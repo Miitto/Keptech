@@ -58,6 +58,10 @@ const kt::shaders::ShaderStages slangStagetoKeptechStage(SlangStage stage) {
     return kt::shaders::ShaderStages::Geometry;
   case SLANG_STAGE_COMPUTE:
     return kt::shaders::ShaderStages::Compute;
+  case SLANG_STAGE_MESH:
+    return kt::shaders::ShaderStages::Mesh;
+  case SLANG_STAGE_AMPLIFICATION:
+    return kt::shaders::ShaderStages::Task;
   default:
     std::cerr << "Unsupported shader stage: " << slangStagetoString(stage) << '\n';
     throw std::runtime_error("Unsupported shader stage");

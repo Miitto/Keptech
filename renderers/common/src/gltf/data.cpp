@@ -1,6 +1,8 @@
 #include "keptech/rendering/gltf/data.hpp"
+
 #include "keptech/core/fastgltf_formatting.hpp"
 #include "keptech/core/kt-logger.hpp"
+#include "keptech/rendering/constants.hpp"
 #include <execution>
 #include <fastgltf/core.hpp>
 #include <fastgltf/glm_element_traits.hpp>
@@ -32,6 +34,9 @@ namespace kt::gltf {
         std::vector<uint32_t> meshIndices;
         std::vector<uint32_t> meshShadowIndices;
         std::vector<Submesh> submeshes;
+        std::vector<Meshlet> meshMeshlets;
+        std::vector<uint32_t> meshMeshletVertices;
+        std::vector<uint8_t> meshMeshletTriangles;
 
         submeshes.reserve(mesh.primitives.size());
 
@@ -41,6 +46,7 @@ namespace kt::gltf {
               .indexCount = static_cast<uint32_t>(asset.accessors[primitive.indicesAccessor.value()].count),
               .indexOffset = static_cast<uint32_t>(meshIndices.size()),
               .materialIndex = static_cast<uint32_t>(primitive.materialIndex.value_or(0)),
+              .meshletOffset = static_cast<uint32_t>(meshMeshlets.size()),
           };
           submeshes.push_back(submesh);
 
@@ -157,9 +163,49 @@ namespace kt::gltf {
           meshopt_optimizeVertexCache(remappedShadowIndices.data(), remappedShadowIndices.data(), remappedShadowIndices.size(),
                                       vertexCount);
 
+          size_t maxMeshlets =
+              meshopt_buildMeshletsBound(remappedIndices.size(), constants::VERTICES_PER_MESHLET, constants::PRIMITIVES_PER_MESHLET);
+          std::vector<meshopt_Meshlet> meshlets(maxMeshlets);
+          std::vector<uint32_t> meshletVertices(remappedIndices.size());
+          std::vector<uint8_t> meshletPrimitives(remappedIndices.size());
+
+          size_t meshletCount = meshopt_buildMeshletsScan(meshlets.data(), meshletVertices.data(), meshletPrimitives.data(),
+                                                          remappedIndices.data(), remappedIndices.size(), vertexCount,
+                                                          constants::VERTICES_PER_MESHLET, constants::PRIMITIVES_PER_MESHLET);
+
+          submeshes.back().meshletCount = static_cast<uint32_t>(meshletCount);
+
+          const auto& last = meshlets[meshletCount - 1];
+
+          meshletVertices.resize(last.vertex_offset + last.vertex_count);
+          meshletPrimitives.resize(last.triangle_offset + last.triangle_count * 3);
+          meshlets.resize(meshletCount);
+
           meshIndices.insert(meshIndices.end(), remappedIndices.begin(), remappedIndices.end());
           meshVertices.insert(meshVertices.end(), remappedVertices.begin(), remappedVertices.end());
           meshShadowIndices.insert(meshShadowIndices.end(), remappedShadowIndices.begin(), remappedShadowIndices.end());
+
+          meshMeshlets.reserve(meshMeshlets.size() + meshletCount);
+          for (const auto& meshlet : meshlets) {
+            meshopt_optimizeMeshlet(&meshletVertices[meshlet.vertex_offset], &meshletPrimitives[meshlet.triangle_offset],
+                                    meshlet.triangle_count, meshlet.vertex_count);
+            auto bounds =
+                meshopt_computeMeshletBounds(&meshletVertices[meshlet.vertex_offset], &meshletPrimitives[meshlet.triangle_offset],
+                                             meshlet.triangle_count, &remappedVertices[0].position.x, vertexCount, sizeof(Vertex));
+
+            Meshlet m{
+                .vertexOffset = static_cast<uint32_t>(meshlet.vertex_offset + meshMeshletVertices.size()),
+                .vertexCount = meshlet.vertex_count,
+                .triangleOffset = static_cast<uint32_t>(meshlet.triangle_offset + meshMeshletTriangles.size()),
+                .triangleCount = meshlet.triangle_count,
+                .boundingSphere = {.center = {bounds.center[0], bounds.center[1], bounds.center[2]}, .radius = bounds.radius},
+            };
+
+            meshMeshlets.push_back(m);
+          }
+
+          meshMeshletVertices.insert(meshMeshletVertices.end(), meshletVertices.begin(), meshletVertices.end());
+          meshMeshletTriangles.insert(meshMeshletTriangles.end(), meshletPrimitives.begin(), meshletPrimitives.end());
         }
 
         std::vector<glm::vec3> positions(meshVertices.size());
@@ -181,6 +227,9 @@ namespace kt::gltf {
             .indices = std::move(meshIndices),
             .shadowIndices = std::move(meshShadowIndices),
             .submeshes = std::move(submeshes),
+            .meshlets = std::move(meshMeshlets),
+            .meshletVertices = std::move(meshMeshletVertices),
+            .meshletTriangles = std::move(meshMeshletTriangles),
         };
 
         gltf.meshes[startMeshCount + meshIndex] = std::move(meshData);

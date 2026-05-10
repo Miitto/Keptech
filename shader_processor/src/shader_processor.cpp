@@ -198,7 +198,6 @@ namespace kt::shader_processor {
           } break;
           default:
             std::cerr << "Unsupported parameter type for vertex shader input: " << fmt::format("{}", param->getType()->getKind()) << '\n';
-            abort();
           }
         }
         std::clog << "Processing vertex shader entry point '" << entryPoint->getName() << "' with " << userParamCount
@@ -228,8 +227,6 @@ namespace kt::shader_processor {
           shader.mode = kt::shaders::RenderingMode::Custom;
         }
       } break;
-      case shaders::ShaderStages::Compute:
-        break;
       }
       shader.stages.push_back(kt::shaders::ShaderStage{.name = entryPoint->getName(), .stage = stage});
     }

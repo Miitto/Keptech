@@ -1,6 +1,7 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
+#include "keptech/rendering/constants.hpp"
+#include <Volk/volk.h>
 
 namespace kt::vkh {
   namespace constants {
@@ -24,6 +25,7 @@ namespace kt::vkh {
       FirstUserTexture = BloomFirstMip + BLOOM_MIP_LEVELS,
       BloomSource = CombinedLight,
     };
+
   } // namespace constants
 
   namespace limits {
