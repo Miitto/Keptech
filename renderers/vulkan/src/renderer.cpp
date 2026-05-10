@@ -91,7 +91,7 @@ namespace kt::vkh {
     vkBeginCommandBuffer(cmdBuf[0], &beginInfo);
     kt::maths::Frustum frustum;
     {
-      KT_VK_ZONE(m.tracyContext, cmdBuf[0], "Render Deferred");
+      KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf[0], "Render Deferred");
 
       VK_TRACE("Camera Buffer Update");
       frustum = updateCameraBuffer(cmdBuf[0]);
@@ -99,7 +99,7 @@ namespace kt::vkh {
       updateObjectsBuffer(frustum);
       VK_TRACE("Draw Deferred");
       drawDeferred(cmdBuf[0]);
-      KT_VK_COLLECT(m.tracyContext, cmdBuf[0]);
+      KT_VK_COLLECT(m.tracyGraphicsContext, cmdBuf[0]);
     }
     vkEndCommandBuffer(cmdBuf[0]);
     VK_TRACE("Submit Deferred");
@@ -108,19 +108,19 @@ namespace kt::vkh {
     vkBeginCommandBuffer(cmdBuf[1], &beginInfo);
     vkBeginCommandBuffer(cmdBuf[2], &beginInfo);
     {
-      KT_VK_ZONE(m.tracyContext, cmdBuf[1], "Render Lights");
+      KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf[1], "Render Lights");
       VK_TRACE("Draw Lights");
       drawLights(cmdBuf[1], cmdBuf[2], frustum);
-      KT_VK_COLLECT(m.tracyContext, cmdBuf[1]);
+      KT_VK_COLLECT(m.tracyGraphicsContext, cmdBuf[1]);
     }
     vkEndCommandBuffer(cmdBuf[1]);
     VK_TRACE("Submit Lights");
     submitLights(cmdBuf[1]);
     {
-      KT_VK_ZONE(m.tracyContext, cmdBuf[2], "Final Pass and UI");
+      KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf[2], "Final Pass and UI");
       VK_TRACE("Post Processing");
       renderBloom(cmdBuf[2]);
-      KT_VK_COLLECT(m.tracyContext, cmdBuf[2]);
+      KT_VK_COLLECT(m.tracyGraphicsContext, cmdBuf[2]);
 
 #ifndef NDEBUG
       debugUi();
@@ -155,7 +155,7 @@ namespace kt::vkh {
 
       vkCmdPipelineBarrier2(cmdBuf[2], &dependencyInfo);
 
-      KT_VK_COLLECT(m.tracyContext, cmdBuf[2]);
+      KT_VK_COLLECT(m.tracyGraphicsContext, cmdBuf[2]);
     }
     vkEndCommandBuffer(cmdBuf[2]);
     VK_TRACE("Present");
@@ -164,7 +164,7 @@ namespace kt::vkh {
 
   kt::maths::Frustum Renderer::updateCameraBuffer(VkCommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
-    KT_VK_ZONE(m.tracyContext, cmdBuf, "Update Camera Buffer");
+    KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Update Camera Buffer");
     auto [camT, cam] = scene->getActiveCamera().getComponents<components::Transform, components::Camera>();
 
     cam.recalculateProjectionMatrix();
@@ -284,7 +284,7 @@ namespace kt::vkh {
 
   void Renderer::drawDeferred(VkCommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
-    KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Deferred");
+    KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Draw Deferred");
     deferredToRenderable(cmdBuf);
     deferredBeginRendering(cmdBuf);
 
@@ -372,7 +372,7 @@ namespace kt::vkh {
 
   void Renderer::drawLights(VkCommandBuffer cmdBuf, VkCommandBuffer combineCmdBuf, const kt::maths::Frustum& frustum) {
     KT_PROFILE_FUNCTION {
-      KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Lights");
+      KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Draw Lights");
       lightsToRenderable(cmdBuf);
 
       renderSsao(combineCmdBuf);
@@ -384,7 +384,7 @@ namespace kt::vkh {
       seperatedLightsToShaderRead(cmdBuf);
     }
 
-    KT_VK_ZONE(m.tracyContext, combineCmdBuf, "Combine Lights");
+    KT_VK_ZONE(m.tracyGraphicsContext, combineCmdBuf, "Combine Lights");
     combineLights(combineCmdBuf);
 
     combinedLightToShaderRead(combineCmdBuf);
@@ -614,7 +614,7 @@ namespace kt::vkh {
 
   void Renderer::drawPointLightShadowMaps(VkCommandBuffer cmdBuf, const std::vector<LightRenderInfo>& lightInfo) {
     KT_PROFILE_FUNCTION
-    KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Point Light Shadow Maps");
+    KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Draw Point Light Shadow Maps");
 
     struct Addresses {
       VkDeviceAddress objectBufferAddress;
@@ -639,7 +639,7 @@ namespace kt::vkh {
         continue;
       }
       KT_PROFILE_SCOPE("Shadow Map Draw Calls");
-      KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Shadow Casters");
+      KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Draw Shadow Casters");
 
       shadowMapToRenderable(cmdBuf, lightInfo[i].shadowMap.getImage(), true);
       shadowMapBeginRendering(cmdBuf, lightInfo[i].shadowMap.getImage(), true);
@@ -682,7 +682,7 @@ namespace kt::vkh {
       vkCmdEndRendering(cmdBuf);
       return;
     }
-    KT_VK_ZONE(m.tracyContext, cmdBuf, "Draw Point Lights");
+    KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Draw Point Lights");
 
     vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.deferredPointLight.pipeline);
     vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.deferredPointLight.layout, 0, 1,
@@ -722,7 +722,7 @@ namespace kt::vkh {
     vkBeginCommandBuffer(compBuf, &beginInfo);
 
     {
-      KT_VK_ZONE(m.tracyContext, compBuf, "Calculate SSAO");
+      KT_VK_ZONE(m.tracyComputeContext, compBuf, "Calculate SSAO");
 
       // Aquire SSAO Image for compute shader write
       {
@@ -795,7 +795,7 @@ namespace kt::vkh {
       vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo);
     }
 
-    KT_VK_COLLECT(m.tracyContext, compBuf);
+    KT_VK_COLLECT(m.tracyComputeContext, compBuf);
 
     vkEndCommandBuffer(compBuf);
 
@@ -829,7 +829,7 @@ namespace kt::vkh {
     m.frameInfo.ssaoTimelineSubmit = m.vkcore.timelineValue;
 
     {
-      KT_VK_ZONE(m.tracyContext, cmdBuf, "SSAO Blur Pass");
+      KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "SSAO Blur Pass");
       colorImageToRenderable(cmdBuf, m.renderTargets.lights.ssaoBlur);
       colorImageBeginRendering(cmdBuf, m.renderTargets.lights.ssaoBlur, false);
 
@@ -852,7 +852,7 @@ namespace kt::vkh {
 
   void Renderer::combineLights(VkCommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
-    KT_VK_ZONE(m.tracyContext, cmdBuf, "Combine Lights");
+    KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Combine Lights");
     combinedLightBeginRendering(cmdBuf);
 
     vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.deferredCombine.pipeline);
@@ -882,7 +882,7 @@ namespace kt::vkh {
 
   void Renderer::renderBloom(VkCommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
-    KT_VK_ZONE(m.tracyContext, cmdBuf, "Render Bloom");
+    KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Render Bloom");
     glm::vec2 size = m.renderTargets.framebufferSize;
 
     static float filterRadius = 0.005f;
@@ -890,7 +890,7 @@ namespace kt::vkh {
     uint32_t sampleIndex = constants::BloomSource;
 
     {
-      KT_VK_ZONE(m.tracyContext, cmdBuf, "Bloom Downsample Passes");
+      KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Bloom Downsample Passes");
       for (size_t i = 0; i < constants::BLOOM_MIP_LEVELS; i++) {
         auto& mip = m.renderTargets.bloomMips[i];
         colorImageToRenderable(cmdBuf, mip.image);
@@ -924,7 +924,7 @@ namespace kt::vkh {
     }
 
     {
-      KT_VK_ZONE(m.tracyContext, cmdBuf, "Bloom Upsample Passes");
+      KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Bloom Upsample Passes");
       for (size_t i = constants::BLOOM_MIP_LEVELS - 1; i > 0; i--) {
         size_t downsampledIndex = i;
         size_t upsampledIndex = i - 1;
@@ -956,7 +956,7 @@ namespace kt::vkh {
       }
     }
     {
-      KT_VK_ZONE(m.tracyContext, cmdBuf, "Bloom Combine Pass");
+      KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Bloom Combine Pass");
       {
         VkImageMemoryBarrier2 barrier{
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
@@ -1066,7 +1066,7 @@ namespace kt::vkh {
 
   void Renderer::renderImGui(VkCommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
-    KT_VK_ZONE(m.tracyContext, cmdBuf, "Render ImGui");
+    KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Render ImGui");
     ImGui::Render();
 
     VkRenderingAttachmentInfo aInfo{

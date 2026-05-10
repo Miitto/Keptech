@@ -12,7 +12,7 @@
 #define KT_VK_CONTEXT(_PHYS_DEV, _LOG_DEV)                                                                                                 \
   TracyVkContextHostCalibrated(_PHYS_DEV, _LOG_DEV, vkResetQueryPool, kt::vkh::ext::vkGetPhysicalDeviceCalibrateableTimeDomainsEXT,        \
                                kt::vkh::ext::vkGetCalibratedTimestampsEXT)
-#define KT_VK_CONTEXT_NAME(_CTX, _NAME) TracyVkContextName(_CTX, _NAME)
+#define KT_VK_CONTEXT_NAME(_CTX, _NAME) TracyVkContextName(_CTX, _NAME, sizeof(_NAME) - 1)
 #define KT_VK_CONTEXT_DESTROY(_CTX) TracyVkDestroy(_CTX)
 #define KT_VK_ZONE(_CTX, _CMD, _NAME) TracyVkZone(_CTX, _CMD, _NAME)
 #define KT_VK_COLLECT(_CTX, _CMD) TracyVkCollect(_CTX, _CMD)

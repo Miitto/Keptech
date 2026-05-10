@@ -108,7 +108,8 @@ namespace kt::vkh {
 
     vkDeviceWaitIdle(device);
 
-    KT_VK_CONTEXT_DESTROY(m.tracyContext);
+    KT_VK_CONTEXT_DESTROY(m.tracyGraphicsContext);
+    KT_VK_CONTEXT_DESTROY(m.tracyComputeContext);
 
     for (auto& perFrame : m.vkcore.perFrame) {
       vkDestroySemaphore(device, perFrame.imageAvailableSemaphore, nullptr);

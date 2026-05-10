@@ -238,7 +238,8 @@ namespace kt::vkh {
       std::vector<AllocatedBuffer> loadedBuffers{};
 
 #ifdef KT_PROFILE
-      TracyVkCtx tracyContext;
+      TracyVkCtx tracyGraphicsContext;
+      TracyVkCtx tracyComputeContext;
 #endif
     };
 

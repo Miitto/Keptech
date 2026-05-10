@@ -182,7 +182,10 @@ namespace kt::vkh {
     ext::vkGetCalibratedTimestampsEXT =
         (PFN_vkGetCalibratedTimestampsEXT)vkGetInstanceProcAddr(vkcore.instance, "vkGetCalibratedTimestampsEXT");
 
-    auto ctx = KT_VK_CONTEXT(vkcore.device.physical, vkcore.device.logical);
+    auto gctx = KT_VK_CONTEXT(vkcore.device.physical, vkcore.device.logical);
+    auto cctx = KT_VK_CONTEXT(vkcore.device.physical, vkcore.device.logical);
+    KT_VK_CONTEXT_NAME(gctx, "Graphics");
+    KT_VK_CONTEXT_NAME(cctx, "Compute");
 #endif
 
     vkDeviceWaitIdle(vkcore.device.logical);
@@ -200,7 +203,8 @@ namespace kt::vkh {
         .globalDescriptorSets = globalDescriptorSets,
         .staticDescriptors = staticDescriptorSets,
 #ifdef KT_PROFILE
-        .tracyContext = ctx,
+        .tracyGraphicsContext = gctx,
+        .tracyComputeContext = cctx,
 #endif
     }};
 
