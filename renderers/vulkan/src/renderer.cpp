@@ -1108,7 +1108,7 @@ namespace kt::vkh {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
             .semaphore = m.vkcore.timelineSemaphore,
             .value = m.frameInfo.ssaoTimelineSubmit,
-            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .stageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
         },
     };
 
