@@ -11,17 +11,13 @@ namespace kt::shader_processor::printing {
   void print(slang::TypeReflection::Kind kind);
 } // namespace kt::shader_processor::printing
 
-#define N(_NAME)                                                               \
-  case E::_NAME:                                                               \
-    name = #_NAME;                                                             \
+#define N(_NAME)                                                                                                                           \
+  case E::_NAME:                                                                                                                           \
+    name = #_NAME;                                                                                                                         \
     break;
 
-template <>
-struct fmt::formatter<slang::ParameterCategory>
-    : fmt::formatter<std::string_view> {
-  template <typename FormatContext>
-  auto format(const slang::ParameterCategory& category,
-              FormatContext& ctx) const {
+template <> struct fmt::formatter<slang::ParameterCategory> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const slang::ParameterCategory& category, FormatContext& ctx) const {
     using E = slang::ParameterCategory;
     std::string_view name;
     switch (category) {
@@ -50,6 +46,37 @@ struct fmt::formatter<slang::ParameterCategory>
       N(MetalArgumentBufferElement)
       N(MetalAttribute)
       N(MetalPayload)
+    }
+    return fmt::formatter<std::string_view>::format(name, ctx);
+  }
+};
+
+template <> struct fmt::formatter<slang::TypeReflection::Kind> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const slang::TypeReflection::Kind& kind, FormatContext& ctx) const {
+    using E = slang::TypeReflection::Kind;
+    std::string_view name;
+    switch (kind) {
+      N(None)
+      N(Struct)
+      N(Array)
+      N(Matrix)
+      N(Vector)
+      N(Scalar)
+      N(ConstantBuffer)
+      N(Resource)
+      N(SamplerState)
+      N(TextureBuffer)
+      N(ShaderStorageBuffer)
+      N(ParameterBlock)
+      N(GenericTypeParameter)
+      N(Interface)
+      N(OutputStream)
+      N(Specialized)
+      N(Feedback)
+      N(Pointer)
+      N(DynamicResource)
+      N(MeshOutput)
+      N(Enum)
     }
     return fmt::formatter<std::string_view>::format(name, ctx);
   }

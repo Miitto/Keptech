@@ -20,7 +20,8 @@ namespace kt::gltf {
 
       std::for_each(std::execution::par, enumView.begin(), enumView.end(), [&](const std::tuple<size_t, fastgltf::Mesh&>& meshTuple) {
         auto& [meshIndex, mesh] = meshTuple;
-        std::vector<Vertex> vertices;
+        std::vector<glm::vec3> positions;
+        std::vector<VertexAttribs> vertexAttribs;
         std::vector<uint32_t> indices;
         std::vector<Submesh> submeshes;
 
@@ -45,7 +46,7 @@ namespace kt::gltf {
             }
           }
 
-          size_t startIndex = vertices.size();
+          size_t startIndex = positions.size();
 
           // Indices
           {
@@ -59,13 +60,15 @@ namespace kt::gltf {
           // Positions
           {
             auto& posAccessor = asset.accessors[primitive.findAttribute("POSITION")->accessorIndex];
-            vertices.resize(vertices.size() + static_cast<size_t>(posAccessor.count));
+            size_t vertexCount = positions.size() + static_cast<size_t>(posAccessor.count);
+            positions.resize(vertexCount);
+            vertexAttribs.resize(vertexCount);
 
             glm::vec3 minPos{std::numeric_limits<float>::max()};
             glm::vec3 maxPos{std::numeric_limits<float>::lowest()};
             fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, posAccessor, [&](glm::vec3 position, size_t index) {
               position.x = -position.x;
-              vertices[startIndex + index].position = position;
+              positions[startIndex + index] = position;
 
               minPos.x = std::min(minPos.x, position.x);
               minPos.y = std::min(minPos.y, position.y);
@@ -95,7 +98,7 @@ namespace kt::gltf {
 
               fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, normalAccessor, [&](glm::vec3 normal, size_t index) {
                 normal.x = -normal.x;
-                vertices[startIndex + index].normal = normal;
+                vertexAttribs[startIndex + index].normal = normal;
               });
             }
           }
@@ -106,10 +109,8 @@ namespace kt::gltf {
             if (uvs != primitive.attributes.end()) {
               auto& uvAccessor = asset.accessors[uvs->accessorIndex];
 
-              fastgltf::iterateAccessorWithIndex<glm::vec2>(asset, uvAccessor, [&](glm::vec2 uv, size_t index) {
-                vertices[startIndex + index].uvX = uv.x;
-                vertices[startIndex + index].uvY = uv.y;
-              });
+              fastgltf::iterateAccessorWithIndex<glm::vec2>(
+                  asset, uvAccessor, [&](glm::vec2 uv, size_t index) { vertexAttribs[startIndex + index].setUv(uv); });
             }
           }
 
@@ -122,7 +123,7 @@ namespace kt::gltf {
               fastgltf::iterateAccessorWithIndex<glm::vec4>(asset, tangentAccessor, [&](glm::vec4 tangent, size_t index) {
                 tangent.x = -tangent.x;
                 tangent.w = -tangent.w; // Flip handedness
-                vertices[startIndex + index].tangent = tangent;
+                vertexAttribs[startIndex + index].tangent = tangent;
               });
             }
           }
@@ -130,7 +131,8 @@ namespace kt::gltf {
 
         MeshData meshData{
             .name = std::string(mesh.name),
-            .vertices = std::move(vertices),
+            .positions = std::move(positions),
+            .vertexAttribs = std::move(vertexAttribs),
             .indices = std::move(indices),
             .submeshes = std::move(submeshes),
         };

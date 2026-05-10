@@ -145,7 +145,8 @@ namespace kt::vkh {
       template <typename T> using SB = SubdivBuffer<T>;
       B camera;
       B ssaoKernel;
-      SB<Vertex> vertices;
+      SB<glm::vec3> vertexPositions;
+      SB<VertexAttribs> vertexAttribs;
       SB<uint32_t> indices;
       SB<GpuMaterial> materials;
       std::array<PerFrameBuffers, MAX_FRAMES_IN_FLIGHT> perFrame;

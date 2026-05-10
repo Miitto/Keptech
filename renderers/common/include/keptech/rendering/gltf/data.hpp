@@ -20,7 +20,8 @@ namespace kt::gltf {
 
   struct MeshData {
     std::string name;
-    std::vector<kt::Vertex> vertices;
+    std::vector<glm::vec3> positions;
+    std::vector<kt::VertexAttribs> vertexAttribs;
     std::vector<uint32_t> indices;
     std::vector<Submesh> submeshes;
   };

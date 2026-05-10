@@ -8,12 +8,14 @@ __include textures;
 __include maths;
 
 public namespace kt {
-public struct Vertex {
-  public float3 position;
-  public float uvX;
-  public float3 normal;
-  public float uvY;
+public struct VertexAttribs {
   public float4 tangent;
+  public float3 normal;
+  half2 packedUv;
+
+  public property float2 uv {
+    get { return packedUv; }
+  }
 };
 
 [[vk::binding(0, 0)]]

@@ -62,9 +62,9 @@ namespace kt::vkh::setup {
     VertexInput getVertexInputFromShader(const shaders::Shader& shader, std::vector<uint32_t> instanceBindings) {
       std::vector<VkVertexInputAttributeDescription> vertexAttributes;
       uint32_t binding = 0;
+      uint32_t location = 0;
       for (auto& param : shader.vertexLayout) {
         uint32_t voffset = 0;
-        uint32_t location = 0;
         for (auto& type : param) {
           VkVertexInputAttributeDescription attrDesc{
               .location = location++,

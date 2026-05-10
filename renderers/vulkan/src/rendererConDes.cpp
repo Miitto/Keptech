@@ -81,7 +81,8 @@ namespace kt::vkh {
   void Renderer::Buffers::destroy(VmaAllocator& allocator) {
     camera.destroy(allocator);
     ssaoKernel.destroy(allocator);
-    vertices.buffer.destroy(allocator);
+    vertexPositions.buffer.destroy(allocator);
+    vertexAttribs.buffer.destroy(allocator);
     indices.buffer.destroy(allocator);
     materials.buffer.destroy(allocator);
 

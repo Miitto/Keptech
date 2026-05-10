@@ -293,7 +293,9 @@ namespace kt::vkh {
                             &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
     setupViewportAndScissor(cmdBuf);
 
-    vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m.buffers.vertices.buffer.buffer, &NO_VERTEX_OFFSET);
+    std::array buffers{m.buffers.vertexPositions.buffer.buffer, m.buffers.vertexAttribs.buffer.buffer};
+    constexpr std::array offsets{0ull, 0ull};
+    vkCmdBindVertexBuffers(cmdBuf, 0, 2, buffers.data(), offsets.data());
     vkCmdBindIndexBuffer(cmdBuf, m.buffers.indices.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
     struct Addresses {
       VkDeviceAddress objectBufferAddress;
@@ -647,7 +649,7 @@ namespace kt::vkh {
                               &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
 
       setupCustomViewportAndScissor(cmdBuf, {0, 0}, {constants::SHADOW_MAP_SIZE, constants::SHADOW_MAP_SIZE});
-      vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m.buffers.vertices.buffer.buffer, &NO_VERTEX_OFFSET);
+      vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m.buffers.vertexPositions.buffer.buffer, &NO_VERTEX_OFFSET);
       vkCmdBindIndexBuffer(cmdBuf, m.buffers.indices.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
       uint32_t shadowMatrixIndex = i * 6;

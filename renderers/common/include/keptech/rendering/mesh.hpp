@@ -11,12 +11,14 @@
 
 namespace kt {
 
-  struct Vertex {
-    glm::vec3 position;
-    float uvX;
-    glm::vec3 normal;
-    float uvY;
+  struct VertexAttribs {
     glm::vec4 tangent{1.f, 0.f, 0.f, 1.f};
+    glm::vec3 normal;
+    uint32_t encodedUv;
+
+    constexpr static uint32_t encodeUv(glm::vec2 uv) { return glm::packHalf2x16(uv); }
+
+    void setUv(glm::vec2 uv) { encodedUv = encodeUv(uv); }
   };
 
   struct Submesh {
@@ -67,7 +69,8 @@ namespace kt {
 
   struct MeshData {
     std::string name;
-    std::vector<Vertex> vertices;
+    std::vector<glm::vec3> positions;
+    std::vector<VertexAttribs> vertexAttribs;
     std::vector<uint32_t> indices = {};
   };
 } // namespace kt

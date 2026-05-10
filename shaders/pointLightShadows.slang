@@ -25,12 +25,12 @@ struct PushConstants {
 };
 
 [shader("vertex")]
-v2g vert(kt::Vertex v, uint iid: SV_InstanceID, uint bid: SV_StartInstanceLocation, uniform PushConstants PC) {
+v2g vert(float3 pos, uint iid: SV_InstanceID, uint bid: SV_StartInstanceLocation, uniform PushConstants PC) {
   v2g output;
 
   Object obj = PC.objectBuffer[iid + bid];
 
-  output.worldPosition = mul(float4(v.position, 1.0), obj.modelMatrix).xyz;
+  output.worldPosition = mul(float4(pos, 1.0), obj.modelMatrix).xyz;
 
   return output;
 }

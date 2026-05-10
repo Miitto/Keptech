@@ -36,17 +36,18 @@ struct VertexOutput {
 };
 
 [shader("vertex")]
-VertexOutput vert(kt::Vertex v, uint vid: SV_VertexID, uint iid: SV_InstanceID, uint bid: SV_StartInstanceLocation,
+VertexOutput vert(float3 pos, kt::VertexAttribs v, uint vid: SV_VertexID, uint iid: SV_InstanceID, uint bid: SV_StartInstanceLocation,
                   uniform PushConstants PC) {
   VertexOutput output;
 
   Object obj = PC.objectBuffer[iid + bid];
 
-  float4 worldPosition = mul(float4(v.position, 1.0), obj.modelMatrix);
+  float4 worldPosition = mul(float4(pos, 1.0), obj.modelMatrix);
 
   output.position = kt::camera.worldToClip(worldPosition);
-  output.uvX = v.uvX;
-  output.uvY = v.uvY;
+  let uv = v.uv;
+  output.uvX = uv.x;
+  output.uvY = uv.y;
 
   float3x3 modelRotMatrix = (float3x3)obj.modelMatrix;
 
