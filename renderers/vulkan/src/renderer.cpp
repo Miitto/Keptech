@@ -220,7 +220,7 @@ namespace kt::vkh {
               .indexCount = submesh.count,
               .instanceCount = 1,
               .firstIndex = firstIndex + submesh.start,
-              .vertexOffset = vertexOffset,
+              .vertexOffset = vertexOffset + submesh.vertexOffset,
               .firstInstance = static_cast<uint32_t>(gpuObjects.size() - 1),
           };
           drawCommands.push_back(drawCommand);
@@ -518,7 +518,7 @@ namespace kt::vkh {
                 .indexCount = submesh.count,
                 .instanceCount = 1,
                 .firstIndex = static_cast<uint32_t>(mesh.getRMesh().firstIndex + submesh.start),
-                .vertexOffset = static_cast<int32_t>(mesh.getRMesh().firstVertex),
+                .vertexOffset = static_cast<int32_t>(mesh.getRMesh().firstVertex) + submesh.vertexOffset,
                 .firstInstance = objectIndex,
             };
             drawCommands.push_back(drawCommand);
@@ -616,6 +616,12 @@ namespace kt::vkh {
     KT_PROFILE_FUNCTION
     KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Draw Point Light Shadow Maps");
 
+    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.pointLightShadows.pipeline);
+    vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.pointLightShadows.layout, 0, 1,
+                            &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+    vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m.buffers.vertexPositions.buffer.buffer, &NO_VERTEX_OFFSET);
+    vkCmdBindIndexBuffer(cmdBuf, m.buffers.shadowIndices.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
     struct Addresses {
       VkDeviceAddress objectBufferAddress;
       VkDeviceAddress lightBufferAddress;
@@ -632,6 +638,7 @@ namespace kt::vkh {
 
     auto& drawBuf = fBufs().shadowDrawCommands;
     VkDeviceSize drawOffset = 0;
+
     for (uint32_t i = 0; i < lightInfo.size(); i++) {
       uint32_t drawCount = lightInfo[i].drawCount;
       if (drawCount == 0) {
@@ -644,13 +651,7 @@ namespace kt::vkh {
       shadowMapToRenderable(cmdBuf, lightInfo[i].shadowMap.getImage(), true);
       shadowMapBeginRendering(cmdBuf, lightInfo[i].shadowMap.getImage(), true);
 
-      vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.pointLightShadows.pipeline);
-      vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.pointLightShadows.layout, 0, 1,
-                              &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
-
       setupCustomViewportAndScissor(cmdBuf, {0, 0}, {constants::SHADOW_MAP_SIZE, constants::SHADOW_MAP_SIZE});
-      vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m.buffers.vertexPositions.buffer.buffer, &NO_VERTEX_OFFSET);
-      vkCmdBindIndexBuffer(cmdBuf, m.buffers.indices.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
       uint32_t shadowMatrixIndex = i * 6;
 

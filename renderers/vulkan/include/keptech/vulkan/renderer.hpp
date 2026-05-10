@@ -148,6 +148,7 @@ namespace kt::vkh {
       SB<glm::vec3> vertexPositions;
       SB<VertexAttribs> vertexAttribs;
       SB<uint32_t> indices;
+      SB<uint32_t> shadowIndices;
       SB<GpuMaterial> materials;
       std::array<PerFrameBuffers, MAX_FRAMES_IN_FLIGHT> perFrame;
 

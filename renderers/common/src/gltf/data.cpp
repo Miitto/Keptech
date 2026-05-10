@@ -7,6 +7,7 @@
 #include <fastgltf/util.hpp>
 #include <keptech/core/fastgltf_formatting.hpp>
 #include <keptech/core/profile.hpp>
+#include <meshoptimizer.h>
 #include <ranges>
 
 namespace kt::gltf {
@@ -18,19 +19,27 @@ namespace kt::gltf {
 
       auto enumView = std::views::enumerate(asset.meshes);
 
+      struct Vertex {
+        glm::vec3 position;
+        glm::vec2 uv;
+        glm::vec3 normal;
+        glm::vec4 tangent;
+      };
+
       std::for_each(std::execution::par, enumView.begin(), enumView.end(), [&](const std::tuple<size_t, fastgltf::Mesh&>& meshTuple) {
         auto& [meshIndex, mesh] = meshTuple;
-        std::vector<glm::vec3> positions;
-        std::vector<VertexAttribs> vertexAttribs;
-        std::vector<uint32_t> indices;
+        std::vector<Vertex> meshVertices;
+        std::vector<uint32_t> meshIndices;
+        std::vector<uint32_t> meshShadowIndices;
         std::vector<Submesh> submeshes;
 
         submeshes.reserve(mesh.primitives.size());
 
         for (auto& primitive : mesh.primitives) {
           Submesh submesh{
+              .vertexOffset = static_cast<uint32_t>(meshVertices.size()),
               .indexCount = static_cast<uint32_t>(asset.accessors[primitive.indicesAccessor.value()].count),
-              .indexOffset = static_cast<uint32_t>(indices.size()),
+              .indexOffset = static_cast<uint32_t>(meshIndices.size()),
               .materialIndex = static_cast<uint32_t>(primitive.materialIndex.value_or(0)),
           };
           submeshes.push_back(submesh);
@@ -46,29 +55,27 @@ namespace kt::gltf {
             }
           }
 
-          size_t startIndex = positions.size();
+          std::vector<Vertex> vertices;
+          std::vector<uint32_t> indices;
 
           // Indices
           {
             auto& indicesAccessor = asset.accessors[primitive.indicesAccessor.value()];
-            indices.reserve(indices.size() + indicesAccessor.count);
+            indices.reserve(indicesAccessor.count);
 
-            fastgltf::iterateAccessor<uint32_t>(asset, indicesAccessor,
-                                                [&](uint32_t index) { indices.push_back(static_cast<uint32_t>(startIndex) + index); });
+            fastgltf::iterateAccessor<uint32_t>(asset, indicesAccessor, [&](uint32_t index) { indices.push_back(index); });
           }
 
           // Positions
           {
             auto& posAccessor = asset.accessors[primitive.findAttribute("POSITION")->accessorIndex];
-            size_t vertexCount = positions.size() + static_cast<size_t>(posAccessor.count);
-            positions.resize(vertexCount);
-            vertexAttribs.resize(vertexCount);
+            vertices.resize(posAccessor.count);
 
             glm::vec3 minPos{std::numeric_limits<float>::max()};
             glm::vec3 maxPos{std::numeric_limits<float>::lowest()};
             fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, posAccessor, [&](glm::vec3 position, size_t index) {
               position.x = -position.x;
-              positions[startIndex + index] = position;
+              vertices[index].position = position;
 
               minPos.x = std::min(minPos.x, position.x);
               minPos.y = std::min(minPos.y, position.y);
@@ -98,7 +105,7 @@ namespace kt::gltf {
 
               fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, normalAccessor, [&](glm::vec3 normal, size_t index) {
                 normal.x = -normal.x;
-                vertexAttribs[startIndex + index].normal = normal;
+                vertices[index].normal = normal;
               });
             }
           }
@@ -109,8 +116,8 @@ namespace kt::gltf {
             if (uvs != primitive.attributes.end()) {
               auto& uvAccessor = asset.accessors[uvs->accessorIndex];
 
-              fastgltf::iterateAccessorWithIndex<glm::vec2>(
-                  asset, uvAccessor, [&](glm::vec2 uv, size_t index) { vertexAttribs[startIndex + index].setUv(uv); });
+              fastgltf::iterateAccessorWithIndex<glm::vec2>(asset, uvAccessor,
+                                                            [&](glm::vec2 uv, size_t index) { vertices[index].uv = uv; });
             }
           }
 
@@ -123,22 +130,63 @@ namespace kt::gltf {
               fastgltf::iterateAccessorWithIndex<glm::vec4>(asset, tangentAccessor, [&](glm::vec4 tangent, size_t index) {
                 tangent.x = -tangent.x;
                 tangent.w = -tangent.w; // Flip handedness
-                vertexAttribs[startIndex + index].tangent = tangent;
+                vertices[index].tangent = tangent;
               });
             }
           }
+
+          std::vector<uint32_t> remap(vertices.size());
+          size_t vertexCount =
+              meshopt_generateVertexRemap(remap.data(), indices.data(), indices.size(), vertices.data(), vertices.size(), sizeof(Vertex));
+
+          std::vector<uint32_t> remappedIndices(indices.size());
+          std::vector<Vertex> remappedVertices(vertexCount);
+
+          meshopt_remapIndexBuffer(remappedIndices.data(), indices.data(), indices.size(), remap.data());
+          meshopt_remapVertexBuffer(remappedVertices.data(), vertices.data(), vertices.size(), sizeof(Vertex), remap.data());
+
+          meshopt_optimizeVertexCache(remappedIndices.data(), remappedIndices.data(), remappedIndices.size(), vertexCount);
+          meshopt_optimizeOverdraw(remappedIndices.data(), remappedIndices.data(), remappedIndices.size(), &remappedVertices[0].position.x,
+                                   vertexCount, sizeof(Vertex), 1.05f);
+          meshopt_optimizeVertexFetch(remappedVertices.data(), remappedIndices.data(), remappedIndices.size(), remappedVertices.data(),
+                                      remappedVertices.size(), sizeof(Vertex));
+
+          std::vector<uint32_t> remappedShadowIndices(indices.size());
+          meshopt_generateShadowIndexBuffer(remappedShadowIndices.data(), remappedIndices.data(), remappedIndices.size(),
+                                            &remappedVertices[0].position.x, vertexCount, sizeof(glm::vec3), sizeof(Vertex));
+          meshopt_optimizeVertexCache(remappedShadowIndices.data(), remappedShadowIndices.data(), remappedShadowIndices.size(),
+                                      vertexCount);
+
+          meshIndices.insert(meshIndices.end(), remappedIndices.begin(), remappedIndices.end());
+          meshVertices.insert(meshVertices.end(), remappedVertices.begin(), remappedVertices.end());
+          meshShadowIndices.insert(meshShadowIndices.end(), remappedShadowIndices.begin(), remappedShadowIndices.end());
+        }
+
+        std::vector<glm::vec3> positions(meshVertices.size());
+        std::vector<VertexAttribs> vertexAttribs(meshVertices.size());
+
+        for (size_t i = 0; i < meshVertices.size(); ++i) {
+          positions[i] = meshVertices[i].position;
+          vertexAttribs[i] = VertexAttribs{
+              .tangent = meshVertices[i].tangent,
+              .normal = meshVertices[i].normal,
+              .encodedUv = VertexAttribs::encodeUv(meshVertices[i].uv),
+          };
         }
 
         MeshData meshData{
             .name = std::string(mesh.name),
             .positions = std::move(positions),
             .vertexAttribs = std::move(vertexAttribs),
-            .indices = std::move(indices),
+            .indices = std::move(meshIndices),
+            .shadowIndices = std::move(meshShadowIndices),
             .submeshes = std::move(submeshes),
         };
 
         gltf.meshes[startMeshCount + meshIndex] = std::move(meshData);
       });
+
+      KT_DEBUG("Loaded {} meshes", asset.meshes.size());
     }
   } // namespace
 
@@ -226,6 +274,8 @@ namespace kt::gltf {
         }
       }
     }
+
+    KT_DEBUG("Loaded {} nodes", asset.nodes.size());
 
     return loadedGltf;
   }

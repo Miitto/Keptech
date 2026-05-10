@@ -84,6 +84,7 @@ namespace kt::vkh {
     vertexPositions.buffer.destroy(allocator);
     vertexAttribs.buffer.destroy(allocator);
     indices.buffer.destroy(allocator);
+    shadowIndices.buffer.destroy(allocator);
     materials.buffer.destroy(allocator);
 
     for (auto& perFrame : perFrame) {

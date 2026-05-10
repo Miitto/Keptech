@@ -22,6 +22,7 @@ namespace kt {
   };
 
   struct Submesh {
+    int32_t vertexOffset;
     uint32_t start;
     uint32_t count;
     std::optional<rendering::Material> material;

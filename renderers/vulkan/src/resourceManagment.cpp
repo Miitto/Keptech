@@ -477,6 +477,7 @@ namespace kt::vkh {
     std::optional<SubdivBuffer<glm::vec3>> oldPositionBuffer;
     std::optional<SubdivBuffer<VertexAttribs>> oldAttribBuffer;
     std::optional<SubdivBuffer<uint32_t>> oldIndexBuffer;
+    std::optional<SubdivBuffer<uint32_t>> oldShadowIndexBuffer;
     if (totalPositionsSize > m.buffers.vertexPositions.buffer.size()) {
       VK_DEBUG("Current vertex position buffer size {} is too small for {} vertices, creating new buffer",
                m.buffers.vertexPositions.buffer.size(), totalVerticesCount);
@@ -531,6 +532,7 @@ namespace kt::vkh {
       VK_DEBUG("Current index buffer size {} is too small for {} indices, creating new buffer", m.buffers.indices.buffer.size(),
                totalIndicesCount);
       oldIndexBuffer = m.buffers.indices;
+      oldShadowIndexBuffer = m.buffers.shadowIndices;
       VkBufferCreateInfo indexBufferCreateInfo{
           .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
           .size = totalIndicesSize,
@@ -546,14 +548,22 @@ namespace kt::vkh {
                AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, indexBufferCreateInfo, allocInfo,
                                                 "Mesh index buffer"),
                "Failed to create index buffer for mesh upload");
+      VKH_MAKE(shadowIndexBuffer,
+               AddressedAllocatedBuffer::create(m.vkcore.device.logical, m.vkcore.allocator, indexBufferCreateInfo, allocInfo,
+                                                "Mesh shadow index buffer"),
+               "Failed to create shadow index buffer for mesh upload");
       m.buffers.indices = SubdivBuffer<uint32_t>{
           .buffer = indexBuffer,
           .count = oldIndexBuffer->count,
       };
+      m.buffers.shadowIndices = SubdivBuffer<uint32_t>{
+          .buffer = shadowIndexBuffer,
+          .count = oldShadowIndexBuffer->count,
+      };
     }
 
-    bool canWriteDirectly =
-        m.buffers.vertexPositions.buffer.isMapped() && m.buffers.vertexAttribs.buffer.isMapped() && m.buffers.indices.buffer.isMapped();
+    bool canWriteDirectly = m.buffers.vertexPositions.buffer.isMapped() && m.buffers.vertexAttribs.buffer.isMapped() &&
+                            m.buffers.indices.buffer.isMapped() && m.buffers.shadowIndices.buffer.isMapped();
 
     std::vector<Mesh> result;
     result.reserve(meshes.size());
@@ -563,6 +573,7 @@ namespace kt::vkh {
       size_t positionOffset;
       size_t attribOffset;
       size_t indexOffset;
+      size_t shadowIndexOffset;
     };
     size_t requiredStagingSize = 0;
     std::vector<RequiredCopy> requiredCopies{};
@@ -572,6 +583,7 @@ namespace kt::vkh {
       submeshes.reserve(mesh.submeshes.size());
       for (const auto& primitive : mesh.submeshes) {
         Submesh submesh{
+            .vertexOffset = static_cast<int32_t>(primitive.vertexOffset),
             .start = primitive.indexOffset,
             .count = primitive.indexCount,
             .boundingSphere = primitive.boundingSphere,
@@ -597,6 +609,7 @@ namespace kt::vkh {
         m.buffers.vertexPositions.write(mesh.positions);
         m.buffers.vertexAttribs.write(mesh.vertexAttribs);
         m.buffers.indices.write(mesh.indices);
+        m.buffers.shadowIndices.write(mesh.shadowIndices);
 
         auto submeshes = addSubmeshes(mesh);
 
@@ -617,8 +630,9 @@ namespace kt::vkh {
             .positionOffset = requiredStagingSize,
             .attribOffset = requiredStagingSize + positionBufferSize,
             .indexOffset = requiredStagingSize + positionBufferSize + vertexAttribsBufferSize,
+            .shadowIndexOffset = requiredStagingSize + positionBufferSize + vertexAttribsBufferSize + indexBufferSize,
         });
-        requiredStagingSize += positionBufferSize + vertexAttribsBufferSize + indexBufferSize;
+        requiredStagingSize += positionBufferSize + vertexAttribsBufferSize + (indexBufferSize * 2);
         auto submeshes = addSubmeshes(mesh);
 
         result.emplace_back(mesh.positions.size(), mesh.indices.size(), rendererMesh, std::move(submeshes), mesh.name);
@@ -635,7 +649,9 @@ namespace kt::vkh {
           .dstOffset = 0,
           .size = oldPositionBuffer->count * sizeof(glm::vec3),
       };
-      vkCmdCopyBuffer(transferCmd, oldPositionBuffer->buffer.buffer, m.buffers.vertexPositions.buffer.buffer, 1, &copyRegion);
+      if (copyRegion.size > 0) {
+        vkCmdCopyBuffer(transferCmd, oldPositionBuffer->buffer.buffer, m.buffers.vertexPositions.buffer.buffer, 1, &copyRegion);
+      }
       resultStruct.stagingBuffers.push_back(oldPositionBuffer->buffer.downcast());
     }
     if (oldAttribBuffer.has_value()) {
@@ -644,7 +660,9 @@ namespace kt::vkh {
           .dstOffset = 0,
           .size = oldAttribBuffer->count * sizeof(VertexAttribs),
       };
-      vkCmdCopyBuffer(transferCmd, oldAttribBuffer->buffer.buffer, m.buffers.vertexAttribs.buffer.buffer, 1, &copyRegion);
+      if (copyRegion.size > 0) {
+        vkCmdCopyBuffer(transferCmd, oldAttribBuffer->buffer.buffer, m.buffers.vertexAttribs.buffer.buffer, 1, &copyRegion);
+      }
       resultStruct.stagingBuffers.push_back(oldAttribBuffer->buffer.downcast());
     }
     if (oldIndexBuffer.has_value()) {
@@ -653,8 +671,12 @@ namespace kt::vkh {
           .dstOffset = 0,
           .size = oldIndexBuffer->count * sizeof(uint32_t),
       };
-      vkCmdCopyBuffer(transferCmd, oldIndexBuffer->buffer.buffer, m.buffers.indices.buffer.buffer, 1, &copyRegion);
+      if (copyRegion.size > 0) {
+        vkCmdCopyBuffer(transferCmd, oldIndexBuffer->buffer.buffer, m.buffers.indices.buffer.buffer, 1, &copyRegion);
+        vkCmdCopyBuffer(transferCmd, oldShadowIndexBuffer->buffer.buffer, m.buffers.shadowIndices.buffer.buffer, 1, &copyRegion);
+      }
       resultStruct.stagingBuffers.push_back(oldIndexBuffer->buffer.downcast());
+      resultStruct.stagingBuffers.push_back(oldShadowIndexBuffer->buffer.downcast());
     }
 
     if (requiredStagingSize > 0) {
@@ -681,6 +703,7 @@ namespace kt::vkh {
           memcpy(mappedPtr + copy.positionOffset, mesh.positions.data(), mesh.positions.size() * sizeof(glm::vec3));
           memcpy(mappedPtr + copy.attribOffset, mesh.vertexAttribs.data(), mesh.vertexAttribs.size() * sizeof(VertexAttribs));
           memcpy(mappedPtr + copy.indexOffset, mesh.indices.data(), mesh.indices.size() * sizeof(uint32_t));
+          memcpy(mappedPtr + copy.shadowIndexOffset, mesh.shadowIndices.data(), mesh.shadowIndices.size() * sizeof(uint32_t));
         }
       } else {
         stagingBuffer.destroy(m.vkcore.allocator);
@@ -706,7 +729,10 @@ namespace kt::vkh {
         copyRegion.dstOffset = mesh.getRMesh().firstIndex * sizeof(uint32_t);
         copyRegion.size = mesh.getIndexCount() * sizeof(uint32_t);
         vkCmdCopyBuffer(transferCmd, stagingBuffer.buffer, m.buffers.indices.buffer.buffer, 1, &copyRegion);
+        copyRegion.srcOffset = copy.shadowIndexOffset;
+        vkCmdCopyBuffer(transferCmd, stagingBuffer.buffer, m.buffers.shadowIndices.buffer.buffer, 1, &copyRegion);
         m.buffers.indices.count += mesh.getIndexCount();
+        m.buffers.shadowIndices.count += mesh.getIndexCount();
       }
 
       resultStruct.stagingBuffers.push_back(stagingBuffer);

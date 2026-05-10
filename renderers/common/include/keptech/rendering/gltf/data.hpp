@@ -12,6 +12,7 @@
 namespace kt::gltf {
 
   struct Submesh {
+    uint32_t vertexOffset;
     uint32_t indexCount;
     uint32_t indexOffset;
     uint32_t materialIndex;
@@ -23,6 +24,7 @@ namespace kt::gltf {
     std::vector<glm::vec3> positions;
     std::vector<kt::VertexAttribs> vertexAttribs;
     std::vector<uint32_t> indices;
+    std::vector<uint32_t> shadowIndices;
     std::vector<Submesh> submeshes;
   };
 
