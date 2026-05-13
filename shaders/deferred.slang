@@ -27,12 +27,11 @@ struct PushConstants {
   kt::VertexAttribs *vertexAttribs;
   kt::Meshlet *meshletBuffer;
   uint *meshletVertices;
-  uint8_t *meshletTriangles;
-  uint objectId;
-  uint vertexOffset;
-  uint meshletOffset;
-  uint meshletVertexOffset;
-  uint meshletTriangleOffset;
+  uint *meshletTriangles;
+  uint vertexCount;
+  uint meshletCount;
+  uint meshletVertexCount;
+  uint meshletTriangleCount;
 };
 
 struct VertexOutput {
@@ -45,7 +44,7 @@ struct VertexOutput {
   nointerpolation uint materialIndex : MATERIAL_INDEX;
 };
 
-const static uint MESH_SHADER_DISPATCH_SIZE = 64;
+const static uint MESH_SHADER_DISPATCH_SIZE = 32;
 const static uint MAX_VERTICES_PER_MESHLET = 64;
 const static uint MAX_TRIANGLES_PER_MESHLET = 64;
 
@@ -54,21 +53,28 @@ const static uint MAX_TRIANGLES_PER_MESHLET = 64;
 [numthreads(MESH_SHADER_DISPATCH_SIZE, 1, 1)]
 void mesh(out indices uint3 triangles[MAX_TRIANGLES_PER_MESHLET], out vertices VertexOutput vertices[MAX_VERTICES_PER_MESHLET],
           uint3 groupId: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
-  uint meshletId = groupId.x + PC.meshletOffset;
+  Object obj = *PC.objectBuffer;
+
+  uint meshletId = groupId.x;
+
+  if (meshletId >= PC.meshletCount) {
+    return;
+  }
 
   kt::Meshlet meshlet = PC.meshletBuffer[meshletId];
 
-  SetMeshOutputCounts(meshlet.vertexCount, meshlet.triangleCount);
+  uint vertexOffset = meshlet.vertexOffset;
+  uint triangleOffset = meshlet.triangleOffset;
 
-  Object obj = PC.objectBuffer[PC.objectId];
+  SetMeshOutputCounts(meshlet.vertexCount, meshlet.triangleCount);
 
   uint instanceIndex = gtid.x;
 
   for (uint i = instanceIndex; i < meshlet.vertexCount; i += MESH_SHADER_DISPATCH_SIZE) {
-    uint localIndex = PC.meshletVertices[PC.meshletVertexOffset + meshlet.vertexOffset + i];
+    uint localIndex = PC.meshletVertices[meshlet.vertexOffset + i];
 
-    float3 pos = PC.vertexPositions[PC.vertexOffset + localIndex];
-    kt::VertexAttribs v = PC.vertexAttribs[PC.vertexOffset + localIndex];
+    float3 pos = PC.vertexPositions[localIndex];
+    kt::VertexAttribs v = PC.vertexAttribs[localIndex];
 
     VertexOutput output;
     float4 worldPosition = mul(float4(pos, 1.0), obj.modelMatrix);
@@ -90,7 +96,7 @@ void mesh(out indices uint3 triangles[MAX_TRIANGLES_PER_MESHLET], out vertices V
   }
 
   for (uint i = instanceIndex; i < meshlet.triangleCount; i += MESH_SHADER_DISPATCH_SIZE) {
-    uint triangleIndex = PC.meshletTriangleOffset + meshlet.triangleOffset + i * 3;
+    uint triangleIndex = triangleOffset + i * 3;
 
     uint3 tri = uint3(PC.meshletVertices[triangleIndex], PC.meshletVertices[triangleIndex + 1], PC.meshletVertices[triangleIndex + 2]);
 

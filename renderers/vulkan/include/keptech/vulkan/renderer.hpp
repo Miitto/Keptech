@@ -161,7 +161,7 @@ namespace kt::vkh {
       SB<VertexAttribs> vertexAttribs;
       SB<Meshlet> meshlets;
       SB<uint32_t> meshletVertices;
-      SB<uint8_t> meshletTriangles;
+      SB<uint32_t> meshletTriangles;
       SB<GpuMaterial> materials;
       std::array<PerFrameBuffers, MAX_FRAMES_IN_FLIGHT> perFrame;
 
@@ -311,6 +311,9 @@ namespace kt::vkh {
       uint32_t vertexOffset;
       uint32_t meshletVertexOffset;
       uint32_t meshletTriangleOffset;
+      uint32_t vertexCount;
+      uint32_t meshletVertexCount;
+      uint32_t meshletTriangleCount;
     };
     std::vector<ObjectMeshlets> updateObjectsBuffer(const kt::maths::Frustum& frustum);
     void drawDeferred(VkCommandBuffer cmdBuf, const std::vector<ObjectMeshlets>& meshlets);

@@ -12,12 +12,22 @@
 namespace kt::gltf {
 
   struct Submesh {
+    /// Offset into the vertex buffer relative to the Mesh start
     uint32_t vertexOffset;
-    uint32_t indexCount;
-    uint32_t indexOffset;
     uint32_t materialIndex;
+    /// Number of meshlets in the submesh
     uint32_t meshletCount;
+    /// Offset into the meshlet buffer relative to the Mesh start
     uint32_t meshletOffset;
+    /// Offset of the first meshlet vertex relative to the Mesh start
+    uint32_t meshletVertexOffset;
+    /// Offset of the first meshlet triangle relative to the Mesh start
+    uint32_t meshletTriangleOffset;
+
+    uint32_t vertexCount;
+    uint32_t meshletVertexCount;
+    uint32_t meshletTriangleCount;
+
     kt::maths::Sphere boundingSphere;
   };
 
@@ -25,12 +35,10 @@ namespace kt::gltf {
     std::string name;
     std::vector<glm::vec3> positions;
     std::vector<kt::VertexAttribs> vertexAttribs;
-    std::vector<uint32_t> indices;
-    std::vector<uint32_t> shadowIndices;
     std::vector<Submesh> submeshes;
     std::vector<Meshlet> meshlets;
     std::vector<uint32_t> meshletVertices;
-    std::vector<uint8_t> meshletTriangles;
+    std::vector<uint32_t> meshletTriangles;
   };
 
   struct Data {

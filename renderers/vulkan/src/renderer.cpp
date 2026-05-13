@@ -213,9 +213,12 @@ namespace kt::vkh {
         ObjectMeshlets meshletInfo{
             .meshletCount = submesh.meshletCount,
             .meshletOffset = submesh.meshletOffset,
-            .vertexOffset = static_cast<uint32_t>(vertexOffset + submesh.vertexOffset),
+            .vertexOffset = static_cast<uint32_t>(submesh.vertexOffset),
             .meshletVertexOffset = submesh.meshletVertexOffset,
             .meshletTriangleOffset = submesh.meshletTriangleOffset,
+            .vertexCount = submesh.vertexCount,
+            .meshletVertexCount = submesh.meshletVertexCount,
+            .meshletTriangleCount = submesh.meshletTriangleCount,
         };
         objectMeshlets.push_back(meshletInfo);
       }
@@ -262,49 +265,73 @@ namespace kt::vkh {
 
     std::array buffers{m.buffers.vertexPositions.buffer.buffer, m.buffers.vertexAttribs.buffer.buffer};
     constexpr std::array offsets{0ull, 0ull};
-    struct Addresses {
-      VkDeviceAddress objectBufferAddress;
-      VkDeviceAddress materialBufferAddress;
-      VkDeviceAddress vertexPositionBufferAddress;
-      VkDeviceAddress vertexAttribBufferAddress;
-      VkDeviceAddress meshsletBufferAddress;
-      VkDeviceAddress meshletVertexBufferAddress;
-      VkDeviceAddress meshletTriangleBufferAddress;
-    } addresses{
-        .objectBufferAddress = fBufs().objects.buffer.address,
-        .materialBufferAddress = m.buffers.materials.buffer.address,
-        .vertexPositionBufferAddress = m.buffers.vertexPositions.buffer.address,
-        .vertexAttribBufferAddress = m.buffers.vertexAttribs.buffer.address,
-        .meshsletBufferAddress = m.buffers.meshlets.buffer.address,
-        .meshletVertexBufferAddress = m.buffers.meshletVertices.buffer.address,
-        .meshletTriangleBufferAddress = m.buffers.meshletTriangles.buffer.address,
-    };
-    vkCmdPushConstants(cmdBuf, m.pipelines.deferred.layout, VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(Addresses), &addresses);
 
     for (size_t i = 0; i < objectMeshlets.size(); ++i) {
-      struct ObjData {
-        uint32_t objectIndex;
-        uint32_t vertexOffset;
-        uint32_t meshletOffset;
-        uint32_t meshletVertexOffset;
-        uint32_t meshletTriangleOffset;
-      } data{
-          .objectIndex = static_cast<uint32_t>(i),
-          .vertexOffset = objectMeshlets[i].vertexOffset,
-          .meshletOffset = objectMeshlets[i].meshletOffset,
-          .meshletVertexOffset = objectMeshlets[i].meshletVertexOffset,
-          .meshletTriangleOffset = objectMeshlets[i].meshletTriangleOffset,
-      };
-      vkCmdPushConstants(cmdBuf, m.pipelines.deferred.layout, VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                         sizeof(Addresses), sizeof(ObjData), &data);
-
       const auto& meshletInfo = objectMeshlets[i];
       if (meshletInfo.meshletCount == 0) {
         continue;
       }
 
-      vkCmdDrawMeshTasksEXT(cmdBuf, meshletInfo.meshletCount, 1, 1);
+      VkDeviceSize objectOffset = i * sizeof(Renderer::GpuObject);
+      VkDeviceSize vertexPositionOffset = objectMeshlets[i].vertexOffset * sizeof(glm::vec3);
+      VkDeviceSize vertexAttribOffset = objectMeshlets[i].vertexOffset * sizeof(VertexAttribs);
+      VkDeviceSize meshletOffset = objectMeshlets[i].meshletOffset * sizeof(Meshlet);
+      VkDeviceSize meshletVertexOffset = objectMeshlets[i].meshletVertexOffset * sizeof(uint32_t);
+      VkDeviceSize meshletTriangleOffset = objectMeshlets[i].meshletTriangleOffset * sizeof(uint32_t);
+
+#ifndef NDEBUG
+      VkDeviceSize maxObject = objectOffset + sizeof(Renderer::GpuObject);
+      VkDeviceSize maxMeshletOffset = meshletOffset + (objectMeshlets[i].meshletCount * sizeof(Meshlet));
+      VkDeviceSize maxMeshletVertexOffset = meshletVertexOffset + (objectMeshlets[i].meshletVertexCount * sizeof(uint32_t));
+      VkDeviceSize maxMeshletTriangleOffset = meshletTriangleOffset + (objectMeshlets[i].meshletTriangleCount * sizeof(uint32_t));
+
+      VK_ASSERT(maxObject <= fBufs().objects.buffer.size(),
+                "Object buffer overflow: trying to access up to {}, but buffer size is {}. (Obj idx {})", maxObject,
+                fBufs().objects.buffer.size(), i);
+
+      VK_ASSERT(maxMeshletOffset <= m.buffers.meshlets.buffer.size(),
+                "Meshlet buffer overflow: trying to access up to {}, but buffer size is {}", maxMeshletOffset,
+                m.buffers.meshlets.buffer.size());
+
+      VK_ASSERT(maxMeshletVertexOffset <= m.buffers.meshletVertices.buffer.size(),
+                "Meshlet vertex buffer overflow: trying to access up to {}, but buffer size is {}", maxMeshletVertexOffset,
+                m.buffers.meshletVertices.buffer.size());
+
+      VK_ASSERT(maxMeshletTriangleOffset <= m.buffers.meshletTriangles.buffer.size(),
+                "Meshlet triangle buffer overflow: trying to access up to {}, but buffer size is {}", maxMeshletTriangleOffset,
+                m.buffers.meshletTriangles.buffer.size());
+#endif
+
+      struct Addresses {
+        VkDeviceAddress objectBufferAddress;
+        VkDeviceAddress materialBufferAddress;
+        VkDeviceAddress vertexPositionBufferAddress;
+        VkDeviceAddress vertexAttribBufferAddress;
+        VkDeviceAddress meshsletBufferAddress;
+        VkDeviceAddress meshletVertexBufferAddress;
+        VkDeviceAddress meshletTriangleBufferAddress;
+        uint32_t vertexCount;
+        uint32_t meshletCount;
+        uint32_t meshletVertexCount;
+        uint32_t meshletTriangleCount;
+      } addresses{
+          .objectBufferAddress = fBufs().objects.buffer.address + objectOffset,
+          .materialBufferAddress = m.buffers.materials.buffer.address,
+          .vertexPositionBufferAddress = m.buffers.vertexPositions.buffer.address + vertexPositionOffset,
+          .vertexAttribBufferAddress = m.buffers.vertexAttribs.buffer.address + vertexAttribOffset,
+          .meshsletBufferAddress = m.buffers.meshlets.buffer.address + meshletOffset,
+          .meshletVertexBufferAddress = m.buffers.meshletVertices.buffer.address + meshletVertexOffset,
+          .meshletTriangleBufferAddress = m.buffers.meshletTriangles.buffer.address + meshletTriangleOffset,
+          .vertexCount = meshletInfo.vertexCount,
+          .meshletCount = meshletInfo.meshletCount,
+          .meshletVertexCount = meshletInfo.meshletVertexCount,
+          .meshletTriangleCount = meshletInfo.meshletTriangleCount,
+      };
+
+      vkCmdPushConstants(cmdBuf, m.pipelines.deferred.layout, VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                         sizeof(Addresses), &addresses);
+
+      vkCmdDrawMeshTasksEXT(cmdBuf, objectMeshlets[i].meshletCount, 1, 1);
     }
 
     VK_TRACE("Drew {} objects in deferred pass", drawCount);
@@ -588,6 +615,7 @@ namespace kt::vkh {
                        &addresses);
 
     for (uint32_t i = 0; i < lightInfo.size(); i++) {
+      shadowMapToRenderable(cmdBuf, lightInfo[i].shadowMap.getImage(), true);
       uint32_t drawCount = lightInfo[i].drawCount;
       if (drawCount == 0) {
         shadowMapToShaderRead(cmdBuf, lightInfo[i].shadowMap.getImage(), true);
@@ -596,7 +624,6 @@ namespace kt::vkh {
       KT_PROFILE_SCOPE("Shadow Map Draw Calls");
       KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Draw Shadow Casters");
 
-      shadowMapToRenderable(cmdBuf, lightInfo[i].shadowMap.getImage(), true);
       shadowMapBeginRendering(cmdBuf, lightInfo[i].shadowMap.getImage(), true);
 
       setupCustomViewportAndScissor(cmdBuf, {0, 0}, {constants::SHADOW_MAP_SIZE, constants::SHADOW_MAP_SIZE});

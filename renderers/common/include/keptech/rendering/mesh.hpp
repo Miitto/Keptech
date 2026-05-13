@@ -22,19 +22,33 @@ namespace kt {
   };
 
   struct Meshlet {
+    /// Offset into the meshlet vertex buffer relative to the submesh start
     uint32_t vertexOffset;
+    /// Number of vertices in the meshlet
     uint32_t vertexCount;
+    /// Offset into the meshlet triangle buffer relative to the submesh start
     uint32_t triangleOffset;
+    /// Number of triangles in the meshlet
     uint32_t triangleCount;
+    /// Meshlet bounding sphere in object space
     kt::maths::Sphere boundingSphere;
   };
 
   struct Submesh {
+    /// Offset of the first vertex in the submesh in the global vertex buffer
     int32_t vertexOffset;
+    /// Offset of the first meshlet in the submesh in the global meshlet buffer
     uint32_t meshletOffset;
+    /// Number of meshlets in the submesh
     uint32_t meshletCount;
+    /// Offset of the first meshlet vertex in the submesh in the global meshlet vertex buffer
     uint32_t meshletVertexOffset;
+    /// Offset of the first meshlet triangle in the submesh in the global meshlet triangle buffer
     uint32_t meshletTriangleOffset;
+
+    uint32_t vertexCount;
+    uint32_t meshletVertexCount;
+    uint32_t meshletTriangleCount;
 
     std::optional<rendering::Material> material;
     kt::maths::Sphere boundingSphere;
