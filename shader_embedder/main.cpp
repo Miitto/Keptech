@@ -8,22 +8,34 @@
 
 using namespace kt::shader_processor;
 
+enum CliPos : uint8_t {
+  POS_VAR_NAME = 1,
+  POS_NAMESPACE,
+  POS_INPUT_FILE,
+  POS_OUTPUT_HEADER,
+  POS_OUTPUT_SOURCE,
+  POS_OPT_LEVEL,
+  POS_DEBUG_INFO,
+};
+
 int main(int argc, char** argv) {
-  if (argc < 4 || argc > 6) {
-    std::cerr << "Usage: shader_embedder <var_name> <input_file> <output_file> "
+  if (argc < 6 || argc > 8) {
+    std::cerr << "Usage: shader_embedder <var_name> <namespace> <input_file> <output_header> <output_source> "
                  "[optimization_level (0|1|3)] [debug_info d]\n";
     return -1;
   }
 
-  const char* name = argv[1];
-  const char* inputFile = argv[2];
-  const char* outputFile = argv[3];
+  const char* name = argv[POS_VAR_NAME];
+  const char* ns = argv[POS_NAMESPACE];
+  const char* inputFile = argv[POS_INPUT_FILE];
+  const char* outputHeader = argv[POS_OUTPUT_HEADER];
+  const char* outputSource = argv[POS_OUTPUT_SOURCE];
 
   kt::shader_processor::init();
 
   SessionConfig config;
-  if (argc > 3) {
-    switch (argv[3][0]) {
+  if (argc > POS_OPT_LEVEL) {
+    switch (argv[POS_OPT_LEVEL][0]) {
     case '0':
       config.optimizationLevel = OptimizationLevel::None;
       break;
@@ -38,8 +50,8 @@ int main(int argc, char** argv) {
     }
   }
 
-  if (argc > 4) {
-    config.debugInfo = argv[4][0] == 'd';
+  if (argc > POS_DEBUG_INFO) {
+    config.debugInfo = argv[POS_DEBUG_INFO][0] == 'd';
   }
 
   CompilerSession session(config);
@@ -75,39 +87,43 @@ int main(int argc, char** argv) {
 
   shader.file = inputFile;
 
-  std::ofstream out(outputFile);
+  std::ofstream outHeader(outputHeader);
+  std::ofstream outSource(outputSource);
 
-  out << "#pragma once\n\n#include <keptech/shaders/shader.h>\n";
+  outHeader << "#pragma once\n\n#include <keptech/shaders/shader.h>\n";
+  outHeader << "namespace " << ns << " {\n    extern const kt::shaders::Shader " << name << ";\n}\n";
 
-  out << "kt::shaders::Shader " << name << "{ .name = \"" << name << "\",\n .file = \"" << inputFile << "\",\n .code = {\n";
+  outSource << "#include \"" << std::filesystem::path(outputHeader).filename().string() << "\"\n\n";
+  outSource << "namespace " << ns << "{\n    const kt::shaders::Shader " << name << "{ .name = \"" << name << "\",\n .file = \""
+            << inputFile << "\",\n .code = {\n";
   for (size_t i = 0; i < shader.code.size(); ++i) {
     if (i % 96 == 0) {
-      out << "\n    ";
+      outSource << "\n    ";
     }
-    out << "0x" << std::hex << static_cast<uint32_t>(shader.code[i]);
+    outSource << "0x" << std::hex << static_cast<uint32_t>(shader.code[i]);
     if (i + 1 < shader.code.size()) {
-      out << ", ";
+      outSource << ", ";
     }
   }
-  out << "\n},\n .mode = static_cast<kt::shaders::RenderingMode>(" << std::dec << static_cast<uint32_t>(shader.mode)
-      << "),\n .stages = {\n";
+  outSource << "\n},\n .mode = static_cast<kt::shaders::RenderingMode>(" << std::dec << static_cast<uint32_t>(shader.mode)
+            << "),\n .stages = {\n";
 
   for (auto& stage : shader.stages) {
-    out << "{.name = \"" << stage.name << "\", .stage = static_cast<kt::shaders::ShaderStages>(" << std::dec
-        << static_cast<uint32_t>(stage.stage) << ")},\n";
+    outSource << "{.name = \"" << stage.name << "\", .stage = static_cast<kt::shaders::ShaderStages>(" << std::dec
+              << static_cast<uint32_t>(stage.stage) << ")},\n";
   }
 
-  out << "\n},\n .vertexLayout = {\n";
+  outSource << "\n},\n .vertexLayout = {\n";
 
   for (auto& layout : shader.vertexLayout) {
-    out << "{\n";
+    outSource << "{\n";
     for (auto& type : layout) {
-      out << "    static_cast<kt::shaders::DataType>(" << std::dec << static_cast<uint32_t>(type) << "),\n";
+      outSource << "    static_cast<kt::shaders::DataType>(" << std::dec << static_cast<uint32_t>(type) << "),\n";
     }
-    out << "},\n";
+    outSource << "},\n";
   }
 
-  out << "},\n};\n";
+  outSource << "},\n};\n}";
 
   return 0;
 }

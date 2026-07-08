@@ -21,13 +21,14 @@ target_link_libraries(${PROJECT_NAME}
 include(shaders)
 
 compile_shader(${PROJECT_NAME} SPIRV
+  NAMESPACE shaders
   BASE_DIR
     ${KT_SHADER_DIR}
   OUTPUT_DIR
     keptech
   SOURCES
     basic
-    deferred
+    mesh_shader
     pointLightShadows
     pointLight
     ssao

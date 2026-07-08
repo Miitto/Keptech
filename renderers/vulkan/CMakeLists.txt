@@ -3,10 +3,10 @@ cmake_minimum_required(VERSION 3.15..4.0)
 target_sources(${PROJECT_NAME}
   PUBLIC
     FILE_SET HEADERS
-    BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-add_subdirectory(src)
+add_subdirectory(keptech/vulkan)
 
 link_vulkan(${PROJECT_NAME} PUBLIC)
 

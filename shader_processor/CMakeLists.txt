@@ -13,6 +13,9 @@ target_sources(keptech_shaders
   ${CMAKE_CURRENT_SOURCE_DIR}/include/keptech/shaders/shader.h
 )
 
+include(spdlog)
+link_spdlog(keptech_shaders INTERFACE)
+
 project(Keptech_shader_processor)
 
 add_library(keptech_shader_processor)
@@ -21,7 +24,6 @@ add_library(keptech::shader_processor ALIAS keptech_shader_processor)
 include(slang)
 link_slang(keptech_shader_processor PUBLIC)
 
-include(spdlog)
 link_spdlog(keptech_shader_processor PRIVATE)
 
 target_sources(keptech_shader_processor

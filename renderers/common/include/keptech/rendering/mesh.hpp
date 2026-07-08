@@ -1,10 +1,10 @@
 #pragma once
 
-#include "keptech/rendering/interface.hpp"
 #include "keptech/rendering/material.hpp"
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <keptech/maths/sphere.hpp>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -35,6 +35,7 @@ namespace kt {
   };
 
   struct Submesh {
+    uint32_t indexOffset;
     /// Offset of the first vertex in the submesh in the global vertex buffer
     int32_t vertexOffset;
     /// Offset of the first meshlet in the submesh in the global meshlet buffer
@@ -60,16 +61,14 @@ namespace kt {
     [[nodiscard]] bool isValid() const { return vertexCount > 0; }
     [[nodiscard]] uint32_t getVertexCount() const { return vertexCount; }
     [[nodiscard]] const std::vector<Submesh>& getSubmeshes() const { return submeshes; }
-    [[nodiscard]] const rendering::RendererMesh& getRMesh() const { return rMesh; }
-    rendering::RendererMesh& getRMesh() { return rMesh; }
 
 #ifdef KT_ADD_RESOURCE_INFO
     std::string& getDebugName() { return name; }
 #endif
 
     Mesh() = default;
-    Mesh(uint32_t vertexCount, rendering::RendererMesh rData, std::vector<Submesh> submeshes, std::string name = {})
-        : vertexCount(vertexCount), rMesh(std::move(rData)), submeshes(std::move(submeshes))
+    Mesh(uint32_t vertexCount, std::vector<Submesh> submeshes, std::string name = {})
+        : vertexCount(vertexCount), submeshes(std::move(submeshes))
 #ifdef KT_ADD_RESOURCE_INFO
           ,
           name(std::move(name))
@@ -79,7 +78,6 @@ namespace kt {
 
   protected:
     uint32_t vertexCount = 0;
-    rendering::RendererMesh rMesh;
     std::vector<Submesh> submeshes;
 
 #ifdef KT_ADD_RESOURCE_INFO

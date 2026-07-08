@@ -6,26 +6,10 @@ __include fullscreen;
 __include lighting;
 __include textures;
 __include maths;
+__include vertex;
+__include buffers;
 
 public namespace kt {
-public struct VertexAttribs {
-  public float4 tangent;
-  public float3 normal;
-  half2 packedUv;
-
-  public property float2 uv {
-    get { return packedUv; }
-  }
-};
-
-public struct Meshlet {
-  public uint vertexOffset;
-  public uint vertexCount;
-  public uint triangleOffset;
-  public uint triangleCount;
-  public float3 center;
-  public float radius;
-};
 
 [[vk::binding(0, 0)]]
 public ConstantBuffer<Camera> camera : register(b0);

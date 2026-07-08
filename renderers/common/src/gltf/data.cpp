@@ -1,8 +1,8 @@
 #include "keptech/rendering/gltf/data.hpp"
 
-#include "keptech/core/fastgltf_formatting.hpp"
 #include "keptech/core/kt-logger.hpp"
 #include "keptech/rendering/constants.hpp"
+#include <algorithm>
 #include <execution>
 #include <fastgltf/core.hpp>
 #include <fastgltf/glm_element_traits.hpp>
@@ -11,9 +11,243 @@
 #include <keptech/core/profile.hpp>
 #include <meshoptimizer.h>
 #include <ranges>
+#include <vector>
 
 namespace kt::gltf {
   namespace {
+    struct Vertex {
+      glm::vec3 position;
+      glm::vec2 uv;
+      glm::vec3 normal;
+      glm::vec4 tangent;
+    };
+
+    size_t findBaseColorTexIndex(const fastgltf::Asset& asset, const fastgltf::Primitive& primitive) {
+      size_t baseColorTexIndex = 0;
+      if (primitive.materialIndex.has_value()) {
+        auto& material = asset.materials[primitive.materialIndex.value()];
+        if (material.pbrData.baseColorTexture.has_value()) {
+          auto& texInfo = material.pbrData.baseColorTexture.value();
+          if (texInfo.transform && texInfo.transform->texCoordIndex.has_value()) {
+            baseColorTexIndex = texInfo.transform->texCoordIndex.value();
+          }
+        }
+      }
+      return baseColorTexIndex;
+    }
+
+    void parseVertices(const fastgltf::Asset& asset, const fastgltf::Primitive& primitive, std::vector<uint32_t>& indices,
+                       std::vector<Vertex>& vertices, Submesh& submesh, uint32_t baseColorTexIndex) {
+      // Indices
+      {
+        auto& indicesAccessor = asset.accessors[primitive.indicesAccessor.value()];
+        indices.reserve(indicesAccessor.count);
+        submesh.index.count = static_cast<uint32_t>(indicesAccessor.count);
+
+        fastgltf::iterateAccessor<uint32_t>(asset, indicesAccessor, [&](uint32_t index) { indices.push_back(index); });
+      }
+
+      // Positions
+      {
+        auto& posAccessor = asset.accessors[primitive.findAttribute("POSITION")->accessorIndex];
+        vertices.resize(posAccessor.count);
+        submesh.vertex.count = static_cast<uint32_t>(posAccessor.count);
+
+        glm::vec3 minPos{std::numeric_limits<float>::max()};
+        glm::vec3 maxPos{std::numeric_limits<float>::lowest()};
+        fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, posAccessor, [&](glm::vec3 position, size_t index) {
+          position.x = -position.x;
+          vertices[index].position = position;
+
+          minPos.x = std::min(minPos.x, position.x);
+          minPos.y = std::min(minPos.y, position.y);
+          minPos.z = std::min(minPos.z, position.z);
+          maxPos.x = std::max(maxPos.x, position.x);
+          maxPos.y = std::max(maxPos.y, position.y);
+          maxPos.z = std::max(maxPos.z, position.z);
+        });
+
+        submesh.boundingSphere.center = (minPos + maxPos) * 0.5f;
+        glm::vec3 maxExtent = abs(minPos);
+        maxExtent.x = std::max(maxExtent.x, abs(maxPos.x));
+        maxExtent.y = std::max(maxExtent.y, abs(maxPos.y));
+        maxExtent.z = std::max(maxExtent.z, abs(maxPos.z));
+
+        glm::vec3 radiusVec = maxExtent - submesh.boundingSphere.center;
+        float radius = glm::length(radiusVec);
+
+        submesh.boundingSphere.radius = radius;
+      }
+
+      // Normals
+      {
+        auto normals = primitive.findAttribute("NORMAL");
+        if (normals != primitive.attributes.end()) {
+          auto& normalAccessor = asset.accessors[normals->accessorIndex];
+
+          fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, normalAccessor, [&](glm::vec3 normal, size_t index) {
+            normal.x = -normal.x;
+            vertices[index].normal = normal;
+          });
+        }
+      }
+
+      // UVs
+      {
+        auto uvs = primitive.findAttribute(fmt::format("TEXCOORD_{}", baseColorTexIndex));
+        if (uvs != primitive.attributes.end()) {
+          auto& uvAccessor = asset.accessors[uvs->accessorIndex];
+
+          fastgltf::iterateAccessorWithIndex<glm::vec2>(asset, uvAccessor, [&](glm::vec2 uv, size_t index) { vertices[index].uv = uv; });
+        }
+      }
+
+      // Tangents
+      {
+        auto tangents = primitive.findAttribute("TANGENT");
+        if (tangents != primitive.attributes.end()) {
+          auto& tangentAccessor = asset.accessors[tangents->accessorIndex];
+
+          fastgltf::iterateAccessorWithIndex<glm::vec4>(asset, tangentAccessor, [&](glm::vec4 tangent, size_t index) {
+            tangent.x = -tangent.x;
+            tangent.w = -tangent.w; // Flip handedness
+            vertices[index].tangent = tangent;
+          });
+        }
+      }
+    }
+
+    struct OptimisedMeshData {
+      std::vector<Vertex> vertices;
+      std::vector<uint32_t> indices;
+    };
+
+    OptimisedMeshData optimiseMeshData(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
+      OptimisedMeshData result;
+
+      std::vector<uint32_t> remap(vertices.size());
+      size_t uniqueVertexCount =
+          meshopt_generateVertexRemap(remap.data(), indices.data(), indices.size(), vertices.data(), vertices.size(), sizeof(Vertex));
+
+      result.vertices.resize(uniqueVertexCount);
+      result.indices.resize(indices.size());
+
+      meshopt_remapIndexBuffer(result.indices.data(), indices.data(), indices.size(), remap.data());
+      meshopt_remapVertexBuffer(result.vertices.data(), vertices.data(), vertices.size(), sizeof(Vertex), remap.data());
+
+      meshopt_optimizeVertexCache(result.indices.data(), result.indices.data(), result.indices.size(), uniqueVertexCount);
+      meshopt_optimizeOverdraw(result.indices.data(), result.indices.data(), result.indices.size(), &result.vertices[0].position.x,
+                               uniqueVertexCount, sizeof(Vertex), 1.05f);
+      meshopt_optimizeVertexFetch(result.vertices.data(), result.indices.data(), result.indices.size(), result.vertices.data(),
+                                  result.vertices.size(), sizeof(Vertex));
+
+      return result;
+    }
+
+    struct MeshletData {
+      std::vector<Meshlet> meshlets;
+      std::vector<uint32_t> vertices;
+      std::vector<uint8_t> triangles;
+    };
+
+    MeshletData generateMeshlets(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
+      std::vector<meshopt_Meshlet> meshlets;
+      MeshletData result;
+
+      size_t maxMeshlets = meshopt_buildMeshletsBound(indices.size(), constants::VERTICES_PER_MESHLET, constants::PRIMITIVES_PER_MESHLET);
+      meshlets.resize(maxMeshlets);
+      result.vertices.resize(indices.size());
+      result.triangles.resize(indices.size());
+
+      size_t meshletCount =
+          meshopt_buildMeshletsScan(meshlets.data(), result.vertices.data(), result.triangles.data(), indices.data(), indices.size(),
+                                    vertices.size(), constants::VERTICES_PER_MESHLET, constants::PRIMITIVES_PER_MESHLET);
+
+      const auto& last = meshlets[meshletCount - 1];
+
+      result.vertices.resize(last.vertex_offset + last.vertex_count);
+      result.triangles.resize(last.triangle_offset + last.triangle_count * 3);
+      meshlets.resize(meshletCount);
+
+      for (const auto& meshlet : meshlets) {
+        meshopt_optimizeMeshlet(&result.vertices[meshlet.vertex_offset], &result.triangles[meshlet.triangle_offset], meshlet.triangle_count,
+                                meshlet.vertex_count);
+
+        auto bounds = meshopt_computeMeshletBounds(&result.vertices[meshlet.vertex_offset], &result.triangles[meshlet.triangle_offset],
+                                                   meshlet.triangle_count, &vertices[0].position.x, vertices.size(), sizeof(Vertex));
+
+        Meshlet m{
+            .vertexOffset = static_cast<uint32_t>(meshlet.vertex_offset),
+            .vertexCount = meshlet.vertex_count,
+            .triangleOffset = static_cast<uint32_t>(meshlet.triangle_offset),
+            .triangleCount = meshlet.triangle_count,
+            .boundingSphere = {.center = {bounds.center[0], bounds.center[1], bounds.center[2]}, .radius = bounds.radius},
+        };
+
+        result.meshlets.push_back(m);
+      }
+
+      return result;
+    }
+
+    struct PrimativeData {
+      Submesh submesh{};
+      OptimisedMeshData mesh{};
+      MeshletData meshlet{};
+    };
+
+    PrimativeData processPrimitive(const fastgltf::Asset& asset, const fastgltf::Primitive& primitive, const MeshData& data) {
+      std::vector<Vertex> vertices;
+      std::vector<uint32_t> indices;
+
+      /// Offset into the mesh's vertex buffer for this submesh
+      uint32_t vertexOffset = static_cast<uint32_t>(data.positions.size());
+      /// Offset into the mesh's index buffer for this submesh
+      uint32_t indexOffset = static_cast<uint32_t>(data.vertexAttribs.size());
+      /// Offset into the mesh's meshlet buffer for this submesh
+      uint32_t meshletOffset = static_cast<uint32_t>(data.meshlets.size());
+      /// Offset into the mesh's meshlet vertex buffer for this submesh
+      uint32_t meshletVertexOffset = static_cast<uint32_t>(data.meshletVertices.size());
+      /// Offset into the mesh's meshlet triangle buffer for this submesh
+      uint32_t meshletTriangleOffset = static_cast<uint32_t>(data.meshletTriangles.size());
+
+      Submesh submesh{
+          .vertex =
+              {
+                  .offset = vertexOffset,
+              },
+          .index =
+              {
+                  .offset = indexOffset,
+              },
+          .meshlet =
+              {
+                  .offset = meshletOffset,
+                  .vertexOffset = meshletVertexOffset,
+                  .triangleOffset = meshletTriangleOffset,
+              },
+          .materialIndex = static_cast<uint32_t>(primitive.materialIndex.value_or(0)),
+      };
+
+      size_t baseColorTexIndex = findBaseColorTexIndex(asset, primitive);
+
+      parseVertices(asset, primitive, indices, vertices, submesh, baseColorTexIndex);
+
+      auto optimisedData = optimiseMeshData(vertices, indices);
+
+      auto meshletData = generateMeshlets(optimisedData.vertices, optimisedData.indices);
+
+      submesh.meshlet.count = static_cast<uint32_t>(meshletData.meshlets.size());
+      submesh.meshlet.vertexCount = static_cast<uint32_t>(meshletData.vertices.size());
+      submesh.meshlet.triangleCount = static_cast<uint32_t>(meshletData.triangles.size());
+
+      return PrimativeData{
+          .submesh = submesh,
+          .mesh = std::move(optimisedData),
+          .meshlet = std::move(meshletData),
+      };
+    }
+
     void loadMeshData(fastgltf::Asset& asset, Data& gltf) {
       KT_PROFILE_FUNCTION
       size_t startMeshCount = gltf.meshes.size();
@@ -21,218 +255,44 @@ namespace kt::gltf {
 
       auto enumView = std::views::enumerate(asset.meshes);
 
-      struct Vertex {
-        glm::vec3 position;
-        glm::vec2 uv;
-        glm::vec3 normal;
-        glm::vec4 tangent;
-      };
-
       std::for_each(std::execution::par, enumView.begin(), enumView.end(), [&](const std::tuple<size_t, fastgltf::Mesh&>& meshTuple) {
         auto& [meshIndex, mesh] = meshTuple;
-        std::vector<Vertex> meshVertices;
-        std::vector<Submesh> submeshes;
-        std::vector<Meshlet> meshMeshlets;
-        std::vector<uint32_t> meshMeshletVertices;
-        std::vector<uint32_t> meshMeshletTriangles;
-
-        submeshes.reserve(mesh.primitives.size());
-
-        for (auto& primitive : mesh.primitives) {
-          Submesh submesh{
-              .vertexOffset = static_cast<uint32_t>(meshVertices.size()),
-              .materialIndex = static_cast<uint32_t>(primitive.materialIndex.value_or(0)),
-              .meshletOffset = static_cast<uint32_t>(meshMeshlets.size()),
-              .meshletVertexOffset = static_cast<uint32_t>(meshMeshletVertices.size()),
-              .meshletTriangleOffset = static_cast<uint32_t>(meshMeshletTriangles.size()),
-          };
-          submeshes.push_back(submesh);
-
-          size_t baseColorTexIndex = 0;
-          if (primitive.materialIndex.has_value()) {
-            auto& material = asset.materials[primitive.materialIndex.value()];
-            if (material.pbrData.baseColorTexture.has_value()) {
-              auto& texInfo = material.pbrData.baseColorTexture.value();
-              if (texInfo.transform && texInfo.transform->texCoordIndex.has_value()) {
-                baseColorTexIndex = texInfo.transform->texCoordIndex.value();
-              }
-            }
-          }
-
-          std::vector<Vertex> vertices;
-          std::vector<uint32_t> indices;
-
-          // Indices
-          {
-            auto& indicesAccessor = asset.accessors[primitive.indicesAccessor.value()];
-            indices.reserve(indicesAccessor.count);
-
-            fastgltf::iterateAccessor<uint32_t>(asset, indicesAccessor, [&](uint32_t index) { indices.push_back(index); });
-          }
-
-          // Positions
-          {
-            auto& posAccessor = asset.accessors[primitive.findAttribute("POSITION")->accessorIndex];
-            vertices.resize(posAccessor.count);
-
-            submeshes.back().vertexCount = static_cast<uint32_t>(vertices.size());
-
-            glm::vec3 minPos{std::numeric_limits<float>::max()};
-            glm::vec3 maxPos{std::numeric_limits<float>::lowest()};
-            fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, posAccessor, [&](glm::vec3 position, size_t index) {
-              position.x = -position.x;
-              vertices[index].position = position;
-
-              minPos.x = std::min(minPos.x, position.x);
-              minPos.y = std::min(minPos.y, position.y);
-              minPos.z = std::min(minPos.z, position.z);
-              maxPos.x = std::max(maxPos.x, position.x);
-              maxPos.y = std::max(maxPos.y, position.y);
-              maxPos.z = std::max(maxPos.z, position.z);
-            });
-
-            submeshes.back().boundingSphere.center = (minPos + maxPos) * 0.5f;
-            glm::vec3 maxExtent = abs(minPos);
-            maxExtent.x = std::max(maxExtent.x, abs(maxPos.x));
-            maxExtent.y = std::max(maxExtent.y, abs(maxPos.y));
-            maxExtent.z = std::max(maxExtent.z, abs(maxPos.z));
-
-            glm::vec3 radiusVec = maxExtent - submeshes.back().boundingSphere.center;
-            float radius = glm::length(radiusVec);
-
-            submeshes.back().boundingSphere.radius = radius;
-          }
-
-          // Normals
-          {
-            auto normals = primitive.findAttribute("NORMAL");
-            if (normals != primitive.attributes.end()) {
-              auto& normalAccessor = asset.accessors[normals->accessorIndex];
-
-              fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, normalAccessor, [&](glm::vec3 normal, size_t index) {
-                normal.x = -normal.x;
-                vertices[index].normal = normal;
-              });
-            }
-          }
-
-          // UVs
-          {
-            auto uvs = primitive.findAttribute(fmt::format("TEXCOORD_{}", baseColorTexIndex));
-            if (uvs != primitive.attributes.end()) {
-              auto& uvAccessor = asset.accessors[uvs->accessorIndex];
-
-              fastgltf::iterateAccessorWithIndex<glm::vec2>(asset, uvAccessor,
-                                                            [&](glm::vec2 uv, size_t index) { vertices[index].uv = uv; });
-            }
-          }
-
-          // Tangents
-          {
-            auto tangents = primitive.findAttribute("TANGENT");
-            if (tangents != primitive.attributes.end()) {
-              auto& tangentAccessor = asset.accessors[tangents->accessorIndex];
-
-              fastgltf::iterateAccessorWithIndex<glm::vec4>(asset, tangentAccessor, [&](glm::vec4 tangent, size_t index) {
-                tangent.x = -tangent.x;
-                tangent.w = -tangent.w; // Flip handedness
-                vertices[index].tangent = tangent;
-              });
-            }
-          }
-
-          std::vector<uint32_t> remap(vertices.size());
-          size_t vertexCount =
-              meshopt_generateVertexRemap(remap.data(), indices.data(), indices.size(), vertices.data(), vertices.size(), sizeof(Vertex));
-
-          std::vector<uint32_t> remappedIndices(indices.size());
-          std::vector<Vertex> remappedVertices(vertexCount);
-
-          meshopt_remapIndexBuffer(remappedIndices.data(), indices.data(), indices.size(), remap.data());
-          meshopt_remapVertexBuffer(remappedVertices.data(), vertices.data(), vertices.size(), sizeof(Vertex), remap.data());
-
-          meshopt_optimizeVertexCache(remappedIndices.data(), remappedIndices.data(), remappedIndices.size(), vertexCount);
-          meshopt_optimizeOverdraw(remappedIndices.data(), remappedIndices.data(), remappedIndices.size(), &remappedVertices[0].position.x,
-                                   vertexCount, sizeof(Vertex), 1.05f);
-          meshopt_optimizeVertexFetch(remappedVertices.data(), remappedIndices.data(), remappedIndices.size(), remappedVertices.data(),
-                                      remappedVertices.size(), sizeof(Vertex));
-
-          size_t maxMeshlets =
-              meshopt_buildMeshletsBound(remappedIndices.size(), constants::VERTICES_PER_MESHLET, constants::PRIMITIVES_PER_MESHLET);
-          std::vector<meshopt_Meshlet> meshlets(maxMeshlets);
-          std::vector<uint32_t> meshletVertices(remappedIndices.size());
-          std::vector<uint8_t> meshletPrimitives8(remappedIndices.size());
-          std::vector<uint32_t> meshletPrimitives(remappedIndices.size());
-
-          size_t meshletCount = meshopt_buildMeshletsScan(meshlets.data(), meshletVertices.data(), meshletPrimitives8.data(),
-                                                          remappedIndices.data(), remappedIndices.size(), vertexCount,
-                                                          constants::VERTICES_PER_MESHLET, constants::PRIMITIVES_PER_MESHLET);
-
-          const auto& last = meshlets[meshletCount - 1];
-
-          meshletVertices.resize(last.vertex_offset + last.vertex_count);
-          meshletPrimitives.resize(last.triangle_offset + last.triangle_count * 3);
-          meshlets.resize(meshletCount);
-
-          submeshes.back().meshletCount = static_cast<uint32_t>(meshletCount);
-          submeshes.back().meshletVertexCount = static_cast<uint32_t>(meshletVertices.size());
-          submeshes.back().meshletTriangleCount = static_cast<uint32_t>(meshletPrimitives.size());
-
-          meshVertices.insert(meshVertices.end(), remappedVertices.begin(), remappedVertices.end());
-
-          meshMeshlets.reserve(meshMeshlets.size() + meshletCount);
-          for (const auto& meshlet : meshlets) {
-            meshopt_optimizeMeshlet(&meshletVertices[meshlet.vertex_offset], &meshletPrimitives8[meshlet.triangle_offset],
-                                    meshlet.triangle_count, meshlet.vertex_count);
-          }
-
-          for (size_t i = 0; i < meshletPrimitives8.size(); ++i) {
-            meshletPrimitives[i] = meshletPrimitives8[i];
-          }
-
-          for (const auto& meshlet : meshlets) {
-            auto bounds =
-                meshopt_computeMeshletBounds(&meshletVertices[meshlet.vertex_offset], &meshletPrimitives8[meshlet.triangle_offset],
-                                             meshlet.triangle_count, &remappedVertices[0].position.x, vertexCount, sizeof(Vertex));
-
-            Meshlet m{
-                .vertexOffset = static_cast<uint32_t>(meshlet.vertex_offset),
-                .vertexCount = meshlet.vertex_count,
-                .triangleOffset = static_cast<uint32_t>(meshlet.triangle_offset),
-                .triangleCount = meshlet.triangle_count,
-                .boundingSphere = {.center = {bounds.center[0], bounds.center[1], bounds.center[2]}, .radius = bounds.radius},
-            };
-
-            meshMeshlets.push_back(m);
-          }
-
-          meshMeshletVertices.insert(meshMeshletVertices.end(), meshletVertices.begin(), meshletVertices.end());
-          meshMeshletTriangles.insert(meshMeshletTriangles.end(), meshletPrimitives.begin(), meshletPrimitives.end());
-        }
-
-        std::vector<glm::vec3> positions(meshVertices.size());
-        std::vector<VertexAttribs> vertexAttribs(meshVertices.size());
-
-        for (size_t i = 0; i < meshVertices.size(); ++i) {
-          positions[i] = meshVertices[i].position;
-          vertexAttribs[i] = VertexAttribs{
-              .tangent = meshVertices[i].tangent,
-              .normal = meshVertices[i].normal,
-              .encodedUv = VertexAttribs::encodeUv(meshVertices[i].uv),
-          };
-        }
-
-        MeshData meshData{
+        MeshData data{
             .name = std::string(mesh.name),
-            .positions = std::move(positions),
-            .vertexAttribs = std::move(vertexAttribs),
-            .submeshes = std::move(submeshes),
-            .meshlets = std::move(meshMeshlets),
-            .meshletVertices = std::move(meshMeshletVertices),
-            .meshletTriangles = std::move(meshMeshletTriangles),
         };
 
-        gltf.meshes[startMeshCount + meshIndex] = std::move(meshData);
+        data.submeshes.reserve(mesh.primitives.size());
+
+        for (auto& primitive : mesh.primitives) {
+          auto prim = processPrimitive(asset, primitive, data);
+
+          // Write out base mesh data
+          data.indices.reserve(data.indices.size() + prim.mesh.indices.size());
+          data.positions.reserve(data.positions.size() + prim.mesh.vertices.size());
+          data.vertexAttribs.reserve(data.vertexAttribs.size() + prim.mesh.vertices.size());
+          for (const auto& vertex : prim.mesh.vertices) {
+            data.positions.push_back(vertex.position);
+            data.vertexAttribs.push_back(VertexAttribs{
+                .tangent = vertex.tangent,
+                .normal = vertex.normal,
+                .encodedUv = VertexAttribs::encodeUv(vertex.uv),
+            });
+          }
+
+          std::vector<uint32_t> meshletTriangles32(prim.meshlet.triangles.size());
+          std::ranges::transform(prim.meshlet.triangles, meshletTriangles32.begin(),
+                                 [](uint8_t triangle) { return static_cast<uint32_t>(triangle); });
+
+          // Write out meshlet data
+          data.meshlets.reserve(data.meshlets.size() + prim.meshlet.meshlets.size());
+          data.meshletVertices.reserve(data.meshletVertices.size() + prim.meshlet.vertices.size());
+          data.meshletTriangles.reserve(data.meshletTriangles.size() + meshletTriangles32.size());
+          data.meshlets.insert(data.meshlets.end(), prim.meshlet.meshlets.begin(), prim.meshlet.meshlets.end());
+          data.meshletVertices.insert(data.meshletVertices.end(), prim.meshlet.vertices.begin(), prim.meshlet.vertices.end());
+          data.meshletTriangles.insert(data.meshletTriangles.end(), meshletTriangles32.begin(), meshletTriangles32.end());
+        }
+
+        gltf.meshes[startMeshCount + meshIndex] = std::move(data);
       });
 
       KT_DEBUG("Loaded {} meshes", asset.meshes.size());

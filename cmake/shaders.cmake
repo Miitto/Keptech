@@ -7,7 +7,7 @@ set(KT_SHADER_OPT_LEVEL_DEBUG "0" CACHE STRING "Optimization level for shader co
 set(KT_SHADER_OPT_LEVEL_RELEASE "3" CACHE STRING "Optimization level for shader compilation in Release mode")
 
 function(compile_shader target shader_target)
-  set(SINGLEVALUE BASE_DIR OUTPUT_DIR)
+  set(SINGLEVALUE NAMESPACE BASE_DIR OUTPUT_DIR)
   set(MULTIVALUE SOURCES INCLUDES)
   cmake_parse_arguments(PARSE_ARGV 0 arg "" "${SINGLEVALUE}" "${MULTIVALUE}")
 
@@ -23,7 +23,6 @@ function(compile_shader target shader_target)
     set(BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
   endif()
 
-  set(OUTPUTS "")
   set(INCLUDED_FILES "${KT_SHADERS}")
 
   foreach(file ${arg_INCLUDES})
@@ -33,34 +32,38 @@ function(compile_shader target shader_target)
   file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
 
   set(OUT_HEADERS "")
+  set(OUT_SOURCES "")
 
   foreach(source ${arg_SOURCES})
     set(IN_FILE ${BASE_DIR}/${source}.slang)
     if (arg_OUTPUT_DIR)
-      set(OUT_FILE ${CMAKE_BINARY_DIR}/shaders/gen/shaders/${arg_OUTPUT_DIR}/${source}.h)
+      set(OUT_HEADER ${CMAKE_BINARY_DIR}/shaders/gen/shaders/${arg_OUTPUT_DIR}/${source}.h)
+      set(OUT_SOURCE ${CMAKE_BINARY_DIR}/shaders/gen/shaders/${arg_OUTPUT_DIR}/${source}.cpp)
     else()
-      set(OUT_FILE ${CMAKE_BINARY_DIR}/shaders/gen/shaders/${source}.h)
+      set(OUT_HEADER ${CMAKE_BINARY_DIR}/shaders/gen/shaders/${source}.h)
+      set(OUT_SOURCE ${CMAKE_BINARY_DIR}/shaders/gen/shaders/${source}.cpp)
     endif()
 
     add_custom_command(
-      OUTPUT ${OUT_FILE}
+      OUTPUT ${OUT_HEADER} ${OUT_SOURCE}
       DEPENDS ${IN_FILE} ${INCLUDED_FILES} Keptech_shader_embedder
-      COMMAND Keptech_shader_embedder ${source} ${IN_FILE} ${OUT_FILE}
+      COMMAND Keptech_shader_embedder ${source} ${arg_NAMESPACE} ${IN_FILE} ${OUT_HEADER} ${OUT_SOURCE}
       $<$<CONFIG:DEBUG>:${KT_SHADER_OPT_LEVEL_DEBUG}>$<$<CONFIG:RELWITHDEBINFO>:${KT_SHADER_OPT_LEVEL_RELEASE}>$<$<CONFIG:RELEASE>:${KT_SHADER_OPT_LEVEL_RELEASE}>
       $<$<CONFIG:DEBUG>:d>$<$<CONFIG:RELWITHDEBINFO>:d>
-      COMMENT "Compiling shader [$<$<CONFIG:DEBUG>:${KT_SHADER_OPT_LEVEL_DEBUG}>$<$<CONFIG:RELWITHDEBINFO>:${KT_SHADER_OPT_LEVEL_RELEASE}>$<$<CONFIG:RELEASE>:${KT_SHADER_OPT_LEVEL_RELEASE}>] [$<$<CONFIG:DEBUG>:d>$<$<CONFIG:RELWITHDEBINFO>:d>]: ${IN_FILE} -> ${OUT_FILE}"
+      COMMENT "Compiling shader [$<$<CONFIG:DEBUG>:${KT_SHADER_OPT_LEVEL_DEBUG}>$<$<CONFIG:RELWITHDEBINFO>:${KT_SHADER_OPT_LEVEL_RELEASE}>$<$<CONFIG:RELEASE>:${KT_SHADER_OPT_LEVEL_RELEASE}>] [$<$<CONFIG:DEBUG>:d>$<$<CONFIG:RELWITHDEBINFO>:d>]: ${IN_FILE} -> ${OUT_HEADER}"
       VERBATIM
     )
 
-    list(APPEND OUT_HEADERS ${OUT_FILE})
+    list(APPEND OUT_HEADERS ${OUT_HEADER})
+    list(APPEND OUT_SOURCES ${OUT_SOURCE})
   endforeach()
 
-  add_custom_target(${target}_shaders
-    DEPENDS ${OUT_HEADERS}
-    COMMENT "Embedding shaders into headers for target ${target}"
-  )
+  set_source_files_properties(${OUT_HEADERS} ${OUT_SOURCES} PROPERTIES GENERATED TRUE)
 
-  add_dependencies(${target} ${target}_shaders)
+  add_library(${target}_shaders)
+  target_link_libraries(${target}_shaders PUBLIC keptech::shaders)
 
-  target_include_directories(${target} PRIVATE ${CMAKE_BINARY_DIR}/shaders/gen)
+  target_sources(${target}_shaders PUBLIC FILE_SET HEADERS BASE_DIRS ${CMAKE_BINARY_DIR}/shaders/gen FILES ${OUT_HEADERS} PRIVATE ${OUT_SOURCES})
+
+  target_link_libraries(${target} PRIVATE ${target}_shaders)
 endfunction()

@@ -12,27 +12,38 @@
 namespace kt::gltf {
 
   struct Submesh {
-    /// Offset into the vertex buffer relative to the Mesh start
-    uint32_t vertexOffset;
-    uint32_t materialIndex;
-    /// Number of meshlets in the submesh
-    uint32_t meshletCount;
-    /// Offset into the meshlet buffer relative to the Mesh start
-    uint32_t meshletOffset;
-    /// Offset of the first meshlet vertex relative to the Mesh start
-    uint32_t meshletVertexOffset;
-    /// Offset of the first meshlet triangle relative to the Mesh start
-    uint32_t meshletTriangleOffset;
+    struct BaseInfo {
+      uint32_t count;
+      /// Offset into the mesh's data
+      uint32_t offset;
+    };
 
-    uint32_t vertexCount;
-    uint32_t meshletVertexCount;
-    uint32_t meshletTriangleCount;
+    BaseInfo vertex;
+    BaseInfo index;
+
+    struct MeshletInfo {
+      /// Number of meshlets in this submesh
+      uint32_t count;
+      /// Offset into the mesh's meshlet data
+      uint32_t offset;
+      /// Offset into the mesh's meshlet vertex data
+      uint32_t vertexOffset;
+      /// Offset into the mesh's meshlet triangle data
+      uint32_t triangleOffset;
+      /// Number of vertex indices in this submesh's meshlets
+      uint32_t vertexCount;
+      /// Number of triangle indices in this submesh's meshlets
+      uint32_t triangleCount;
+    } meshlet;
+
+    uint32_t materialIndex;
 
     kt::maths::Sphere boundingSphere;
   };
 
   struct MeshData {
     std::string name;
+    std::vector<uint32_t> indices;
     std::vector<glm::vec3> positions;
     std::vector<kt::VertexAttribs> vertexAttribs;
     std::vector<Submesh> submeshes;

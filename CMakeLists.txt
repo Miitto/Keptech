@@ -72,3 +72,4 @@ add_subdirectory(vendor/imgui imgui)
 add_subdirectory(vendor/stb stb)
 
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
