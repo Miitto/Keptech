@@ -11,6 +11,7 @@ public struct Buffers {
   public Meshlet *meshlets;
   public uint *meshletVertices;
   public uint *meshletTriangles;
+  public Material *materials;
 };
 
 [[vk::binding(2, 0)]]

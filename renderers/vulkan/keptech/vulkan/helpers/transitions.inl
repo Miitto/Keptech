@@ -4,7 +4,7 @@ consteval VkImageAspectFlags toVkImageAspectFlags(ImageType t) {
   case ImageType::Color:
     return VK_IMAGE_ASPECT_COLOR_BIT;
   case ImageType::DepthStencil:
-    return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    return VK_IMAGE_ASPECT_DEPTH_BIT;
   default:
     return 0;
   }

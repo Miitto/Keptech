@@ -56,6 +56,10 @@ namespace kt::vkh {
       return reinterpret_cast<T*>(buffer.mapping(offset));
     }
 
+    void write(const T& value) {
+      memcpy(end(), &value, sizeof(T));
+      count++;
+    }
     void write(const std::span<const T> data) {
       if (data.empty())
         return;

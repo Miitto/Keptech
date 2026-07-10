@@ -290,6 +290,8 @@ namespace kt::gltf {
           data.meshlets.insert(data.meshlets.end(), prim.meshlet.meshlets.begin(), prim.meshlet.meshlets.end());
           data.meshletVertices.insert(data.meshletVertices.end(), prim.meshlet.vertices.begin(), prim.meshlet.vertices.end());
           data.meshletTriangles.insert(data.meshletTriangles.end(), meshletTriangles32.begin(), meshletTriangles32.end());
+
+          data.submeshes.push_back(prim.submesh);
         }
 
         gltf.meshes[startMeshCount + meshIndex] = std::move(data);

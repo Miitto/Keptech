@@ -218,7 +218,7 @@ namespace kt::vkh::setup {
                   .colorAttachments({formats.render.albedo, formats.render.normal, formats.render.emissive, formats.render.metRought})
                   .depthAttachment(formats.render.depth)
                   .vertexInput(Shader::getVertexInput(::shaders::mesh_shader))
-                  .cullMode(VK_CULL_MODE_BACK_BIT)
+                  //.cullMode(VK_CULL_MODE_BACK_BIT)
                   .depthTest()
                   .noBlending(),
           .pointLightShadows = GraphicsPipelineConfig{}
@@ -253,7 +253,7 @@ namespace kt::vkh::setup {
                   .pushConstantRanges = {{
                       .stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
                       .offset = 0,
-                      .size = sizeof(VkDeviceAddress) * 7 + sizeof(uint32_t) * 5,
+                      .size = sizeof(glm::mat4) + (sizeof(uint32_t) * 2), // model matrix + material index + meshlet count
                   }},
               },
           .pointLightShadowsLayout =

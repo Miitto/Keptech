@@ -8,6 +8,7 @@ __include textures;
 __include maths;
 __include vertex;
 __include buffers;
+__include material;
 
 public namespace kt {
 

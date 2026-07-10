@@ -94,6 +94,23 @@ namespace kt::vkh::setup {
       };
     }
 
+    GpuMaterial defaultMaterial{
+        .albedo = ~0u,
+        .bump = ~0u,
+        .emissive = ~0u,
+        .metRough = ~0u,
+        .albedoFactor = glm::vec4(1.0f),
+        .emissiveFactor = glm::vec3(0.0f),
+        .ao = ~0u,
+        .metFactor = 1.0f,
+        .roughFactor = 1.0f,
+        .specFactor = 1.0f,
+        .alphaCutoff = 0.0f,
+    };
+
+    SubdivBuffer<GpuMaterial> gpuMaterials{materialBuffer};
+    gpuMaterials.write(defaultMaterial);
+
     return std::move(Buffers{
         .camera = {camera, vkcore.allocator, vkcore.device.logical},
         .addresses = {addresses, vkcore.allocator, vkcore.device.logical},
@@ -104,7 +121,7 @@ namespace kt::vkh::setup {
         .meshlets = {meshletBuffer, vkcore.allocator, vkcore.device.logical},
         .meshletVertices = {meshletVertexBuffer, vkcore.allocator, vkcore.device.logical},
         .meshletTriangles = {meshletPrimitiveBuffer, vkcore.allocator, vkcore.device.logical},
-        .materials = {materialBuffer, vkcore.allocator, vkcore.device.logical},
+        .materials = {gpuMaterials, vkcore.allocator, vkcore.device.logical},
         .perFrame = std::move(perFrameBuffers),
     });
   }

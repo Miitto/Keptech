@@ -49,6 +49,7 @@ namespace kt {
       VkDeviceAddress meshlets;
       VkDeviceAddress meshletVertices;
       VkDeviceAddress meshletTriangles;
+      VkDeviceAddress materials;
     };
   } // namespace vkh
 } // namespace kt

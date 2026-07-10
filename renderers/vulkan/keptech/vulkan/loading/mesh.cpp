@@ -180,19 +180,45 @@ namespace kt::vkh::loading {
     size_t totalMeshletVerticesSize = meshletVertexBuffer.occupied() + newMeshletVerticesSize;
     size_t totalMeshletTrianglesSize = meshletTriangleBuffer.occupied() + newMeshletTrianglesSize;
 
+#if VK_LOG_LEVEL >= VK_LOG_LEVEL_DEBUG
     VK_DEBUG("Ensuring buffers are large enough for mesh upload:");
-    VK_DEBUG("  Vertex Position Buffer: {} bytes -> {} bytes (+{})", positionBuffer.buffer.size(), totalPositionsSize,
-             totalPositionsSize - positionBuffer.buffer.size());
-    VK_DEBUG("  Vertex Attrib Buffer: {} bytes -> {} bytes (+{})", attribBuffer.buffer.size(), totalVertexAttribsSize,
-             totalVertexAttribsSize - attribBuffer.buffer.size());
-    VK_DEBUG("  Index Buffer: {} bytes -> {} bytes (+{})", indexBuffer.buffer.size(), totalIndicesSize,
-             totalIndicesSize - indexBuffer.buffer.size());
-    VK_DEBUG("  Meshlet Buffer: {} bytes -> {} bytes (+{})", meshletBuffer.buffer.size(), totalMeshletsSize,
-             totalMeshletsSize - meshletBuffer.buffer.size());
-    VK_DEBUG("  Meshlet Vertex Buffer: {} bytes -> {} bytes (+{})", meshletVertexBuffer.buffer.size(), totalMeshletVerticesSize,
-             totalMeshletVerticesSize - meshletVertexBuffer.buffer.size());
-    VK_DEBUG("  Meshlet Triangle Buffer: {} bytes -> {} bytes (+{})", meshletTriangleBuffer.buffer.size(), totalMeshletTrianglesSize,
-             totalMeshletTrianglesSize - meshletTriangleBuffer.buffer.size());
+    if (totalPositionsSize > positionBuffer.buffer.size()) {
+      VK_DEBUG("  Vertex Position Buffer: {} bytes -> {} bytes (+{})", positionBuffer.buffer.size(), totalPositionsSize,
+               totalPositionsSize - positionBuffer.buffer.size());
+    } else {
+      VK_DEBUG("  Vertex Position Buffer: {} bytes (sufficient)", positionBuffer.buffer.size());
+    }
+    if (totalVertexAttribsSize > attribBuffer.buffer.size()) {
+      VK_DEBUG("  Vertex Attrib Buffer: {} bytes -> {} bytes (+{})", attribBuffer.buffer.size(), totalVertexAttribsSize,
+               totalVertexAttribsSize - attribBuffer.buffer.size());
+    } else {
+      VK_DEBUG("  Vertex Attrib Buffer: {} bytes (sufficient)", attribBuffer.buffer.size());
+    }
+    if (totalIndicesSize > indexBuffer.buffer.size()) {
+      VK_DEBUG("  Index Buffer: {} bytes -> {} bytes (+{})", indexBuffer.buffer.size(), totalIndicesSize,
+               totalIndicesSize - indexBuffer.buffer.size());
+    } else {
+      VK_DEBUG("  Index Buffer: {} bytes (sufficient)", indexBuffer.buffer.size());
+    }
+    if (totalMeshletsSize > meshletBuffer.buffer.size()) {
+      VK_DEBUG("  Meshlet Buffer: {} bytes -> {} bytes (+{})", meshletBuffer.buffer.size(), totalMeshletsSize,
+               totalMeshletsSize - meshletBuffer.buffer.size());
+    } else {
+      VK_DEBUG("  Meshlet Buffer: {} bytes (sufficient)", meshletBuffer.buffer.size());
+    }
+    if (totalMeshletVerticesSize > meshletVertexBuffer.buffer.size()) {
+      VK_DEBUG("  Meshlet Vertex Buffer: {} bytes -> {} bytes (+{})", meshletVertexBuffer.buffer.size(), totalMeshletVerticesSize,
+               totalMeshletVerticesSize - meshletVertexBuffer.buffer.size());
+    } else {
+      VK_DEBUG("  Meshlet Vertex Buffer: {} bytes (sufficient)", meshletVertexBuffer.buffer.size());
+    }
+    if (totalMeshletTrianglesSize > meshletTriangleBuffer.buffer.size()) {
+      VK_DEBUG("  Meshlet Triangle Buffer: {} bytes -> {} bytes (+{})", meshletTriangleBuffer.buffer.size(), totalMeshletTrianglesSize,
+               totalMeshletTrianglesSize - meshletTriangleBuffer.buffer.size());
+    } else {
+      VK_DEBUG("  Meshlet Triangle Buffer: {} bytes (sufficient)", meshletTriangleBuffer.buffer.size());
+    }
+#endif
 
     std::vector<Buffer> reallocatedBuffers;
     VKH_MAKE(

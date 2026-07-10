@@ -47,6 +47,6 @@ namespace kt::components {
     ecs::Entity parent = ecs::Entity{};
     std::vector<ecs::Entity> children{};
     uint32_t depth = 0;
-    Bitflag<Flags> flags{};
+    Bitflag<Flags> flags = Flags::TransformDirty;
   };
 } // namespace kt::components

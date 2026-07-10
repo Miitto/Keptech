@@ -3,7 +3,6 @@
 #include "keptech/rendering/gltf/data.hpp"
 #include "keptech/rendering/texture.hpp"
 #include "keptech/vulkan/buffers.hpp"
-#include "keptech/vulkan/constants.hpp"
 #include "keptech/vulkan/core.hpp"
 #include "keptech/vulkan/helpers/owned.hpp"
 #include "keptech/vulkan/passes/geometry.hpp"
@@ -66,57 +65,56 @@ namespace kt::vkh {
     VkDescriptorSet set;
   };
 
+  struct Frame {
+    constexpr static uint8_t INVALID_INDEX = 255;
+
+    uint8_t index = 0;
+    uint8_t nextIndex = 1;
+    uint8_t imageIndex = INVALID_INDEX;
+    uint64_t deferredTimelineSubmit = 0;
+    uint64_t ssaoTimelineSubmit = 0;
+    size_t objectsRendered = 0;
+    PerFrame* perFrame = nullptr;
+    bool suboptimalSwapchain = false;
+  };
+
+  struct Members {
+    MoveGuard moveGuard{};
+
+    const core::window::Window* window;
+    VulkanCore vkcore;
+    Samplers samplers;
+
+    VkDescriptorPool imGuiDescriptorPool;
+
+    Formats formats;
+    RenderTargets renderTargets;
+
+    Buffers buffers;
+    Layouts layouts;
+    Pipelines pipelines;
+
+    DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
+    StaticDescriptors staticDescriptors;
+
+    Frame frameInfo{};
+
+    size_t nextTextureIndex = 0;
+    uint32_t nextMeshIndex = 0;
+
+    std::vector<Image> loadedTextures{};
+    std::vector<Buffer> loadedBuffers{};
+
+#ifdef KT_PROFILE
+    TracyVkCtx tracyGraphicsContext;
+    TracyVkCtx tracyComputeContext;
+#endif
+  };
+
   class Renderer {
     // Structs
   public:
-    struct Frame {
-      constexpr static uint8_t INVALID_INDEX = 255;
-
-      uint8_t index = 0;
-      uint8_t nextIndex = 1;
-      uint8_t imageIndex = INVALID_INDEX;
-      uint64_t deferredTimelineSubmit = 0;
-      uint64_t ssaoTimelineSubmit = 0;
-      size_t culledDraws = 0;
-      size_t culledShadowDraws = 0;
-      size_t culledLights = 0;
-      PerFrame* perFrame = nullptr;
-      bool suboptimalSwapchain = false;
-    };
-
-    struct Members {
-      MoveGuard moveGuard{};
-
-      const core::window::Window* window;
-      VulkanCore vkcore;
-      Samplers samplers;
-
-      VkDescriptorPool imGuiDescriptorPool;
-
-      Formats formats;
-      RenderTargets renderTargets;
-
-      Buffers buffers;
-      Layouts layouts;
-      Pipelines pipelines;
-
-      DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
-      StaticDescriptors staticDescriptors;
-
-      Frame frameInfo{};
-
-      size_t nextTextureIndex = 0;
-      uint32_t nextMeshIndex = 0;
-
-      std::vector<Image> loadedTextures{};
-      std::vector<Buffer> loadedBuffers{};
-
-#ifdef KT_PROFILE
-      TracyVkCtx tracyGraphicsContext;
-      TracyVkCtx tracyComputeContext;
-#endif
-    };
-
+    using Members = kt::vkh::Members;
     // Creation and destruction
   public:
     std::expected<Renderer, std::string> static create(const RendererCreateInfo& createInfo, const core::window::Window& window);
@@ -170,6 +168,7 @@ namespace kt::vkh {
 
     // Util
     void updateTextureDescriptors();
+    void updateBufferPointers() const;
 
     void imGuiNewFrame() const;
     void shutdownImGui();

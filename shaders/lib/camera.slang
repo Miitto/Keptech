@@ -40,6 +40,7 @@ public struct Camera {
   public float3 up() { return normalize(inverseViewMatrix[1].xyz); }
 
   public float3 right() { return normalize(inverseViewMatrix[0].xyz); }
+
+  public float4x4 makeMvp(float4x4 modelMatrix) { return mul(viewProjectionMatrix, modelMatrix); }
 };
 }
-

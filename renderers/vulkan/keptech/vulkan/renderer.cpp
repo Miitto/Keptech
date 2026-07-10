@@ -1,13 +1,10 @@
 #include "keptech/vulkan/renderer.hpp"
 
 #include "interface.hpp"
-#include "keptech/components/lights.hpp"
-#include "keptech/maths/frustum.hpp"
 #include "keptech/vulkan/wrappers/swapchain.hpp"
 #include "macros.hpp"
 #include <keptech/maths/maths.hpp>
 
-#include "keptech/vulkan/constants.hpp"
 #include "passes/global.hpp"
 #include "profile.hpp"
 #include "setup/setup.hpp"
@@ -34,7 +31,7 @@ namespace kt::vkh {
 
     ImGui::Text("Camera Position: %.2f, %.2f, %.2f", camPos.x, camPos.y, camPos.z);
 
-    ImGui::Text("Culled Lights: %zu", m.frameInfo.culledLights);
+    ImGui::Text("Objects Rendered: %zu", m.frameInfo.objectsRendered);
 
     ImGui::End();
   }
@@ -47,15 +44,86 @@ namespace kt::vkh {
     components::Transform::recalcAllTransforms(scene->getEcs());
     auto frustum = passes::writeCameraData(m.buffers, scene->getActiveCamera(), m.renderTargets.framebufferSize, m.frameInfo.index);
 
+    auto meshView = scene->view<components::Mesh, components::Transform>();
+
+    std::vector<Submesh> submeshes;
+    std::vector<glm::mat4> matrices;
+    submeshes.reserve(meshView.size_hint());
+    matrices.reserve(meshView.size_hint());
+    for (const auto& [entity, mesh, transform] : meshView.each()) {
+      m.frameInfo.objectsRendered += mesh.getSubmeshes().size();
+      VK_TRACE("Rendering mesh for entity {} with {} submeshes", mesh.getDebugName(), mesh.getSubmeshes().size());
+      submeshes.append_range(mesh.getSubmeshes());
+      for (const auto& submesh : mesh.getSubmeshes()) {
+        matrices.push_back(transform.getGlobal());
+      }
+    }
+
     auto cmdBuf = m.frameInfo.perFrame->pools.graphics.allocate(m.vkcore.device.logical);
 
     cmdBuf.begin();
+
+    passes::geometry::draw(m, cmdBuf, m.renderTargets.gBuffer,
+                           passes::geometry::Payload{.submeshes = submeshes, .modelMatrices = matrices});
+
+    layoutTransitions<2>(cmdBuf,
+                         {
+                             layoutTransition(m.renderTargets.gBuffer.albedo.get(),
+                                              TransitionInfo(ImageType::Color, ImageLayout::ShaderReadOnly, ImageLayout::TransferSrc)),
+                             layoutTransition(m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
+                                              TransitionInfo(ImageType::Color, ImageLayout::Undefined, ImageLayout::TransferDst)),
+                         });
+
+    VkImageBlit2 blitRegion{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
+        .srcSubresource =
+            VkImageSubresourceLayers{
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        .srcOffsets =
+            {
+                VkOffset3D{.x = 0, .y = 0, .z = 0},
+                VkOffset3D{.x = static_cast<int32_t>(m.renderTargets.gBuffer.albedo->extent().width),
+                           .y = static_cast<int32_t>(m.renderTargets.gBuffer.albedo->extent().height),
+                           .z = 1},
+            },
+        .dstSubresource =
+            VkImageSubresourceLayers{
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        .dstOffsets =
+            {
+                VkOffset3D{.x = 0, .y = 0, .z = 0},
+                VkOffset3D{.x = static_cast<int32_t>(m.vkcore.swapchain.config().extent.width),
+                           .y = static_cast<int32_t>(m.vkcore.swapchain.config().extent.height),
+                           .z = 1},
+            },
+    };
+
+    VkBlitImageInfo2 info{
+        .sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2,
+        .srcImage = *m.renderTargets.gBuffer.albedo,
+        .srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .dstImage = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
+        .dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .regionCount = 1,
+        .pRegions = &blitRegion,
+        .filter = VK_FILTER_NEAREST,
+    };
+
+    vkCmdBlitImage2(cmdBuf, &info);
 
 #ifndef NDEBUG
     debugUi();
 #endif
     layoutTransitions<1>(cmdBuf, {layoutTransition(m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-                                                   TransitionInfo(ImageType::Color, ImageLayout::Undefined, ImageLayout::RenderTarget))});
+                                                   TransitionInfo(ImageType::Color, ImageLayout::TransferDst, ImageLayout::RenderTarget))});
     renderImGui(cmdBuf);
 
     layoutTransitions<1>(cmdBuf, {layoutTransition(m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
@@ -103,24 +171,10 @@ namespace kt::vkh {
     VK_ASSERT(m.frameInfo.perFrame->pools.compute.pool != VK_NULL_HANDLE, "Compute command pool is null");
     m.frameInfo.perFrame->pools.resetAll(m.vkcore.device.logical);
 
-    m.frameInfo.culledDraws = 0;
-    m.frameInfo.culledShadowDraws = 0;
-    m.frameInfo.culledLights = 0;
+    m.frameInfo.objectsRendered = 0;
 
     updateTextureDescriptors();
-
-    BufferPointers bufferAddresses{
-        .vertexPositions = m.buffers.vertexPositions->buffer.address(),
-        .vertexAttribs = m.buffers.vertexAttribs->buffer.address(),
-        .indices = m.buffers.indices->buffer.address(),
-        .meshlets = m.buffers.meshlets->buffer.address(),
-        .meshletVertices = m.buffers.meshletVertices->buffer.address(),
-        .meshletTriangles = m.buffers.meshletTriangles->buffer.address(),
-    };
-
-    auto frameIndex = m.frameInfo.index;
-    size_t size = maths::roundToAlignment(sizeof(BufferPointers), limits::minUniformBufferOffsetAlignment);
-    memcpy(m.buffers.addresses->mapping() + (size * frameIndex), &bufferAddresses, sizeof(BufferPointers));
+    updateBufferPointers();
   }
 
   void Renderer::renderImGui(VkCommandBuffer cmdBuf) {

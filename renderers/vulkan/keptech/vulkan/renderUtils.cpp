@@ -1,3 +1,5 @@
+#include "constants.hpp"
+#include "keptech/maths/maths.hpp"
 #include "keptech/vulkan/renderer.hpp"
 
 #include "profile.hpp"
@@ -38,5 +40,20 @@ namespace kt::vkh {
       vkUpdateDescriptorSets(m.vkcore.device.logical, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
       textureUpdates.clear();
     }
+  }
+
+  void Renderer::updateBufferPointers() const {
+    BufferPointers bufferPointers{
+        .vertexPositions = m.buffers.vertexPositions->buffer.address(),
+        .vertexAttribs = m.buffers.vertexAttribs->buffer.address(),
+        .indices = m.buffers.indices->buffer.address(),
+        .meshlets = m.buffers.meshlets->buffer.address(),
+        .meshletVertices = m.buffers.meshletVertices->buffer.address(),
+        .meshletTriangles = m.buffers.meshletTriangles->buffer.address(),
+        .materials = m.buffers.materials->buffer.address(),
+    };
+
+    size_t offset = maths::roundToAlignment(m.frameInfo.index * sizeof(BufferPointers), limits::minUniformBufferOffsetAlignment);
+    memcpy(m.buffers.addresses->mapping() + offset, &bufferPointers, sizeof(BufferPointers));
   }
 } // namespace kt::vkh

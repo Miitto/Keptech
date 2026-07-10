@@ -5,6 +5,11 @@
 #include "keptech/rendering/mesh.hpp"
 #include "wrappers/fwd.hpp"
 
+namespace kt::vkh {
+  struct Buffers;
+  struct Members;
+} // namespace kt::vkh
+
 namespace kt::vkh::passes::geometry {
 
   struct Target {
@@ -20,9 +25,10 @@ namespace kt::vkh::passes::geometry {
   // NOLINTBEGIN
   struct Payload {
     const std::vector<Submesh>& submeshes;
+    const std::vector<glm::mat4>& modelMatrices;
   };
   // NOLINTEND
   CLANG_IGNORE_WARNING_POP
 
-  void draw(VkCommandBuffer cmdBuf, const Target& target, const Payload& payload);
+  void draw(const Members& buffers, VkCommandBuffer cmdBuf, const Target& target, const Payload& payload);
 } // namespace kt::vkh::passes::geometry

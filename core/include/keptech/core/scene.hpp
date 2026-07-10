@@ -25,6 +25,8 @@ namespace kt {
       entt::meta_factory<Component>().template func<FRef>(entt::hashed_string(functionName));
     }
 
+    template <typename... T> auto view() { return ecs.view<T...>(); }
+
   private:
     ecs::Ecs ecs{};
     ecs::EntityHandle activeCamera;
