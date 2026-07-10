@@ -9,6 +9,7 @@ __include maths;
 __include vertex;
 __include buffers;
 __include material;
+__include sphere;
 
 public namespace kt {
 

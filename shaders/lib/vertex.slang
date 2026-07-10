@@ -16,7 +16,6 @@ public struct Meshlet {
   public uint vertexCount;
   public uint triangleOffset;
   public uint triangleCount;
-  public float3 center;
-  public float radius;
+  public Sphere bounds;
 };
 }
