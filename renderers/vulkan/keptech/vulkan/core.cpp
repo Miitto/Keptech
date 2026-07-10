@@ -1,6 +1,4 @@
-#include "structs.hpp"
-
-#include <spdlog/fmt/bundled/ranges.h>
+#include "core.hpp"
 
 namespace kt::vkh {
   void Pools::resetAll(VkDevice device) {

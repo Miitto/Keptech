@@ -12,7 +12,7 @@ namespace kt::gltf {
       transformComp.getLocalMut().setPosition(node.transform.pos()).setRotation(node.transform.rot()).setScale(node.transform.scale());
 
       if (parent != ecs::INVALID_ENTITY_HANDLE) {
-        transformComp.setParent({parent, scene.getEcs()});
+        transformComp.setParent(entity, {parent, scene.getEcs()});
       }
 
       if (node.mesh.isValid()) {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "keptech/vulkan/wrappers/swapchain.hpp"
-#include "keptech/vulkan/structs.hpp"
+#include "keptech/vulkan/core.hpp"
 #include "macros.hpp"
 #include <SDL3/SDL_vulkan.h>
 #include <glm/glm.hpp>

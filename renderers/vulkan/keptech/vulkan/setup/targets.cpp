@@ -1,12 +1,13 @@
 #include "setup.hpp"
 
+#include "keptech/vulkan/renderer.hpp"
 #include "macros.hpp"
 #include <random>
 
 namespace kt::vkh::setup {
 
-  std::expected<Renderer::RenderTargets, std::string> createRenderTargets(const Renderer::VulkanCore& vkcore, const Formats& formats,
-                                                                          const glm::ivec2& framebufferSize) {
+  std::expected<RenderTargets, std::string> createRenderTargets(const VulkanCore& vkcore, const Formats& formats,
+                                                                const glm::ivec2& framebufferSize) {
     VkExtent3D extent{
         .width = static_cast<uint32_t>(framebufferSize.x),
         .height = static_cast<uint32_t>(framebufferSize.y),
@@ -70,7 +71,7 @@ namespace kt::vkh::setup {
              Image::create(vkcore.allocator, vkcore.device.logical, depthImgInfo, allocInfo, depthImgViewInfo, "GBuffer Depth", true),
              "Failed to create depth image for GBuffer.");
 
-    GBuffer gBuffer{
+    passes::geometry::Target gBuffer{
         .albedo = {gbufferAlbedo, vkcore.allocator, vkcore.device.logical},
         .normal = {gbufferNormal, vkcore.allocator, vkcore.device.logical},
         .emissive = {gbufferEmissive, vkcore.allocator, vkcore.device.logical},
@@ -115,28 +116,6 @@ namespace kt::vkh::setup {
     };
     imgInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-    std::array<Renderer::RenderTargets::BloomMip, constants::BLOOM_MIP_LEVELS> bloomMips{};
-
-    imgInfo.format = formats.render.hdr;
-
-    glm::ivec2 mipSize = framebufferSize;
-    for (size_t i = 0; i < constants::BLOOM_MIP_LEVELS; i++) {
-      mipSize /= 2;
-
-      imgInfo.extent.width = static_cast<uint32_t>(mipSize.x);
-      imgInfo.extent.height = static_cast<uint32_t>(mipSize.y);
-
-      VKH_MAKE(
-          bloomMip,
-          Image::create(vkcore.allocator, vkcore.device.logical, imgInfo, allocInfo, imgViewInfo, "Bloom Mip " + std::to_string(i), true),
-          "Failed to create bloom mip level");
-
-      bloomMips[i] = Renderer::RenderTargets::BloomMip{
-          .image = {bloomMip, vkcore.allocator, vkcore.device.logical},
-          .size = mipSize,
-      };
-    }
-
 #ifndef NDEBUG
     PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT =
         reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(vkGetDeviceProcAddr(vkcore.device.logical, "vkSetDebugUtilsObjectNameEXT"));
@@ -163,10 +142,6 @@ namespace kt::vkh::setup {
       name(*lightBuffer.ssaoResult, "Light Buffer SSAO Result");
       name(*lightBuffer.ssaoNoise, "Light Buffer SSAO Noise");
       name(*lightBuffer.combined, "Light Buffer Combined");
-
-      for (size_t i = 0; i < bloomMips.size(); i++) {
-        name(*bloomMips[i].image, ("Bloom Mip " + std::to_string(i)).c_str());
-      }
     }
 
     {
@@ -187,22 +162,17 @@ namespace kt::vkh::setup {
       name(*lightBuffer.ssaoResult, "Light Buffer SSAO Result View");
       name(*lightBuffer.ssaoNoise, "Light Buffer SSAO Noise View");
       name(*lightBuffer.combined, "Light Buffer Combined View");
-      for (size_t i = 0; i < bloomMips.size(); i++) {
-        name(*bloomMips[i].image, ("Bloom Mip " + std::to_string(i) + " View").c_str());
-      }
     }
 #endif
 
-    return Renderer::RenderTargets{
+    return RenderTargets{
         .gBuffer = std::move(gBuffer),
         .lights = std::move(lightBuffer),
         .framebufferSize = framebufferSize,
-        .bloomMips = std::move(bloomMips),
     };
   }
 
-  std::expected<void, std::string> writeSsao(const Renderer::VulkanCore& vkcore, const Renderer::Buffers& buffers,
-                                             const Renderer::RenderTargets& renderTargets) {
+  std::expected<void, std::string> writeSsao(const VulkanCore& vkcore, const Buffers& buffers, const RenderTargets& renderTargets) {
     std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // random floats between [0.0, 1.0]
     constexpr size_t ssaoKernelSize = constants::SSAO_KERNEL_SIZE * sizeof(glm::vec4);
     constexpr size_t ssaoNoiseSize = static_cast<size_t>(constants::SSAO_NOISE_SIZE * constants::SSAO_NOISE_SIZE) * sizeof(glm::vec4);

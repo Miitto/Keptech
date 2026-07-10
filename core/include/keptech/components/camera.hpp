@@ -65,7 +65,7 @@ namespace kt::components {
       viewport.height = static_cast<float>(size.y);
       scissor.width = static_cast<uint32_t>(size.x);
       scissor.height = static_cast<uint32_t>(size.y);
-      recalculateProjectionMatrix();
+      dirty = true;
     }
 
     glm::mat4& getProjectionMatrix() { return projectionMatrix; }
@@ -80,22 +80,22 @@ namespace kt::components {
     [[nodiscard]] const Params& getParams() const { return params; }
 
     Camera& setCommonParams(Params::Common common) {
+      dirty = true;
       params.common = common;
-      recalculateProjectionMatrix();
       return *this;
     }
 
     Camera& setOrthographic(Params::Orthographic orthographic) {
+      dirty = true;
       projectionType = ProjectionType::Orthographic;
       params.orthographic = orthographic;
-      recalculateProjectionMatrix();
       return *this;
     }
 
     Camera& setPerspective(PerspectiveType perspectiveType, Params::Perspective perspective) {
+      dirty = true;
       projectionType = static_cast<ProjectionType>(perspectiveType);
       params.perspective = perspective;
-      recalculateProjectionMatrix();
       return *this;
     }
 
@@ -112,5 +112,6 @@ namespace kt::components {
     maths::Rect2D scissor{};
 
     Params params{};
+    bool dirty = true;
   };
 } // namespace kt::components

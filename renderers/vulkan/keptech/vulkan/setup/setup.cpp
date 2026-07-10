@@ -1,12 +1,10 @@
 #include "setup.hpp"
 
-#include "keptech/core/window.hpp"
-#include "keptech/vulkan/constants.hpp"
-#include "keptech/vulkan/renderer.hpp"
 #include "macros.hpp"
 #include "profile.hpp"
+#include "renderer.hpp"
 #include <SDL3/SDL_vulkan.h>
-#include <expected>
+
 #include <keptech/components/camera.hpp>
 #include <keptech/maths/maths.hpp>
 
@@ -44,8 +42,9 @@ namespace kt::vkh {
     VKH_MAKE(buffers, createBuffers(vkcore), "Failed to create buffers for renderer.");
     VKH_MAKE(formats, findFormats(vkcore), "Failed to find suitable formats for renderer.");
 
-    VKH_MAKE(pipelines, createPipelines(vkcore, formats, globalDescriptorSets.layout, staticDescriptorSets.layout),
-             "Failed to create pipelines for renderer.");
+    VKH_MAKE(layouts, createLayouts(vkcore.device.logical, globalDescriptorSets.layout, staticDescriptorSets.layout),
+             "Failed to create layouts for renderer.");
+    VKH_MAKE(pipelines, createPipelines(vkcore, formats, layouts), "Failed to create pipelines for renderer.");
 
     auto d = SDL_GetDisplayForWindow(window.getHandle());
     auto* dm = SDL_GetCurrentDisplayMode(d);
@@ -61,7 +60,9 @@ namespace kt::vkh {
       }
     }
 
+    VK_DEBUG("Writing Global Descriptor Sets.");
     writeGlobalDescriptors(vkcore, globalDescriptorSets, buffers);
+    VK_DEBUG("Writing Static Descriptor Sets.");
     writeStaticDescriptors(vkcore, staticDescriptorSets, buffers, renderTargets, samplers);
 
 #ifdef KT_PROFILE
@@ -82,6 +83,7 @@ namespace kt::vkh {
         .formats = formats,
         .renderTargets = std::move(renderTargets),
         .buffers = std::move(buffers),
+        .layouts = layouts,
         .pipelines = pipelines,
         .globalDescriptorSets = globalDescriptorSets,
         .staticDescriptors = staticDescriptorSets,

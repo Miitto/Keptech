@@ -30,16 +30,6 @@ namespace kt::vkh {
     VkFormat swapchain = VK_FORMAT_UNDEFINED;
   };
 
-  struct VertexInput {
-    std::vector<VkVertexInputBindingDescription> bindings;
-    std::vector<VkVertexInputAttributeDescription> attributes;
-  };
-
-  struct Pipeline {
-    VkPipelineLayout layout;
-    VkPipeline pipeline;
-  };
-
   struct ImageCreateInfo {
     VkFormat format;
     VkExtent3D extent;
@@ -54,17 +44,4 @@ namespace kt::vkh {
     std::array<VkDescriptorSet, N> sets;
   };
 
-  struct Queues {
-    Queue graphics;
-    Queue present;
-    Queue compute;
-    Queue transfer;
-  };
-
-  struct Pools {
-    CommandPool graphics{};
-    CommandPool compute{};
-
-    void resetAll(VkDevice device);
-  };
 } // namespace kt::vkh

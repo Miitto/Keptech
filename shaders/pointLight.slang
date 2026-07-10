@@ -125,4 +125,3 @@ kt::DeferredLightingOutput frag(v2f input, uniform PushConstants PC, float4 frag
 
   return output;
 }
-

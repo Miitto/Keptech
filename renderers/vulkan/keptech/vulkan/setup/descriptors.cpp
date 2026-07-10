@@ -1,5 +1,3 @@
-#pragma once
-
 #include "keptech/maths/maths.hpp"
 #include "keptech/vulkan/renderer.hpp"
 #include "keptech/vulkan/structs.hpp"
@@ -10,22 +8,13 @@
 
 namespace kt::vkh::setup {
 
-  enum PerFrameUniformBufferIndices {
+  enum PerFrameUniformBufferIndices : uint8_t {
     CAMERA,
+    ADDRESSES,
     MAX_PER_FRAME_UNIFORM_BUFFER_COUNT,
-  };
-  enum PerFrameStorageBufferIndices {
-    VERTEX_POSITIONS,
-    VERTEX_ATTRIBS,
-    INDICES,
-    MESHLETS,
-    MESHLET_VERTICES,
-    MESHLET_TRIANGLES,
-    MAX_PER_FRAME_STORAGE_BUFFER_COUNT,
   };
 
   std::expected<DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>, std::string> createGlobalDescriptors(VkDevice device) {
-    constexpr size_t descriptorBindingCount = 4;
 
     std::array sizes{VkDescriptorPoolSize{
                          .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -34,14 +23,6 @@ namespace kt::vkh::setup {
                      VkDescriptorPoolSize{
                          .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                          .descriptorCount = 1000 * MAX_FRAMES_IN_FLIGHT,
-                     },
-                     VkDescriptorPoolSize{
-                         .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                         .descriptorCount = MAX_PER_FRAME_STORAGE_BUFFER_COUNT * MAX_FRAMES_IN_FLIGHT,
-                     },
-                     VkDescriptorPoolSize{
-                         .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                         .descriptorCount = 1 * MAX_FRAMES_IN_FLIGHT,
                      }};
 
     VkDescriptorPoolCreateInfo poolCreateInfo{
@@ -56,11 +37,14 @@ namespace kt::vkh::setup {
     VkDescriptorPool descriptorPool{};
     VK_MAKE(vkCreateDescriptorPool(device, &poolCreateInfo, nullptr, &descriptorPool), "Failed to create bindless descriptor pool.");
 
+    constexpr size_t descriptorBindingCount = 3;
+
     std::array<VkDescriptorSetLayoutBinding, descriptorBindingCount> bindings{
+        // Camera
         VkDescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = MAX_PER_FRAME_UNIFORM_BUFFER_COUNT,
+            .descriptorCount = 1,
             .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_ALL,
         },
         VkDescriptorSetLayoutBinding{
@@ -69,26 +53,20 @@ namespace kt::vkh::setup {
             .descriptorCount = 1000,
             .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_ALL,
         },
-        {
+        // Addresses
+        VkDescriptorSetLayoutBinding{
             .binding = 2,
-            .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = MAX_PER_FRAME_STORAGE_BUFFER_COUNT,
-            .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_ALL,
-        },
-        {
-            .binding = 3,
-            .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .descriptorCount = 1,
             .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_ALL,
         }};
 
-    std::array<VkDescriptorBindingFlags, descriptorBindingCount> bindingFlags{
-        VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
-        VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
-            VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
-        VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
-        VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
-    };
+    std::array<VkDescriptorBindingFlags, descriptorBindingCount> bindingFlags{};
+    for (auto& b : bindingFlags) {
+      b = VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+    }
+
+    bindingFlags[1] |= VkDescriptorBindingFlagBits::VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
@@ -126,8 +104,7 @@ namespace kt::vkh::setup {
     };
   }
 
-  void writeGlobalDescriptors(const Renderer::VulkanCore& vkcore, DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>& sets,
-                              Renderer::Buffers& buffers) {
+  void writeGlobalDescriptors(const VulkanCore& vkcore, DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>& sets, Buffers& buffers) {
     {
       size_t size = maths::roundToAlignment(sizeof(components::Camera::Uniforms), limits::minUniformBufferOffsetAlignment);
 
@@ -152,11 +129,33 @@ namespace kt::vkh::setup {
 
       vkUpdateDescriptorSets(vkcore.device, writes.size(), writes.data(), 0, nullptr);
     }
+
+    {
+      size_t size = maths::roundToAlignment(sizeof(BufferPointers), limits::minUniformBufferOffsetAlignment);
+      std::array<VkDescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT> bufferInfos{};
+      std::array<VkWriteDescriptorSet, MAX_FRAMES_IN_FLIGHT> writes{};
+      for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        bufferInfos[i] = VkDescriptorBufferInfo{
+            .buffer = *buffers.addresses,
+            .offset = i * size,
+            .range = sizeof(BufferPointers),
+        };
+        writes[i] = VkWriteDescriptorSet{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = sets.sets[i],
+            .dstBinding = 2,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pBufferInfo = &bufferInfos[i],
+        };
+      }
+      vkUpdateDescriptorSets(vkcore.device, writes.size(), writes.data(), 0, nullptr);
+    }
   }
 
-  std::expected<Renderer::StaticDescriptors, std::string> createStaticDescriptors(const Renderer::VulkanCore& vkcore) {
-    constexpr size_t descriptorBindingCount = 2;
-    std::array<VkDescriptorPoolSize, descriptorBindingCount> poolSizes{
+  std::expected<StaticDescriptors, std::string> createStaticDescriptors(const VulkanCore& vkcore) {
+    std::array poolSizes{
         VkDescriptorPoolSize{
             .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .descriptorCount = 1,
@@ -164,6 +163,10 @@ namespace kt::vkh::setup {
         VkDescriptorPoolSize{
             .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
             .descriptorCount = 1,
+        },
+        VkDescriptorPoolSize{
+            .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = constants::STATIC_TEXTURE_COUNT,
         },
     };
 
@@ -178,6 +181,8 @@ namespace kt::vkh::setup {
     VK_MAKE(vkCreateDescriptorPool(vkcore.device.logical, &poolCreateInfo, nullptr, &descriptorPool),
             "Failed to create static descriptor pool.");
 
+    constexpr size_t descriptorBindingCount = 3;
+
     std::array<VkDescriptorSetLayoutBinding, descriptorBindingCount> bindings{
         VkDescriptorSetLayoutBinding{
             .binding = 0,
@@ -191,7 +196,12 @@ namespace kt::vkh::setup {
             .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_ALL,
         },
-    };
+        VkDescriptorSetLayoutBinding{
+            .binding = 2,
+            .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = constants::STATIC_TEXTURE_COUNT,
+            .stageFlags = VK_SHADER_STAGE_ALL,
+        }};
 
     VkDescriptorSetLayoutCreateInfo layoutCreateInfo{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -213,20 +223,25 @@ namespace kt::vkh::setup {
     VkDescriptorSet descriptorSet{};
     VK_MAKE(vkAllocateDescriptorSets(vkcore.device.logical, &allocInfo, &descriptorSet), "Failed to allocate static descriptor set.");
 
-    return Renderer::StaticDescriptors{
+    return StaticDescriptors{
         .pool = descriptorPool,
         .layout = layout,
         .set = descriptorSet,
     };
   }
 
-  void writeStaticDescriptors(const Renderer::VulkanCore& vkcore, const Renderer::StaticDescriptors& staticDescriptorSets,
-                              const Renderer::Buffers& buffers, const Renderer::RenderTargets& renderTargets,
-                              const Renderer::Samplers& samplers) {
+  void writeStaticDescriptors(const VulkanCore& vkcore, const StaticDescriptors& staticDescriptorSets, const Buffers& buffers,
+                              const RenderTargets& renderTargets, const Samplers& samplers) {
     VkDescriptorBufferInfo bufferInfo{
         .buffer = *buffers.ssaoKernel,
         .offset = 0,
         .range = sizeof(glm::vec4) * constants::SSAO_KERNEL_SIZE,
+    };
+
+    VkDescriptorImageInfo ssaoResultImageInfo{
+        .sampler = samplers.linearRepeat,
+        .imageView = *renderTargets.lights.ssaoResult,
+        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
     };
 
     std::array<VkDescriptorImageInfo, constants::STATIC_TEXTURE_COUNT> imageInfos = {
@@ -282,23 +297,10 @@ namespace kt::vkh::setup {
         },
     };
 
-    for (size_t i = 0; i < constants::BLOOM_MIP_LEVELS; i++) {
-      imageInfos[constants::BASE_SAMPLED_TEXTURE_COUNT + i] = VkDescriptorImageInfo{
-          .sampler = samplers.linearClamp,
-          .imageView = *renderTargets.bloomMips[i].image,
-          .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      };
-    }
-
-    VkDescriptorImageInfo ssaoResultImageInfo{
-        .sampler = samplers.linearRepeat,
-        .imageView = *renderTargets.lights.ssaoResult,
-        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-    };
-
     std::array writes = {
         VkWriteDescriptorSet{
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = staticDescriptorSets.set,
             .dstBinding = 0,
             .dstArrayElement = 0,
             .descriptorCount = 1,
@@ -307,19 +309,21 @@ namespace kt::vkh::setup {
         },
         VkWriteDescriptorSet{
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = staticDescriptorSets.set,
             .dstBinding = 1,
-            .dstArrayElement = 0,
-            .descriptorCount = imageInfos.size(),
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = imageInfos.data(),
-        },
-        VkWriteDescriptorSet{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstBinding = 2,
             .dstArrayElement = 0,
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
             .pImageInfo = &ssaoResultImageInfo,
+        },
+        VkWriteDescriptorSet{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = staticDescriptorSets.set,
+            .dstBinding = 2,
+            .dstArrayElement = 0,
+            .descriptorCount = imageInfos.size(),
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .pImageInfo = imageInfos.data(),
         },
     };
 

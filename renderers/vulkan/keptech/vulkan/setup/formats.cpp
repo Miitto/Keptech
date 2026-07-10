@@ -27,7 +27,7 @@ namespace kt::vkh::setup {
     constexpr std::array TEXTURE_EMISSIVE_FORMATS = {VK_FORMAT_B10G11R11_UFLOAT_PACK32};
   } // namespace
 
-  std::expected<Formats, std::string> findFormats(const Renderer::VulkanCore& vkcore) {
+  std::expected<Formats, std::string> findFormats(const VulkanCore& vkcore) {
     auto findFormat = [&](std::span<const VkFormat> candidates, VkFormatFeatureFlags features) -> VkFormat {
       for (auto& format : candidates) {
         VkFormatProperties props;

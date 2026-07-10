@@ -34,4 +34,3 @@ float4 frag(v2f input) : SV_Target {
 
   return bloom;
 }
-

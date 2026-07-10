@@ -1,7 +1,7 @@
 #include "setup.hpp"
 
 #include "keptech/core/window.hpp"
-#include "keptech/vulkan/renderer.hpp"
+#include "keptech/rendering/renderer.hpp"
 #include "keptech/vulkan/structs.hpp"
 #include "keptech/vulkan/wrappers/device.hpp"
 #include "macros.hpp"
@@ -57,8 +57,7 @@ namespace kt::vkh::setup {
     return std::array<Pools, 2>{pools1, pools2};
   }
 
-  std::expected<Renderer::VulkanCore, std::string> createVulkanCore(const RendererCreateInfo& createInfo,
-                                                                    const core::window::Window& window) {
+  std::expected<VulkanCore, std::string> createVulkanCore(const RendererCreateInfo& createInfo, const core::window::Window& window) {
 
     VK_CHECK(volkInitialize(), "Failed to initialize Volk.");
 
@@ -75,8 +74,6 @@ namespace kt::vkh::setup {
     }
     auto& instance = instance_res.value();
 
-    volkLoadInstanceOnly(instance);
-
     VkSurfaceKHR surface = nullptr;
     if (!SDL_Vulkan_CreateSurface(window.getHandle(), instance, nullptr, &surface)) {
       return std::unexpected("Failed to create Vulkan surface from SDL window.");
@@ -89,8 +86,6 @@ namespace kt::vkh::setup {
     std::set<uint32_t> uniqueQueueFamilies = {queueIndices.graphics, queueIndices.present, queueIndices.compute, queueIndices.transfer};
 
     VKH_MAKE(device, createDevice(physDevice, uniqueQueueFamilies), "Failed to create logical device.");
-
-    volkLoadDevice(device);
 
     VKH_MAKE(queues, getQueues(device, queueIndices, uniqueQueueFamilies), "Failed to get device queues.");
 
@@ -145,7 +140,7 @@ namespace kt::vkh::setup {
         .queue = queues.transfer,
     };
 
-    std::array<Renderer::PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame{};
+    std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame{};
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
       perFrame[i].pools = poolsArray[i];
       VkFenceCreateInfo fenceCreateInfo{
@@ -175,7 +170,7 @@ namespace kt::vkh::setup {
     VkSemaphore timelineSemaphore = nullptr;
     VK_CHECK(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &timelineSemaphore), "Failed to create timeline semaphore.");
 
-    return Renderer::VulkanCore{
+    return VulkanCore{
         .instance = instance,
         .surface = surface,
         .device = Device{.physical = physDevice, .logical = device},

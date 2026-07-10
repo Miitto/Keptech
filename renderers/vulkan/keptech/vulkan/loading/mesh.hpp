@@ -3,7 +3,7 @@
 #include "keptech/rendering/mesh.hpp"
 #include "keptech/vulkan/wrappers/buffer.hpp"
 #include <Volk/volk.h>
-#include <glm/vec3.hpp>
+#include <glm/fwd.hpp>
 #include <vma/vk_mem_alloc.h>
 
 namespace kt::gltf {

@@ -61,4 +61,3 @@ float4 frag(v2f input, uniform PushConstants pc) : SV_Target {
   downsample += (j + k + l + m) * 0.125;
   return float4(downsample, 1.0);
 }
-

@@ -267,7 +267,7 @@ namespace kt::gltf {
           auto prim = processPrimitive(asset, primitive, data);
 
           // Write out base mesh data
-          data.indices.reserve(data.indices.size() + prim.mesh.indices.size());
+          data.indices.insert(data.indices.end(), prim.mesh.indices.begin(), prim.mesh.indices.end());
           data.positions.reserve(data.positions.size() + prim.mesh.vertices.size());
           data.vertexAttribs.reserve(data.vertexAttribs.size() + prim.mesh.vertices.size());
           for (const auto& vertex : prim.mesh.vertices) {

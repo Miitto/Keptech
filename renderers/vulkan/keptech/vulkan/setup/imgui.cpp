@@ -2,7 +2,6 @@
 
 #include "keptech/rendering/imgui.hpp"
 #include "keptech/vulkan/renderer.hpp"
-#include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
 #include <expected>
 #include <imgui/backends/imgui_impl_sdl3.h>
@@ -13,12 +12,12 @@
 namespace kt::vkh::setup {
   using namespace kt::vkh;
 
-  std::expected<VkDescriptorPool, std::string> setupImGui(const kt::core::window::Window& window, const Renderer::VulkanCore& vkcore,
-                                                          const Renderer::Samplers& samplers) {
+  std::expected<VkDescriptorPool, std::string> setupImGui(const kt::core::window::Window& window, const VulkanCore& vkcore,
+                                                          const Samplers& samplers) {
     rendering::initImGui();
 
     auto funcLoader = [](const char* funcName, void* d) {
-      Renderer::VulkanCore* vkcore = static_cast<Renderer::VulkanCore*>(d);
+      VulkanCore* vkcore = static_cast<VulkanCore*>(d);
       PFN_vkVoidFunction instanceAddr = vkGetInstanceProcAddr(vkcore->instance, funcName);
       PFN_vkVoidFunction deviceAddr = vkGetDeviceProcAddr(vkcore->device.logical, funcName);
       return deviceAddr ? deviceAddr : instanceAddr;
@@ -80,7 +79,7 @@ namespace kt::vkh::setup {
         .pPoolSizes = pool_sizes.data(),
     };
 
-    VkDescriptorPool imguiPool;
+    VkDescriptorPool imguiPool{};
     VK_MAKE(vkCreateDescriptorPool(vkcore.device.logical, &pool_info, nullptr, &imguiPool), "Failed to create ImGui descriptor pool");
 
     // 2: initialize imgui library

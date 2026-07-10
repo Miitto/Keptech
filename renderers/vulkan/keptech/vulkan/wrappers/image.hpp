@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/vulkan/helpers/transitions.hpp"
 #include <Volk/volk.h>
 #include <expected>
 #include <memory>
@@ -9,21 +10,31 @@
 namespace kt::vkh {
   class Image {
   public:
-    Image() = default;
+    constexpr Image() = default;
     static std::expected<Image, std::string> create(const VmaAllocator& allocator, const VkDevice& device, const VkImageCreateInfo& imgInfo,
                                                     const VmaAllocationCreateInfo& allocInfo, VkImageViewCreateInfo viewInfo,
                                                     const std::string& name, bool useSameFormat = false);
 
     void destroy(const VmaAllocator& allocator, const VkDevice& d);
 
-    operator VkImage() const { return image; }
-    operator VkImageView() const { return view; }
+    constexpr operator VkImage() const { return image; }
+    constexpr operator VkImageView() const { return view; }
 
-    [[nodiscard]] const VkExtent3D& extent() const { return _extent; }
-    [[nodiscard]] VkFormat format() const { return _format; }
+    [[nodiscard]] constexpr const VkExtent3D& extent() const { return _extent; }
+    [[nodiscard]] constexpr VkFormat format() const { return _format; }
+
+    [[nodiscard]] VkImageMemoryBarrier2 transition(const TransitionInfo& transition, uint32_t srcIndex = VK_QUEUE_FAMILY_IGNORED,
+                                                   uint32_t dstIndex = VK_QUEUE_FAMILY_IGNORED) const {
+      auto b = transition.image(image);
+      b.srcQueueFamilyIndex = srcIndex;
+      b.dstQueueFamilyIndex = dstIndex;
+      return b;
+    }
+
+    [[nodiscard]] constexpr bool isDestroyed() const { return *destroyed; }
 
   private:
-    Image(VkImage image, VkImageView view, VmaAllocation alloc, VkExtent3D extent, VkFormat format)
+    constexpr Image(VkImage image, VkImageView view, VmaAllocation alloc, VkExtent3D extent, VkFormat format)
         : image(image), view(view), alloc(alloc), _extent(extent), _format(format), destroyed(std::make_shared<bool>(false)) {}
 
     VkImage image{};

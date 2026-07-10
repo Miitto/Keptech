@@ -16,6 +16,13 @@
             "cwd": "${workspaceFolder}"
         },
         {
+            "type": "lldb",
+            "name": "Launch Monkey (VS Debug, Clang x64, Windows)",
+            "request": "launch",
+            "program": "${workspaceFolder}/__output/clang-x64/examples/monkey/Debug/monkey.exe",
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "type": "codelldb",
             "name": "Launch Materials example (Debug, Clang x64, Windows)",
             "request": "launch",

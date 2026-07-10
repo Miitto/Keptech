@@ -53,4 +53,3 @@ float4 frag(v2f input, uniform PushConstants pc) : SV_Target {
 
   return float4(upsample, 1.0);
 }
-

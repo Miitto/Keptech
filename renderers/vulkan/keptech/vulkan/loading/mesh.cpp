@@ -4,6 +4,7 @@
 #include "macros.hpp"
 #include "profile.hpp"
 #include "vk-logger.hpp"
+#include <glm/vec3.hpp>
 
 namespace kt::vkh::loading {
   namespace {
@@ -15,7 +16,7 @@ namespace kt::vkh::loading {
         VK_DEBUG("Current {} buffer size {} is too small for {}, creating new buffer", name, buf.buffer.size(), newSize);
         VkBufferCreateInfo bufferCreateInfo{
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = 0,
+            .size = newSize,
             .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         };
@@ -24,10 +25,8 @@ namespace kt::vkh::loading {
                      VMA_ALLOCATION_CREATE_MAPPED_BIT,
             .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
         };
-        auto bi = bufferCreateInfo;
-        bi.size = newSize;
-        VKH_MAKE(rbuffer, Buffer::create(device, allocator, bi, allocInfo, name), "Failed to create buffer for mesh upload");
-        SubdivBuffer<T> newBuffer(rbuffer);
+        VKH_MAKE(rbuffer, Buffer::create(device, allocator, bufferCreateInfo, allocInfo, name), "Failed to create buffer for mesh upload");
+        SubdivBuffer<T> newBuffer(std::move(rbuffer));
         buf.copyTo(newBuffer);
         reallocatedBuffer = std::move(buf.buffer);
         buf = std::move(newBuffer);
@@ -47,8 +46,8 @@ namespace kt::vkh::loading {
     size_t newPositionsSize = vertexCount * sizeof(glm::vec3);
     size_t newVertexAttribsSize = vertexCount * sizeof(VertexAttribs);
 
-    size_t totalPositionsSize = positionBuffer.buffer.size() + newPositionsSize;
-    size_t totalVertexAttribsSize = attribBuffer.buffer.size() + newVertexAttribsSize;
+    size_t totalPositionsSize = positionBuffer.occupied() + newPositionsSize;
+    size_t totalVertexAttribsSize = attribBuffer.occupied() + newVertexAttribsSize;
 
     VKH_MAKE(
         oldPosBuf,
@@ -82,7 +81,7 @@ namespace kt::vkh::loading {
 
     size_t indexCount = data.indices.size();
     size_t newIndicesSize = indexCount * sizeof(uint32_t);
-    size_t totalIndicesSize = indexBuffer.buffer.size() + newIndicesSize;
+    size_t totalIndicesSize = indexBuffer.occupied() + newIndicesSize;
 
     VKH_MAKE(old, realloc(indexBuffer, device, allocator, totalIndicesSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, "Mesh index buffer"),
              "Failed to reallocate index buffer");
@@ -108,9 +107,9 @@ namespace kt::vkh::loading {
     size_t newMeshletVerticesSize = data.meshletVertices.size() * sizeof(uint32_t);
     size_t newMeshletTrianglesSize = data.meshletTriangles.size() * sizeof(uint32_t);
 
-    size_t totalMeshletsSize = meshletBuffer.buffer.size() + newMeshletsSize;
-    size_t totalMeshletVerticesSize = meshletVertexBuffer.buffer.size() + newMeshletVerticesSize;
-    size_t totalMeshletTrianglesSize = meshletTriangleBuffer.buffer.size() + newMeshletTrianglesSize;
+    size_t totalMeshletsSize = meshletBuffer.occupied() + newMeshletsSize;
+    size_t totalMeshletVerticesSize = meshletVertexBuffer.occupied() + newMeshletVerticesSize;
+    size_t totalMeshletTrianglesSize = meshletTriangleBuffer.occupied() + newMeshletTrianglesSize;
 
     VKH_MAKE(oldMeshletBuf,
              realloc(meshletBuffer, device, allocator, totalMeshletsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Mesh meshlet buffer"),
@@ -174,12 +173,26 @@ namespace kt::vkh::loading {
     size_t newMeshletVerticesSize = newMeshletVertexCount * sizeof(uint32_t);
     size_t newMeshletTrianglesSize = newMeshletTriangleCount * sizeof(uint32_t);
 
-    size_t totalPositionsSize = positionBuffer.buffer.size() + newPositionsSize;
-    size_t totalVertexAttribsSize = attribBuffer.buffer.size() + newVertexAttribsSize;
-    size_t totalIndicesSize = indexBuffer.buffer.size() + newIndicesSize;
-    size_t totalMeshletsSize = meshletBuffer.buffer.size() + newMeshletsSize;
-    size_t totalMeshletVerticesSize = meshletVertexBuffer.buffer.size() + newMeshletVerticesSize;
-    size_t totalMeshletTrianglesSize = meshletTriangleBuffer.buffer.size() + newMeshletTrianglesSize;
+    size_t totalPositionsSize = positionBuffer.occupied() + newPositionsSize;
+    size_t totalVertexAttribsSize = attribBuffer.occupied() + newVertexAttribsSize;
+    size_t totalIndicesSize = indexBuffer.occupied() + newIndicesSize;
+    size_t totalMeshletsSize = meshletBuffer.occupied() + newMeshletsSize;
+    size_t totalMeshletVerticesSize = meshletVertexBuffer.occupied() + newMeshletVerticesSize;
+    size_t totalMeshletTrianglesSize = meshletTriangleBuffer.occupied() + newMeshletTrianglesSize;
+
+    VK_DEBUG("Ensuring buffers are large enough for mesh upload:");
+    VK_DEBUG("  Vertex Position Buffer: {} bytes -> {} bytes (+{})", positionBuffer.buffer.size(), totalPositionsSize,
+             totalPositionsSize - positionBuffer.buffer.size());
+    VK_DEBUG("  Vertex Attrib Buffer: {} bytes -> {} bytes (+{})", attribBuffer.buffer.size(), totalVertexAttribsSize,
+             totalVertexAttribsSize - attribBuffer.buffer.size());
+    VK_DEBUG("  Index Buffer: {} bytes -> {} bytes (+{})", indexBuffer.buffer.size(), totalIndicesSize,
+             totalIndicesSize - indexBuffer.buffer.size());
+    VK_DEBUG("  Meshlet Buffer: {} bytes -> {} bytes (+{})", meshletBuffer.buffer.size(), totalMeshletsSize,
+             totalMeshletsSize - meshletBuffer.buffer.size());
+    VK_DEBUG("  Meshlet Vertex Buffer: {} bytes -> {} bytes (+{})", meshletVertexBuffer.buffer.size(), totalMeshletVerticesSize,
+             totalMeshletVerticesSize - meshletVertexBuffer.buffer.size());
+    VK_DEBUG("  Meshlet Triangle Buffer: {} bytes -> {} bytes (+{})", meshletTriangleBuffer.buffer.size(), totalMeshletTrianglesSize,
+             totalMeshletTrianglesSize - meshletTriangleBuffer.buffer.size());
 
     std::vector<Buffer> reallocatedBuffers;
     VKH_MAKE(

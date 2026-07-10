@@ -1,13 +1,15 @@
 #pragma once
 
-#include "keptech/vulkan/structs.hpp"
-#include "vk-logger.hpp"
 #include <Volk/volk.h>
 #include <optional>
 #include <span>
 #include <vector>
 
 namespace kt::vkh {
+  struct VertexInput {
+    std::vector<VkVertexInputBindingDescription> bindings;
+    std::vector<VkVertexInputAttributeDescription> attributes;
+  };
 
   class DynamicStateInfo {
     std::vector<VkDynamicState> dynamicStates;
@@ -23,26 +25,49 @@ namespace kt::vkh {
                                    },
                                } {}
 
-    operator VkPipelineDynamicStateCreateInfo() const noexcept { return dynamicStateCreateInfo; }
+    DynamicStateInfo(const DynamicStateInfo& o)
+        : dynamicStates{o.dynamicStates}, dynamicStateCreateInfo{
+                                              VkPipelineDynamicStateCreateInfo{
+                                                  .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                                                  .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+                                                  .pDynamicStates = dynamicStates.data(),
+                                              },
+                                          } {}
+    DynamicStateInfo(DynamicStateInfo&& o) noexcept
+        : dynamicStates{std::move(o.dynamicStates)}, dynamicStateCreateInfo{
+                                                         VkPipelineDynamicStateCreateInfo{
+                                                             .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                                                             .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+                                                             .pDynamicStates = dynamicStates.data(),
+                                                         },
+                                                     } {}
+    DynamicStateInfo& operator=(const DynamicStateInfo& o) {
+      dynamicStates = o.dynamicStates;
+      dynamicStateCreateInfo = VkPipelineDynamicStateCreateInfo{
+          .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+          .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+          .pDynamicStates = dynamicStates.data(),
+      };
+      return *this;
+    }
+    DynamicStateInfo& operator=(DynamicStateInfo&& o) noexcept {
+      dynamicStates = std::move(o.dynamicStates);
+      dynamicStateCreateInfo = VkPipelineDynamicStateCreateInfo{
+          .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+          .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+          .pDynamicStates = dynamicStates.data(),
+      };
+      return *this;
+    }
 
     operator VkPipelineDynamicStateCreateInfo*() noexcept { return &dynamicStateCreateInfo; }
-
-    operator const VkPipelineDynamicStateCreateInfo*() const noexcept { return &dynamicStateCreateInfo; }
   };
 
   struct PipelineLayoutConfig {
     std::vector<VkDescriptorSetLayout> setLayouts = {};
     std::vector<VkPushConstantRange> pushConstantRanges = {};
 
-    VkPipelineLayoutCreateInfo build() noexcept {
-      return VkPipelineLayoutCreateInfo{
-          .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-          .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
-          .pSetLayouts = setLayouts.data(),
-          .pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size()),
-          .pPushConstantRanges = pushConstantRanges.data(),
-      };
-    }
+    VkPipelineLayoutCreateInfo build() noexcept;
   };
 
   struct RenderingConfig {
@@ -52,25 +77,87 @@ namespace kt::vkh {
     VkFormat depthAttachmentFormat = VkFormat::VK_FORMAT_UNDEFINED;
     VkFormat stencilAttachmentFormat = VkFormat::VK_FORMAT_UNDEFINED;
 
-    VkPipelineRenderingCreateInfo build() noexcept {
-      uint32_t colorAttachmentCount = static_cast<uint32_t>(colorAttachmentFormats.size());
-      VkFormat* colorAttachmentFormatsPtr = colorAttachmentFormats.empty() ? nullptr : colorAttachmentFormats.data();
-      return VkPipelineRenderingCreateInfo{
-          .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-          .pNext = pNext,
-          .viewMask = viewMask,
-          .colorAttachmentCount = colorAttachmentCount,
-          .pColorAttachmentFormats = colorAttachmentFormatsPtr,
-          .depthAttachmentFormat = depthAttachmentFormat,
-          .stencilAttachmentFormat = stencilAttachmentFormat,
-      };
-    }
+    VkPipelineRenderingCreateInfo build() noexcept;
   };
 
   struct GraphicsPipelineConfig {
+    GraphicsPipelineConfig& colorAttachments(std::initializer_list<VkFormat> formats) noexcept {
+      rendering.colorAttachmentFormats = formats;
+      return *this;
+    }
+    GraphicsPipelineConfig& depthAttachment(VkFormat format) noexcept {
+      rendering.depthAttachmentFormat = format;
+      return *this;
+    }
+    GraphicsPipelineConfig& stencilAttachment(VkFormat format) noexcept {
+      rendering.stencilAttachmentFormat = format;
+      return *this;
+    }
+    GraphicsPipelineConfig& vertexInput(VertexInput input) noexcept {
+      _vertexInput = std::move(input);
+      return *this;
+    }
+    GraphicsPipelineConfig& shaders(std::span<VkPipelineShaderStageCreateInfo> stages) noexcept {
+      _shaders = stages;
+      return *this;
+    }
+    GraphicsPipelineConfig& cullMode(VkCullModeFlags cullMode) noexcept {
+      rasterizer.cullMode = cullMode;
+      return *this;
+    }
+    GraphicsPipelineConfig& frontFace(VkFrontFace frontFace) noexcept {
+      rasterizer.frontFace = frontFace;
+      return *this;
+    }
+    GraphicsPipelineConfig& polygonMode(VkPolygonMode polygonMode) noexcept {
+      rasterizer.polygonMode = polygonMode;
+      return *this;
+    }
+    GraphicsPipelineConfig& depthTest(bool enable = true) noexcept {
+      depthStencilState.depthTestEnable = enable ? VK_TRUE : VK_FALSE;
+      return *this;
+    }
+    GraphicsPipelineConfig& depthWrite(bool enable = true) noexcept {
+      depthStencilState.depthWriteEnable = enable ? VK_TRUE : VK_FALSE;
+      return *this;
+    }
+    GraphicsPipelineConfig& depthCompareOp(VkCompareOp compareOp) noexcept {
+      depthStencilState.depthCompareOp = compareOp;
+      return *this;
+    }
+    GraphicsPipelineConfig& noBlending() noexcept {
+      blendAttachments.clear();
+      for (auto& c : rendering.colorAttachmentFormats) {
+        blendAttachments.push_back(VkPipelineColorBlendAttachmentState{
+            .blendEnable = VK_FALSE,
+            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT});
+      }
+      return *this;
+    }
+    GraphicsPipelineConfig& additiveBlending() noexcept {
+      blendAttachments.clear();
+      for (auto& c : rendering.colorAttachmentFormats) {
+        blendAttachments.push_back(VkPipelineColorBlendAttachmentState{
+            .blendEnable = VK_TRUE,
+            .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+            .dstColorBlendFactor = VK_BLEND_FACTOR_ONE,
+            .colorBlendOp = VK_BLEND_OP_ADD,
+            .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+            .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+            .alphaBlendOp = VK_BLEND_OP_ADD,
+            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT});
+      }
+      return *this;
+    }
+
+    GraphicsPipelineConfig& layout(VkPipelineLayout layout) noexcept {
+      _layout = layout;
+      return *this;
+    }
+
     RenderingConfig rendering{};
-    std::span<VkPipelineShaderStageCreateInfo> shaders = {};
-    VertexInput vertexInput{};
+    std::span<VkPipelineShaderStageCreateInfo> _shaders = {};
+    VertexInput _vertexInput{};
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .topology = VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
@@ -86,7 +173,7 @@ namespace kt::vkh {
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VkPolygonMode::VK_POLYGON_MODE_FILL,
         .cullMode = VkCullModeFlagBits::VK_CULL_MODE_NONE,
-        .frontFace = VkFrontFace::VK_FRONT_FACE_CLOCKWISE,
+        .frontFace = VkFrontFace::VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .depthBiasEnable = VK_FALSE,
         .depthBiasConstantFactor = 0.0f,
         .depthBiasSlopeFactor = 1.0f,
@@ -113,64 +200,12 @@ namespace kt::vkh {
     };
     DynamicStateInfo dynamicState = {VkDynamicState::VK_DYNAMIC_STATE_VIEWPORT, VkDynamicState::VK_DYNAMIC_STATE_SCISSOR};
 
+    VkPipelineLayout _layout = nullptr;
+
     std::optional<VkPipelineVertexInputStateCreateInfo> _internalVertexInputInfo = std::nullopt;
 
     std::optional<VkPipelineRenderingCreateInfo> _internalRenderingInfo = std::nullopt;
 
-    VkGraphicsPipelineCreateInfo build() noexcept {
-      uint32_t vertexInputCount = static_cast<uint32_t>(vertexInput.bindings.size());
-      uint32_t vertexAttributeCount = static_cast<uint32_t>(vertexInput.attributes.size());
-      auto* vertexInputBindingsPtr = vertexInput.bindings.empty() ? nullptr : vertexInput.bindings.data();
-      auto* vertexInputAttributesPtr = vertexInput.attributes.empty() ? nullptr : vertexInput.attributes.data();
-      _internalVertexInputInfo = {
-          .vertexBindingDescriptionCount = vertexInputCount,
-          .pVertexBindingDescriptions = vertexInputBindingsPtr,
-          .vertexAttributeDescriptionCount = vertexAttributeCount,
-          .pVertexAttributeDescriptions = vertexInputAttributesPtr,
-      };
-
-      if (rendering.colorAttachmentFormats.size() > blendAttachments.size()) {
-        size_t blendDiff = rendering.colorAttachmentFormats.size() - blendAttachments.size();
-        for (size_t i = 0; i < blendDiff; ++i) {
-          blendAttachments.push_back(VkPipelineColorBlendAttachmentState{
-              .blendEnable = VK_FALSE,
-              .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT});
-        }
-      }
-
-      blending.attachmentCount = static_cast<uint32_t>(blendAttachments.size());
-      blending.pAttachments = blending.attachmentCount == 0 ? nullptr : blendAttachments.data();
-
-      _internalRenderingInfo = rendering.build();
-
-      _internalRenderingInfo->sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-      for (auto& shader : shaders) {
-        shader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-      }
-      _internalVertexInputInfo->sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-      inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-      viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-      rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-      multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-      depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-      blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-
-      VK_ASSERT(shaders.size() > 0, "At least one shader stage must be provided for graphics pipeline.");
-
-      return VkGraphicsPipelineCreateInfo{
-          .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-          .pNext = &_internalRenderingInfo.value(),
-          .stageCount = static_cast<uint32_t>(shaders.size()),
-          .pStages = shaders.data(),
-          .pVertexInputState = &*_internalVertexInputInfo,
-          .pInputAssemblyState = &inputAssembly,
-          .pViewportState = &viewport,
-          .pRasterizationState = &rasterizer,
-          .pMultisampleState = &multisampling,
-          .pDepthStencilState = &depthStencilState,
-          .pColorBlendState = &blending,
-          .pDynamicState = dynamicState,
-      };
-    }
+    VkGraphicsPipelineCreateInfo build() noexcept;
   };
 } // namespace kt::vkh

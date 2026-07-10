@@ -2,8 +2,8 @@
 #include "loading/mesh.hpp"
 #include "stb/image.h"
 
+#include "gpuObjects.hpp"
 #include "keptech/vulkan/constants.hpp"
-#include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
 #include "profile.hpp"
 #include "vk-logger.hpp"
@@ -46,15 +46,7 @@ namespace kt::vkh {
     KT_PROFILE_FUNCTION
     VKH_MAKE(gltfData, gltf::Data::fromFile(path), "Failed to load glTF data from file");
 
-    VkCommandBuffer transferCmd = nullptr;
-    VkCommandBufferAllocateInfo cmdInfo{
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = m.vkcore.transferPool.pool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
-    };
-    VK_CHECK(vkAllocateCommandBuffers(m.vkcore.device.logical, &cmdInfo, &transferCmd),
-             "Failed to allocate command buffer for mesh upload");
+    VkCommandBuffer transferCmd = m.vkcore.transferPool.allocate(m.vkcore.device.logical);
 
     VkCommandBufferBeginInfo cmdBeginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -119,6 +111,9 @@ namespace kt::vkh {
                                                                                      const VkCommandBuffer transferCmd) {
     KT_PROFILE_FUNCTION
     auto& gltfImages = gltf.images;
+    if (gltfImages.empty()) {
+      return {{.resources = {}, .stagingBuffers = {}}};
+    }
     VK_DEBUG("Loading {} images from glTF data", gltfImages.size());
     struct Mip {
       size_t offset;
@@ -456,9 +451,9 @@ namespace kt::vkh {
     VK_DEBUG("Uploading {} meshes from glTF data", meshes.size());
 
     VKH_MAKE(bufs,
-             loading::ensureBuffersAreLargeEnough(m.vkcore.device, m.vkcore.allocator, meshes, *m.buffers.vertexPositions,
-                                                  *m.buffers.vertexAttribs, *m.buffers.indices, *m.buffers.meshlets,
-                                                  *m.buffers.meshletVertices, *m.buffers.meshletTriangles),
+             loading::ensureBuffersAreLargeEnough(m.vkcore.device, m.vkcore.allocator, meshes, m.buffers.vertexPositions,
+                                                  m.buffers.vertexAttribs, m.buffers.indices, m.buffers.meshlets, m.buffers.meshletVertices,
+                                                  m.buffers.meshletTriangles),
              "Failed to ensure buffers are large enough for mesh upload");
 
     bool canWriteDirectly = m.buffers.vertexPositions->buffer.isMapped() && m.buffers.vertexAttribs->buffer.isMapped() &&
@@ -486,6 +481,10 @@ namespace kt::vkh {
                loading::uploadMeshlets(mesh, m.vkcore.device, m.vkcore.allocator, m.buffers.meshlets, m.buffers.meshletVertices,
                                        m.buffers.meshletTriangles),
                "Failed to upload meshlets for mesh");
+
+      bufs.append_range(vertexOffsets.reallocatedBuffers);
+      bufs.append_range(indexOffset.reallocatedBuffers);
+      bufs.append_range(meshletOffsets.reallocatedBuffers);
 
       for (const auto& primitive : mesh.submeshes) {
         Submesh submesh{

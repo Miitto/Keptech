@@ -1,23 +1,62 @@
 #include "keptech/components/transform.hpp"
 #include "imgui.h"
 #include "keptech/core/gui.h"
+#include "keptech/core/profile.hpp"
 
 namespace kt::components {
 
   void Transform::recalculateDepth() {
-    if (parent.isValid()) {
-      auto& parentTransform = parent.getComponents<Transform>();
-      parentTransform.recalculateDepth();
-      depth = parentTransform.depth + 1;
+    KT_PROFILE_FUNCTION
+    for (auto& child : children) {
+      auto& childTransform = child.getComponents<Transform>();
+      childTransform.depth = depth + 1;
+      childTransform.flags.set(Flags::TransformDirty);
+      childTransform.recalculateDepth();
     }
   }
 
   void Transform::recalculateGlobalTransform() {
-    global = local.toMatrix();
+    KT_PROFILE_FUNCTION
+    if (flags.has(Flags::TransformDirty)) {
+      flags.clear(Flags::TransformDirty);
+      global = local.toMatrix();
 
-    if (parent.isValid()) {
-      auto& parentTransform = parent.getComponents<Transform>();
-      global = parentTransform.getGlobal() * global;
+      for (auto& child : children) {
+        auto& childTransform = child.getComponents<Transform>();
+        childTransform.flags.set(Flags::TransformDirty);
+      }
+
+      if (parent.isValid()) {
+        auto& parentTransform = parent.getComponents<Transform>();
+        global = parentTransform.getGlobal() * global;
+      }
+    }
+  }
+
+  void Transform::recalcAllTransforms(ecs::Ecs& ecs) {
+    KT_PROFILE_FUNCTION
+    auto view = ecs.view<Transform>();
+    for (auto [entity, transform] : view.each()) {
+      transform.recalculateGlobalTransform();
+    }
+  }
+
+  void Transform::setParent(const ecs::Entity self, const ecs::Entity newParent) {
+    if (parent != newParent) {
+      flags.set(Flags::TransformDirty);
+      if (parent.isValid() && parent.hasAllComponents<Transform>()) {
+        auto& p = parent.getComponents<Transform>();
+        p.removeChild(self);
+        depth = p.depth + 1;
+      } else {
+        depth = 1;
+      }
+      parent = newParent;
+      if (newParent.isValid() && newParent.hasAllComponents<Transform>()) {
+        auto& p = newParent.getComponents<Transform>();
+        p.children.push_back(self);
+      }
+      recalculateDepth();
     }
   }
 

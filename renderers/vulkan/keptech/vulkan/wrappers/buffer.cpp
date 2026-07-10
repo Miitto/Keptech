@@ -44,4 +44,15 @@ namespace kt::vkh {
 
     return Buffer(buffer, alloc, aInfo, address);
   }
+
+  void Buffer::destroy(const VmaAllocator& allocator) {
+    VK_ASSERT(allocator != nullptr, "Allocator is null");
+    if (alloc && !*destroyed) {
+      VK_DEBUG("Destroying buffer {} with size {}", allocInfo.pName ? allocInfo.pName : "Unnamed", allocInfo.size);
+      vmaDestroyBuffer(allocator, buffer, alloc);
+      buffer = nullptr;
+      alloc = nullptr;
+      *destroyed = true;
+    }
+  }
 } // namespace kt::vkh

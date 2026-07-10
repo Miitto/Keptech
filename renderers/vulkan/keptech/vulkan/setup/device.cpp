@@ -1,13 +1,13 @@
 #pragma once
 
 #include "keptech/vulkan/helpers/physicalDevice.hpp"
-#include "keptech/vulkan/structs.hpp"
 #include "macros.hpp"
 #include "setup.hpp"
 #include <SDL3/SDL_vulkan.h>
 #include <algorithm>
 #include <expected>
 #include <keptech/components/camera.hpp>
+#include <ranges>
 #include <set>
 
 namespace kt::vkh::setup {
@@ -166,6 +166,7 @@ namespace kt::vkh::setup {
         .descriptorBindingUniformBufferUpdateAfterBind = true,
         .descriptorBindingSampledImageUpdateAfterBind = true,
         .descriptorBindingStorageImageUpdateAfterBind = true,
+        .descriptorBindingStorageBufferUpdateAfterBind = true,
         .descriptorBindingPartiallyBound = true,
         .runtimeDescriptorArray = true,
         .hostQueryReset = true,
@@ -200,6 +201,8 @@ namespace kt::vkh::setup {
 
     VkDevice device{};
     VK_MAKE(vkCreateDevice(physDevice, &deviceCreateInfo, nullptr, &device), "Failed to create logical device.");
+
+    volkLoadDevice(device);
 
     return device;
   }

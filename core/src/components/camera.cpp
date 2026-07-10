@@ -4,6 +4,9 @@
 
 namespace kt::components {
   void Camera::recalculateProjectionMatrix() {
+    if (!dirty) {
+      return;
+    }
     switch (projectionType) {
     case ProjectionType::Orthographic: {
       float zoom = params.orthographic.zoom;
@@ -36,5 +39,7 @@ namespace kt::components {
     }
 
     projectionMatrix[1][1] *= -1; // Flip Y to get +Y as up in world coords
+
+    dirty = false;
   }
 } // namespace kt::components

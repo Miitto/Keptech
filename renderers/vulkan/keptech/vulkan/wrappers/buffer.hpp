@@ -27,14 +27,7 @@ namespace kt::vkh {
     static std::expected<Buffer, std::string> create(VkDevice device, const VmaAllocator& allocator, VkBufferCreateInfo bufInfo,
                                                      const VmaAllocationCreateInfo& allocInfo, const std::string& name);
 
-    inline void destroy(const VmaAllocator& allocator) {
-      if (alloc && !*destroyed) {
-        vmaDestroyBuffer(allocator, buffer, alloc);
-        buffer = nullptr;
-        alloc = nullptr;
-        *destroyed = true;
-      }
-    }
+    void destroy(const VmaAllocator& allocator);
 
   private:
     Buffer(VkBuffer buffer, VmaAllocation alloc, VmaAllocationInfo allocInfo, VkDeviceAddress gpuAddress)

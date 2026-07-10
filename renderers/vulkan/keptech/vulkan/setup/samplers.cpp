@@ -1,9 +1,10 @@
 #include "macros.hpp"
+#include "renderer.hpp"
 #include "setup.hpp"
 
 namespace kt::vkh::setup {
 
-  std::expected<Renderer::Samplers, std::string> createSamplers(VkDevice device) {
+  std::expected<Samplers, std::string> createSamplers(VkDevice device) {
     constexpr VkSamplerCreateInfo linearRepeatInfo{
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
         .magFilter = VK_FILTER_LINEAR,
@@ -66,7 +67,7 @@ namespace kt::vkh::setup {
         .compareOp = VK_COMPARE_OP_ALWAYS,
     };
 
-    Renderer::Samplers samplers{};
+    Samplers samplers{};
 
     VK_MAKE(vkCreateSampler(device, &linearRepeatInfo, nullptr, &samplers.linearRepeat), "Failed to create linear repeat sampler");
     VK_MAKE(vkCreateSampler(device, &linearClampInfo, nullptr, &samplers.linearClamp), "Failed to create linear clamp sampler");

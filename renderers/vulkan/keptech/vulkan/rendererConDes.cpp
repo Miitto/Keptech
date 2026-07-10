@@ -27,24 +27,7 @@ namespace kt::vkh {
     rendering::shutdownImGui();
   }
 
-  void Renderer::Pipelines::destroy(const VkDevice& device) {
-    auto d = [&](Pipeline& pipeline) {
-      vkDestroyPipeline(device, pipeline.pipeline, nullptr);
-      vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
-    };
-    d(basic);
-    d(deferred);
-    d(pointLightShadows);
-    d(deferredPointLight);
-    d(ssao);
-    d(ssaoBlur);
-    d(deferredCombine);
-    d(bloomDownsample);
-    d(bloomUpsample);
-    d(bloomCombine);
-  }
-
-  void Renderer::Samplers::destroy(const VkDevice device) {
+  void Samplers::destroy(const VkDevice device) {
     vkDestroySampler(device, linearRepeat, nullptr);
     vkDestroySampler(device, linearClamp, nullptr);
     vkDestroySampler(device, nearestRepeat, nullptr);
@@ -91,6 +74,7 @@ namespace kt::vkh {
     m.samplers.destroy(device);
 
     m.pipelines.destroy(device);
+    m.layouts.destroy(device);
 
     m.renderTargets.~RenderTargets();
 

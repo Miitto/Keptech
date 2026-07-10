@@ -105,6 +105,8 @@ namespace kt::vkh {
     VkInstance instance = nullptr;
     VK_MAKE(vkCreateInstance(&iCreateInfo, nullptr, &instance), "Failed to create Vulkan Instance");
 
+    volkLoadInstanceOnly(instance);
+
 #ifndef NDEBUG
     VkDebugUtilsMessengerEXT debugMessenger = nullptr;
     VK_MAKE(vkCreateDebugUtilsMessengerEXT(instance, &debugCreateInfo, nullptr, &debugMessenger), "Failed to create Debug Utils Messenger");

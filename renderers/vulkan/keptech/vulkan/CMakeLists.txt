@@ -2,15 +2,22 @@ set(HELPER_HEADERS
     helpers/conversions.hpp
     helpers/formatting.hpp
     helpers/physicalDevice.hpp
-    helpers/validators.hpp
     helpers/pipeline.hpp
+    helpers/transitions.hpp
+    helpers/validators.hpp
+    helpers/viewScissor.hpp
+    helpers/owned.hpp
+    helpers/transitions.hpp
 )
 
 set(HELPER_SOURCES
     helpers/conversions.cpp
     helpers/formatting.cpp
     helpers/physicalDevice.cpp
+    helpers/pipeline.cpp
     helpers/validators.cpp
+    helpers/viewScissor.cpp
+    helpers/transitions.inl
 )
 
 set(LOADING_HEADERS
@@ -21,19 +28,16 @@ set(LOADING_SOURCES
     loading/mesh.cpp
 )
 
-set(WRAPPER_SOURCES
-    wrappers/buffer.cpp
-    wrappers/image.cpp
-    wrappers/instance.cpp
-    wrappers/swapchain.cpp
+set(PASSES_HEADERS
+    passes/geometry.hpp
+    passes/global.hpp
+    passes/shadows.hpp
 )
-set(WRAPPER_HEADERS
-    wrappers/buffer.hpp
-    wrappers/device.hpp
-    wrappers/image.hpp
-    wrappers/instance.hpp
-    wrappers/swapchain.hpp
-    wrappers/queue.hpp
+
+set(PASSES_SOURCES
+    passes/geometry.cpp
+    passes/global.cpp
+    passes/shadows.cpp
 )
 
 set(SETUP_HEADERS
@@ -53,33 +57,58 @@ set(SETUP_SOURCES
     setup/targets.cpp
 )
 
+set(WRAPPER_SOURCES
+    wrappers/buffer.cpp
+    wrappers/image.cpp
+    wrappers/instance.cpp
+    wrappers/pipeline.cpp
+    wrappers/swapchain.cpp
+)
+set(WRAPPER_HEADERS
+    wrappers/buffer.hpp
+    wrappers/image.hpp
+    wrappers/instance.hpp
+    wrappers/pipeline.hpp
+    wrappers/swapchain.hpp
+    wrappers/cmdBuf.hpp
+    wrappers/device.hpp
+    wrappers/fwd.hpp
+    wrappers/queue.hpp
+)
+
 set(ALL_SOURCES
     ${HELPER_SOURCES}
     ${LOADING_SOURCES}
+    ${PASSES_SOURCES}
     ${WRAPPER_SOURCES}
     ${SETUP_SOURCES}
-    impls.cpp
     constants.cpp
+    core.cpp
     impls.cpp
+    pipelines.cpp
     renderer.cpp
     rendererConDes.cpp
     renderUtils.cpp
     resourceManagment.cpp
-    structs.cpp
     vk-logger.cpp
 )
 set(ALL_HEADERS
     ${HELPER_HEADERS}
     ${LOADING_HEADERS}
+    ${PASSES_HEADERS}
     ${WRAPPER_HEADERS}
     ${SETUP_HEADERS}
     constants.hpp
+    core.hpp
+    pipelines.hpp
+    renderer.hpp
+    vk-logger.hpp
+    buffers.hpp
+    gpuObjects.hpp
     interface.hpp
     macros.hpp
     profile.hpp
-    renderer.hpp
     structs.hpp
-    vk-logger.hpp
 )
 
 target_sources(${PROJECT_NAME}
