@@ -22,6 +22,8 @@ namespace kt::vkh::passes {
     auto viewProj = projection * viewMat;
     auto invViewProj = glm::inverse(viewProj);
 
+    auto frustum = kt::maths::Frustum::fromViewProjectionMatrix(viewProj);
+
     components::Camera::Uniforms camUniforms{
         .projectionMatrix = projection,
         .viewMatrix = viewMat,
@@ -30,6 +32,7 @@ namespace kt::vkh::passes {
         .invViewMatrix = invView,
         .invViewProjectionMatrix = invViewProj,
         .viewportSize = {framebufferSize.x, framebufferSize.y},
+        .frustum = frustum,
     };
 
     size_t sizePerCamera = maths::roundToAlignment(sizeof(components::Camera::Uniforms), limits::minUniformBufferOffsetAlignment);
@@ -37,6 +40,6 @@ namespace kt::vkh::passes {
 
     memcpy(buffers.camera->mapping() + offset, &camUniforms, sizeof(components::Camera::Uniforms));
 
-    return kt::maths::Frustum::fromViewProjectionMatrix(viewProj);
+    return frustum;
   }
 } // namespace kt::vkh::passes

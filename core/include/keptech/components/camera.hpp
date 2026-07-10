@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/maths/frustum.hpp"
 #include "keptech/maths/sizes.hpp"
 
 namespace kt::components {
@@ -24,6 +25,7 @@ namespace kt::components {
       glm::mat4 invProjectionMatrix;
       glm::mat4 invViewMatrix;
       glm::mat4 invViewProjectionMatrix;
+      maths::Frustum frustum;
       glm::vec2 viewportSize;
     };
 

@@ -23,6 +23,7 @@ struct VertexOutput {
   nointerpolation uint materialIndex : MATERIAL_INDEX;
 };
 
+const static uint TASK_SHADER_DISPATCH_SIZE = 64;
 const static uint MESH_SHADER_DISPATCH_SIZE = 32;
 const static uint MAX_VERTICES_PER_MESHLET = 64;
 const static uint MAX_TRIANGLES_PER_MESHLET = 64;
@@ -30,22 +31,71 @@ const static uint MAX_TRIANGLES_PER_MESHLET = 64;
 static const float4 positions[3] = { float4(0.0, -1.0, 0.0, 1.0), float4(-1.0, 1.0, 0.0, 1.0), float4(1.0, 1.0, 0.0, 1.0) };
 
 struct Payload {
-  uint dummy;
+  uint32_t groupMeshletOffset;
+  uint8_t meshletIndices[TASK_SHADER_DISPATCH_SIZE];
 }
+groupshared Payload payload;
+groupshared Atomic<uint> visibleMeshlets;
 
-// [shader("task")]
-// [numthreads(1, 1, 1)]
-// void task() {
-//   Payload payload;
-//   DispatchMesh(1, 1, 1, payload);
-// }
+[shader("task")]
+[numthreads(TASK_SHADER_DISPATCH_SIZE, 1, 1)]
+void task(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
+  uint groupMeshletOffset = gid.x * TASK_SHADER_DISPATCH_SIZE;
+  uint totalMeshlets = PC.meshletCount;
+
+  if (gtid.x == 0) {
+    visibleMeshlets.store(0);
+    payload.groupMeshletOffset = groupMeshletOffset;
+  }
+
+  GroupMemoryBarrierWithGroupSync();
+
+  uint meshletCount = min(TASK_SHADER_DISPATCH_SIZE, totalMeshlets - groupMeshletOffset);
+  if (gtid.x < meshletCount) {
+    uint idx = groupMeshletOffset + gtid.x;
+    kt::Meshlet meshlet = kt::buffers.meshlets[idx];
+
+    bool inFrustum = kt::camera.canSee(meshlet.bounds.apply(PC.modelMatrix));
+    uint count = inFrustum; // Quick boolean to int conversion for WaveActiveSum.
+
+    // So it lives outside the if statement to be read after.
+    uint idxOffset = 0;
+    // Get the total number of visible meshlets in this wave.
+    uint visibleCount = WaveActiveSum(count);
+
+    // WaveIsFirstLane() 'probably' checks if its lane 0, but it might not actually?
+    // Being explicit so when we fetch the offset from lane 0 its right.
+    if (WaveGetLaneIndex() == 0) {
+      // Atomically add the number of visible meshlets in this wave to the global count.
+      // Only runs on one lane since atomics are expensive.
+      idxOffset = visibleMeshlets.add(visibleCount);
+    }
+
+    if (inFrustum) {
+      // Pull out the first offset from the wave so all lanes can use it to calculate their own index.
+      uint offset = WaveReadLaneAt(idxOffset, 0);
+      // Add the number of visible meshlets before this lane in the wave to the offset to get the final index for this lane.
+      uint myIndex = WavePrefixCountBits(inFrustum) + offset;
+
+      payload.meshletIndices[myIndex] = (uint8_t)gtid.x;
+    }
+  }
+
+  GroupMemoryBarrierWithGroupSync();
+
+  if (gtid.x == 0) {
+    uint totalVisibleMeshlets = visibleMeshlets.load();
+    DispatchMesh(totalVisibleMeshlets, 1, 1, payload);
+  }
+}
 
 [shader("mesh")]
 [outputtopology("triangle")]
 [numthreads(MESH_SHADER_DISPATCH_SIZE, 1, 1)]
-void mesh(out indices uint3 triangles[MAX_TRIANGLES_PER_MESHLET], out vertices VertexOutput vertices[MAX_VERTICES_PER_MESHLET],
-          uint3 dispatchId: SV_DispatchThreadID, uint3 groupId: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
-  uint meshletId = groupId.x;
+void mesh(in payload Payload payload, out indices uint3 triangles[MAX_TRIANGLES_PER_MESHLET],
+          out vertices VertexOutput vertices[MAX_VERTICES_PER_MESHLET], uint3 dispatchId: SV_DispatchThreadID, uint3 groupId: SV_GroupID,
+          uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
+  uint meshletId = payload.groupMeshletOffset + payload.meshletIndices[groupId.x];
 
   if (meshletId >= PC.meshletCount) {
     SetMeshOutputCounts(0, 0);

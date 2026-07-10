@@ -10,6 +10,7 @@ __include vertex;
 __include buffers;
 __include material;
 __include sphere;
+__include frustum;
 
 public namespace kt {
 

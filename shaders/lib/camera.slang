@@ -9,6 +9,7 @@ public struct Camera {
   float4x4 inverseProjectionMatrix;
   float4x4 inverseViewMatrix;
   float4x4 inverseViewProjectionMatrix;
+  Frustum _frustum;
   float2 viewportSizeV;
 
   public float4 worldToCamera(float4 worldPosition) { return mul(worldPosition, viewMatrix); }
@@ -42,5 +43,11 @@ public struct Camera {
   public float3 right() { return normalize(inverseViewMatrix[0].xyz); }
 
   public float4x4 makeMvp(float4x4 modelMatrix) { return mul(viewProjectionMatrix, modelMatrix); }
+
+  public property Frustum frustum {
+    get { return _frustum; }
+  }
+
+  public bool canSee(Sphere sphere) { return _frustum.intersects(sphere); }
 };
 }

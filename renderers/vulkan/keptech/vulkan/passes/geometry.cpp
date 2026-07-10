@@ -78,7 +78,8 @@ namespace kt::vkh::passes::geometry {
       std::array<VkDeviceSize, 2> offsets = {0, 0};
       vkCmdBindVertexBuffers(cmdBuf, 0, static_cast<uint32_t>(vBufs.size()), vBufs.data(), offsets.data());
 
-      vkCmdDrawMeshTasksEXT(cmdBuf, submesh.meshletCount, 1, 1);
+      uint32_t taskShaderDispatches = (submesh.meshletCount + 63) / 64;
+      vkCmdDrawMeshTasksEXT(cmdBuf, taskShaderDispatches, 1, 1);
     }
 
     vkCmdEndRendering(cmdBuf);
