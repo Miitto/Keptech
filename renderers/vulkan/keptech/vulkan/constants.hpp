@@ -9,7 +9,7 @@ namespace kt::vkh {
     constexpr uint32_t SSAO_KERNEL_SIZE = 64;
     constexpr uint32_t SSAO_NOISE_SIZE = 4;
 
-    constexpr uint32_t STATIC_TEXTURE_COUNT = 10; // SSAO Result is used in compute, so is a storage image.
+    constexpr uint32_t STATIC_TEXTURE_COUNT = 11;
   } // namespace constants
 
   namespace limits {
@@ -18,4 +18,8 @@ namespace kt::vkh {
     extern VkDeviceSize maxPushConstantsSize;
     extern VkDeviceSize maxMemoryAllocationSize;
   } // namespace limits
+
+  extern VkDeviceSize samplerDescriptorSize;
+  extern VkDeviceSize bufferDescriptorSize;
+  extern VkDeviceSize imageDescriptorSize;
 } // namespace kt::vkh

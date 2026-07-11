@@ -8,4 +8,8 @@ namespace kt::vkh {
     VkDeviceSize maxPushConstantsSize = 0;
     VkDeviceSize maxMemoryAllocationSize = 0;
   } // namespace limits
+
+  VkDeviceSize samplerDescriptorSize = 0;
+  VkDeviceSize bufferDescriptorSize = 0;
+  VkDeviceSize imageDescriptorSize = 0;
 } // namespace kt::vkh

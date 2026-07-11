@@ -100,7 +100,8 @@ add_subdirectory(src)
 
 if (KT_USE_PCH)
   target_precompile_headers(${PROJECT_NAME}
-    PUBLIC
+    PRIVATE
+      ${KT_PCH_HEADERS}
       <glm/glm.hpp>
   )
 endif()

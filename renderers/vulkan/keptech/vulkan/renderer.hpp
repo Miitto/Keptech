@@ -9,6 +9,7 @@
 #include "keptech/vulkan/pipelines.hpp"
 #include "keptech/vulkan/wrappers/buffer.hpp"
 #include "keptech/vulkan/wrappers/image.hpp"
+#include "types.hpp"
 #include <Volk/volk.h>
 #include <expected>
 #include <imgui/backends/imgui_impl_vulkan.h>
@@ -78,6 +79,17 @@ namespace kt::vkh {
     bool suboptimalSwapchain = false;
   };
 
+  struct Indices {
+    SamplerHandle nextSamplerIndex = 0;
+    ImageHandle nextCombinedImageIndex = 0;
+    uint32_t nextSampledImageIndex = 0;
+    uint32_t nextStorageImageIndex = 0;
+    uint32_t nextUniformTexelBufferIndex = 0;
+    uint32_t nextStorageTexelBufferIndex = 0;
+    uint32_t nextUniformBufferIndex = 0;
+    uint32_t nextStorageBufferIndex = 0;
+  };
+
   struct Members {
     MoveGuard moveGuard{};
 
@@ -99,7 +111,7 @@ namespace kt::vkh {
 
     Frame frameInfo{};
 
-    size_t nextTextureIndex = 0;
+    Indices indices{};
     uint32_t nextMeshIndex = 0;
 
     std::vector<Image> loadedTextures{};
@@ -133,6 +145,8 @@ namespace kt::vkh {
     std::expected<UploadResult<Texture>, std::string> createImages(const gltf::Data& gltfData, const VkCommandBuffer transferCmd);
     std::expected<UploadResult<rendering::Material>, std::string>
     createMaterials(const gltf::Data& data, const std::vector<Texture>& textures, const VkCommandBuffer transferCmd);
+
+    void loadImage(Image& image);
 
     void setScene(Scene& scene) { this->scene = &scene; }
 

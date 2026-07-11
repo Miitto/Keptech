@@ -14,6 +14,10 @@ public struct Buffers {
   public Material *materials;
 };
 
-[[vk::binding(2, 0)]]
-public ConstantBuffer<Buffers> buffers;
+public property ConstantBuffer<Camera>.Handle camera {
+  get { return ConstantBuffer<Camera>.Handle(uint2(0, 0)); }
+}
+public property ConstantBuffer<Buffers>.Handle buffers {
+  get { return ConstantBuffer<Buffers>.Handle(uint2(1, 0)); }
+}
 }

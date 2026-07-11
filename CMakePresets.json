@@ -151,13 +151,11 @@
     },
     {
       "name": "clang-x64",
-      "configurePreset": "clang-x64",
-      "configuration": "Debug"
+      "configurePreset": "clang-x64"
     },
     {
       "name": "gcc-x64",
-      "configurePreset": "gcc-x64",
-      "configuration": "Debug"
+      "configurePreset": "gcc-x64"
     },
     {
       "name": "windows-vs-x64",

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "keptech/vulkan/helpers/transitions.hpp"
+#include "keptech/vulkan/types.hpp"
 #include <Volk/volk.h>
 #include <expected>
 #include <memory>
@@ -33,6 +34,11 @@ namespace kt::vkh {
 
     [[nodiscard]] constexpr bool isDestroyed() const { return *destroyed; }
 
+    [[nodiscard]] bool hasHandle() const { return _handle != INVALID_HANDLE; }
+    [[nodiscard]] ImageHandle handle() const { return _handle; }
+
+    void setHandle(ImageHandle handle) { _handle = handle; }
+
   private:
     constexpr Image(VkImage image, VkImageView view, VmaAllocation alloc, VkExtent3D extent, VkFormat format)
         : image(image), view(view), alloc(alloc), _extent(extent), _format(format), destroyed(std::make_shared<bool>(false)) {}
@@ -42,6 +48,7 @@ namespace kt::vkh {
     VmaAllocation alloc{};
     VkExtent3D _extent{};
     VkFormat _format{};
+    ImageHandle _handle = INVALID_HANDLE;
     std::shared_ptr<bool> destroyed = std::make_shared<bool>(true);
   };
 } // namespace kt::vkh

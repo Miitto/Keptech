@@ -2,7 +2,7 @@ implementing keptech;
 
 namespace kt {
 
-public enum TextureIndices : uint {
+public enum Target : uint {
   Albedo,
   Normal,
   EmissiveAo,
@@ -14,13 +14,11 @@ public enum TextureIndices : uint {
   SsaoNoise,
   SsaoBlur,
   Combine,
-  Bloom,
+  MAX_TARGETS
 };
 
-public struct TexData<Sampler> {
-  Sampler textures[];
+[[vk::binding(2, 1)]]
+Sampler2D targets[Target::MAX_TARGETS];
 
-  public static bool isTextureValid(uint index) { return index != ~0u; }
-  public Sampler getTexture(uint index) { return textures[index]; }
-};
+public Sampler2D getTarget(Target target) { return targets[(uint)target]; }
 }

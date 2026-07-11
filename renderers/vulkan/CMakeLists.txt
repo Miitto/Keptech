@@ -16,3 +16,11 @@ target_compile_definitions(${PROJECT_NAME}
     MAX_FRAMES_IN_FLIGHT=2
     IMGUI_IMPL_VULKAN_USE_VOLK=1
 )
+
+if(KT_USE_PCH)
+  target_precompile_headers(${PROJECT_NAME}
+    PRIVATE
+      <Volk/volk.h>
+      <vk_mem_alloc.h>
+  )
+endif()

@@ -16,6 +16,7 @@ namespace kt::vkh {
     VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo;
 
   public:
+    ~DynamicStateInfo() = default;
     constexpr DynamicStateInfo(std::initializer_list<VkDynamicState> args) noexcept
         : dynamicStates{args}, dynamicStateCreateInfo{
                                    VkPipelineDynamicStateCreateInfo{
@@ -189,9 +190,9 @@ namespace kt::vkh {
         .depthWriteEnable = VK_TRUE,
         .depthCompareOp = VkCompareOp::VK_COMPARE_OP_LESS,
         .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_FALSE,
         .minDepthBounds = 0.0f,
         .maxDepthBounds = 1.0f,
-        .stencilTestEnable = VK_FALSE,
     };
     std::vector<VkPipelineColorBlendAttachmentState> blendAttachments = {};
     VkPipelineColorBlendStateCreateInfo blending = {

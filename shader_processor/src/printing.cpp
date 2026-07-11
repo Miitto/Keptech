@@ -6,16 +6,13 @@
 #include <spdlog/spdlog.h>
 
 namespace kt::shader_processor::printing {
-  inline std::shared_ptr<spdlog::logger>
-  createLogger(const std::string& name,
-               const spdlog::level::level_enum level) noexcept {
+  inline std::shared_ptr<spdlog::logger> createLogger(const std::string& name, const spdlog::level::level_enum level) noexcept {
     auto logger = spdlog::stdout_color_mt(name);
     logger->set_level(level);
     logger->set_pattern("[%H:%M:%S.%e] [%n] [%^%L%$] %v");
     return logger;
   }
-  const std::shared_ptr<spdlog::logger> logger =
-      createLogger("KT Shaders", spdlog::level::info);
+  const std::shared_ptr<spdlog::logger> logger = createLogger("KT Shaders", spdlog::level::info);
   const auto& o = std::cout; // NOLINT
 
 #define L(...) logger->info(__VA_ARGS__) // NOLINT

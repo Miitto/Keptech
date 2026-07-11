@@ -14,14 +14,6 @@ __include frustum;
 
 public namespace kt {
 
-[[vk::binding(0, 0)]]
-public ConstantBuffer<Camera> camera : register(b0);
-
-[[vk::binding(1, 0)]]
-public ConstantBuffer<TexData<Sampler2D>> textures2D;
-[[vk::binding(1, 0)]]
-public ConstantBuffer<TexData<SamplerCube>> texturesCube;
-
 public struct DeferredOutput {
   public float4 albedo : SV_Target0;
   public float4 normal : SV_Target1;
@@ -33,4 +25,20 @@ public struct DeferredLightingOutput {
   public float4 diffuse : SV_Target0;
   public float4 specular : SV_Target1;
 };
+
+bool valid<T>(DescriptorHandle<T> handle)
+    where T : IOpaqueDescriptor {
+  __target_switch {
+  case spirv: {
+    return reinterpret<uint64_t>(handle) != ~0ull;
+  }
+  default: {
+    static_assert(false, "DescriptorHandle is only supported on SPIR-V targets.");
+    return false;
+  }
+  }
 }
+}
+
+public export T getDescriptorFromHandle<T>(DescriptorHandle<T> handle)
+    where T : IOpaqueDescriptor { return defaultGetDescriptorFromHandle(handle, BindlessDescriptorOptions::None); }

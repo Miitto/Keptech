@@ -34,7 +34,4 @@ compile_shader(${PROJECT_NAME} SPIRV
     ssao
     ssaoBlur
     lightCombine
-    downsample
-    upsample
-    bloomCombine
 )

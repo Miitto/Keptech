@@ -45,3 +45,7 @@ target_compile_definitions(keptech_shader_processor
   PRIVATE
   KEPTECH_SHADER_DIR="${KT_SHADER_DIR}"
 )
+
+if(KT_USE_PCH)
+  target_precompile_headers(keptech_shader_processor PRIVATE <string> <string_view> <vector>)
+endif()

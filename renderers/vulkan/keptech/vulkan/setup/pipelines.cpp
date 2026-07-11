@@ -12,15 +12,12 @@
 #include <keptech/shaders/shader.h>
 
 #include "shaders/keptech/basic.h"
-#include "shaders/keptech/bloomCombine.h"
-#include "shaders/keptech/downsample.h"
 #include "shaders/keptech/lightCombine.h"
 #include "shaders/keptech/mesh_shader.h"
 #include "shaders/keptech/pointLight.h"
 #include "shaders/keptech/pointLightShadows.h"
 #include "shaders/keptech/ssao.h"
 #include "shaders/keptech/ssaoBlur.h"
-#include "shaders/keptech/upsample.h"
 
 namespace kt::vkh::setup {
   namespace {
@@ -31,9 +28,6 @@ namespace kt::vkh::setup {
       GraphicsPipelineConfig deferredPointLight;
       GraphicsPipelineConfig ssaoBlur;
       GraphicsPipelineConfig hdrNoBlend;
-      GraphicsPipelineConfig bloomDownsample;
-      GraphicsPipelineConfig bloomUpsample;
-      GraphicsPipelineConfig bloomCombine;
 
       PipelineLayoutConfig meshShaderLayout;
       PipelineLayoutConfig pointLightShadowsLayout;
@@ -41,17 +35,11 @@ namespace kt::vkh::setup {
       PipelineLayoutConfig ssaoLayout;
       PipelineLayoutConfig ssaoBlurLayout;
       PipelineLayoutConfig lightCombineLayout;
-      PipelineLayoutConfig bloomDownsampleLayout;
-      PipelineLayoutConfig bloomUpsampleLayout;
-      PipelineLayoutConfig bloomCombineLayout;
     };
     Configs createConfigs(const Formats& formats);
 
     struct LayoutConfigs;
-    struct LayoutInfos;
     LayoutConfigs createLayoutConfigs(const VkDescriptorSetLayout globalLayout, const VkDescriptorSetLayout staticLayout);
-
-    LayoutInfos createLayoutInfos(LayoutConfigs& configs);
 
     std::expected<Layouts, std::string> createLayouts(const VkDevice device, const VkDescriptorSetLayout globalLayout,
                                                       const VkDescriptorSetLayout staticLayout);
@@ -64,9 +52,6 @@ namespace kt::vkh::setup {
       Shader ssao;
       Shader ssaoBlur;
       Shader lightCombine;
-      Shader bloomDownsample;
-      Shader bloomUpsample;
-      Shader bloomCombine;
     };
     std::expected<Shaders, std::string> createShaders(const VkDevice device);
     void destroyShaders(const VkDevice device, Shaders& shaders);
@@ -83,13 +68,10 @@ namespace kt::vkh::setup {
     auto deferredPointLight = configs.deferredPointLight.shaders(shaders.pointLight).layout(layouts.pointLightLayout);
     auto ssaoBlur = configs.ssaoBlur.shaders(shaders.ssaoBlur).layout(layouts.ssaoBlurLayout);
     auto lightCombine = configs.hdrNoBlend.shaders(shaders.lightCombine).layout(layouts.onlyGlobals);
-    auto bloomDownsample = configs.bloomDownsample.shaders(shaders.bloomDownsample).layout(layouts.bloomDownsampleLayout);
-    auto bloomUpsample = configs.bloomUpsample.shaders(shaders.bloomUpsample).layout(layouts.bloomUpsampleLayout);
-    auto bloomCombine = configs.bloomCombine.shaders(shaders.bloomCombine).layout(layouts.onlyGlobals);
 
     VKH_MAKE(graphics,
-             Pipeline::createGraphics<9>(vkcore.device.logical, {basic, mesh_shader, pointLightShadows, deferredPointLight, ssaoBlur,
-                                                                 lightCombine, bloomDownsample, bloomUpsample, bloomCombine}),
+             Pipeline::createGraphics<6>(vkcore.device.logical,
+                                         {basic, mesh_shader, pointLightShadows, deferredPointLight, ssaoBlur, lightCombine}),
              "Failed to create basic graphics pipeline.");
 
     VKH_MAKE(ssao, Pipeline::createCompute(vkcore.device.logical, shaders.ssao, layouts.onlyGlobals),
@@ -105,9 +87,6 @@ namespace kt::vkh::setup {
         .ssao = ssao,
         .ssaoBlur = graphics[4],
         .deferredCombine = graphics[5],
-        .bloomDownsample = graphics[6],
-        .bloomUpsample = graphics[7],
-        .bloomCombine = graphics[8],
     };
   }
 
@@ -118,24 +97,12 @@ namespace kt::vkh::setup {
       PipelineLayoutConfig pointLightShadowsLayout;
       PipelineLayoutConfig pointLightLayout;
       PipelineLayoutConfig ssaoBlurLayout;
-      PipelineLayoutConfig bloomDownsampleLayout;
-      PipelineLayoutConfig bloomUpsampleLayout;
-    };
-    struct LayoutInfos {
-      VkPipelineLayoutCreateInfo onlyGlobals;
-      VkPipelineLayoutCreateInfo meshShaderLayout;
-      VkPipelineLayoutCreateInfo pointLightShadowsLayout;
-      VkPipelineLayoutCreateInfo pointLightLayout;
-      VkPipelineLayoutCreateInfo ssaoBlurLayout;
-      VkPipelineLayoutCreateInfo bloomDownsampleLayout;
-      VkPipelineLayoutCreateInfo bloomUpsampleLayout;
     };
   } // namespace
 
   std::expected<Layouts, std::string> createLayouts(const VkDevice device, const VkDescriptorSetLayout globalLayout,
                                                     const VkDescriptorSetLayout staticLayout) {
     auto configs = createLayoutConfigs(globalLayout, staticLayout);
-    auto infos = createLayoutInfos(configs);
 
     VkPipelineLayoutCreateInfo blankInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -149,10 +116,6 @@ namespace kt::vkh::setup {
              "Failed to create pointLightShadows pipeline layout.");
     VKH_MAKE(pointLightLayout, Pipeline::createLayout(device, configs.pointLightLayout), "Failed to create pointLight pipeline layout.");
     VKH_MAKE(ssaoBlurLayout, Pipeline::createLayout(device, configs.ssaoBlurLayout), "Failed to create ssaoBlur pipeline layout.");
-    VKH_MAKE(bloomDownsampleLayout, Pipeline::createLayout(device, configs.bloomDownsampleLayout),
-             "Failed to create bloomDownsample pipeline layout.");
-    VKH_MAKE(bloomUpsampleLayout, Pipeline::createLayout(device, configs.bloomUpsampleLayout),
-             "Failed to create bloomUpsample pipeline layout.");
 
     return Layouts{
         .empty = empty,
@@ -161,8 +124,6 @@ namespace kt::vkh::setup {
         .pointLightShadowsLayout = pointLightShadowsLayout,
         .pointLightLayout = pointLightLayout,
         .ssaoBlurLayout = ssaoBlurLayout,
-        .bloomDownsampleLayout = bloomDownsampleLayout,
-        .bloomUpsampleLayout = bloomUpsampleLayout,
     };
   }
 
@@ -175,9 +136,6 @@ namespace kt::vkh::setup {
       VKH_MAKE(ssao, Shader::create(device, ::shaders::ssao), "Failed to create SSAO shader.");
       VKH_MAKE(ssaoBlur, Shader::create(device, ::shaders::ssaoBlur), "Failed to create SSAO blur shader.");
       VKH_MAKE(lightCombine, Shader::create(device, ::shaders::lightCombine), "Failed to create light combine shader.");
-      VKH_MAKE(bloomDownsample, Shader::create(device, ::shaders::downsample), "Failed to create bloom downsample shader.");
-      VKH_MAKE(bloomUpsample, Shader::create(device, ::shaders::upsample), "Failed to create bloom upsample shader.");
-      VKH_MAKE(bloomCombine, Shader::create(device, ::shaders::bloomCombine), "Failed to create bloom combine shader.");
 
       return Shaders{
           .basic = basic,
@@ -187,9 +145,6 @@ namespace kt::vkh::setup {
           .ssao = ssao,
           .ssaoBlur = ssaoBlur,
           .lightCombine = lightCombine,
-          .bloomDownsample = bloomDownsample,
-          .bloomUpsample = bloomUpsample,
-          .bloomCombine = bloomCombine,
       };
     }
 
@@ -201,9 +156,6 @@ namespace kt::vkh::setup {
       shaders.ssao.destroy(device);
       shaders.ssaoBlur.destroy(device);
       shaders.lightCombine.destroy(device);
-      shaders.bloomDownsample.destroy(device);
-      shaders.bloomUpsample.destroy(device);
-      shaders.bloomCombine.destroy(device);
     }
 
     Configs createConfigs(const Formats& formats) {
@@ -235,8 +187,6 @@ namespace kt::vkh::setup {
                                     .additiveBlending(),
           .ssaoBlur = GraphicsPipelineConfig{}.colorAttachments({VK_FORMAT_R8_UNORM}).noBlending(),
           .hdrNoBlend = GraphicsPipelineConfig{}.colorAttachments({formats.render.hdr}).noBlending(),
-          .bloomUpsample = GraphicsPipelineConfig{}.colorAttachments({formats.render.hdr}).additiveBlending(),
-          .bloomCombine = GraphicsPipelineConfig{}.colorAttachments({formats.swapchain}).noBlending(),
       };
     }
 
@@ -251,7 +201,7 @@ namespace kt::vkh::setup {
               PipelineLayoutConfig{
                   .setLayouts = {globalLayout, staticLayout},
                   .pushConstantRanges = {{
-                      .stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                      .stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
                       .offset = 0,
                       .size = sizeof(glm::mat4) + (sizeof(uint32_t) * 2), // model matrix + material index + meshlet count
                   }},
@@ -283,36 +233,6 @@ namespace kt::vkh::setup {
                       .size = sizeof(glm::vec2),
                   }},
               },
-          .bloomDownsampleLayout =
-              PipelineLayoutConfig{
-                  .setLayouts = {globalLayout, staticLayout},
-                  .pushConstantRanges = {{
-                      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                      .offset = 0,
-                      .size = sizeof(glm::vec2) + sizeof(uint32_t),
-                  }},
-              },
-          .bloomUpsampleLayout =
-              PipelineLayoutConfig{
-                  .setLayouts = {globalLayout, staticLayout},
-                  .pushConstantRanges = {{
-                      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                      .offset = 0,
-                      .size = sizeof(float) + sizeof(uint32_t),
-                  }},
-              },
-      };
-    }
-
-    LayoutInfos createLayoutInfos(LayoutConfigs& configs) {
-      return LayoutInfos{
-          .onlyGlobals = configs.onlyGlobals.build(),
-          .meshShaderLayout = configs.meshShaderLayout.build(),
-          .pointLightShadowsLayout = configs.pointLightShadowsLayout.build(),
-          .pointLightLayout = configs.pointLightLayout.build(),
-          .ssaoBlurLayout = configs.ssaoBlurLayout.build(),
-          .bloomDownsampleLayout = configs.bloomDownsampleLayout.build(),
-          .bloomUpsampleLayout = configs.bloomUpsampleLayout.build(),
       };
     }
   } // namespace

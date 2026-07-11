@@ -2,6 +2,7 @@
 
 #include <slang.h>
 #include <spdlog/logger.h>
+#include <string_view>
 
 namespace kt::shader_processor::printing {
   extern const std::shared_ptr<spdlog::logger> logger;

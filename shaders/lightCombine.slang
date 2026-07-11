@@ -21,11 +21,11 @@ v2f vert(uint vid: SV_VertexID) {
 float4 frag(v2f input) {
   float2 uv = input.uv;
 
-  let albedoTex = kt::textures2D.getTexture(kt::TextureIndices::Albedo);
-  let emissiveAoTex = kt::textures2D.getTexture(kt::TextureIndices::EmissiveAo);
-  let diffuseTex = kt::textures2D.getTexture(kt::TextureIndices::Diffuse);
-  let specularTex = kt::textures2D.getTexture(kt::TextureIndices::Specular);
-  let ssaoTex = kt::textures2D.getTexture(kt::TextureIndices::SsaoBlur);
+  let albedoTex = kt::getTarget(kt::Target::Albedo);
+  let emissiveAoTex = kt::getTarget(kt::Target::EmissiveAo);
+  let diffuseTex = kt::getTarget(kt::Target::Diffuse);
+  let specularTex = kt::getTarget(kt::Target::Specular);
+  let ssaoTex = kt::getTarget(kt::Target::SsaoBlur);
 
   float3 albedo = albedoTex.Sample(uv).rgb;
   float4 emissiveAo = emissiveAoTex.Sample(uv);

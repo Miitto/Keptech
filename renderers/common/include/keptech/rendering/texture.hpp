@@ -10,21 +10,16 @@ namespace kt {
     enum class Type : uint8_t { e2D, e3D, eCube };
 
     Texture() = default;
-    Texture(Type type, glm::ivec3 size, uint8_t mipLevels, rendering::ImageFormat format, uint32_t index, rendering::Image image)
-        : size(size), mipLevels(mipLevels), type(type), format(format), index(index), image(image) {}
+    Texture(Type type, rendering::Image image) : type(type), image(std::move(image)) {}
 
-    [[nodiscard]] glm::ivec3 getSize() const { return size; }
-    [[nodiscard]] uint8_t getMipLevels() const { return mipLevels; }
-    [[nodiscard]] rendering::ImageFormat getFormat() const { return format; }
-    [[nodiscard]] uint32_t getIndex() const { return index; }
+    [[nodiscard]] glm::ivec3 extent() const { return {image.extent().width, image.extent().height, image.extent().depth}; }
     [[nodiscard]] const rendering::Image& getImage() const { return image; }
+    rendering::Image& operator*() { return image; }
+    rendering::Image* operator->() { return &image; }
+    [[nodiscard]] Type getType() const { return type; }
 
   private:
-    glm::ivec3 size;
-    uint8_t mipLevels;
-    Type type;
-    rendering::ImageFormat format;
-    uint32_t index = ~0u;
+    Type type = Type::e2D;
     rendering::Image image;
   };
 } // namespace kt

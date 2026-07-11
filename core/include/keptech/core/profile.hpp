@@ -7,7 +7,7 @@
 #define KT_MARK_FRAME FrameMark
 #else
 #define KT_PROFILE_SCOPE(name)
-#define KT_PROFILE_FUNCTION()
+#define KT_PROFILE_FUNCTION
 #define KT_PROFILE_SCOPE_COLOR(color)
-#define KT_MARK_FRAME(name)
+#define KT_MARK_FRAME
 #endif

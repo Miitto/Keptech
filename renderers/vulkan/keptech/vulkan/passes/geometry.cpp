@@ -71,8 +71,8 @@ namespace kt::vkh::passes::geometry {
           .meshletCount = submesh.meshletCount,
       };
 
-      vkCmdPushConstants(cmdBuf, m.pipelines.mesh_shader.layout, VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PC),
-                         &pc);
+      vkCmdPushConstants(cmdBuf, m.pipelines.mesh_shader.layout,
+                         VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PC), &pc);
 
       std::array<VkBuffer, 2> vBufs = {m.buffers.vertexPositions->buffer, m.buffers.vertexAttribs->buffer};
       std::array<VkDeviceSize, 2> offsets = {0, 0};

@@ -42,3 +42,10 @@ if(RENDERER STREQUAL "Vulkan")
   add_subdirectory(vulkan)
   message(STATUS "Vulkan renderer enabled")
 endif()
+
+if(KT_USE_PCH)
+  target_precompile_headers(${PROJECT_NAME}
+    PRIVATE
+      ${KT_PCH_HEADERS}
+  )
+endif()

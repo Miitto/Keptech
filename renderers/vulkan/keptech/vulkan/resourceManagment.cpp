@@ -341,15 +341,10 @@ namespace kt::vkh {
           Image::create(m.vkcore.allocator, m.vkcore.device.logical, imageCreateInfo, imageAllocInfo, imageViewCreateInfo, tex.name, true),
           "Failed to create image for texture");
 
-      auto index = m.nextTextureIndex++;
-      result.emplace_back(Texture::Type::e2D, glm::ivec3{tex.ktx->baseWidth, tex.ktx->baseHeight, 1}, 1, (VkFormat)tex.ktx->vkFormat, index,
-                          image);
+      loadImage(image);
+      result.emplace_back(Texture::Type::e2D, image);
 
       m.loadedTextures.push_back(image);
-
-      for (auto& frame : m.vkcore.perFrame) {
-        frame.texToUpdate.emplace_back(image, index);
-      }
 
       VkImageMemoryBarrier2 imgTransferBarrier{
           .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
@@ -439,7 +434,7 @@ namespace kt::vkh {
     };
 
     VK_DEBUG("Finished uploading images, total {} bytes in {} staging buffers. Last texture index: {}", offset, stagingBuffers.size(),
-             m.nextTextureIndex - 1);
+             m.indices.nextCombinedImageIndex - 1);
 
     return std::move(results);
   }
@@ -574,13 +569,13 @@ namespace kt::vkh {
       }
 
       GpuMaterial gpuMat{
-          .albedo = matLayer.albedo.getIndex(),
-          .bump = matLayer.bump.getIndex(),
-          .emissive = matLayer.emissive.getIndex(),
-          .metRough = matLayer.metRough.getIndex(),
+          .albedo = matLayer.albedo->handle(),
+          .bump = matLayer.bump->handle(),
+          .emissive = matLayer.emissive->handle(),
+          .metRough = matLayer.metRough->handle(),
           .albedoFactor = matLayer.albedoFactor,
           .emissiveFactor = matLayer.emissiveFactor,
-          .ao = matLayer.ao.getIndex(),
+          .ao = matLayer.ao->handle(),
           .metFactor = matLayer.metFactor,
           .roughFactor = matLayer.roughFactor,
           .specFactor = matLayer.specFactor,

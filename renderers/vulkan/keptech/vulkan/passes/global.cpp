@@ -1,6 +1,7 @@
 #include "global.hpp"
 
 #include "buffers.hpp"
+#include "constants.hpp"
 #include "keptech/maths/maths.hpp"
 #include "profile.hpp"
 #include <keptech/components/camera.hpp>
@@ -31,8 +32,8 @@ namespace kt::vkh::passes {
         .invProjectionMatrix = invProj,
         .invViewMatrix = invView,
         .invViewProjectionMatrix = invViewProj,
-        .viewportSize = {framebufferSize.x, framebufferSize.y},
         .frustum = frustum,
+        .viewportSize = {framebufferSize.x, framebufferSize.y},
     };
 
     size_t sizePerCamera = maths::roundToAlignment(sizeof(components::Camera::Uniforms), limits::minUniformBufferOffsetAlignment);

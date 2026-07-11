@@ -17,6 +17,9 @@ namespace kt::vkh {
       std::vector<VkWriteDescriptorSet> descriptorWrites;
       descriptorWrites.reserve(textureUpdates.size());
       for (auto& update : textureUpdates) {
+        if (update.texture.isDestroyed()) {
+          continue;
+        }
         auto imageIndex = update.indexInDescriptorSet;
 
         imageInfos.push_back(VkDescriptorImageInfo{
@@ -55,5 +58,13 @@ namespace kt::vkh {
 
     size_t offset = maths::roundToAlignment(m.frameInfo.index * sizeof(BufferPointers), limits::minUniformBufferOffsetAlignment);
     memcpy(m.buffers.addresses->mapping() + offset, &bufferPointers, sizeof(BufferPointers));
+  }
+
+  void Renderer::loadImage(Image& image) {
+    ImageHandle index = m.indices.nextCombinedImageIndex++;
+    image.setHandle(index);
+    for (auto& frame : m.vkcore.perFrame) {
+      frame.texToUpdate.emplace_back(image, index);
+    }
   }
 } // namespace kt::vkh

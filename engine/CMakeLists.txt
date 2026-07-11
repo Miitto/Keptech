@@ -32,7 +32,8 @@ target_link_libraries(${PROJECT_NAME}
 
 if (KT_USE_PCH)
   target_precompile_headers(${PROJECT_NAME}
-    PUBLIC
+    PRIVATE
+      ${KT_PCH_HEADERS}
       <keptech/components.hpp>
       <keptech/keptech.hpp>
       <keptech/vulkan.hpp>

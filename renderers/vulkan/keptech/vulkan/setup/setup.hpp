@@ -26,6 +26,8 @@ namespace kt {
     struct Layouts;
     struct Pipelines;
     struct StaticDescriptors;
+    struct Members;
+
     namespace setup {
       struct QueueIndices {
         uint32_t graphics = std::numeric_limits<uint32_t>::max();
@@ -39,7 +41,7 @@ namespace kt {
       std::expected<VulkanCore, std::string> createVulkanCore(const RendererCreateInfo& createInfo, const core::window::Window& window);
       std::expected<Formats, std::string> findFormats(const VulkanCore& vkcore);
       std::expected<DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>, std::string> createGlobalDescriptors(VkDevice device);
-      void writeGlobalDescriptors(const VulkanCore& vkcore, DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>& sets, Buffers& buffers);
+      void writeGlobalDescriptors(Members& m, DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>& sets);
       std::expected<StaticDescriptors, std::string> createStaticDescriptors(const VulkanCore& vkcore);
       void writeStaticDescriptors(const VulkanCore& vkcore, const StaticDescriptors& staticDescriptorSets, const Buffers& buffers,
                                   const RenderTargets& renderTargets, const Samplers& samplers);

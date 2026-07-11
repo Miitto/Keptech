@@ -22,7 +22,14 @@ namespace kt::shader_processor {
   CompilerSession::CompilerSession(SessionConfig config) {
     slang::SessionDesc sessionDesc = {};
 
-    std::vector<slang::CompilerOptionEntry> compilerOptionEntries;
+    std::vector<slang::CompilerOptionEntry> compilerOptionEntries{
+#ifndef KT_USE_DESCRIPTOR_HEAP
+        slang::CompilerOptionEntry{
+            .name = slang::CompilerOptionName::BindlessSpaceIndex,
+            .value{.intValue0 = 0},
+        },
+#endif
+    };
 
     {
       auto name = slang::CompilerOptionName::Optimization;
@@ -44,10 +51,14 @@ namespace kt::shader_processor {
     }
 
     if (config.debugInfo) {
-      compilerOptionEntries.push_back({.name = slang::CompilerOptionName::DebugInformation,
-                                       .value = {.intValue0 = SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL}});
-      compilerOptionEntries.push_back({.name = slang::CompilerOptionName::DebugInformationFormat,
-                                       .value = {.intValue0 = SlangDebugInfoFormat::SLANG_DEBUG_INFO_FORMAT_DEFAULT}});
+      compilerOptionEntries.push_back({
+          .name = slang::CompilerOptionName::DebugInformation,
+          .value = {.intValue0 = SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL},
+      });
+      compilerOptionEntries.push_back({
+          .name = slang::CompilerOptionName::DebugInformationFormat,
+          .value = {.intValue0 = SlangDebugInfoFormat::SLANG_DEBUG_INFO_FORMAT_DEFAULT},
+      });
     }
 
     std::vector<const char*> searchPaths{KEPTECH_SHADER_DIR "/lib"};
@@ -71,6 +82,12 @@ namespace kt::shader_processor {
             .name = slang::CompilerOptionName::VulkanUseEntryPointName,
             .value{.intValue0 = true},
         },
+#ifdef KT_USE_DESCRIPTOR_HEAP
+        slang::CompilerOptionEntry{
+            .name = slang::CompilerOptionName::Capability,
+            .value{.kind = slang::CompilerOptionValueKind::String, .stringValue0 = "spvDescriptorHeapEXT"},
+        },
+#endif
     };
 
     target.compilerOptionEntryCount = compilerOptions.size();

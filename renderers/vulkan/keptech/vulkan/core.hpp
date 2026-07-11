@@ -1,5 +1,7 @@
 #pragma once
 
+#include "keptech/vulkan/helpers/owned.hpp"
+#include "keptech/vulkan/wrappers/buffer.hpp"
 #include "keptech/vulkan/wrappers/device.hpp"
 #include "keptech/vulkan/wrappers/image.hpp"
 #include "keptech/vulkan/wrappers/instance.hpp"

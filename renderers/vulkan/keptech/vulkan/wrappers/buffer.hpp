@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/vulkan/types.hpp"
 #include "keptech/vulkan/vk-logger.hpp"
 #include <Volk/volk.h>
 #include <expected>
@@ -20,7 +21,6 @@ namespace kt::vkh {
     [[nodiscard]] size_t size() const { return allocInfo.size; }
 
     operator VkBuffer() const { return buffer; }
-    operator VkDeviceAddress() const { return gpuAddress; }
 
     [[nodiscard]] VkDeviceAddress address() const { return gpuAddress; }
 
@@ -29,6 +29,11 @@ namespace kt::vkh {
 
     void destroy(const VmaAllocator& allocator);
 
+    [[nodiscard]] bool isDestroyed() const { return *destroyed; }
+
+    [[nodiscard]] bool hasHandle() const { return _handle != INVALID_HANDLE; }
+    [[nodiscard]] BufferHandle handle() const { return _handle; }
+
   private:
     Buffer(VkBuffer buffer, VmaAllocation alloc, VmaAllocationInfo allocInfo, VkDeviceAddress gpuAddress)
         : buffer(buffer), alloc(alloc), allocInfo(allocInfo), destroyed(std::make_shared<bool>(false)), gpuAddress(gpuAddress) {}
@@ -36,8 +41,9 @@ namespace kt::vkh {
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation alloc = nullptr;
     VmaAllocationInfo allocInfo = {};
-    std::shared_ptr<bool> destroyed = std::make_shared<bool>(true);
     VkDeviceAddress gpuAddress = 0;
+    BufferHandle _handle = INVALID_HANDLE;
+    std::shared_ptr<bool> destroyed = std::make_shared<bool>(true);
   };
 
   template <typename T> struct SubdivBuffer {

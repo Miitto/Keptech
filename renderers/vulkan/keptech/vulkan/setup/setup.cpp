@@ -5,6 +5,7 @@
 #include "renderer.hpp"
 #include <SDL3/SDL_vulkan.h>
 
+#include "constants.hpp"
 #include <keptech/components/camera.hpp>
 #include <keptech/maths/maths.hpp>
 
@@ -60,11 +61,6 @@ namespace kt::vkh {
       }
     }
 
-    VK_DEBUG("Writing Global Descriptor Sets.");
-    writeGlobalDescriptors(vkcore, globalDescriptorSets, buffers);
-    VK_DEBUG("Writing Static Descriptor Sets.");
-    writeStaticDescriptors(vkcore, staticDescriptorSets, buffers, renderTargets, samplers);
-
 #ifdef KT_PROFILE
     auto gctx = KT_VK_CONTEXT(vkcore.device.physical, vkcore.device.logical);
     auto cctx = KT_VK_CONTEXT(vkcore.device.physical, vkcore.device.logical);
@@ -72,10 +68,7 @@ namespace kt::vkh {
     KT_VK_CONTEXT_NAME(cctx, "Compute");
 #endif
 
-    vkDeviceWaitIdle(vkcore.device.logical);
-
-    VK_DEBUG("Vulkan renderer created successfully.");
-    Renderer r{Renderer::Members{
+    Renderer::Members members{
         .window = &window,
         .vkcore = std::move(vkcore),
         .samplers = samplers,
@@ -91,7 +84,17 @@ namespace kt::vkh {
         .tracyGraphicsContext = gctx,
         .tracyComputeContext = cctx,
 #endif
-    }};
+    };
+
+    VK_DEBUG("Writing Global Descriptor Sets.");
+    writeGlobalDescriptors(members, globalDescriptorSets);
+    VK_DEBUG("Writing Static Descriptor Sets.");
+    writeStaticDescriptors(vkcore, staticDescriptorSets, buffers, renderTargets, samplers);
+
+    vkDeviceWaitIdle(vkcore.device.logical);
+
+    VK_DEBUG("Vulkan renderer created successfully.");
+    Renderer r{std::move(members)};
 
     return std::move(r);
   }

@@ -1,18 +1,19 @@
 #pragma once
 
+#include "types.hpp"
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
 namespace kt::vkh {
   struct GpuMaterial {
-    uint32_t albedo;
-    uint32_t bump;
-    uint32_t emissive;
-    uint32_t metRough;
+    ImageHandle albedo;
+    ImageHandle bump;
+    ImageHandle emissive;
+    ImageHandle metRough;
     glm::vec4 albedoFactor;
     glm::vec3 emissiveFactor;
-    uint32_t ao;
+    ImageHandle ao;
     float metFactor;
     float roughFactor;
     float specFactor = 1.f;
@@ -29,6 +30,6 @@ namespace kt::vkh {
     glm::vec3 position;
     float radius;
     glm::vec3 color;
-    uint32_t shadowMapIndex;
+    ImageHandle shadowMap;
   };
 } // namespace kt::vkh

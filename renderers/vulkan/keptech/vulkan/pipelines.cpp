@@ -9,8 +9,6 @@ namespace kt::vkh {
     d(pointLightShadowsLayout);
     d(pointLightLayout);
     d(ssaoBlurLayout);
-    d(bloomDownsampleLayout);
-    d(bloomUpsampleLayout);
   }
 
   void Pipelines::destroy(const VkDevice& device) {
@@ -22,8 +20,5 @@ namespace kt::vkh {
     d(ssao);
     d(ssaoBlur);
     d(deferredCombine);
-    d(bloomDownsample);
-    d(bloomUpsample);
-    d(bloomCombine);
   }
 } // namespace kt::vkh

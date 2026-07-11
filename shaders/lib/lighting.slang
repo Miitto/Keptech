@@ -5,25 +5,26 @@ public struct PointLight {
   public float3 position;
   public float radius;
   public float3 color;
-  public uint shadowMapIndex;
+  public DescriptorHandle<SamplerCubeShadow> shadowMap;
 };
 
-public float calculatePointLightOcclusion(float3 fragWorldPos, PointLight light) {
-  float3 worldToLight = light.position - fragWorldPos;
-
-  if (light.shadowMapIndex == ~0u) {
+public float calculatePointLightOcclusion(float3 worldToLight, float distToLight, PointLight light, SamplerCubeShadow.Handle shadowMap) {
+  if (!valid(light.shadowMap)) {
     return 1.f;
   }
 
-  let shadowMap = kt::texturesCube.getTexture(light.shadowMapIndex);
-  float depth = shadowMap.Sample(worldToLight).r;
+  return calculatePointLightOcclusion(worldToLight, distToLight, light, *shadowMap);
+}
 
-  depth *= light.radius;
+public float calculatePointLightOcclusion(float3 worldToLight, float distToLight, PointLight light, SamplerCubeShadow shadowMap) {
 
-  float currentDepth = length(worldToLight);
+  let shadowMapSample = shadowMap.Sample(worldToLight).r;
+
+  float closestDepth = shadowMapSample * light.radius;
+  float currentDepth = distToLight;
 
   float bias = 0.05;
-  float shadow = currentDepth - bias > depth ? 0.0 : 1.0;
+  var shadow = currentDepth - bias > closestDepth ? 0.0 : 1.0;
 
   return shadow;
 }

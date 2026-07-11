@@ -17,6 +17,7 @@ namespace kt::vkh::setup {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME,
       VK_EXT_MESH_SHADER_EXTENSION_NAME,
       VK_KHR_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME,
+      VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME,
 #ifdef KT_PROFILE
       VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME,
 #endif
@@ -136,6 +137,7 @@ namespace kt::vkh::setup {
 
     VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT,
+        .taskShader = true,
         .meshShader = true,
     };
 
@@ -167,8 +169,11 @@ namespace kt::vkh::setup {
         .descriptorBindingSampledImageUpdateAfterBind = true,
         .descriptorBindingStorageImageUpdateAfterBind = true,
         .descriptorBindingStorageBufferUpdateAfterBind = true,
+        .descriptorBindingUniformTexelBufferUpdateAfterBind = true,
+        .descriptorBindingStorageTexelBufferUpdateAfterBind = true,
         .descriptorBindingPartiallyBound = true,
         .runtimeDescriptorArray = true,
+        .scalarBlockLayout = true,
         .hostQueryReset = true,
         .timelineSemaphore = true,
         .bufferDeviceAddress = true,
@@ -177,6 +182,7 @@ namespace kt::vkh::setup {
     VkPhysicalDeviceVulkan11Features vulkan11Features{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
         .pNext = &vulkan12Features,
+        .uniformAndStorageBuffer16BitAccess = true,
         .shaderDrawParameters = true,
     };
     VkPhysicalDeviceFeatures2 deviceFeatures{
@@ -187,6 +193,7 @@ namespace kt::vkh::setup {
                 .geometryShader = true,
                 .multiDrawIndirect = true,
                 .samplerAnisotropy = true,
+                .shaderInt64 = true,
             },
     };
 

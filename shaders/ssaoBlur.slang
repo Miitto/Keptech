@@ -23,7 +23,7 @@ v2f vert(uint vid: SV_VertexID) {
 
 [shader("pixel")]
 float frag(v2f input, uniform PushConstant pc) : SV_Target {
-  let ssaoTex = kt::textures2D.getTexture(kt::TextureIndices::SsaoResult);
+  let ssaoTex = kt::getTarget(kt::Target::SsaoResult);
 
   float result = 0.f;
   for (int x = -2; x <= 2; x++) {

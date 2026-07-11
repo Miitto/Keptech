@@ -33,7 +33,7 @@ namespace kt::vkh {
     if (mapped)
       flags.emplace_back("Mapped");
 
-    VK_TRACE("Created buffer [{}] with size {} bytes. {}", name, aInfo.size, fmt::join(flags, ", "));
+    VK_DEBUG("Created buffer [{}] with size {} bytes. {}", name, aInfo.size, fmt::join(flags, ", "));
 #endif
 
 #ifndef NDEBUG

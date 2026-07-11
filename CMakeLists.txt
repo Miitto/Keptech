@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.15..4.0)
 
-project(Keptech VERSION 0.1 LANGUAGES C CXX)
 
 set(KT_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 
@@ -8,13 +7,12 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(FetchContent)
 
-find_program(SCCACHE_FOUND sccache)
-include(ktx)
+find_program(Sccache sccache)
 
-if(SCCACHE_FOUND)
+if(Sccache)
   message(STATUS "Using sccache for compilation")
-  set(CMAKE_CXX_COMPILER_LAUNCHER ${SCCACHE_FOUND})
-  set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE_FOUND})
+  set(CMAKE_CXX_COMPILER_LAUNCHER ${Sccache})
+  set(CMAKE_C_COMPILER_LAUNCHER ${Sccache})
 
   # For MSVC debug information format
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT Embedded)
@@ -24,18 +22,15 @@ else()
 endif()
 
 option(KT_USE_PCH ON)
-option(KT_BUILD_EXAMPLES "Build example applications" ON)
-option(KT_ADD_RESOURCE_INFO "Add a name to resources. Allows for better debugging and for use in editors - but increaces memory usage." ON)
+option(KT_BUILD_EXAMPLES "Build example applications" OFF)
+option(KT_ADD_RESOURCE_INFO "Add a name to resources. Allows for better debugging and for use in editors - but increaces memory usage." OFF)
 option(KT_PROFILE "Enable profiling with Tracy" OFF)
 
 if(KT_BUILD_EXAMPLES)
-  set(KT_ADD_RESOURCE_INFO ON)
-  set(KT_PROFILE ON)
   set(CMAKE_CXX_STANDARD 23)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
   set(CMAKE_CXX_EXTENSIONS OFF)
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-  add_subdirectory(examples)
 endif()
 
 set(KT_PCH_HEADERS
@@ -47,15 +42,26 @@ set(KT_PCH_HEADERS
   <string>
   <vector>
   <array>
-  <unordered_map>
   <spdlog/spdlog.h>
-  <bitset>
   <string>
   <string_view>
   <concepts>
-  <set>
   <type_traits>
 )
+
+project(Keptech VERSION 0.1 LANGUAGES C CXX)
+
+if (CMAKE_CXX_STANDARD LESS 23)
+  message(FATAL_ERROR "C++23 or higher is required")
+endif()
+
+include(ktx)
+
+if(KT_BUILD_EXAMPLES)
+  message(STATUS "Building examples")
+  set(KT_ADD_RESOURCE_INFO ON)
+  add_subdirectory(examples)
+endif()
 
 add_subdirectory(logging)
 add_subdirectory(shader_processor)
@@ -70,6 +76,5 @@ add_subdirectory(engine)
 # Vendored Deps
 add_subdirectory(vendor/imgui imgui)
 add_subdirectory(vendor/stb stb)
-
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)

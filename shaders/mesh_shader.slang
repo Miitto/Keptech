@@ -1,11 +1,5 @@
 import keptech;
 
-struct Object {
-  float4x4 modelMatrix;
-  uint materialIndex;
-  float[3] padding;
-};
-
 struct PushConstants {
   float4x4 modelMatrix;
   uint materialIndex;
@@ -15,12 +9,12 @@ struct PushConstants {
 struct VertexOutput {
   float4 position : SV_Position;
   float4 color : COLOR0;
-  float3 normal : NORMAL0;
-  float uvX : TEXCOORD0;
-  float3 tangent : TANGENT0;
-  float uvY : TEXCOORD1;
-  float3 bitangent : BITANGENT0;
-  nointerpolation uint materialIndex : MATERIAL_INDEX;
+  // float3 normal : NORMAL0;
+  // float uvX : TEXCOORD0;
+  // float3 tangent : TANGENT0;
+  // float uvY : TEXCOORD1;
+  // float3 bitangent : BITANGENT0;
+  // nointerpolation uint materialIndex : MATERIAL_INDEX;
 };
 
 const static uint TASK_SHADER_DISPATCH_SIZE = 64;
@@ -53,9 +47,9 @@ void task(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConst
   uint meshletCount = min(TASK_SHADER_DISPATCH_SIZE, totalMeshlets - groupMeshletOffset);
   if (gtid.x < meshletCount) {
     uint idx = groupMeshletOffset + gtid.x;
-    kt::Meshlet meshlet = kt::buffers.meshlets[idx];
+    kt::Meshlet meshlet = (*kt::buffers).meshlets[idx];
 
-    bool inFrustum = kt::camera.canSee(meshlet.bounds.apply(PC.modelMatrix));
+    bool inFrustum = (*kt::camera).canSee(meshlet.bounds.apply(PC.modelMatrix));
     uint count = inFrustum; // Quick boolean to int conversion for WaveActiveSum.
 
     // So it lives outside the if statement to be read after.
@@ -95,6 +89,8 @@ void task(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConst
 void mesh(in payload Payload payload, out indices uint3 triangles[MAX_TRIANGLES_PER_MESHLET],
           out vertices VertexOutput vertices[MAX_VERTICES_PER_MESHLET], uint3 dispatchId: SV_DispatchThreadID, uint3 groupId: SV_GroupID,
           uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
+  let buffers = *kt::buffers;
+
   uint meshletId = payload.groupMeshletOffset + payload.meshletIndices[groupId.x];
 
   if (meshletId >= PC.meshletCount) {
@@ -102,9 +98,9 @@ void mesh(in payload Payload payload, out indices uint3 triangles[MAX_TRIANGLES_
     return;
   }
 
-  kt::Meshlet meshlet = kt::buffers.meshlets[meshletId];
+  kt::Meshlet meshlet = buffers.meshlets[meshletId];
 
-  let mvp = kt::camera.makeMvp(PC.modelMatrix);
+  let mvp = (*kt::camera).makeMvp(PC.modelMatrix);
 
   // Hash-based per-meshlet coloring for visualization
   uint hash = meshletId * 747796405u + 2891336453u;
@@ -116,17 +112,17 @@ void mesh(in payload Payload payload, out indices uint3 triangles[MAX_TRIANGLES_
 
   uint instanceId = gtid.x;
   for (uint i = instanceId; i < meshlet.vertexCount; i += MESH_SHADER_DISPATCH_SIZE) {
-    uint vIdx = kt::buffers.meshletVertices[meshlet.vertexOffset + i];
-    float3 position = kt::buffers.positions[vIdx];
+    uint vIdx = buffers.meshletVertices[meshlet.vertexOffset + i];
+    float3 position = buffers.positions[vIdx];
     vertices[i].position = mul(float4(position, 1.0), mvp);
     vertices[i].color = float4(color, 1.f);
   }
 
   for (uint i = instanceId; i < meshlet.triangleCount; i += MESH_SHADER_DISPATCH_SIZE) {
     uint tOffset = meshlet.triangleOffset + i * 3;
-    uint idx0 = kt::buffers.meshletTriangles[tOffset + 0];
-    uint idx1 = kt::buffers.meshletTriangles[tOffset + 1];
-    uint idx2 = kt::buffers.meshletTriangles[tOffset + 2];
+    uint idx0 = buffers.meshletTriangles[tOffset + 0];
+    uint idx1 = buffers.meshletTriangles[tOffset + 1];
+    uint idx2 = buffers.meshletTriangles[tOffset + 2];
     triangles[i] = uint3(idx0, idx1, idx2);
   }
 }
