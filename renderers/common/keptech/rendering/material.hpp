@@ -1,17 +1,19 @@
 #pragma once
 
-#include "texture.hpp"
+#include "keptech/rendering/interface.hpp"
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 
 namespace kt {
   namespace rendering {
     struct MaterialLayer {
-      Texture albedo;
-      Texture bump;
-      Texture emissive;
-      Texture metRough;
+      Image albedo;
+      Image bump;
+      Image emissive;
+      Image metRough;
       glm::vec4 albedoFactor;
       glm::vec3 emissiveFactor;
-      Texture ao;
+      Image ao;
       float metFactor;
       float roughFactor;
       float specFactor = 1.f;

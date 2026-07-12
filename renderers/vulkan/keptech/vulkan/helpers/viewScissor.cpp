@@ -2,11 +2,12 @@
 
 #include "wrappers/image.hpp"
 #include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 
 namespace kt::vkh {
 
   void setFullscreenViewportAndScissor(VkCommandBuffer cmdBuf, const Image& image) {
-    setViewportAndScissor(cmdBuf, {image.extent().width, image.extent().height}, {});
+    setViewportAndScissor(cmdBuf, {image.extent().x, image.extent().y}, {});
   }
 
   void setViewportAndScissor(VkCommandBuffer cmdBuf, const glm::uvec2& extent, const glm::ivec2& offset) {

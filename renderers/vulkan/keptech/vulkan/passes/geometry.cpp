@@ -1,21 +1,25 @@
-#include "buffers.hpp"
+#include "geometry.hpp"
+
 #include "helpers/transitions.hpp"
 #include "helpers/viewScissor.hpp"
+#include "keptech/vulkan/buffers.hpp"
+#include "keptech/vulkan/renderer.hpp"
 #include "profile.hpp"
-#include "renderer.hpp"
 
 namespace kt::vkh::passes::geometry {
+  using rendering::ImageLayout;
+  using rendering::ImageType;
+
   namespace {
 
     void deferredToRenderable(VkCommandBuffer cmdBuf, const Target& target) {
-      layoutTransitions<5>(cmdBuf,
-                           {
-                               target.albedo->transition({ImageType::Color, ImageLayout::Undefined, ImageLayout::RenderTarget}),
-                               target.normal->transition({ImageType::Color, ImageLayout::Undefined, ImageLayout::RenderTarget}),
-                               target.emissive->transition({ImageType::Color, ImageLayout::Undefined, ImageLayout::RenderTarget}),
-                               target.metRough->transition({ImageType::Color, ImageLayout::Undefined, ImageLayout::RenderTarget}),
-                               target.depth->transition({ImageType::DepthStencil, ImageLayout::Undefined, ImageLayout::RenderTarget}),
-                           });
+      layoutTransitions<5>(cmdBuf, {
+                                       target.albedo->transition({ImageType::Color, ImageLayout::Undefined, ImageLayout::RenderTarget}),
+                                       target.normal->transition({ImageType::Color, ImageLayout::Undefined, ImageLayout::RenderTarget}),
+                                       target.emissive->transition({ImageType::Color, ImageLayout::Undefined, ImageLayout::RenderTarget}),
+                                       target.metRough->transition({ImageType::Color, ImageLayout::Undefined, ImageLayout::RenderTarget}),
+                                       target.depth->transition({ImageType::Depth, ImageLayout::Undefined, ImageLayout::RenderTarget}),
+                                   });
     }
 
     void deferredBeginRendering(VkCommandBuffer cmdBuf, const Target& target) {
@@ -23,7 +27,7 @@ namespace kt::vkh::passes::geometry {
       beginRendering<4>(cmdBuf,
                         VkRect2D{
                             .offset = VkOffset2D{.x = 0, .y = 0},
-                            .extent = VkExtent2D{.width = static_cast<uint32_t>(size.width), .height = static_cast<uint32_t>(size.height)},
+                            .extent = VkExtent2D{.width = size.x, .height = size.y},
                         },
                         {
                             clearColorAttachment(*target.albedo),
@@ -40,7 +44,7 @@ namespace kt::vkh::passes::geometry {
                                target.normal->transition({ImageType::Color, ImageLayout::RenderTarget, ImageLayout::ShaderReadOnly}),
                                target.emissive->transition({ImageType::Color, ImageLayout::RenderTarget, ImageLayout::ShaderReadOnly}),
                                target.metRough->transition({ImageType::Color, ImageLayout::RenderTarget, ImageLayout::ShaderReadOnly}),
-                               target.depth->transition({ImageType::DepthStencil, ImageLayout::RenderTarget, ImageLayout::ShaderReadOnly}),
+                               target.depth->transition({ImageType::Depth, ImageLayout::RenderTarget, ImageLayout::ShaderReadOnly}),
                            });
     }
   } // namespace

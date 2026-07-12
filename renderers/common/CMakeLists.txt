@@ -3,10 +3,10 @@ cmake_minimum_required(VERSION 3.15..4.0)
 target_sources(${PROJECT_NAME}
   PUBLIC
     FILE_SET HEADERS
-    BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-add_subdirectory(src)
+add_subdirectory(keptech/rendering)
 
 include(mesh_optimizer)
 
@@ -35,3 +35,10 @@ compile_shader(${PROJECT_NAME} SPIRV
     ssaoBlur
     lightCombine
 )
+
+if(KT_USE_PCH)
+  target_precompile_headers(${PROJECT_NAME}
+    PRIVATE
+      ${KT_PCH_HEADERS}
+  )
+endif()

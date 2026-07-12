@@ -18,6 +18,7 @@
 #include <keptech/rendering/gltf/scene.hpp>
 #include <ktx.h>
 #include <ktxvulkan.h>
+#include <string_view>
 
 namespace kt::vkh {
   bool Renderer::canRenderToFormat(VkFormat format) const {
@@ -107,8 +108,8 @@ namespace kt::vkh {
     return scene;
   }
 
-  std::expected<Renderer::UploadResult<Texture>, std::string> Renderer::createImages(const gltf::Data& gltf,
-                                                                                     const VkCommandBuffer transferCmd) {
+  std::expected<Renderer::UploadResult<Image>, std::string> Renderer::createImages(const gltf::Data& gltf,
+                                                                                   const VkCommandBuffer transferCmd) {
     KT_PROFILE_FUNCTION
     auto& gltfImages = gltf.images;
     if (gltfImages.empty()) {
@@ -304,7 +305,7 @@ namespace kt::vkh {
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
     };
 
-    std::vector<Texture> result;
+    std::vector<Image> result;
     result.reserve(textures.size());
 
     m.loadedTextures.reserve(m.loadedTextures.size() + textures.size());
@@ -342,7 +343,7 @@ namespace kt::vkh {
           "Failed to create image for texture");
 
       loadImage(image);
-      result.emplace_back(Texture::Type::e2D, image);
+      result.emplace_back(image);
 
       m.loadedTextures.push_back(image);
 
@@ -428,7 +429,7 @@ namespace kt::vkh {
     for (auto& sbuf : stagingBuffers) {
       stagingBufs.push_back(sbuf.buffer);
     }
-    UploadResult<Texture> results{
+    UploadResult<Image> results{
         .resources = std::move(result),
         .stagingBuffers = std::move(stagingBufs),
     };
@@ -513,11 +514,11 @@ namespace kt::vkh {
   }
 
   std::expected<Renderer::UploadResult<rendering::Material>, std::string>
-  Renderer::createMaterials(const gltf::Data& data, const std::vector<Texture>& textures, const VkCommandBuffer transferCmd) {
+  Renderer::createMaterials(const gltf::Data& data, const std::vector<Image>& textures, const VkCommandBuffer transferCmd) {
     KT_PROFILE_FUNCTION
     auto& materials = data.materials;
 
-    auto getTexture = [&](const fastgltf::TextureInfo& i) -> const Texture& {
+    auto getTexture = [&](const fastgltf::TextureInfo& i) -> const Image& {
       auto& tex = data.textures[i.textureIndex];
       if (tex.basisuImageIndex.has_value()) {
         auto idx = tex.basisuImageIndex.value();
@@ -569,13 +570,13 @@ namespace kt::vkh {
       }
 
       GpuMaterial gpuMat{
-          .albedo = matLayer.albedo->handle(),
-          .bump = matLayer.bump->handle(),
-          .emissive = matLayer.emissive->handle(),
-          .metRough = matLayer.metRough->handle(),
+          .albedo = matLayer.albedo.handle(),
+          .bump = matLayer.bump.handle(),
+          .emissive = matLayer.emissive.handle(),
+          .metRough = matLayer.metRough.handle(),
           .albedoFactor = matLayer.albedoFactor,
           .emissiveFactor = matLayer.emissiveFactor,
-          .ao = matLayer.ao->handle(),
+          .ao = matLayer.ao.handle(),
           .metFactor = matLayer.metFactor,
           .roughFactor = matLayer.roughFactor,
           .specFactor = matLayer.specFactor,

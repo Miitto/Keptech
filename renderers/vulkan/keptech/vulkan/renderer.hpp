@@ -1,7 +1,6 @@
 #pragma once
 
 #include "keptech/rendering/gltf/data.hpp"
-#include "keptech/rendering/texture.hpp"
 #include "keptech/vulkan/buffers.hpp"
 #include "keptech/vulkan/core.hpp"
 #include "keptech/vulkan/helpers/owned.hpp"
@@ -142,9 +141,9 @@ namespace kt::vkh {
     std::expected<UploadResult<Mesh>, std::string> uploadMeshes(const std::vector<gltf::MeshData>& meshes,
                                                                 const std::vector<rendering::Material>& materials,
                                                                 const VkCommandBuffer transferCmd);
-    std::expected<UploadResult<Texture>, std::string> createImages(const gltf::Data& gltfData, const VkCommandBuffer transferCmd);
+    std::expected<UploadResult<Image>, std::string> createImages(const gltf::Data& gltfData, const VkCommandBuffer transferCmd);
     std::expected<UploadResult<rendering::Material>, std::string>
-    createMaterials(const gltf::Data& data, const std::vector<Texture>& textures, const VkCommandBuffer transferCmd);
+    createMaterials(const gltf::Data& data, const std::vector<Image>& textures, const VkCommandBuffer transferCmd);
 
     void loadImage(Image& image);
 

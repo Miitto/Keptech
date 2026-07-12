@@ -14,5 +14,6 @@ namespace kt {
     using ImageFormat = VkFormat;
     using Buffer = vkh::Buffer;
     using Image = vkh::Image;
+    using ImageUsageFlags = VkImageUsageFlags;
   } // namespace rendering
 } // namespace kt

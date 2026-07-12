@@ -1,25 +1,11 @@
 #pragma once
 //! Utils to reduce the boilerplate code for common image layout transitions.
 
+#include "keptech/rendering/interface/image.hpp"
 #include <Volk/volk.h>
 #include <array>
 
 namespace kt::vkh {
-
-  enum class ImageLayout : uint8_t {
-    Undefined,
-    RenderTarget,
-    ShaderReadOnly,
-    TransferSrc,
-    TransferDst,
-    ComputeReadWrite,
-    Present,
-  };
-
-  enum class ImageType : uint8_t {
-    Color,
-    DepthStencil,
-  };
 
   namespace utils {
 #include "transitions.inl"
@@ -28,7 +14,8 @@ namespace kt::vkh {
   struct TransitionInfo {
     VkImageMemoryBarrier2 barrier;
 
-    consteval TransitionInfo(ImageType imageType, ImageLayout oldLayout, ImageLayout newLayout, uint8_t mips = 1, uint8_t layers = 1)
+    constexpr TransitionInfo(kt::rendering::ImageType imageType, kt::rendering::ImageLayout oldLayout, kt::rendering::ImageLayout newLayout,
+                             uint8_t mips = 1, uint8_t layers = 1)
         : barrier(VkImageMemoryBarrier2{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
                                         .srcStageMask = utils::toVkPipelineStageFlags(imageType, oldLayout),
                                         .srcAccessMask = utils::toVkAccessFlags(imageType, oldLayout),
@@ -44,10 +31,17 @@ namespace kt::vkh {
                                             .baseArrayLayer = 0,
                                             .layerCount = layers,
                                         }}) {}
+
     constexpr VkImageMemoryBarrier2 image(VkImage image) const {
       VkImageMemoryBarrier2 barrierCopy = barrier;
       barrierCopy.image = image;
       return barrierCopy;
+    }
+
+    constexpr TransitionInfo& queueTransfer(uint32_t srcQueueFamily, uint32_t dstQueueFamily) {
+      barrier.srcQueueFamilyIndex = srcQueueFamily;
+      barrier.dstQueueFamilyIndex = dstQueueFamily;
+      return *this;
     }
   };
 

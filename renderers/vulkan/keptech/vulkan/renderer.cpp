@@ -20,6 +20,9 @@
 namespace kt::vkh {
   static_assert(CRenderer<Renderer>, "Renderer does not satisfy CRenderer concept");
 
+  using rendering::ImageLayout;
+  using rendering::ImageType;
+
   constexpr VkDeviceSize NO_VERTEX_OFFSET = 0;
 
   void Renderer::debugUi() {
@@ -86,8 +89,8 @@ namespace kt::vkh {
         .srcOffsets =
             {
                 VkOffset3D{.x = 0, .y = 0, .z = 0},
-                VkOffset3D{.x = static_cast<int32_t>(m.renderTargets.gBuffer.albedo->extent().width),
-                           .y = static_cast<int32_t>(m.renderTargets.gBuffer.albedo->extent().height),
+                VkOffset3D{.x = static_cast<int32_t>(m.renderTargets.gBuffer.albedo->extent().x),
+                           .y = static_cast<int32_t>(m.renderTargets.gBuffer.albedo->extent().y),
                            .z = 1},
             },
         .dstSubresource =
