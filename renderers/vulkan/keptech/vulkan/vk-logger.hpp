@@ -43,6 +43,7 @@
 #endif
 
 #ifndef NDEBUG
+/// Assert macro that logs a critical message and aborts if the expression is false. Only active in debug builds.
 #define VK_ASSERT(expr, ...)                                                                                                               \
   if (!(expr)) {                                                                                                                           \
     kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical,                                 \
@@ -50,8 +51,17 @@
     std::abort();                                                                                                                          \
   }
 #else
+/// Assert macro that logs a critical message and aborts if the expression is false. Only active in debug builds.
 #define VK_ASSERT(expr, ...) (void)0;
 #endif
+
+/// Same as #VK_ASSERT, but always active regardless of build type.
+#define VK_REQUIRE(expr, ...)                                                                                                              \
+  if (!(expr)) {                                                                                                                           \
+    kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical,                                 \
+                         "Requirement failed: " __VA_ARGS__);                                                                              \
+    std::abort();                                                                                                                          \
+  }
 
 namespace kt::vkh {
   extern const std::shared_ptr<spdlog::logger> logger;

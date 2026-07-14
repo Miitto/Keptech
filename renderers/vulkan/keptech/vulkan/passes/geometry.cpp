@@ -49,7 +49,7 @@ namespace kt::vkh::passes::geometry {
     }
   } // namespace
 
-  void draw(const Members& m, VkCommandBuffer cmdBuf, const Target& target, const Payload& payload) {
+  void GeometryPass::draw(const Members& m, VkCommandBuffer cmdBuf, const Target& target, const Payload& payload) {
     KT_PROFILE_FUNCTION
     KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Draw Geometry");
     deferredToRenderable(cmdBuf, target);

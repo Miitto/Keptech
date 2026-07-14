@@ -11,6 +11,7 @@ __include buffers;
 __include material;
 __include sphere;
 __include frustum;
+__include struct;
 
 public namespace kt {
 
