@@ -48,6 +48,7 @@
   if (!(expr)) {                                                                                                                           \
     kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical,                                 \
                          "Assertion failed: " __VA_ARGS__);                                                                                \
+    spdlog::shutdown();                                                                                                                    \
     std::abort();                                                                                                                          \
   }
 #else
@@ -60,6 +61,7 @@
   if (!(expr)) {                                                                                                                           \
     kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical,                                 \
                          "Requirement failed: " __VA_ARGS__);                                                                              \
+    spdlog::shutdown();                                                                                                                    \
     std::abort();                                                                                                                          \
   }
 
