@@ -78,14 +78,15 @@ namespace kt::vkh {
       return false;
     }
 
-    const Barriers& getBarriers() const { return barriers; }
-    const std::string& getName() const { return name; }
+    [[nodiscard]] const Barriers& getBarriers() const { return barriers; }
+    [[nodiscard]] const std::string& getName() const { return name; }
+    [[nodiscard]] QueueType getQueue() const { return queue; }
 
-    const std::vector<RenderAttachment>& getColorAttachments() const { return colorAttachments; }
-    const RenderAttachment& getDepthStencilAttachment() const { return depthStencilAttachment; }
+    [[nodiscard]] const std::vector<RenderAttachment>& getColorAttachments() const { return colorAttachments; }
+    [[nodiscard]] const RenderAttachment& getDepthStencilAttachment() const { return depthStencilAttachment; }
 
     void setExtentSourceId(PhysResourceId id) { extentSourceId = id; }
-    PhysResourceId getExtentSourceId() const { return extentSourceId; }
+    [[nodiscard]] PhysResourceId getExtentSourceId() const { return extentSourceId; }
 
   private:
     RenderPass(std::string&& name, QueueType queue, Barriers&& barriers, std::vector<RenderAttachment>&& colorAttachments,
@@ -196,5 +197,11 @@ namespace kt::vkh {
     std::vector<bool> physicalImageHasHistory;
     std::vector<RelativeImage> swapchainRelativeImages;
     std::vector<RelativeImage> resolutionRelativeImages;
+
+    void executeGraphicsPass(RenderPass& pass, CommandBuffer& cmd);
+    void executeComputePass(RenderPass& pass, CommandBuffer& cmd);
+
+    void pipelineBarrier(const Barriers& barriers, const CommandBuffer& cmd) const;
+    void beginRendering(const RenderPass& pass, const CommandBuffer& cmd) const;
   };
 } // namespace kt::vkh
