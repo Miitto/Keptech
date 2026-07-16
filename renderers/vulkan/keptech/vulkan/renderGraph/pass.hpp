@@ -7,7 +7,7 @@
 
 namespace kt::vkh {
   struct VulkanCore;
-  class RenderGraph;
+  class RenderGraphBuilder;
   class RenderPass;
   class CommandBuffer;
 
@@ -32,30 +32,30 @@ namespace kt::vkh {
       return true;
     }
 
-    virtual void setupDependencies(RenderPass& self, RenderGraph& graph) {}
+    virtual void setupDependencies(RenderPass& self, RenderGraphBuilder& graph) {}
     virtual void setup(const VulkanCore& vkcore) {}
 
-    virtual void prepare(RenderGraph& graph) {}
+    virtual void prepare(RenderGraphBuilder& graph) {}
     virtual void execute(CommandBuffer& cmd) {}
+  };
+
+  struct AccessedResource {
+    VkPipelineStageFlags2 stages = 0;
+    VkAccessFlags2 access = 0;
+    VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+  };
+
+  struct AccessedTextureResource : public AccessedResource {
+    RenderTextureResource* texture = nullptr;
+  };
+
+  struct AccessedBufferResource : public AccessedResource {
+    RenderBufferResource* buffer = nullptr;
   };
 
   class RenderPass {
   public:
-    RenderPass(RenderGraph& graph, PassId id, Bitflag<QueueType> queue) : graph(graph), id(id), queue(queue) {}
-
-    struct AccessedResource {
-      VkPipelineStageFlags2 stages = 0;
-      VkAccessFlags2 access = 0;
-      VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    };
-
-    struct AccessedTextureResource : public AccessedResource {
-      RenderTextureResource* texture = nullptr;
-    };
-
-    struct AccessedBufferResource : public AccessedResource {
-      RenderBufferResource* buffer = nullptr;
-    };
+    RenderPass(RenderGraphBuilder& graph, PassId id, Bitflag<QueueType> queue) : graph(graph), id(id), queue(queue) {}
 
     RenderTextureResource& setDepthStencilInput(const std::string& name);
     RenderTextureResource& setDepthStencilOutput(const std::string& name, const AttachmentInfo& info);
@@ -86,7 +86,7 @@ namespace kt::vkh {
         interface->setup(vkcore);
     }
 
-    void prepare(RenderGraph& graph) {
+    void prepare(RenderGraphBuilder& graph) {
       if (interface)
         interface->prepare(graph);
     }
@@ -124,7 +124,7 @@ namespace kt::vkh {
     [[nodiscard]] const std::string& getName() const { return name; }
 
     [[nodiscard]] PassId getId() const { return id; }
-    [[nodiscard]] Bitflag<QueueType> getQueues() const { return queue; }
+    [[nodiscard]] QueueType getQueue() const { return queue; }
 
     [[nodiscard]] RenderPassInterface* getInterface() const { return interface; }
     RenderPass& setInterface(RenderPassInterface* interface) {
@@ -169,10 +169,10 @@ namespace kt::vkh {
     [[nodiscard]] size_t getIndex() const { return index; }
 
   private:
-    RenderGraph& graph;
+    RenderGraphBuilder& graph;
     PassId id;
     size_t index = ~0u;
-    Bitflag<QueueType> queue;
+    QueueType queue;
     std::string name;
 
     RenderPassInterface* interface = nullptr;

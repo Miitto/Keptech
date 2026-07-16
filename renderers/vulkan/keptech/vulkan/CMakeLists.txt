@@ -40,6 +40,19 @@ set(PASSES_SOURCES
     passes/shadows.cpp
 )
 
+set(RENDER_GRAPH_HEADERS
+    renderGraph/builder.hpp
+    renderGraph/graph.hpp
+    renderGraph/pass.hpp
+    renderGraph/renderResources.hpp
+    renderGraph/types.hpp
+)
+
+set(RENDER_GRAPH_SOURCES
+    renderGraph/builder.cpp
+    renderGraph/pass.cpp
+)
+
 set(SETUP_HEADERS
     setup/setup.hpp
 )
@@ -80,6 +93,7 @@ set(ALL_SOURCES
     ${HELPER_SOURCES}
     ${LOADING_SOURCES}
     ${PASSES_SOURCES}
+    ${RENDER_GRAPH_SOURCES}
     ${WRAPPER_SOURCES}
     ${SETUP_SOURCES}
     constants.cpp
@@ -96,6 +110,7 @@ set(ALL_HEADERS
     ${HELPER_HEADERS}
     ${LOADING_HEADERS}
     ${PASSES_HEADERS}
+    ${RENDER_GRAPH_HEADERS}
     ${WRAPPER_HEADERS}
     ${SETUP_HEADERS}
     constants.hpp

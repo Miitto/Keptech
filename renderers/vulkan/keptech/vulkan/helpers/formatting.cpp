@@ -1,4 +1,6 @@
 #include "keptech/vulkan/helpers/formatting.hpp"
+#include <spdlog/fmt/bundled/ranges.h>
+#include <vector>
 
 fmt::format_context::iterator fmt::formatter<VkResult>::format(VkResult format, fmt::format_context& ctx) const {
   std::string_view name = "Unknown";
@@ -362,4 +364,255 @@ fmt::format_context::iterator fmt::formatter<VkPresentModeKHR>::format(VkPresent
   }
 #undef CASE
   return fmt::format_to(ctx.out(), "{}", name);
+}
+
+fmt::format_context::iterator fmt::formatter<VkImageLayout>::format(VkImageLayout layout, fmt::format_context& ctx) const {
+  std::string_view name = "Unknown";
+#define CASE(x)                                                                                                                            \
+  case VK_IMAGE_LAYOUT_##x:                                                                                                                \
+    name = #x;                                                                                                                             \
+    break;
+
+  switch (layout) {
+    CASE(UNDEFINED)
+    CASE(GENERAL)
+    CASE(COLOR_ATTACHMENT_OPTIMAL)
+    CASE(DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+    CASE(DEPTH_STENCIL_READ_ONLY_OPTIMAL)
+    CASE(SHADER_READ_ONLY_OPTIMAL)
+    CASE(TRANSFER_SRC_OPTIMAL)
+    CASE(TRANSFER_DST_OPTIMAL)
+    CASE(PREINITIALIZED)
+    CASE(DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL)
+    CASE(DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL)
+    CASE(DEPTH_ATTACHMENT_OPTIMAL)
+    CASE(DEPTH_READ_ONLY_OPTIMAL)
+    CASE(STENCIL_ATTACHMENT_OPTIMAL)
+    CASE(STENCIL_READ_ONLY_OPTIMAL)
+    CASE(PRESENT_SRC_KHR)
+    CASE(READ_ONLY_OPTIMAL)
+    CASE(ATTACHMENT_OPTIMAL)
+    CASE(RENDERING_LOCAL_READ)
+    CASE(VIDEO_DECODE_DST_KHR)
+    CASE(VIDEO_DECODE_SRC_KHR)
+    CASE(VIDEO_DECODE_DPB_KHR)
+    CASE(SHARED_PRESENT_KHR)
+    CASE(FRAGMENT_DENSITY_MAP_OPTIMAL_EXT)
+    CASE(FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR)
+    CASE(VIDEO_ENCODE_DST_KHR)
+    CASE(VIDEO_ENCODE_SRC_KHR)
+    CASE(VIDEO_ENCODE_DPB_KHR)
+    CASE(ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT)
+    CASE(TENSOR_ALIASING_ARM)
+    CASE(VIDEO_ENCODE_QUANTIZATION_MAP_KHR)
+    CASE(ZERO_INITIALIZED_EXT)
+    CASE(MAX_ENUM)
+    break;
+  }
+
+#undef CASE
+  return fmt::format_to(ctx.out(), "{}", name);
+}
+
+fmt::format_context::iterator fmt::formatter<kt::vkh::VkAccessFlags2Formatter>::format(kt::vkh::VkAccessFlags2Formatter formatter,
+                                                                                       fmt::format_context& ctx) const {
+  std::vector<std::string_view> accessFlags;
+
+#define B(x)                                                                                                                               \
+  if (formatter.flags & VK_ACCESS_2_##x##_BIT)                                                                                             \
+    accessFlags.emplace_back(#x);
+#define B_KHR(x)                                                                                                                           \
+  if (formatter.flags & VK_ACCESS_2_##x##_BIT_KHR)                                                                                         \
+    accessFlags.emplace_back(#x "_KHR");
+#define B_EXT(x)                                                                                                                           \
+  if (formatter.flags & VK_ACCESS_2_##x##_BIT_EXT)                                                                                         \
+    accessFlags.emplace_back(#x "_EXT");
+#define B_NV(x)                                                                                                                            \
+  if (formatter.flags & VK_ACCESS_2_##x##_BIT_NV)                                                                                          \
+    accessFlags.emplace_back(#x "_NV");
+#define B_QCOM(x)                                                                                                                          \
+  if (formatter.flags & VK_ACCESS_2_##x##_BIT_QCOM)                                                                                        \
+    accessFlags.emplace_back(#x "_QCOM");
+#define B_ARM(x)                                                                                                                           \
+  if (formatter.flags & VK_ACCESS_2_##x##_BIT_ARM)                                                                                         \
+    accessFlags.emplace_back(#x "_ARM");
+#define B_HUAWEI(x)                                                                                                                        \
+  if (formatter.flags & VK_ACCESS_2_##x##_BIT_HUAWEI)                                                                                      \
+    accessFlags.emplace_back(#x "_HUAWEI");
+
+  auto f = formatter.flags;
+  if (f == VK_ACCESS_NONE) {
+    return fmt::format_to(ctx.out(), "{}", "NONE");
+  }
+  B(INDIRECT_COMMAND_READ);
+  B(INDEX_READ);
+  B(VERTEX_ATTRIBUTE_READ);
+  B(UNIFORM_READ);
+  B(INPUT_ATTACHMENT_READ);
+  B(SHADER_READ);
+  B(SHADER_WRITE);
+  B(COLOR_ATTACHMENT_READ);
+  B(COLOR_ATTACHMENT_WRITE);
+  B(DEPTH_STENCIL_ATTACHMENT_READ);
+  B(DEPTH_STENCIL_ATTACHMENT_WRITE);
+  B(TRANSFER_READ);
+  B(TRANSFER_WRITE);
+  B(HOST_READ);
+  B(HOST_WRITE);
+  B(MEMORY_READ);
+  B(MEMORY_WRITE);
+  B(SHADER_SAMPLED_READ);
+  B(SHADER_STORAGE_READ);
+  B(SHADER_STORAGE_WRITE);
+  B_KHR(VIDEO_DECODE_READ);
+  B_KHR(VIDEO_DECODE_WRITE);
+  B_EXT(SAMPLER_HEAP_READ);
+  B_EXT(RESOURCE_HEAP_READ);
+  B_KHR(VIDEO_ENCODE_READ);
+  B_KHR(VIDEO_ENCODE_WRITE);
+  B_QCOM(SHADER_TILE_ATTACHMENT_READ);
+  B_QCOM(SHADER_TILE_ATTACHMENT_WRITE);
+  B_EXT(TRANSFORM_FEEDBACK_WRITE);
+  B_EXT(TRANSFORM_FEEDBACK_COUNTER_READ);
+  B_EXT(TRANSFORM_FEEDBACK_COUNTER_WRITE);
+  B_EXT(CONDITIONAL_RENDERING_READ);
+  B_NV(COMMAND_PREPROCESS_READ);
+  B_NV(COMMAND_PREPROCESS_WRITE);
+  B_EXT(COMMAND_PREPROCESS_READ);
+  B_EXT(COMMAND_PREPROCESS_WRITE);
+  B_KHR(FRAGMENT_SHADING_RATE_ATTACHMENT_READ);
+  B_NV(SHADING_RATE_IMAGE_READ);
+  B_KHR(ACCELERATION_STRUCTURE_READ);
+  B_KHR(ACCELERATION_STRUCTURE_WRITE);
+  B_NV(ACCELERATION_STRUCTURE_READ);
+  B_NV(ACCELERATION_STRUCTURE_WRITE);
+  B_EXT(FRAGMENT_DENSITY_MAP_READ);
+  B_EXT(COLOR_ATTACHMENT_READ_NONCOHERENT);
+  B_EXT(DESCRIPTOR_BUFFER_READ);
+  B_HUAWEI(INVOCATION_MASK_READ);
+  B_KHR(SHADER_BINDING_TABLE_READ);
+  B_EXT(MICROMAP_READ);
+  B_EXT(MICROMAP_WRITE);
+  B_NV(OPTICAL_FLOW_READ);
+  B_NV(OPTICAL_FLOW_WRITE);
+  B_ARM(DATA_GRAPH_READ);
+  B_ARM(DATA_GRAPH_WRITE);
+  B_EXT(MEMORY_DECOMPRESSION_READ);
+  B_EXT(MEMORY_DECOMPRESSION_WRITE);
+
+#undef B
+#undef B_KHR
+#undef B_EXT
+#undef B_NV
+#undef B_QCOM
+#undef B_ARM
+#undef B_HUAWEI
+
+  return fmt::format_to(ctx.out(), "{}", fmt::join(accessFlags, " | "));
+}
+
+fmt::format_context::iterator
+fmt::formatter<kt::vkh::VkPipelineStageFlags2Formatter>::format(kt::vkh::VkPipelineStageFlags2Formatter formatter,
+                                                                fmt::format_context& ctx) const {
+  std::vector<std::string_view> stageFlags;
+
+  auto f = formatter.flags;
+  if (f == VK_PIPELINE_STAGE_2_NONE) {
+    return fmt::format_to(ctx.out(), "{}", "NONE");
+  }
+
+#define B(x)                                                                                                                               \
+  if (formatter.flags & VK_PIPELINE_STAGE_2_##x##_BIT)                                                                                     \
+    stageFlags.emplace_back(#x);
+#define B_KHR(x)                                                                                                                           \
+  if (formatter.flags & VK_PIPELINE_STAGE_2_##x##_BIT_KHR)                                                                                 \
+    stageFlags.emplace_back(#x "_KHR");
+#define B_EXT(x)                                                                                                                           \
+  if (formatter.flags & VK_PIPELINE_STAGE_2_##x##_BIT_EXT)                                                                                 \
+    stageFlags.emplace_back(#x "_EXT");
+#define B_NV(x)                                                                                                                            \
+  if (formatter.flags & VK_PIPELINE_STAGE_2_##x##_BIT_NV)                                                                                  \
+    stageFlags.emplace_back(#x "_NV");
+#define B_ARM(x)                                                                                                                           \
+  if (formatter.flags & VK_PIPELINE_STAGE_2_##x##_BIT_ARM)                                                                                 \
+    stageFlags.emplace_back(#x "_ARM");
+#define B_HUAWEI(x)                                                                                                                        \
+  if (formatter.flags & VK_PIPELINE_STAGE_2_##x##_BIT_HUAWEI)                                                                              \
+    stageFlags.emplace_back(#x "_HUAWEI");
+
+  B(TOP_OF_PIPE)
+  B(DRAW_INDIRECT)
+  B(VERTEX_INPUT)
+  B(VERTEX_SHADER)
+  B(TESSELLATION_CONTROL_SHADER)
+  B(TESSELLATION_EVALUATION_SHADER)
+  B(GEOMETRY_SHADER)
+  B(FRAGMENT_SHADER)
+  B(EARLY_FRAGMENT_TESTS)
+  B(LATE_FRAGMENT_TESTS)
+  B(COLOR_ATTACHMENT_OUTPUT)
+  B(COMPUTE_SHADER)
+  B(ALL_TRANSFER)
+  B(TRANSFER)
+  B(BOTTOM_OF_PIPE)
+  B(HOST)
+  B(ALL_GRAPHICS)
+  B(ALL_COMMANDS)
+  B(COPY)
+  B(RESOLVE)
+  B(BLIT)
+  B(CLEAR)
+  B(INDEX_INPUT)
+  B(VERTEX_ATTRIBUTE_INPUT)
+  B(PRE_RASTERIZATION_SHADERS)
+  B_KHR(VIDEO_DECODE)
+  B_KHR(VIDEO_ENCODE)
+  B_KHR(TOP_OF_PIPE)
+  B_KHR(DRAW_INDIRECT)
+  B_KHR(VERTEX_INPUT)
+  B_KHR(VERTEX_SHADER)
+  B_KHR(TESSELLATION_CONTROL_SHADER)
+  B_KHR(TESSELLATION_EVALUATION_SHADER)
+  B_KHR(GEOMETRY_SHADER)
+  B_KHR(COMPUTE_SHADER)
+  B_KHR(ALL_TRANSFER)
+  B_KHR(TRANSFER)
+  B_KHR(BOTTOM_OF_PIPE)
+  B_KHR(HOST)
+  B_KHR(ALL_GRAPHICS)
+  B_KHR(ALL_COMMANDS)
+  B_KHR(COPY)
+  B_KHR(RESOLVE)
+  B_KHR(BLIT)
+  B_KHR(CLEAR)
+  B_KHR(INDEX_INPUT)
+  B_KHR(VERTEX_ATTRIBUTE_INPUT)
+  B_KHR(PRE_RASTERIZATION_SHADERS)
+  B_EXT(TRANSFORM_FEEDBACK)
+  B_EXT(CONDITIONAL_RENDERING)
+  B_NV(COMMAND_PREPROCESS)
+  B_EXT(COMMAND_PREPROCESS)
+  B_KHR(FRAGMENT_SHADING_RATE_ATTACHMENT)
+  B_NV(SHADING_RATE_IMAGE)
+  B_KHR(ACCELERATION_STRUCTURE_BUILD)
+  B_KHR(RAY_TRACING_SHADER)
+  B_NV(RAY_TRACING_SHADER)
+  B_NV(ACCELERATION_STRUCTURE_BUILD)
+  B_EXT(FRAGMENT_DENSITY_PROCESS)
+  B_NV(TASK_SHADER)
+  B_NV(MESH_SHADER)
+  B_EXT(TASK_SHADER)
+  B_EXT(MESH_SHADER)
+  B_HUAWEI(SUBPASS_SHADER)
+  B_HUAWEI(INVOCATION_MASK)
+  B_KHR(ACCELERATION_STRUCTURE_COPY)
+  B_EXT(MICROMAP_BUILD)
+  B_HUAWEI(CLUSTER_CULLING_SHADER)
+  B_NV(OPTICAL_FLOW)
+  B_NV(CONVERT_COOPERATIVE_VECTOR_MATRIX)
+  B_ARM(DATA_GRAPH)
+  B_KHR(COPY_INDIRECT)
+  B_EXT(MEMORY_DECOMPRESSION)
+
+  return fmt::format_to(ctx.out(), "{}", fmt::join(stageFlags, " | "));
 }

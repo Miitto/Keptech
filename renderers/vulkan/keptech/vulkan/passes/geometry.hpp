@@ -30,8 +30,5 @@ namespace kt::vkh::passes::geometry {
   // NOLINTEND
   CLANG_IGNORE_WARNING_POP
 
-  struct GeometryPass {
-
-    void draw(const Members& buffers, VkCommandBuffer cmdBuf, const Target& target, const Payload& payload);
-  };
+  void draw(const Members& members, VkCommandBuffer cmdBuf, const Target& target, const Payload& payload);
 } // namespace kt::vkh::passes::geometry

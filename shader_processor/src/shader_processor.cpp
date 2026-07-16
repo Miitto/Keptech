@@ -82,6 +82,18 @@ namespace kt::shader_processor {
             .name = slang::CompilerOptionName::VulkanUseEntryPointName,
             .value{.intValue0 = true},
         },
+#ifdef USE_COLOR_OUTPUT
+        slang::CompilerOptionEntry{
+            .name = slang::CompilerOptionName::DiagnosticColor,
+            .value{
+                .intValue0 = SlangDiagnosticColor::SLANG_DIAGNOSTIC_COLOR_ALWAYS,
+            },
+        },
+        slang::CompilerOptionEntry{
+            .name = slang::CompilerOptionName::EnableRichDiagnostics,
+            .value = {.intValue0 = true},
+        },
+#endif
 #ifdef KT_USE_DESCRIPTOR_HEAP
         slang::CompilerOptionEntry{
             .name = slang::CompilerOptionName::Capability,

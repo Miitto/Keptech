@@ -6,6 +6,7 @@
 #include <SDL3/SDL_vulkan.h>
 
 #include "constants.hpp"
+#include "renderGraph/builder.hpp"
 #include <keptech/components/camera.hpp>
 #include <keptech/maths/maths.hpp>
 
@@ -68,6 +69,46 @@ namespace kt::vkh {
     KT_VK_CONTEXT_NAME(cctx, "Compute");
 #endif
 
+    vkDeviceWaitIdle(vkcore.device.logical);
+
+    VK_DEBUG("Creating test render graph.");
+
+    RenderGraphBuilder builder{};
+    auto& geometryPass = builder.addPass("kt::geometry", QueueType::Graphics);
+    geometryPass.addColorOutput("kt::albedo", {.format = formats.render.albedo});
+    geometryPass.addColorOutput("kt::normal", {.format = formats.render.normal});
+    geometryPass.addColorOutput("kt::material", {.format = formats.render.metRought});
+    geometryPass.addColorOutput("kt::emissive", {.format = formats.render.emissive});
+    geometryPass.setDepthStencilOutput("kt::depth", {.format = formats.render.depth});
+
+    auto& lightingPass = builder.addPass("kt::lighting", QueueType::Graphics);
+    lightingPass.addTextureInput("kt::albedo");
+    lightingPass.addTextureInput("kt::normal");
+    lightingPass.addTextureInput("kt::material");
+    lightingPass.addTextureInput("kt::emissive");
+    lightingPass.addTextureInput("kt::depth");
+    lightingPass.setDepthStencilInput("kt::depth");
+    lightingPass.addColorOutput("kt::diffuse", {.format = formats.render.hdr});
+    lightingPass.addColorOutput("kt::specular", {.format = formats.render.hdr});
+    auto& lightCombinePass = builder.addPass("kt::lightCombine", QueueType::Graphics);
+    lightCombinePass.addTextureInput("kt::albedo");
+    lightCombinePass.addTextureInput("kt::diffuse");
+    lightCombinePass.addTextureInput("kt::specular");
+    lightCombinePass.addColorOutput("kt::lighting", {.format = formats.render.hdr}, "kt::emissive");
+    auto& tonemapPass = builder.addPass("kt::tonemap", QueueType::Graphics);
+    tonemapPass.addTextureInput("kt::lighting");
+    tonemapPass.addColorOutput("kt::tonemapped", {.sizeType = AttachmentSize::SwapchainRelative, .format = formats.swapchain});
+
+    builder.setBackbufferSource("kt::tonemapped");
+
+    VK_DEBUG("Building render graph.");
+
+    builder.build();
+
+    VK_DEBUG("Render graph built successfully. Backbuffer source: '{}'", builder.getBackbufferSource());
+
+    builder.log();
+
     Renderer::Members members{
         .window = &window,
         .vkcore = std::move(vkcore),
@@ -87,14 +128,14 @@ namespace kt::vkh {
     };
 
     VK_DEBUG("Writing Global Descriptor Sets.");
-    writeGlobalDescriptors(members, globalDescriptorSets);
+    writeGlobalDescriptors(members, members.globalDescriptorSets);
     VK_DEBUG("Writing Static Descriptor Sets.");
-    writeStaticDescriptors(vkcore, staticDescriptorSets, buffers, renderTargets, samplers);
+    writeStaticDescriptors(members.vkcore, members.staticDescriptors, members.buffers, members.renderTargets, members.samplers);
 
-    vkDeviceWaitIdle(vkcore.device.logical);
-
-    VK_DEBUG("Vulkan renderer created successfully.");
     Renderer r{std::move(members)};
+
+    VK_DEBUG("Renderer created successfully. Backbuffer source: '{}'", builder.getBackbufferSource());
+    // VK_REQUIRE(false, "Debug shutdown");
 
     return std::move(r);
   }

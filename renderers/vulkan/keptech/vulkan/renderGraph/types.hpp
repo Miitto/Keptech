@@ -146,3 +146,15 @@ namespace kt::vkh {
     [[nodiscard]] bool isLayoutSensitive() const { return !isBufferLike(); }
   };
 } // namespace kt::vkh
+
+namespace std {
+  template <> struct hash<kt::vkh::PassId> {
+    size_t operator()(const kt::vkh::PassId& id) const { return std::hash<size_t>()(*id); }
+  };
+  template <> struct hash<kt::vkh::ResourceId> {
+    size_t operator()(const kt::vkh::ResourceId& id) const { return std::hash<size_t>()(*id); }
+  };
+  template <> struct hash<kt::vkh::PhysResourceId> {
+    size_t operator()(const kt::vkh::PhysResourceId& id) const { return std::hash<size_t>()(*id); }
+  };
+} // namespace std

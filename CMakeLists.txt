@@ -1,5 +1,4 @@
-cmake_minimum_required(VERSION 3.15..4.0)
-
+cmake_minimum_required(VERSION 3.24..4.0)
 
 set(KT_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 
@@ -25,6 +24,14 @@ option(KT_USE_PCH ON)
 option(KT_BUILD_EXAMPLES "Build example applications" OFF)
 option(KT_ADD_RESOURCE_INFO "Add a name to resources. Allows for better debugging and for use in editors - but increaces memory usage." OFF)
 option(KT_PROFILE "Enable profiling with Tracy" OFF)
+option(PIPED_BUILD "Compiler output is piped, disabled colored output" OFF)
+
+if (NOT PIPED_BUILD)
+  message(STATUS "Enabling colored output for compiler diagnostics")
+  list(APPEND CMAKE_C_FLAGS "-fdiagnostics-color=always -fansi-escape-codes")
+  list(APPEND CMAKE_CXX_FLAGS "-fdiagnostics-color=always -fansi-escape-codes")
+  set(CMAKE_COLOR_DIAGNOSTICS ON)
+endif()
 
 if(KT_BUILD_EXAMPLES)
   set(CMAKE_CXX_STANDARD 23)
