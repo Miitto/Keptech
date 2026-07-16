@@ -1,5 +1,3 @@
-#pragma once
-
 #include "keptech/rendering/imgui.hpp"
 #include "keptech/vulkan/renderer.hpp"
 #include "macros.hpp"

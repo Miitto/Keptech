@@ -1,15 +1,17 @@
 #pragma once
 
 #include "renderResources.hpp"
-#include "vk-logger.hpp"
 #include <Volk/volk.h>
 #include <functional>
 
 namespace kt::vkh {
-  struct VulkanCore;
   class RenderGraphBuilder;
+  class RenderGraph;
   class RenderPass;
   class CommandBuffer;
+  class RenderPass;
+  class RenderPassBuilder;
+  class Renderer;
 
   class RenderPassInterface {
   public:
@@ -32,10 +34,14 @@ namespace kt::vkh {
       return true;
     }
 
-    virtual void setupDependencies(RenderPass& self, RenderGraphBuilder& graph) {}
-    virtual void setup(const VulkanCore& vkcore) {}
+    /// Called once before the render graph is baked.
+    virtual void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph) {}
+    /// Called once after the render graph has been built.
+    virtual void setup(const Renderer& renderer) {}
 
-    virtual void prepare(RenderGraphBuilder& graph) {}
+    /// Called before the pass is executed. This is where you should update any resources that are used by the pass.
+    virtual void prepare(RenderGraph& graph) {}
+    /// Called when the pass is executed. This is where you should record the commands for the pass.
     virtual void execute(CommandBuffer& cmd) {}
   };
 
@@ -53,9 +59,9 @@ namespace kt::vkh {
     RenderBufferResource* buffer = nullptr;
   };
 
-  class RenderPass {
+  class RenderPassBuilder {
   public:
-    RenderPass(RenderGraphBuilder& graph, PassId id, Bitflag<QueueType> queue) : graph(graph), id(id), queue(queue) {}
+    RenderPassBuilder(RenderGraphBuilder& graph, PassId id, Bitflag<QueueType> queue) : graph(graph), id(id), queue(queue) {}
 
     RenderTextureResource& setDepthStencilInput(const std::string& name);
     RenderTextureResource& setDepthStencilOutput(const std::string& name, const AttachmentInfo& info);
@@ -81,23 +87,36 @@ namespace kt::vkh {
         interface->setupDependencies(*this, graph);
     }
 
-    void setup(const VulkanCore& vkcore) {
-      if (interface)
-        interface->setup(vkcore);
+    RenderPassBuilder& setName(const std::string& name) {
+      this->name = name;
+      return *this;
     }
+    [[nodiscard]] std::string& getName() { return name; }
+    [[nodiscard]] const std::string& getName() const { return name; }
 
-    void prepare(RenderGraphBuilder& graph) {
-      if (interface)
-        interface->prepare(graph);
-    }
+    [[nodiscard]] PassId getId() const { return id; }
+    [[nodiscard]] QueueType getQueue() const { return queue; }
 
-    void execute(CommandBuffer& cmd) {
-      if (interface) {
-        interface->execute(cmd);
-      } else if (buildCb) {
-        buildCb(cmd);
-      }
+    [[nodiscard]] RenderPassInterface* getInterface() const { return interface; }
+    RenderPassBuilder& setInterface(RenderPassInterface* interface) {
+      this->interface = interface;
+      return *this;
     }
+    RenderPassBuilder& setBuildCallback(std::function<void(CommandBuffer&)> cb) {
+      this->buildCb = std::move(cb);
+      return *this;
+    }
+    [[nodiscard]] std::function<void(CommandBuffer&)>& getBuildCallback() { return buildCb; }
+    RenderPassBuilder& setGetClearDepthStencilCallback(std::function<bool(VkClearDepthStencilValue*)> cb) {
+      this->getClearDepthStencilCb = std::move(cb);
+      return *this;
+    }
+    [[nodiscard]] std::function<bool(VkClearDepthStencilValue*)>& getGetClearDepthStencilCallback() { return getClearDepthStencilCb; }
+    RenderPassBuilder& setGetClearColorCallback(std::function<bool(unsigned, VkClearColorValue*)> cb) {
+      this->getClearColorCb = std::move(cb);
+      return *this;
+    }
+    [[nodiscard]] std::function<bool(unsigned, VkClearColorValue*)>& getGetClearColorCallback() { return getClearColorCb; }
 
     bool getClearColor(size_t attachmentIndex, VkClearColorValue* value = nullptr) const {
       if (interface)
@@ -117,38 +136,6 @@ namespace kt::vkh {
       return false;
     }
 
-    RenderPass& setName(const std::string& name) {
-      this->name = name;
-      return *this;
-    }
-    [[nodiscard]] const std::string& getName() const { return name; }
-
-    [[nodiscard]] PassId getId() const { return id; }
-    [[nodiscard]] QueueType getQueue() const { return queue; }
-
-    [[nodiscard]] RenderPassInterface* getInterface() const { return interface; }
-    RenderPass& setInterface(RenderPassInterface* interface) {
-      this->interface = interface;
-      return *this;
-    }
-    RenderPass& setBuildCallback(std::function<void(CommandBuffer&)> cb) {
-      this->buildCb = std::move(cb);
-      return *this;
-    }
-    [[nodiscard]] const std::function<void(CommandBuffer&)>& getBuildCallback() const { return buildCb; }
-    RenderPass& setGetClearDepthStencilCallback(std::function<bool(VkClearDepthStencilValue*)> cb) {
-      this->getClearDepthStencilCb = std::move(cb);
-      return *this;
-    }
-    [[nodiscard]] const std::function<bool(VkClearDepthStencilValue*)>& getGetClearDepthStencilCallback() const {
-      return getClearDepthStencilCb;
-    }
-    RenderPass& setGetClearColorCallback(std::function<bool(unsigned, VkClearColorValue*)> cb) {
-      this->getClearColorCb = std::move(cb);
-      return *this;
-    }
-    [[nodiscard]] const std::function<bool(unsigned, VkClearColorValue*)>& getGetClearColorCallback() const { return getClearColorCb; }
-
     [[nodiscard]] const std::vector<RenderTextureResource*>& getColorOutputs() const { return colorOutputs; }
     [[nodiscard]] const std::vector<RenderTextureResource*>& getResolveOutputs() const { return resolveOutputs; }
     [[nodiscard]] const std::vector<RenderTextureResource*>& getColorInputs() const { return colorInputs; }
@@ -162,7 +149,7 @@ namespace kt::vkh {
     [[nodiscard]] const std::vector<AccessedTextureResource>& getGenericTextureInputs() const { return genericTexutre; }
     [[nodiscard]] const std::vector<AccessedBufferResource>& getGenericBufferInputs() const { return genericBuffers; }
 
-    RenderPass& setIndex(size_t index) {
+    RenderPassBuilder& setIndex(size_t index) {
       this->index = index;
       return *this;
     }

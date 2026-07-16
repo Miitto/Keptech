@@ -20,7 +20,8 @@ kt::SetupInfo kt::configureApp() {
 
 class BenchmarkLayer : public kt::core::layers::Layer {
 public:
-  BenchmarkLayer(kt::Window& window, kt::rendering::Renderer& renderer) : kt::core::layers::Layer("Monkey"), window(window), scene({}) {
+  BenchmarkLayer(kt::Window& window, kt::rendering::RenderGraphBuilder& builder, kt::rendering::Renderer& renderer)
+      : kt::core::layers::Layer("Monkey"), window(window), scene({}) {
     renderer.setScene(scene);
 
     auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
@@ -66,6 +67,56 @@ public:
     scene.getEcs().sort<kt::components::Mesh, kt::components::Transform>();
 
     freeController = kt::cameras::FreeCameraController(camera);
+
+    setupRenderGraph(builder, renderer);
+  }
+
+  void setupRenderGraph(kt::rendering::RenderGraphBuilder& builder, kt::rendering::Renderer& renderer) {
+    using kt::rendering::AttachmentSize;
+    using kt::rendering::QueueType;
+    auto& formats = renderer.getFormats();
+    auto& geometryPass = builder.addPass("kt::geometry", QueueType::Graphics);
+    geometryPass.addColorOutput("kt::albedo", {.format = formats.render.albedo});
+    geometryPass.addColorOutput("kt::normal", {.format = formats.render.normal});
+    geometryPass.addColorOutput("kt::material", {.format = formats.render.metRought});
+    geometryPass.addColorOutput("kt::emissive", {.format = formats.render.emissive});
+    geometryPass.setDepthStencilOutput("kt::depth", {.format = formats.render.depth});
+
+    geometryPass.setBuildCallback([&](auto cmd) { KT_TRACE("Building geometry pass"); });
+
+    auto& lightingPass = builder.addPass("kt::lighting", QueueType::Graphics);
+    lightingPass.addTextureInput("kt::albedo");
+    lightingPass.addTextureInput("kt::normal");
+    lightingPass.addTextureInput("kt::material");
+    lightingPass.addTextureInput("kt::emissive");
+    lightingPass.addTextureInput("kt::depth");
+    lightingPass.setDepthStencilInput("kt::depth");
+    lightingPass.addColorOutput("kt::diffuse", {.format = formats.render.emissive});
+    lightingPass.addColorOutput("kt::specular", {.format = formats.render.emissive});
+
+    lightingPass.setBuildCallback([&](auto cmd) { KT_TRACE("Building lighting pass"); });
+
+    auto& lightCombinePass = builder.addPass("kt::lightCombine", QueueType::Graphics);
+    lightCombinePass.addTextureInput("kt::albedo");
+    lightCombinePass.addTextureInput("kt::diffuse");
+    lightCombinePass.addTextureInput("kt::specular");
+    lightCombinePass.addColorOutput("kt::lighting", {.format = formats.render.emissive}, "kt::emissive");
+
+    lightCombinePass.setBuildCallback([&](auto cmd) { KT_TRACE("Building light combine pass"); });
+
+    auto& tonemapPass = builder.addPass("kt::tonemap", QueueType::Graphics);
+    tonemapPass.addTextureInput("kt::lighting");
+    tonemapPass.addColorOutput("kt::tonemapped", {.sizeType = AttachmentSize::SwapchainRelative, .format = formats.swapchain});
+
+    tonemapPass.setBuildCallback([&](auto cmd) { KT_TRACE("Building tonemap pass"); });
+    tonemapPass.setGetClearColorCallback([&](unsigned index, VkClearColorValue* value) {
+      if (value) {
+        *value = {{1.0f, 0.0f, 0.0f, 1.0f}};
+      }
+      return true;
+    });
+
+    builder.setBackbufferSource("kt::tonemapped");
   }
 
   void onUpdate(kt::Timestep ts) final {
@@ -92,9 +143,9 @@ private:
 };
 
 std::expected<void, std::string> kt::setupAppLayers(core::layers::LayerStack& layerStack, core::window::Window& window,
-                                                    kt::rendering::Renderer& renderer) {
+                                                    kt::rendering::RenderGraphBuilder& builder, kt::rendering::Renderer& renderer) {
 
-  layerStack.emplaceLayer<BenchmarkLayer>(window, renderer);
+  layerStack.emplaceLayer<BenchmarkLayer>(window, builder, renderer);
 
   return {};
 }

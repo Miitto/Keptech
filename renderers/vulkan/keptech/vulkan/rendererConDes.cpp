@@ -12,6 +12,8 @@ namespace kt::vkh {
       return *this;
 
     m = std::move(o.m);
+
+    m.frameInfo.perFrame = &m.vkcore.perFrame[m.frameInfo.index];
     return *this;
   }
 

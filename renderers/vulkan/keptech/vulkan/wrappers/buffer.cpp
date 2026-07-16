@@ -39,6 +39,14 @@ namespace kt::vkh {
 #ifndef NDEBUG
     if (!name.empty()) {
       vmaSetAllocationName(allocator, alloc, name.c_str());
+
+      VkDebugUtilsObjectNameInfoEXT nameInfo{
+          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+          .objectType = VK_OBJECT_TYPE_BUFFER,
+          .objectHandle = reinterpret_cast<uint64_t>(buffer),
+          .pObjectName = name.c_str(),
+      };
+      vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
     }
 #endif
 

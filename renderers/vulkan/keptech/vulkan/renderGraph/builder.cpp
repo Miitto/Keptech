@@ -1,20 +1,24 @@
 #include "builder.hpp"
 
+#include "graph.hpp"
 #include "helpers/formatting.hpp"
+#include "macros.hpp"
 #include "renderResources.hpp"
+#include "renderer.hpp"
 #include "vk-logger.hpp"
+#include "wrappers/buffer.hpp"
 #include <algorithm>
 #include <ranges>
 #include <spdlog/fmt/bundled/ranges.h>
 
-template <> struct fmt::formatter<kt::vkh::RenderGraphBuilder::QueueHandoff> : fmt::formatter<std::string_view> {
-  template <typename FormatContext> auto format(const kt::vkh::RenderGraphBuilder::QueueHandoff& handoff, FormatContext& ctx) const {
+template <> struct fmt::formatter<kt::vkh::QueueHandoff> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const kt::vkh::QueueHandoff& handoff, FormatContext& ctx) const {
     switch (handoff) {
-    case kt::vkh::RenderGraphBuilder::QueueHandoff::No:
+    case kt::vkh::QueueHandoff::No:
       return fmt::formatter<std::string_view>::format("No", ctx);
-    case kt::vkh::RenderGraphBuilder::QueueHandoff::ToCompute:
+    case kt::vkh::QueueHandoff::ToCompute:
       return fmt::formatter<std::string_view>::format("ToCompute", ctx);
-    case kt::vkh::RenderGraphBuilder::QueueHandoff::FromCompute:
+    case kt::vkh::QueueHandoff::FromCompute:
       return fmt::formatter<std::string_view>::format("FromCompute", ctx);
     }
   }
@@ -23,9 +27,15 @@ template <> struct fmt::formatter<kt::vkh::RenderGraphBuilder::QueueHandoff> : f
 namespace kt::vkh {
   static constexpr Bitflag<QueueType> COMPUTE_QUEUES = QueueType::Compute | QueueType::AsyncCompute;
 
-  void RenderGraphBuilder::build() {
-    for (auto& pass : passes)
+  void RenderGraphBuilder::bake() {
+    VK_REQUIRE(swapchainSize.x > 0 && swapchainSize.y > 0, "Swapchain size must be set before baking the render graph.");
+    VK_REQUIRE(renderResolution.x > 0 && renderResolution.y > 0, "Render resolution must be set before baking the render graph.");
+    VK_REQUIRE(swapchainFormat != VK_FORMAT_UNDEFINED, "Swapchain format must be set before baking the render graph.");
+    VK_REQUIRE(!passes.empty(), "No passes have been added to the render graph. At least one pass must be added before baking.");
+
+    for (auto& pass : passes) {
       pass->setupDependencies();
+    }
 
     validatePasses();
 
@@ -59,75 +69,283 @@ namespace kt::vkh {
     buildBarriers();
   }
 
+  RenderGraph RenderGraphBuilder::build(Renderer& renderer) {
+    auto& members = renderer.getMembers();
+
+    std::vector<Buffer> buffers;
+    std::vector<Image> images;
+    std::unordered_map<std::string, size_t> nameToBuffer;
+    std::unordered_map<std::string, size_t> nameToImage;
+    std::vector<RelativeImage> swapchainRelativeImages;
+    std::vector<RelativeImage> resolutionRelativeImages;
+    for (const auto& [idx, res] : physicalResourceInfos | std::views::enumerate) {
+      if (res.isBufferLike()) {
+        VkBufferCreateInfo bufferInfo{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size = res.bufferInfo.size,
+            .usage = res.bufferInfo.usage,
+        };
+        VmaAllocationCreateInfo allocInfo{
+            .flags = res.bufferInfo.allocationFlags,
+            .usage = res.bufferInfo.memoryUsage,
+        };
+
+        auto result = Buffer::create(members.vkcore.device, members.vkcore.allocator, bufferInfo, allocInfo, res.name);
+        VK_REQUIRE(result.has_value(), "Failed to create buffer for resource '{}': {}", res.name, result.error());
+        auto& buf = result.value();
+        buffers.push_back(buf);
+        nameToBuffer[res.name] = buffers.size() - 1;
+        VK_DEBUG("Created buffer {} in slot {}", res.name, buffers.size() - 1);
+      } else {
+        VkImageCreateInfo imageInfo{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .format = res.format,
+            .extent = VkExtent3D{.width = res.size.x, .height = res.size.y, .depth = res.size.z},
+            .mipLevels = res.mipLevels,
+            .arrayLayers = res.layers,
+            .samples = static_cast<VkSampleCountFlagBits>(res.samples),
+            .tiling = VK_IMAGE_TILING_OPTIMAL,
+            .usage = res.imageUsage,
+        };
+
+        VkImageAspectFlags aspectMask = 0;
+        switch (res.format) {
+        case VK_FORMAT_D16_UNORM:
+        case VK_FORMAT_X8_D24_UNORM_PACK32:
+        case VK_FORMAT_D32_SFLOAT:
+          aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+          break;
+        case VK_FORMAT_S8_UINT:
+          aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
+          break;
+        case VK_FORMAT_D16_UNORM_S8_UINT:
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+          aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+          break;
+        default:
+          aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+          break;
+        }
+        VkImageViewCreateInfo viewInfo{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = res.format,
+            .subresourceRange =
+                VkImageSubresourceRange{
+                    .aspectMask = aspectMask,
+                    .baseMipLevel = 0,
+                    .levelCount = res.mipLevels,
+                    .baseArrayLayer = 0,
+                    .layerCount = res.layers,
+                },
+        };
+
+        VmaAllocationCreateInfo allocInfo{
+            .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+        };
+
+        auto result = Image::create(members.vkcore.allocator, members.vkcore.device, imageInfo, allocInfo, viewInfo, res.name, true);
+        VK_REQUIRE(result.has_value(), "Failed to create image for resource '{}': {}", res.name, result.error());
+        auto& img = result.value();
+        images.push_back(img);
+        nameToImage[res.name] = images.size() - 1;
+        VK_DEBUG("Created image {} in slot {}", res.name, images.size() - 1);
+        switch (res.sizeType) {
+        case AttachmentSize::SwapchainRelative:
+          swapchainRelativeImages.push_back({.index = images.size() - 1, .ratio = res.ratioSize});
+          break;
+        case AttachmentSize::ResolutionRelative:
+          resolutionRelativeImages.push_back({.index = images.size() - 1, .ratio = res.ratioSize});
+          break;
+        case AttachmentSize::Absolute:
+          break;
+        }
+      }
+    }
+
+    std::vector<RenderPass> bakedPasses;
+    bakedPasses.reserve(passStack.size());
+    for (const auto& passId : passStack) {
+      auto& pass = *passes[passId];
+      auto& barriers = passBarriers[passId];
+
+      for (auto& barrier : barriers.image) {
+        barrier.resourceId = nameToImage[physicalResourceInfos[barrier.resourceId].name];
+      }
+
+      for (auto& barrier : barriers.buffer) {
+        barrier.resourceId = nameToBuffer[physicalResourceInfos[barrier.resourceId].name];
+      }
+
+      PhysResourceId extentSourceId{};
+
+      auto getResId = [&](const PhysResourceId id) {
+        if (id.unused()) {
+          return PhysResourceId{};
+        }
+        return PhysResourceId{nameToImage[physicalResourceInfos[id].name]};
+      };
+
+      std::vector<RenderAttachment> colorAttachments;
+      colorAttachments.reserve(pass.getColorOutputs().size());
+      for (size_t i = 0; i < pass.getColorOutputs().size(); ++i) {
+        auto* output = pass.getColorOutputs()[i];
+        auto* input = pass.getColorInputs()[i];
+
+        if (extentSourceId.unused() && output != nullptr) {
+          VK_DEBUG("Pass '{}': Color output '{}' is the extent source", pass.getName(), output->getName());
+          extentSourceId = getResId(output->getPhysicalId());
+        } else if (extentSourceId.unused() && input != nullptr) {
+          VK_DEBUG("Pass '{}': Color input '{}' is the extent source", pass.getName(), input->getName());
+          extentSourceId = getResId(input->getPhysicalId());
+        }
+
+        // TODO: Check transient to set StoreOp to DontCare
+        VkAttachmentLoadOp loadOp = VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        VkAttachmentStoreOp storeOp = VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
+        if (input) {
+          loadOp = VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_LOAD;
+        } else if (pass.getClearColor(i, nullptr)) {
+          loadOp = VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_CLEAR;
+        }
+
+        colorAttachments.push_back({
+            .resourceId = getResId(output->getPhysicalId()),
+            .loadOp = loadOp,
+            .storeOp = storeOp,
+        });
+      }
+
+      RenderAttachment ds{
+          .resourceId = {},
+          .loadOp = VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+          .storeOp = VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE,
+      };
+      {
+        auto* dsInput = pass.getDepthStencilInput();
+        auto* dsOutput = pass.getDepthStencilOutput();
+
+        if (extentSourceId.unused() && dsOutput != nullptr) {
+          VK_DEBUG("Pass '{}': Depth-stencil output '{}' is the extent source", pass.getName(), dsOutput->getName());
+          extentSourceId = getResId(dsOutput->getPhysicalId());
+        } else if (extentSourceId.unused() && dsInput != nullptr) {
+          VK_DEBUG("Pass '{}': Depth-stencil input '{}' is the extent source", pass.getName(), dsInput->getName());
+          extentSourceId = getResId(dsInput->getPhysicalId());
+        }
+
+        ds.resourceId = getResId(dsOutput ? dsOutput->getPhysicalId() : (dsInput ? dsInput->getPhysicalId() : PhysResourceId{}));
+        if (dsInput) {
+          ds.loadOp = VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_LOAD;
+        } else if (pass.getClearDepthStencil(nullptr)) {
+          ds.loadOp = VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_CLEAR;
+        }
+      }
+
+      RenderPass bakedPass(std::move(pass.getName()), pass.getQueue(), std::move(barriers), std::move(colorAttachments), ds);
+      bakedPass.setExtentSourceId(extentSourceId);
+      bakedPass.interface = pass.getInterface();
+      bakedPass.buildCb = std::move(pass.getBuildCallback());
+      bakedPass.getClearDepthStencilCb = std::move(pass.getGetClearDepthStencilCallback());
+      bakedPass.getClearColorCb = std::move(pass.getGetClearColorCallback());
+
+      bakedPasses.push_back(std::move(bakedPass));
+    }
+
+    RenderGraph res{
+        renderer,
+        std::move(bakedPasses),
+        std::move(images),
+        std::move(buffers),
+        std::move(nameToImage),
+        std::move(nameToBuffer),
+        std::move(physicalImageHasHistory),
+        std::move(swapchainRelativeImages),
+        std::move(resolutionRelativeImages),
+    };
+
+    res.setBackbufferSource(backbufferSource);
+
+    VK_DEBUG("Render graph built successfully with {} passes, {} images, and {} buffers", res.passes.size(), res.images.size(),
+             res.buffers.size());
+
+    for (auto& pass : res.passes) {
+      pass.setup(res, renderer);
+    }
+
+    return res;
+  }
+
   void RenderGraphBuilder::log() const {
-    VK_INFO("Render Graph Log:");
-    VK_INFO("  Passes (Used/Total): {}/{}", passes.size(), passStack.size());
-    VK_INFO("  Resources (Phys/Virtual): {}/{} ({} Combined)", physicalResourceInfos.size(), resources.size(),
-            resources.size() - physicalResourceInfos.size());
-    VK_INFO("  Backbuffer Source: {}", backbufferSource);
-    VK_INFO("");
-    VK_INFO("  Pass Execution Order:");
-    VK_INFO("    Idx: Name (Id)");
+    VK_DEBUG("Render Graph Log:");
+    VK_DEBUG("  Passes (Used/Total): {}/{}", passes.size(), passStack.size());
+    VK_DEBUG("  Resources (Phys/Virtual): {}/{} ({} Combined)", physicalResourceInfos.size(), resources.size(),
+             resources.size() - physicalResourceInfos.size());
+    VK_DEBUG("  Backbuffer Source: {}", backbufferSource);
+    VK_DEBUG("");
+    VK_DEBUG("  Pass Execution Order:");
+    VK_DEBUG("    Idx: Name (Id)");
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       const auto& pass = *passes[passId];
-      VK_INFO("    {}: {} ({})", idx, pass.getName(), *passId);
+      VK_DEBUG("    {}: {} ({})", idx, pass.getName(), *passId);
     }
-    VK_INFO("");
-    VK_INFO("  Requirements:");
+    VK_DEBUG("");
+    VK_DEBUG("  Requirements:");
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       const auto& pass = *passes[passId];
       const auto& reqs = passRequirements[*passId];
 
-      VK_INFO("    {}: {} ({})", idx, pass.getName(), *passId);
-      VK_INFO("      Read Requirements: {}", reqs.invalidate.size());
+      VK_DEBUG("    {}: {} ({})", idx, pass.getName(), *passId);
+      VK_DEBUG("      Read Requirements: {}", reqs.invalidate.size());
       for (const auto& req : reqs.invalidate) {
-        VK_INFO("        Resource: {}{}", physicalResourceInfos[req.resourceId].name, req.history ? " (History)" : "");
-        VK_INFO("          Layout: {}", req.layout);
-        VK_INFO("          Access: {}", VkAccessFlags2Formatter(req.access));
-        VK_INFO("          Stages: {}", VkPipelineStageFlags2Formatter(req.stages));
+        VK_DEBUG("        Resource: {}{}", physicalResourceInfos[req.resourceId].name, req.history ? " (History)" : "");
+        VK_DEBUG("          Layout: {}", req.layout);
+        VK_DEBUG("          Access: {}", VkAccessFlags2Formatter(req.access));
+        VK_DEBUG("          Stages: {}", VkPipelineStageFlags2Formatter(req.stages));
       }
-      VK_INFO("");
+      VK_DEBUG("");
 
-      VK_INFO("      Write Requirements: {}", reqs.flush.size());
+      VK_DEBUG("      Write Requirements: {}", reqs.flush.size());
       for (const auto& req : reqs.flush) {
-        VK_INFO("        Resource: {}{}", physicalResourceInfos[req.resourceId].name, req.history ? " (History)" : "");
-        VK_INFO("          Layout: {}", req.layout);
-        VK_INFO("          Access: {}", VkAccessFlags2Formatter(req.access));
-        VK_INFO("          Stages: {}", VkPipelineStageFlags2Formatter(req.stages));
+        VK_DEBUG("        Resource: {}{}", physicalResourceInfos[req.resourceId].name, req.history ? " (History)" : "");
+        VK_DEBUG("          Layout: {}", req.layout);
+        VK_DEBUG("          Access: {}", VkAccessFlags2Formatter(req.access));
+        VK_DEBUG("          Stages: {}", VkPipelineStageFlags2Formatter(req.stages));
       }
-      VK_INFO("");
+      VK_DEBUG("");
     }
-    VK_INFO("  Barriers:");
+    VK_DEBUG("  Barriers:");
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       const auto& pass = *passes[passId];
       const auto& barriers = passBarriers[*passId];
 
-      VK_INFO("    {}: {} ({})", idx, pass.getName(), *passId);
-      VK_INFO("      Image Barriers: {}", barriers.image.size());
+      VK_DEBUG("    {}: {} ({})", idx, pass.getName(), *passId);
+      VK_DEBUG("      Image Barriers: {}", barriers.image.size());
       for (const auto& barrier : barriers.image) {
         const auto& res = physicalResourceInfos[barrier.resourceId];
-        VK_INFO("        Resource: {}", res.name);
-        VK_INFO("          Old Layout: {}", barrier.oldLayout);
-        VK_INFO("          New Layout: {}", barrier.newLayout);
-        VK_INFO("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
-        VK_INFO("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
-        VK_INFO("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
-        VK_INFO("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
-        VK_INFO("          Handoff: {}", barrier.handoff);
+        VK_DEBUG("        Resource: {}", res.name);
+        VK_DEBUG("          Old Layout: {}", barrier.oldLayout);
+        VK_DEBUG("          New Layout: {}", barrier.newLayout);
+        VK_DEBUG("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
+        VK_DEBUG("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
+        VK_DEBUG("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
+        VK_DEBUG("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
+        VK_DEBUG("          Handoff: {}", barrier.handoff);
       }
-      VK_INFO("");
+      VK_DEBUG("");
 
-      VK_INFO("      Buffer Barriers: {}", barriers.buffer.size());
+      VK_DEBUG("      Buffer Barriers: {}", barriers.buffer.size());
       for (const auto& barrier : barriers.buffer) {
         const auto& res = physicalResourceInfos[barrier.resourceId];
-        VK_INFO("        Resource: {}", res.name);
-        VK_INFO("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
-        VK_INFO("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
-        VK_INFO("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
-        VK_INFO("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
-        VK_INFO("          Handoff: {}", barrier.handoff);
+        VK_DEBUG("        Resource: {}", res.name);
+        VK_DEBUG("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
+        VK_DEBUG("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
+        VK_DEBUG("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
+        VK_DEBUG("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
+        VK_DEBUG("          Handoff: {}", barrier.handoff);
       }
-      VK_INFO("");
+      VK_DEBUG("");
     }
   }
 
@@ -183,7 +401,7 @@ namespace kt::vkh {
     }
   }
 
-  void RenderGraphBuilder::traverseDependencies(const RenderPass& pass, size_t stackCount) {
+  void RenderGraphBuilder::traverseDependencies(const RenderPassBuilder& pass, size_t stackCount) {
     if (pass.getDepthStencilInput()) {
       dependPassesRecursive(pass, pass.getDepthStencilInput()->getWritePasses(), stackCount, false, true, true);
     }
@@ -218,8 +436,8 @@ namespace kt::vkh {
     }
   }
 
-  void RenderGraphBuilder::dependPassesRecursive(const RenderPass& self, const std::unordered_set<PassId>& writtenPasses, size_t stackCount,
-                                                 bool noCheck, bool ignoreSelf, bool mergeDeps) {
+  void RenderGraphBuilder::dependPassesRecursive(const RenderPassBuilder& self, const std::unordered_set<PassId>& writtenPasses,
+                                                 size_t stackCount, bool noCheck, bool ignoreSelf, bool mergeDeps) {
     VK_REQUIRE(noCheck || !writtenPasses.empty(), "Pass '{}': No passes found that write to the input resource", self.getName());
 
     VK_REQUIRE(stackCount <= passes.size(), "Pass '{}': Circular dependency detected in render graph", self.getName());
@@ -456,6 +674,15 @@ namespace kt::vkh {
           physicalResourceInfos[input->getPhysicalId()].imageUsage |= input->getImageUsage();
         }
       }
+    }
+
+    {
+      auto backbufferIt = resourceNameToId.find(backbufferSource);
+      VK_REQUIRE(backbufferIt != resourceNameToId.end(), "Backbuffer source '{}' not found in render graph", backbufferSource);
+      auto& backbufferVirt = *resources[backbufferIt->second];
+      auto& backbufferPhys = physicalResourceInfos[backbufferVirt.getPhysicalId()];
+
+      backbufferPhys.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
 
     physicalImageHasHistory.clear();
@@ -707,7 +934,7 @@ namespace kt::vkh {
         if (dstReq.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
           VK_DEBUG("Pass '{}': Depth-stencil texture '{}' is used as a shader read-only input and as a depth stencil attachment."
                    "The layout of the texture for this pass has been set to general.",
-                   pass.getName(), dsOutput->getName());
+                   pass.getName(), dsInput->getName());
           dstReq.layout = VK_IMAGE_LAYOUT_GENERAL;
         } else {
           VK_REQUIRE(dstReq.layout == VK_IMAGE_LAYOUT_UNDEFINED,
@@ -860,7 +1087,7 @@ namespace kt::vkh {
     return static_cast<RenderBufferResource&>(*resources.back()); // NOLINT
   }
 
-  RenderPass& RenderGraphBuilder::addPass(const std::string& name, Bitflag<QueueType> queueTypes) {
+  RenderPassBuilder& RenderGraphBuilder::addPass(const std::string& name, Bitflag<QueueType> queueTypes) {
     VK_DEBUG("Adding pass '{}'", name);
     auto it = passNameToId.find(name);
     if (it != passNameToId.end()) {
@@ -868,7 +1095,7 @@ namespace kt::vkh {
     }
 
     PassId id{passes.size()};
-    auto pass = std::make_unique<RenderPass>(*this, id, queueTypes);
+    auto pass = std::make_unique<RenderPassBuilder>(*this, id, queueTypes);
     pass->setName(name);
     passes.push_back(std::move(pass));
     passNameToId[name] = id;
@@ -876,7 +1103,7 @@ namespace kt::vkh {
     return *passes.back();
   }
 
-  RenderPass* RenderGraphBuilder::findPass(const std::string& name) {
+  RenderPassBuilder* RenderGraphBuilder::findPass(const std::string& name) {
     auto it = passNameToId.find(name);
     if (it != passNameToId.end()) {
       return passes[it->second].get();
@@ -901,6 +1128,8 @@ namespace kt::vkh {
     ResourceInfo resInfo{
         .name = resource.getName(),
         .format = info.format,
+        .sizeType = info.sizeType,
+        .ratioSize = info.size,
         .size = {info.size.x, info.size.y, 1},
         .layers = info.layers,
         .mipLevels = info.mipLevels,
@@ -932,7 +1161,7 @@ namespace kt::vkh {
       resInfo.format = swapchainFormat;
 
     const auto numLevels = [](uint32_t width, uint32_t height, uint32_t depth) {
-      return static_cast<uint32_t>(std::floor(std::log2(std::max(std::max(width, height), depth)))) + 1;
+      return static_cast<uint32_t>(std::floor(std::log2(std::max({width, height, depth})))) + 1;
     };
 
     resInfo.mipLevels =

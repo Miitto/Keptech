@@ -567,7 +567,6 @@ fmt::formatter<kt::vkh::VkPipelineStageFlags2Formatter>::format(kt::vkh::VkPipel
   B(PRE_RASTERIZATION_SHADERS)
   B_KHR(VIDEO_DECODE)
   B_KHR(VIDEO_ENCODE)
-  B_KHR(TOP_OF_PIPE)
   B_KHR(DRAW_INDIRECT)
   B_KHR(VERTEX_INPUT)
   B_KHR(VERTEX_SHADER)

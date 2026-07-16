@@ -4,6 +4,9 @@
 
 namespace kt::vkh {
   void printExtensions(spdlog::level::level_enum logLevel) {
+    if (logLevel < RENDERER_LOG_LEVEL) {
+      return;
+    }
     uint32_t extensionCount = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
     std::vector<VkExtensionProperties> extensions(extensionCount);

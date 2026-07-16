@@ -59,12 +59,15 @@ namespace kt::vkh {
     [[nodiscard]] auto nView(const size_t imageIndex) const noexcept -> const VkImageView& { return imageViews[imageIndex]; }
     [[nodiscard]] auto nPresentSemaphore(const size_t imageIndex) noexcept -> VkSemaphore& { return presentSemaphores[imageIndex]; }
 
+    [[nodiscard]] VkImage getCurrentImage() const noexcept { return imgs[currentImageIndex]; }
+    [[nodiscard]] VkImageView getCurrentImageView() const noexcept { return imageViews[currentImageIndex]; }
+    [[nodiscard]] VkSemaphore getCurrentPresentSemaphore() const noexcept { return presentSemaphores[currentImageIndex]; }
     [[nodiscard]] const SwapchainConfig& config() const noexcept { return _config; }
 
     operator VkSwapchainKHR() const noexcept { return swapchain; }
     const VkSwapchainKHR& operator*() const noexcept { return swapchain; }
 
-    [[nodiscard]] auto getNextImage(const VkDevice& device, VkFence& waitFence, VkSemaphore& signalSemaphore) const noexcept
+    [[nodiscard]] auto getNextImage(const VkDevice& device, VkFence& waitFence, VkSemaphore& signalSemaphore) noexcept
         -> std::expected<AcquireResult, std::string>;
 
   private:
@@ -74,6 +77,8 @@ namespace kt::vkh {
     std::vector<VkImage> imgs;
     std::vector<VkImageView> imageViews;
     std::vector<VkSemaphore> presentSemaphores;
+
+    size_t currentImageIndex = 0;
 
     Swapchain(VkDevice device, VkSwapchainKHR swapchain, SwapchainConfig config, std::vector<VkImage>&& images,
               std::vector<VkImageView>&& imageViews, std::vector<VkSemaphore>&& sync) noexcept

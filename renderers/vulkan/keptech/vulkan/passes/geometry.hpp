@@ -1,9 +1,10 @@
 #pragma once
 
-#include "helpers/owned.hpp"
 #include "keptech/core/macros.hpp"
 #include "keptech/rendering/mesh.hpp"
-#include "wrappers/fwd.hpp"
+#include "keptech/vulkan/helpers/owned.hpp"
+#include "keptech/vulkan/wrappers/fwd.hpp"
+
 
 namespace kt::vkh {
   struct Buffers;

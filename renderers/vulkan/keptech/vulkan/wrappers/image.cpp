@@ -27,6 +27,18 @@ namespace kt::vkh {
 #ifndef NDEBUG
     if (!name.empty()) {
       vmaSetAllocationName(allocator, alloc, name.c_str());
+
+      VkDebugUtilsObjectNameInfoEXT nameInfo{
+          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+          .objectType = VK_OBJECT_TYPE_IMAGE,
+          .objectHandle = reinterpret_cast<uint64_t>(image),
+          .pObjectName = name.c_str(),
+      };
+      vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
+
+      nameInfo.objectType = VK_OBJECT_TYPE_IMAGE_VIEW;
+      nameInfo.objectHandle = reinterpret_cast<uint64_t>(view);
+      vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
     }
 #endif
 
@@ -68,5 +80,34 @@ namespace kt::vkh {
     b.srcQueueFamilyIndex = srcIndex;
     b.dstQueueFamilyIndex = dstIndex;
     return b;
+  }
+
+  VkImageSubresourceRange Image::getSubresourceRange() const {
+    VkImageAspectFlags aspectMask = 0;
+    switch (_format) {
+    case VK_FORMAT_D16_UNORM:
+    case VK_FORMAT_X8_D24_UNORM_PACK32:
+    case VK_FORMAT_D32_SFLOAT:
+      aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+      break;
+    case VK_FORMAT_S8_UINT:
+      aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
+      break;
+    case VK_FORMAT_D16_UNORM_S8_UINT:
+    case VK_FORMAT_D24_UNORM_S8_UINT:
+    case VK_FORMAT_D32_SFLOAT_S8_UINT:
+      aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+      break;
+    default:
+      aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      break;
+    }
+    return VkImageSubresourceRange{
+        .aspectMask = aspectMask,
+        .baseMipLevel = 0,
+        .levelCount = _mips,
+        .baseArrayLayer = 0,
+        .layerCount = _layers,
+    };
   }
 } // namespace kt::vkh

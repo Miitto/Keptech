@@ -21,7 +21,7 @@ kt::SetupInfo kt::configureApp() {
 }
 
 std::expected<void, std::string> kt::setupAppLayers(core::layers::LayerStack& layerStack, core::window::Window& window,
-                                                    kt::Renderer& renderer) {
+                                                    kt::rendering::RenderGraphBuilder& builder, kt::rendering::Renderer& renderer) {
   MaterialEditorLayer::initMeta();
 
   std::unique_ptr scene = std::make_unique<kt::Scene>();

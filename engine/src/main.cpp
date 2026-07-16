@@ -9,9 +9,7 @@
 #include <keptech/core/profile.hpp>
 #include <string>
 
-#ifdef KEPTECH_RENDERER_VULKAN
-#include <keptech/vulkan/renderer.hpp>
-#endif
+#include "keptech/renderer.hpp"
 
 using namespace kt;
 
@@ -32,15 +30,25 @@ int main() {
     }
     KT_DEBUG("Renderer created successfully");
 
+    rendering::RenderGraphBuilder rgBuilder{};
+
     rendering::Renderer renderer = std::move(rendererRes.value());
+
+    renderer.setRenderGraphProps(rgBuilder);
 
     core::layers::LayerStack layerStack;
 
-    auto setupRes = setupAppLayers(layerStack, window, renderer);
+    auto setupRes = setupAppLayers(layerStack, window, rgBuilder, renderer);
     if (!setupRes) {
       KT_CRITICAL("Failed to set up application layers: {}", setupRes.error());
       return -1;
     }
+
+    rgBuilder.bake();
+#ifndef NDEBUG
+    rgBuilder.log();
+#endif
+    auto rg = rgBuilder.build(renderer);
 
     auto& io = ImGui::GetIO();
 
@@ -139,7 +147,7 @@ int main() {
 
       kt::gui::Frame::processInputPassthrough();
 
-      renderer.render();
+      rg.execute();
 
       input.endFrame();
 
@@ -147,6 +155,7 @@ int main() {
     }
 
     KT_INFO("Starting shutdown");
+    rg.destroy();
   }
   core::window::shutdown();
 

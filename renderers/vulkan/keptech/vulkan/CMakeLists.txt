@@ -51,6 +51,7 @@ set(RENDER_GRAPH_HEADERS
 set(RENDER_GRAPH_SOURCES
     renderGraph/builder.cpp
     renderGraph/pass.cpp
+    renderGraph/graph.cpp
 )
 
 set(SETUP_HEADERS

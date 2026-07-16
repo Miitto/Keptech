@@ -6,6 +6,7 @@
 #include <Volk/volk.h>
 #include <cstdint>
 #include <glm/ext/vector_float3.hpp>
+#include <spdlog/fmt/bundled/format.h>
 #include <string>
 #include <vma/vk_mem_alloc.h>
 
@@ -76,6 +77,7 @@ namespace kt::vkh {
     }
 
     [[nodiscard]] constexpr bool used() const { return id != ~0u; }
+    [[nodiscard]] constexpr bool unused() const { return id == ~0u; }
 
   private:
     size_t id = ~0u;
@@ -120,6 +122,8 @@ namespace kt::vkh {
     std::string name;
     VkFormat format = VK_FORMAT_UNDEFINED;
     BufferInfo bufferInfo{};
+    AttachmentSize sizeType = AttachmentSize::ResolutionRelative;
+    glm::vec3 ratioSize{1.f, 1.f, 1.f};
     glm::uvec3 size{0, 0, 1};
     uint32_t layers = 1;
     uint32_t mipLevels = 1;
@@ -145,6 +149,37 @@ namespace kt::vkh {
     [[nodiscard]] bool isBufferLike() const { return bufferInfo.size > 0; }
     [[nodiscard]] bool isLayoutSensitive() const { return !isBufferLike(); }
   };
+
+  enum class QueueHandoff : uint8_t {
+    No,
+    ToCompute,
+    FromCompute,
+  };
+
+  struct ImageBarrier {
+    PhysResourceId resourceId;
+    VkPipelineStageFlags2 srcStages = 0;
+    VkPipelineStageFlags2 dstStages = 0;
+    VkAccessFlags2 srcAccess = 0;
+    VkAccessFlags2 dstAccess = 0;
+    VkImageLayout oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkImageLayout newLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    QueueHandoff handoff = QueueHandoff::No;
+  };
+
+  struct BufferBarrier {
+    PhysResourceId resourceId;
+    VkPipelineStageFlags2 srcStages = 0;
+    VkPipelineStageFlags2 dstStages = 0;
+    VkAccessFlags2 srcAccess = 0;
+    VkAccessFlags2 dstAccess = 0;
+    QueueHandoff handoff = QueueHandoff::No;
+  };
+
+  struct Barriers {
+    std::vector<ImageBarrier> image;
+    std::vector<BufferBarrier> buffer;
+  };
 } // namespace kt::vkh
 
 namespace std {
@@ -158,3 +193,39 @@ namespace std {
     size_t operator()(const kt::vkh::PhysResourceId& id) const { return std::hash<size_t>()(*id); }
   };
 } // namespace std
+
+template <> struct fmt::formatter<kt::vkh::AttachmentSize> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const kt::vkh::AttachmentSize& size, FormatContext& ctx) const {
+    std::string_view name;
+    switch (size) {
+    case kt::vkh::AttachmentSize::Absolute:
+      name = "Absolute";
+      break;
+    case kt::vkh::AttachmentSize::SwapchainRelative:
+      name = "SwapchainRelative";
+      break;
+    case kt::vkh::AttachmentSize::ResolutionRelative:
+      name = "ResolutionRelative";
+      break;
+    }
+    return fmt::formatter<std::string_view>::format(name, ctx);
+  }
+};
+
+template <> struct fmt::formatter<kt::vkh::PassId> : fmt::formatter<size_t> {
+  template <typename FormatContext> auto format(const kt::vkh::PassId& id, FormatContext& ctx) const {
+    return fmt::formatter<size_t>::format(*id, ctx);
+  }
+};
+
+template <> struct fmt::formatter<kt::vkh::ResourceId> : fmt::formatter<size_t> {
+  template <typename FormatContext> auto format(const kt::vkh::ResourceId& id, FormatContext& ctx) const {
+    return fmt::formatter<size_t>::format(*id, ctx);
+  }
+};
+
+template <> struct fmt::formatter<kt::vkh::PhysResourceId> : fmt::formatter<size_t> {
+  template <typename FormatContext> auto format(const kt::vkh::PhysResourceId& id, FormatContext& ctx) const {
+    return fmt::formatter<size_t>::format(*id, ctx);
+  }
+};

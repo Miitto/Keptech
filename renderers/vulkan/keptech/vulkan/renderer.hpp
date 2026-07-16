@@ -8,6 +8,7 @@
 #include "keptech/vulkan/pipelines.hpp"
 #include "keptech/vulkan/wrappers/buffer.hpp"
 #include "keptech/vulkan/wrappers/image.hpp"
+#include "renderGraph/graph.hpp"
 #include "types.hpp"
 #include <Volk/volk.h>
 #include <expected>
@@ -33,6 +34,8 @@
 #endif
 
 namespace kt::vkh {
+
+  class RenderGraph;
 
   struct LightBuffer {
     using T = Owned<Image>;
@@ -125,9 +128,13 @@ namespace kt::vkh {
   class Renderer {
     // Structs
   public:
+    friend class RenderGraph;
     using Members = kt::vkh::Members;
     // Creation and destruction
   public:
+    const Members& getMembers() const { return m; }
+    Members& getMembers() { return m; }
+
     std::expected<Renderer, std::string> static create(const RendererCreateInfo& createInfo, const core::window::Window& window);
 
     std::expected<gltf::Scene, std::string> loadMesh(std::string_view path);
@@ -164,17 +171,21 @@ namespace kt::vkh {
 
     PerFrameBuffers& fBufs() { return m.buffers.perFrame[m.frameInfo.index]; }
 
+    void setRenderGraphProps(RenderGraphBuilder& builder) const;
+
+    const Formats& getFormats() const { return m.formats; }
+
     // Render
   public:
     void newFrame();
     void render();
 
   private:
-    Renderer(Members&& m) : m(std::move(m)) { m.frameInfo.perFrame = &this->m.vkcore.perFrame[0]; }
+    Renderer(Members&& m) : m(std::move(m)) { this->m.frameInfo.perFrame = &this->m.vkcore.perFrame[0]; }
 
     void startFrame();
     void renderImGui(VkCommandBuffer graphicsCmd);
-    void endFrame(VkCommandBuffer graphicsCmd);
+    void endFrame(CommandBuffer graphicsCmd);
     void present();
 
     void debugUi();

@@ -176,7 +176,7 @@ namespace kt::vkh {
     }
   } // namespace
 
-  auto Swapchain::getNextImage(const VkDevice& device, VkFence& waitFence, VkSemaphore& signalSemaphore) const noexcept
+  auto Swapchain::getNextImage(const VkDevice& device, VkFence& waitFence, VkSemaphore& signalSemaphore) noexcept
       -> std::expected<AcquireResult, std::string> {
     KT_PROFILE_FUNCTION
     waitForImageAvailable(device, waitFence);
@@ -196,6 +196,8 @@ namespace kt::vkh {
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
       return AcquireResult(index, State::OutOfDate);
     }
+
+    currentImageIndex = index;
 
     return AcquireResult(index, State::Ok);
   }

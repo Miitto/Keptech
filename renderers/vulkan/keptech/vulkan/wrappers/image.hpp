@@ -45,6 +45,8 @@ namespace kt::vkh {
 
     void setHandle(ImageHandle handle) { _handle = handle; }
 
+    [[nodiscard]] VkImageSubresourceRange getSubresourceRange() const;
+
   private:
     constexpr Image(rendering::ImageType type, VkImage image, VkImageView view, VmaAllocation alloc, VkExtent3D extent, VkFormat format)
         : _type(type), image(image), view(view), alloc(alloc), _extent(extent), _format(format), destroyed(std::make_shared<bool>(false)) {}

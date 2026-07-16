@@ -1,10 +1,11 @@
 #pragma once
 
-#include "cmdBuf.hpp"
-#include "macros.hpp"
+#include "keptech/vulkan/macros.hpp"
+#include "keptech/vulkan/wrappers/cmdBuf.hpp"
 #include <Volk/volk.h>
 #include <array>
 #include <vector>
+
 
 namespace kt::vkh {
   struct Queue {

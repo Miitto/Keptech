@@ -1,3 +1,4 @@
+#include "keptech/vulkan/interface.hpp"
 #include <keptech/app.hpp>
 #include <keptech/keptech.hpp>
 
@@ -100,7 +101,7 @@ private:
 };
 
 std::expected<void, std::string> kt::setupAppLayers(core::layers::LayerStack& layerStack, core::window::Window& window,
-                                                    kt::rendering::Renderer& renderer) {
+                                                    kt::rendering::RenderGraphBuilder& builder, kt::rendering::Renderer& renderer) {
 
   layerStack.emplaceLayer<BenchmarkLayer>(window, renderer);
 

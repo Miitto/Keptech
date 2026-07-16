@@ -2,33 +2,39 @@
 
 /** @file */
 
-#include "keptech/vulkan/wrappers/buffer.hpp"
-#include "keptech/vulkan/wrappers/image.hpp"
-#include "pass.hpp"
-#include "renderResources.hpp"
+#include "keptech/vulkan/renderGraph/pass.hpp"
+#include "keptech/vulkan/renderGraph/renderResources.hpp"
 #include <Volk/volk.h>
 #include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_uint2.hpp>
+#include <memory>
 #include <vector>
 #include <vma/vk_mem_alloc.h>
 
 namespace kt::vkh {
-  struct Members;
+  class Renderer;
+
+  class RenderGraph;
 
   class RenderGraphBuilder {
   public:
     RenderGraphBuilder() = default;
 
-    RenderPass& addPass(const std::string& name, Bitflag<QueueType> queueTypes = {});
-    RenderPass* findPass(const std::string& name);
+    RenderPassBuilder& addPass(const std::string& name, Bitflag<QueueType> queueTypes = {});
+    RenderPassBuilder* findPass(const std::string& name);
 
-    void build();
+    /// Analyses the registered passes and resources, and populates the internal data structures. This function must be called before
+    /// build().
+    void bake();
+    /// @brief Constructs the render graph. bake() must have been called before this function. This function will return a RenderGraph
+    /// object that can be used to execute the render passes in the correct order.
+    /// @param renderer The renderer. Used to create the Vulkan resources.
+    /// @warning This function will invalidate the RenderGraphBuilder object. Do not use it after calling this function.
+    RenderGraph build(Renderer& renderer);
+
     /// Logs the current state of the render graph to the console. This includes the passes, resources, and their dependencies.
-    /// Graph should be built before calling this function. Uses log level INFO.
+    /// Graph should be built before calling this function. Uses log level DEBUG.
     void log() const;
-    void setupAttachments();
-
-    void execute();
 
     RenderTextureResource& getTextureResource(const std::string& name);
     RenderBufferResource& getBufferResource(const std::string& name);
@@ -55,20 +61,12 @@ namespace kt::vkh {
     }
     [[nodiscard]] VkFormat getSwapchainFormat() const { return swapchainFormat; }
 
-    /// Public for fmt formatter specialization
-    /// Internal use only. Do not use directly.
-    enum class QueueHandoff : uint8_t {
-      No,
-      ToCompute,
-      FromCompute,
-    };
-
   private:
     glm::uvec2 renderResolution{0, 0};
     glm::uvec2 swapchainSize{0, 0};
     VkFormat swapchainFormat = VK_FORMAT_UNDEFINED;
 
-    std::vector<std::unique_ptr<RenderPass>> passes;
+    std::vector<std::unique_ptr<RenderPassBuilder>> passes;
     std::vector<std::unique_ptr<RenderResource>> resources;
     std::unordered_map<std::string, PassId> passNameToId;
     std::unordered_map<std::string, ResourceId> resourceNameToId;
@@ -97,46 +95,19 @@ namespace kt::vkh {
     /// Defines the format and access stages/mask a render pass needs to access a resource with.
     std::vector<Requirements> passRequirements;
 
-    struct ImageBarrier {
-      PhysResourceId resourceId;
-      VkPipelineStageFlags2 srcStages = 0;
-      VkPipelineStageFlags2 dstStages = 0;
-      VkAccessFlags2 srcAccess = 0;
-      VkAccessFlags2 dstAccess = 0;
-      VkImageLayout oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-      VkImageLayout newLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-      QueueHandoff handoff = QueueHandoff::No;
-    };
-
-    struct BufferBarrier {
-      PhysResourceId resourceId;
-      VkPipelineStageFlags2 srcStages = 0;
-      VkPipelineStageFlags2 dstStages = 0;
-      VkAccessFlags2 srcAccess = 0;
-      VkAccessFlags2 dstAccess = 0;
-      QueueHandoff handoff = QueueHandoff::No;
-    };
-
-    struct Barriers {
-      std::vector<ImageBarrier> image;
-      std::vector<BufferBarrier> buffer;
-    };
     std::vector<Barriers> passBarriers;
 
     std::vector<std::unordered_set<PassId>> passDependencies;
 
     std::vector<ResourceInfo> physicalResourceInfos;
-    std::vector<std::unique_ptr<VkImageView>> physicalAttachments;
-    std::vector<std::unique_ptr<Buffer>> physicalBuffers;
-    std::vector<std::unique_ptr<Image>> physicalImageAttachments;
     std::vector<bool> physicalImageHasHistory;
 
     /// Validate the registered passes. Aborts if any pass has invalid inputs or outputs.
     void validatePasses() const;
 
-    void traverseDependencies(const RenderPass& pass, size_t stackCount);
-    void dependPassesRecursive(const RenderPass& self, const std::unordered_set<PassId>& writtenPasses, size_t stackCount, bool noCheck,
-                               bool ignoreSelf, bool mergeDeps);
+    void traverseDependencies(const RenderPassBuilder& pass, size_t stackCount);
+    void dependPassesRecursive(const RenderPassBuilder& self, const std::unordered_set<PassId>& writtenPasses, size_t stackCount,
+                               bool noCheck, bool ignoreSelf, bool mergeDeps);
 
     /// Returns true if the pass with id `dst` depends on the pass with id `src`, false otherwise.
     [[nodiscard]] bool dependsOnPass(PassId dst, PassId src) const;

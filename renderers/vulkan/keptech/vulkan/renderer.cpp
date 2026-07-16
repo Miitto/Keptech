@@ -7,6 +7,7 @@
 
 #include "passes/global.hpp"
 #include "profile.hpp"
+#include "renderGraph/builder.hpp"
 #include "setup/setup.hpp"
 #include "vk-logger.hpp"
 #include <imgui/backends/imgui_impl_sdl3.h>
@@ -39,6 +40,12 @@ namespace kt::vkh {
     ImGui::End();
   }
 
+  void Renderer::setRenderGraphProps(RenderGraphBuilder& builder) const {
+    builder.setSwapchainFormat(m.formats.swapchain);
+    builder.setSwapchainSize({m.vkcore.swapchain.config().extent.width, m.vkcore.swapchain.config().extent.height});
+    builder.setRenderResolution(m.renderTargets.framebufferSize);
+  }
+
   void Renderer::render() {
     KT_PROFILE_FUNCTION
     VK_TRACE("Frame Start");
@@ -46,94 +53,6 @@ namespace kt::vkh {
 
     components::Transform::recalcAllTransforms(scene->getEcs());
     auto frustum = passes::writeCameraData(m.buffers, scene->getActiveCamera(), m.renderTargets.framebufferSize, m.frameInfo.index);
-
-    auto meshView = scene->view<components::Mesh, components::Transform>();
-
-    std::vector<Submesh> submeshes;
-    std::vector<glm::mat4> matrices;
-    submeshes.reserve(meshView.size_hint());
-    matrices.reserve(meshView.size_hint());
-    for (const auto& [entity, mesh, transform] : meshView.each()) {
-      m.frameInfo.objectsRendered += mesh.getSubmeshes().size();
-      VK_TRACE("Rendering mesh for entity {} with {} submeshes", mesh.getDebugName(), mesh.getSubmeshes().size());
-      submeshes.append_range(mesh.getSubmeshes());
-      for (const auto& submesh : mesh.getSubmeshes()) {
-        matrices.push_back(transform.getGlobal());
-      }
-    }
-
-    auto cmdBuf = m.frameInfo.perFrame->pools.graphics.allocate(m.vkcore.device.logical);
-
-    cmdBuf.begin();
-
-    passes::geometry::draw(m, cmdBuf, m.renderTargets.gBuffer,
-                           passes::geometry::Payload{.submeshes = submeshes, .modelMatrices = matrices});
-
-    layoutTransitions<2>(cmdBuf,
-                         {
-                             layoutTransition(m.renderTargets.gBuffer.albedo.get(),
-                                              TransitionInfo(ImageType::Color, ImageLayout::ShaderReadOnly, ImageLayout::TransferSrc)),
-                             layoutTransition(m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-                                              TransitionInfo(ImageType::Color, ImageLayout::Undefined, ImageLayout::TransferDst)),
-                         });
-
-    VkImageBlit2 blitRegion{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
-        .srcSubresource =
-            VkImageSubresourceLayers{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .mipLevel = 0,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-        .srcOffsets =
-            {
-                VkOffset3D{.x = 0, .y = 0, .z = 0},
-                VkOffset3D{.x = static_cast<int32_t>(m.renderTargets.gBuffer.albedo->extent().x),
-                           .y = static_cast<int32_t>(m.renderTargets.gBuffer.albedo->extent().y),
-                           .z = 1},
-            },
-        .dstSubresource =
-            VkImageSubresourceLayers{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .mipLevel = 0,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-        .dstOffsets =
-            {
-                VkOffset3D{.x = 0, .y = 0, .z = 0},
-                VkOffset3D{.x = static_cast<int32_t>(m.vkcore.swapchain.config().extent.width),
-                           .y = static_cast<int32_t>(m.vkcore.swapchain.config().extent.height),
-                           .z = 1},
-            },
-    };
-
-    VkBlitImageInfo2 info{
-        .sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2,
-        .srcImage = *m.renderTargets.gBuffer.albedo,
-        .srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        .dstImage = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-        .dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .regionCount = 1,
-        .pRegions = &blitRegion,
-        .filter = VK_FILTER_NEAREST,
-    };
-
-    vkCmdBlitImage2(cmdBuf, &info);
-
-#ifndef NDEBUG
-    debugUi();
-#endif
-    layoutTransitions<1>(cmdBuf, {layoutTransition(m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-                                                   TransitionInfo(ImageType::Color, ImageLayout::TransferDst, ImageLayout::RenderTarget))});
-    renderImGui(cmdBuf);
-
-    layoutTransitions<1>(cmdBuf, {layoutTransition(m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
-                                                   TransitionInfo(ImageType::Color, ImageLayout::RenderTarget, ImageLayout::Present))});
-
-    cmdBuf.end();
-    endFrame(cmdBuf);
   }
 
   void Renderer::newFrame() {
@@ -210,8 +129,24 @@ namespace kt::vkh {
     vkCmdEndRendering(cmdBuf);
   }
 
-  void Renderer::endFrame(VkCommandBuffer cmdBuf) {
+  void Renderer::endFrame(CommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
+
+    VK_TRACE("Renderer::endFrame");
+
+#ifndef NDEBUG
+    debugUi();
+#endif
+
+    layoutTransitions<1>(cmdBuf, {layoutTransition(m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
+                                                   TransitionInfo(ImageType::Color, ImageLayout::TransferDst, ImageLayout::RenderTarget))});
+    renderImGui(cmdBuf);
+
+    layoutTransitions<1>(cmdBuf, {layoutTransition(m.vkcore.swapchain.nImage(m.frameInfo.imageIndex),
+                                                   TransitionInfo(ImageType::Color, ImageLayout::RenderTarget, ImageLayout::Present))});
+
+    cmdBuf.end();
+
     auto& sem = m.vkcore.swapchain.nPresentSemaphore(m.frameInfo.imageIndex);
 
     std::array<VkSemaphoreSubmitInfo, 2> waitInfo{

@@ -103,7 +103,7 @@
       "generator": "Ninja Multi-Config",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "cmake/toolchain/clang.toolchain.cmake",
-        "CLANG_TIDY_CHECKS": "clang-analyzer-*,cppcoreguidelines-*,bugprone-*,-bugprone-easily-swappable-parameters,-cppcoreguidelines-pro-type-union-access,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-bounds-constant-array-index,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-pro-type-reinterpret-cast,-cppcoreguidelines-pro-bounds-array-to-pointer-decay,-cppcoreguidlelines-macro-usage"
+        "CLANG_TIDY_CHECKS": "clang-analyzer-*,cppcoreguidelines-*,bugprone-*,-bugprone-easily-swappable-parameters,-cppcoreguidelines-pro-type-union-access,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-bounds-constant-array-index,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-pro-type-reinterpret-cast,-cppcoreguidelines-pro-bounds-array-to-pointer-decay,-cppcoreguidlelines-macro-usage,-cppcoreguidelines-pro-type-vararg"
       }
     },
     {

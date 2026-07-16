@@ -1,6 +1,6 @@
 #pragma once
 
-#include "macros.hpp"
+#include "keptech/vulkan/macros.hpp"
 #include <Volk/volk.h>
 
 namespace kt::vkh {
@@ -16,6 +16,11 @@ namespace kt::vkh {
       };
       VK_CHECK(vkBeginCommandBuffer(cmdBuf, &beginInfo), "Failed to begin command buffer");
     }
+
+    void barrier(const VkDependencyInfo& dependencyInfo) const { vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo); }
+
+    void beginRendering(const VkRenderingInfo& renderingInfo) const { vkCmdBeginRendering(cmdBuf, &renderingInfo); }
+    void endRendering() const { vkCmdEndRendering(cmdBuf); }
 
     void end() const { VK_CHECK(vkEndCommandBuffer(cmdBuf), "Failed to end command buffer"); }
 

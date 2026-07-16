@@ -53,3 +53,9 @@ if(RENDERER STREQUAL "Vulkan")
   add_subdirectory(vulkan)
   message(STATUS "Vulkan renderer enabled")
 endif()
+
+target_compile_definitions(Keptech_Renderer
+  PRIVATE
+  $<$<CONFIG:Debug>:RENDERER_LOG_LEVEL=SPDLOG_LEVEL_${RENDERER_DEBUG_LOG_LEVEL}>
+  $<$<CONFIG:Release>:RENDERER_LOG_LEVEL=SPDLOG_LEVEL_${RENDERER_RELEASE_LOG_LEVEL}>
+)

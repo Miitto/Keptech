@@ -332,7 +332,7 @@ namespace kt::vkh {
       imageCreateInfo.mipLevels = tex.ktx->numLevels;
       imageViewCreateInfo.subresourceRange.levelCount = imageCreateInfo.mipLevels;
 
-      VK_TRACE("Creating image {} with format {} and extent {}x{}", tex.name, tex.format, imageCreateInfo.extent.width,
+      VK_TRACE("Creating image {} with format {} and extent {}x{}", tex.name, tex.ktx->vkFormat, imageCreateInfo.extent.width,
                imageCreateInfo.extent.height);
 
       memcpy(buf.buffer.mapping() + offset, tex.ktx->pData, tex.ktx->dataSize);
