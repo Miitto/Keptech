@@ -155,6 +155,16 @@ namespace kt::vkh::setup {
       };
       VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].imageAvailableSemaphore),
               "Failed to create image available semaphore");
+
+      VkSemaphore timelineSemaphore = nullptr;
+      VkSemaphoreTypeCreateInfo timelineSemaphoreTypeInfo{
+          .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
+          .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
+          .initialValue = 0,
+      };
+      semaphoreCreateInfo.pNext = &timelineSemaphoreTypeInfo;
+      VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].timelineSemaphore),
+              "Failed to create timeline semaphore");
     }
 
     VkSemaphoreTypeCreateInfo timelineSemaphoreTypeInfo{

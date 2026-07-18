@@ -180,6 +180,47 @@ namespace kt::vkh {
     return res;
   }
 
+  RenderTextureResource& RenderPassBuilder::addStorageImageOutput(const std::string& name, const AttachmentInfo& info,
+                                                                  const std::string& input) {
+    LOG("Adding storage image output '{}' to pass '{}' from '{}'", name, this->name, input.empty() ? "nothing" : input.c_str());
+    auto& res = graph.getTextureResource(name);
+    res.setAttachmentInfo(info).addImageUsage(VK_IMAGE_USAGE_STORAGE_BIT).addQueue(queue).writtenInPass(id);
+
+    if (info.mipLevels > 1)
+      res.addImageUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+
+    storageImageOutputs.push_back(&res);
+
+    if (!input.empty()) {
+      auto& inputRes = graph.getTextureResource(input);
+      VK_REQUIRE(inputRes.getAttachmentInfo().format == info.format,
+                 "Storage image input '{}' and output '{}' must have the same format. {} vs {}", input, name,
+                 inputRes.getAttachmentInfo().format, info.format);
+      VK_REQUIRE(inputRes.getAttachmentInfo().mipLevels == info.mipLevels,
+                 "Storage image input '{}' and output '{}' must have the same number of mip levels. {} vs {}", input, name,
+                 inputRes.getAttachmentInfo().mipLevels, info.mipLevels);
+      VK_REQUIRE(inputRes.getAttachmentInfo().samples == info.samples,
+                 "Storage image input '{}' and output '{}' must have the same number of samples. {} vs {}", input, name,
+                 inputRes.getAttachmentInfo().samples, info.samples);
+      VK_REQUIRE(inputRes.getAttachmentInfo().layers == info.layers,
+                 "Storage image input '{}' and output '{}' must have the same number of array layers. {} vs {}", input, name,
+                 inputRes.getAttachmentInfo().layers, info.layers);
+      VK_REQUIRE(inputRes.getAttachmentInfo().sizeType == info.sizeType,
+                 "Storage image input '{}' and output '{}' must have the same size type. {} vs {}", input, name,
+                 inputRes.getAttachmentInfo().sizeType, info.sizeType);
+      VK_REQUIRE(inputRes.getAttachmentInfo().size == info.size,
+                 "Storage image input '{}' and output '{}' must have the same size. ({}, {}, {}) vs ({}, {}, {})", input, name,
+                 inputRes.getAttachmentInfo().size.x, inputRes.getAttachmentInfo().size.y, inputRes.getAttachmentInfo().size.z, info.size.x,
+                 info.size.y, info.size.z);
+      inputRes.addImageUsage(VK_IMAGE_USAGE_STORAGE_BIT).addQueue(queue).readInPass(id);
+      storageImageInputs.push_back(&inputRes);
+    } else {
+      storageImageInputs.push_back(nullptr);
+    }
+
+    return res;
+  }
+
   RenderTextureResource& RenderPassBuilder::setDepthStencilInput(const std::string& name) {
     LOG("Setting depth-stencil input '{}' for pass '{}'", name, this->name);
     auto& res = graph.getTextureResource(name);

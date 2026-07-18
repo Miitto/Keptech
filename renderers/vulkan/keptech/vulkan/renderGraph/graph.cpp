@@ -10,52 +10,134 @@ namespace kt::vkh {
     renderer->startFrame();
     auto& m = renderer->getMembers();
 
-    auto cmds = m.frameInfo.perFrame->pools.graphics.allocate<2>(m.vkcore.device);
+    auto& perFrame = *m.frameInfo.perFrame;
+    auto timelineSem = perFrame.timelineSemaphore;
 
-    {
-      auto& cmdBuf = cmds[0];
-      cmdBuf.label(m.vkcore.device, "RenderGraph::execute");
-      cmdBuf.begin();
-      for (auto& pass : passes) {
-        VK_TRACE("Executing pass '{}'", pass.getName());
-        pass.prepare(*this);
+    auto graphicsCmds = m.frameInfo.perFrame->pools.graphics.allocate(m.vkcore.device,
+                                                                      graphicsQueuePassCount + 1); // +1 For the end of frame swapchain work
+    auto computeCmds = m.frameInfo.perFrame->pools.compute.allocate(m.vkcore.device, computeQueuePassCount);
 
-        pipelineBarrier(pass.getBarriers(), cmdBuf);
+    size_t passIndex = 0;
+    size_t graphicsPassIndex = 0;
+    size_t computePassIndex = 0;
+    for (const auto& [groupIdx, group] : passGroups | std::views::enumerate) {
+      size_t passEnd = passIndex + group.count;
 
-        switch (pass.getQueue()) {
-        case QueueType::Graphics:
-          executeGraphicsPass(pass, cmdBuf);
-          break;
-        case QueueType::Compute:
-        case QueueType::AsyncCompute: // TODO: This needs a different CmdBuf and we need to submit with a semaphore increment
-          executeComputePass(pass, cmdBuf);
-          break;
-        case QueueType::Cpu:
-          pass.execute(cmdBuf);
-          break;
+      VkCommandBuffer vkCmd = nullptr;
+      VkQueue queue = nullptr;
+
+      switch (group.queue) {
+      case QueueType::Graphics: {
+        VK_TRACE("Executing graphics pass group {} on graphics queue with {} passes", groupIdx, group.count);
+
+        auto& cmd = graphicsCmds[graphicsPassIndex++];
+        vkCmd = cmd;
+        queue = m.vkcore.queues.graphics.queue;
+        cmd.label(m.vkcore.device, fmt::format("RenderGraph::execute() - Pass Group {}: Graphics Queue", groupIdx));
+
+        cmd.begin();
+
+        for (; passIndex < passEnd; ++passIndex) {
+          auto& pass = passes[passIndex];
+          VK_TRACE("Executing graphics pass '{}'", pass.getName());
+          pass.prepare(*this);
+
+          pipelineBarrier(pass.getBarriers().pre, cmd);
+
+          executeGraphicsPass(pass, cmd);
+
+          pipelineBarrier(pass.getBarriers().post, cmd);
         }
+
+        cmd.end();
+
+      } break;
+      case QueueType::Compute: {
+        VK_TRACE("Executing compute pass group {} on graphics queue with {} passes", groupIdx, group.count);
+
+        auto& cmd = computeCmds[graphicsPassIndex++];
+        vkCmd = cmd;
+        queue = m.vkcore.queues.compute.queue;
+        cmd.label(m.vkcore.device, fmt::format("RenderGraph::execute() - Pass Group {}: Compute Queue", groupIdx));
+
+        cmd.begin();
+
+        for (; passIndex < passEnd; ++passIndex) {
+          auto& pass = passes[passIndex];
+          VK_TRACE("Executing compute pass '{}'", pass.getName());
+          pass.prepare(*this);
+
+          pipelineBarrier(pass.getBarriers().pre, cmd);
+
+          executeComputePass(pass, cmd);
+
+          pipelineBarrier(pass.getBarriers().post, cmd);
+        }
+
+        cmd.end();
+      } break;
+      case QueueType::AsyncCompute: {
+        VK_TRACE("Executing async compute pass group {} on compute queue with {} passes", groupIdx, group.count);
+        auto& cmd = computeCmds[computePassIndex++];
+        vkCmd = cmd;
+        queue = m.vkcore.queues.compute.queue;
+
+        cmd.label(m.vkcore.device, fmt::format("RenderGraph::execute() - Pass Group {}: Async Compute Queue", groupIdx));
+        cmd.begin();
+
+        for (; passIndex < passEnd; ++passIndex) {
+          auto& pass = passes[passIndex];
+          VK_TRACE("Executing async compute pass '{}'", pass.getName());
+          pass.prepare(*this);
+
+          pipelineBarrier(pass.getBarriers().pre, cmd);
+          executeComputePass(pass, cmd);
+          pipelineBarrier(pass.getBarriers().post, cmd);
+        }
+
+        cmd.end();
+      }; break;
       }
 
-      cmdBuf.end();
+      VkSemaphoreSubmitInfo timelineSemInfo{
+          .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+          .semaphore = timelineSem,
+          .value = perFrame.timelineValue + static_cast<uint64_t>(groupIdx + 1),
+          .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+      };
+
+      VkSemaphoreSubmitInfo waitSemInfo{
+          .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+          .semaphore = timelineSem,
+          .value = perFrame.timelineValue + static_cast<uint64_t>(group.waitFor),
+          .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+      };
 
       VkCommandBufferSubmitInfo cmdBufInfo{
           .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-          .commandBuffer = cmdBuf,
+          .commandBuffer = vkCmd,
           .deviceMask = 0,
       };
 
       VkSubmitInfo2 submitInfo{
           .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+          .waitSemaphoreInfoCount = 1,
+          .pWaitSemaphoreInfos = &waitSemInfo,
           .commandBufferInfoCount = 1,
           .pCommandBufferInfos = &cmdBufInfo,
+          .signalSemaphoreInfoCount = 1,
+          .pSignalSemaphoreInfos = &timelineSemInfo,
       };
 
       VK_TRACE("Submitting render graph command buffer");
-      vkQueueSubmit2(m.vkcore.queues.graphics.queue, 1, &submitInfo, nullptr);
+      vkQueueSubmit2(queue, 1, &submitInfo, nullptr);
     }
 
+    perFrame.timelineValue += static_cast<uint64_t>(passGroups.size());
+
     {
-      auto& cmdBuf = cmds[1];
+      // TODO: Swapchain resource may not end up as a color attachment, or even on the grapics queue.
+      auto& cmdBuf = graphicsCmds.back();
       cmdBuf.label(m.vkcore.device, "RenderGraph::swapchain");
       cmdBuf.begin();
       auto backbuffer = getBackbufferImage();
@@ -76,6 +158,7 @@ namespace kt::vkh {
                                                         }),
                                    });
 
+      // TODO: Attempt to alias the swapchain image with the backbuffer source to possibly remove this blit.
       VkImageBlit2 blitRegion{
           .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
           .srcSubresource =
@@ -138,6 +221,9 @@ namespace kt::vkh {
   void RenderGraph::executeComputePass(RenderPass& pass, CommandBuffer& cmd) { pass.execute(cmd); }
 
   void RenderGraph::pipelineBarrier(const Barriers& barriers, const CommandBuffer& cmd) const {
+    if (barriers.image.empty() && barriers.buffer.empty())
+      return;
+
     std::vector<VkImageMemoryBarrier2> imageBarriers;
     imageBarriers.reserve(barriers.image.size());
     for (auto& barrier : barriers.image) {
@@ -150,11 +236,25 @@ namespace kt::vkh {
           .dstAccessMask = barrier.dstAccess,
           .oldLayout = barrier.oldLayout,
           .newLayout = barrier.newLayout,
-          .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, // TODO: Queue Family handoff
+          .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
           .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
           .image = img,
           .subresourceRange = img.getSubresourceRange(),
       };
+
+      switch (barrier.handoff) {
+      case QueueHandoff::No:
+        break;
+      case QueueHandoff::ToCompute:
+        barrierInfo.srcQueueFamilyIndex = renderer->getMembers().vkcore.queues.graphics.index;
+        barrierInfo.dstQueueFamilyIndex = renderer->getMembers().vkcore.queues.compute.index;
+        break;
+      case QueueHandoff::FromCompute:
+        barrierInfo.srcQueueFamilyIndex = renderer->getMembers().vkcore.queues.compute.index;
+        barrierInfo.dstQueueFamilyIndex = renderer->getMembers().vkcore.queues.graphics.index;
+        break;
+      }
+      imageBarriers.push_back(barrierInfo);
     }
     std::vector<VkBufferMemoryBarrier2> bufferBarriers;
     bufferBarriers.reserve(barriers.buffer.size());
@@ -166,12 +266,26 @@ namespace kt::vkh {
           .srcAccessMask = barrier.srcAccess,
           .dstStageMask = barrier.dstStages,
           .dstAccessMask = barrier.dstAccess,
-          .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, // TODO: Queue Family handoff
+          .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
           .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
           .buffer = buf,
           .offset = 0,
           .size = buf.size(),
       };
+
+      switch (barrier.handoff) {
+      case QueueHandoff::No:
+        break;
+      case QueueHandoff::ToCompute:
+        barrierInfo.srcQueueFamilyIndex = renderer->getMembers().vkcore.queues.graphics.index;
+        barrierInfo.dstQueueFamilyIndex = renderer->getMembers().vkcore.queues.compute.index;
+        break;
+      case QueueHandoff::FromCompute:
+        barrierInfo.srcQueueFamilyIndex = renderer->getMembers().vkcore.queues.compute.index;
+        barrierInfo.dstQueueFamilyIndex = renderer->getMembers().vkcore.queues.graphics.index;
+        break;
+      }
+      bufferBarriers.push_back(barrierInfo);
     }
 
     VkDependencyInfo dependencyInfo{
@@ -249,5 +363,16 @@ namespace kt::vkh {
       img.destroy(m.vkcore.allocator, m.vkcore.device);
     for (auto& buf : buffers)
       buf.destroy(m.vkcore.allocator);
+  }
+
+  void RenderGraph::log() const {
+#define LOG(...) VK_DEBUG(__VA_ARGS__)
+
+    LOG("RenderGraph:");
+    LOG("  Pass Groups: {}", passGroups.size());
+    for (const auto& [idx, group] : passGroups | std::views::enumerate) {
+      LOG("    {}: Queue: {}, Count: {}, WaitFor: {}", idx, group.queue, group.count, group.waitFor);
+    }
+    LOG("");
   }
 } // namespace kt::vkh

@@ -6,7 +6,6 @@
 #include <array>
 #include <vector>
 
-
 namespace kt::vkh {
   struct Queue {
     uint32_t index = ~0;
@@ -44,6 +43,9 @@ namespace kt::vkh {
     }
 
     [[nodiscard]] std::vector<CommandBuffer> allocate(const VkDevice& device, uint32_t count) const {
+      if (count == 0) {
+        return {};
+      }
       std::vector<CommandBuffer> commandBuffers(count);
       VkCommandBufferAllocateInfo allocInfo{
           .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,

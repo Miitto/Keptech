@@ -95,7 +95,7 @@ namespace kt::vkh {
     /// Defines the format and access stages/mask a render pass needs to access a resource with.
     std::vector<Requirements> passRequirements;
 
-    std::vector<Barriers> passBarriers;
+    std::vector<PrePostBarriers> passBarriers;
 
     std::vector<std::unordered_set<PassId>> passDependencies;
 

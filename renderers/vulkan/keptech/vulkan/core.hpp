@@ -35,7 +35,13 @@ namespace kt::vkh {
     VkFence inFlightFence;
     VkSemaphore imageAvailableSemaphore;
     Pools pools;
+    VkSemaphore timelineSemaphore;
+    uint64_t timelineValue = 0;
     std::vector<TextureUpdateInfo> texToUpdate;
+
+    uint64_t getTimelineWaitValue() const { return timelineValue; }
+    uint64_t getTimelineSignalValue() const { return timelineValue + 1; }
+    void signalledTimeline() { ++timelineValue; }
   };
 
   struct VulkanCore {

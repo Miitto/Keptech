@@ -180,6 +180,12 @@ namespace kt::vkh {
     std::vector<ImageBarrier> image;
     std::vector<BufferBarrier> buffer;
   };
+
+  struct PrePostBarriers {
+    Barriers pre;
+    Barriers post;
+    size_t needsWaitFor = ~0u;
+  };
 } // namespace kt::vkh
 
 namespace std {
@@ -206,6 +212,27 @@ template <> struct fmt::formatter<kt::vkh::AttachmentSize> : fmt::formatter<std:
       break;
     case kt::vkh::AttachmentSize::ResolutionRelative:
       name = "ResolutionRelative";
+      break;
+    }
+    return fmt::formatter<std::string_view>::format(name, ctx);
+  }
+};
+
+template <> struct fmt::formatter<kt::vkh::QueueType> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const kt::vkh::QueueType& queue, FormatContext& ctx) const {
+    std::string_view name;
+    switch (queue) {
+    case kt::vkh::QueueType::Graphics:
+      name = "Graphics";
+      break;
+    case kt::vkh::QueueType::Compute:
+      name = "Compute";
+      break;
+    case kt::vkh::QueueType::AsyncCompute:
+      name = "AsyncCompute";
+      break;
+    case kt::vkh::QueueType::Cpu:
+      name = "Cpu";
       break;
     }
     return fmt::formatter<std::string_view>::format(name, ctx);

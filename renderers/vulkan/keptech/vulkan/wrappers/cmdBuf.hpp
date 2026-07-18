@@ -28,7 +28,10 @@ namespace kt::vkh {
     [[nodiscard]] constexpr VkCommandBuffer get() const { return cmdBuf; }
     [[nodiscard]] constexpr VkCommandBuffer operator*() const { return cmdBuf; }
 
+    void label(const VkDevice device, const std::string& name) const { label(device, name.c_str()); }
+
     void label(const VkDevice device, const char* name) const {
+#ifndef NDEBUG
       VkDebugUtilsObjectNameInfoEXT nameInfo{
           .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
           .objectType = VK_OBJECT_TYPE_COMMAND_BUFFER,
@@ -36,6 +39,7 @@ namespace kt::vkh {
           .pObjectName = name,
       };
       vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
+#endif
     }
 
   private:

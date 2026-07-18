@@ -42,7 +42,7 @@ namespace kt::vkh {
     /// Called before the pass is executed. This is where you should update any resources that are used by the pass.
     virtual void prepare(RenderGraph& graph) {}
     /// Called when the pass is executed. This is where you should record the commands for the pass.
-    virtual void execute(CommandBuffer& cmd) {}
+    virtual void execute(const CommandBuffer& cmd) {}
   };
 
   struct AccessedResource {
@@ -75,6 +75,8 @@ namespace kt::vkh {
     RenderBufferResource& addUniformInput(const std::string& name, VkPipelineStageFlags2 stages = 0);
     RenderBufferResource& addStorageReadOnlyInput(const std::string& name, VkPipelineStageFlags2 stages = 0);
 
+    RenderTextureResource& addStorageImageOutput(const std::string& name, const AttachmentInfo& info, const std::string& input = "");
+
     RenderBufferResource& addStorageOutput(const std::string& name, const BufferInfo& info, const std::string& input = "");
     RenderBufferResource& addTransferOutput(const std::string& name, const BufferInfo& info);
 
@@ -102,11 +104,11 @@ namespace kt::vkh {
       this->interface = interface;
       return *this;
     }
-    RenderPassBuilder& setBuildCallback(std::function<void(CommandBuffer&)> cb) {
+    RenderPassBuilder& setBuildCallback(std::function<void(const CommandBuffer&)> cb) {
       this->buildCb = std::move(cb);
       return *this;
     }
-    [[nodiscard]] std::function<void(CommandBuffer&)>& getBuildCallback() { return buildCb; }
+    [[nodiscard]] std::function<void(const CommandBuffer&)>& getBuildCallback() { return buildCb; }
     RenderPassBuilder& setGetClearDepthStencilCallback(std::function<bool(VkClearDepthStencilValue*)> cb) {
       this->getClearDepthStencilCb = std::move(cb);
       return *this;
@@ -141,6 +143,8 @@ namespace kt::vkh {
     [[nodiscard]] const std::vector<RenderTextureResource*>& getColorInputs() const { return colorInputs; }
     [[nodiscard]] const std::vector<RenderTextureResource*>& getHistoryInputs() const { return historyInputs; }
     [[nodiscard]] const std::vector<RenderTextureResource*>& getAttachmentInputs() const { return attachmentInputs; }
+    [[nodiscard]] const std::vector<RenderTextureResource*>& getStorageImageOutputs() const { return storageImageOutputs; }
+    [[nodiscard]] const std::vector<RenderTextureResource*>& getStorageImageInputs() const { return storageImageInputs; }
     [[nodiscard]] const std::vector<RenderBufferResource*>& getStorageOutputs() const { return storageOutputs; }
     [[nodiscard]] const std::vector<RenderBufferResource*>& getStorageInputs() const { return storageInputs; }
     [[nodiscard]] const std::vector<RenderBufferResource*>& getTransferOutputs() const { return transferOutputs; }
@@ -163,7 +167,7 @@ namespace kt::vkh {
     std::string name;
 
     RenderPassInterface* interface = nullptr;
-    std::function<void(CommandBuffer&)> buildCb = nullptr;
+    std::function<void(const CommandBuffer&)> buildCb = nullptr;
     std::function<bool(VkClearDepthStencilValue*)> getClearDepthStencilCb = nullptr;
     std::function<bool(unsigned, VkClearColorValue*)> getClearColorCb = nullptr;
 
@@ -172,6 +176,8 @@ namespace kt::vkh {
     std::vector<RenderTextureResource*> colorInputs;
     std::vector<RenderTextureResource*> historyInputs;
     std::vector<RenderTextureResource*> attachmentInputs;
+    std::vector<RenderTextureResource*> storageImageOutputs;
+    std::vector<RenderTextureResource*> storageImageInputs;
     std::vector<RenderBufferResource*> storageOutputs;
     std::vector<RenderBufferResource*> storageInputs;
     std::vector<RenderBufferResource*> transferOutputs;

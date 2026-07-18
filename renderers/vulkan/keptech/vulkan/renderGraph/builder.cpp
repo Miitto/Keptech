@@ -27,6 +27,14 @@ template <> struct fmt::formatter<kt::vkh::QueueHandoff> : fmt::formatter<std::s
 namespace kt::vkh {
   static constexpr Bitflag<QueueType> COMPUTE_QUEUES = QueueType::Compute | QueueType::AsyncCompute;
 
+  namespace {
+    QueueType getRawQueue(QueueType queue) {
+      if (queue == QueueType::Compute)
+        return QueueType::Compute;
+      return queue;
+    }
+  } // namespace
+
   void RenderGraphBuilder::bake() {
     VK_REQUIRE(swapchainSize.x > 0 && swapchainSize.y > 0, "Swapchain size must be set before baking the render graph.");
     VK_REQUIRE(renderResolution.x > 0 && renderResolution.y > 0, "Render resolution must be set before baking the render graph.");
@@ -171,11 +179,19 @@ namespace kt::vkh {
       auto& pass = *passes[passId];
       auto& barriers = passBarriers[passId];
 
-      for (auto& barrier : barriers.image) {
+      for (auto& barrier : barriers.pre.image) {
         barrier.resourceId = nameToImage[physicalResourceInfos[barrier.resourceId].name];
       }
 
-      for (auto& barrier : barriers.buffer) {
+      for (auto& barrier : barriers.post.image) {
+        barrier.resourceId = nameToImage[physicalResourceInfos[barrier.resourceId].name];
+      }
+
+      for (auto& barrier : barriers.pre.buffer) {
+        barrier.resourceId = nameToBuffer[physicalResourceInfos[barrier.resourceId].name];
+      }
+
+      for (auto& barrier : barriers.post.buffer) {
         barrier.resourceId = nameToBuffer[physicalResourceInfos[barrier.resourceId].name];
       }
 
@@ -253,8 +269,35 @@ namespace kt::vkh {
       bakedPasses.push_back(std::move(bakedPass));
     }
 
+    QueueType queue = getRawQueue(bakedPasses.front().getQueue());
+    std::vector<RenderGraph::PassGroup> passGroups;
+    RenderGraph::PassGroup currentGroup{.queue = queue};
+    for (const auto& pass : bakedPasses) {
+      // If we changed queue, or pass in a different queue depends on a resource from this pass, or we depend on a resource from a pass in a
+      // different queue, we need to start a new group.
+      if (getRawQueue(pass.getQueue()) != currentGroup.queue || !pass.getBarriers().post.image.empty() ||
+          !pass.getBarriers().post.buffer.empty() || pass.getBarriers().needsWaitFor != ~0u) {
+        passGroups.push_back(currentGroup);
+        currentGroup = {.queue = getRawQueue(pass.getQueue())};
+
+        if (pass.getBarriers().needsWaitFor != ~0u) {
+          size_t maxGroup = 0;
+          for (const auto& [i, p] : passGroups | std::views::enumerate) {
+            maxGroup += p.count;
+            if (pass.getBarriers().needsWaitFor < maxGroup) {
+              currentGroup.waitFor = i;
+              break;
+            }
+          }
+        }
+      }
+      ++currentGroup.count;
+    }
+    passGroups.push_back(currentGroup); // Should always be none 0?
+
     RenderGraph res{
         renderer,
+        std::move(passGroups),
         std::move(bakedPasses),
         std::move(images),
         std::move(buffers),
@@ -321,8 +364,8 @@ namespace kt::vkh {
       const auto& barriers = passBarriers[*passId];
 
       VK_DEBUG("    {}: {} ({})", idx, pass.getName(), *passId);
-      VK_DEBUG("      Image Barriers: {}", barriers.image.size());
-      for (const auto& barrier : barriers.image) {
+      VK_DEBUG("      Pre-pass Image Barriers: {}", barriers.pre.image.size());
+      for (const auto& barrier : barriers.pre.image) {
         const auto& res = physicalResourceInfos[barrier.resourceId];
         VK_DEBUG("        Resource: {}", res.name);
         VK_DEBUG("          Old Layout: {}", barrier.oldLayout);
@@ -335,8 +378,34 @@ namespace kt::vkh {
       }
       VK_DEBUG("");
 
-      VK_DEBUG("      Buffer Barriers: {}", barriers.buffer.size());
-      for (const auto& barrier : barriers.buffer) {
+      VK_DEBUG("      Pre-pass Buffer Barriers: {}", barriers.pre.buffer.size());
+      for (const auto& barrier : barriers.pre.buffer) {
+        const auto& res = physicalResourceInfos[barrier.resourceId];
+        VK_DEBUG("        Resource: {}", res.name);
+        VK_DEBUG("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
+        VK_DEBUG("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
+        VK_DEBUG("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
+        VK_DEBUG("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
+        VK_DEBUG("          Handoff: {}", barrier.handoff);
+      }
+      VK_DEBUG("");
+
+      VK_DEBUG("      Post-pass Image Barriers: {}", barriers.post.image.size());
+      for (const auto& barrier : barriers.post.image) {
+        const auto& res = physicalResourceInfos[barrier.resourceId];
+        VK_DEBUG("        Resource: {}", res.name);
+        VK_DEBUG("          Old Layout: {}", barrier.oldLayout);
+        VK_DEBUG("          New Layout: {}", barrier.newLayout);
+        VK_DEBUG("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
+        VK_DEBUG("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
+        VK_DEBUG("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
+        VK_DEBUG("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
+        VK_DEBUG("          Handoff: {}", barrier.handoff);
+      }
+      VK_DEBUG("");
+
+      VK_DEBUG("      Post-pass Buffer Barriers: {}", barriers.post.buffer.size());
+      for (const auto& barrier : barriers.post.buffer) {
         const auto& res = physicalResourceInfos[barrier.resourceId];
         VK_DEBUG("        Resource: {}", res.name);
         VK_DEBUG("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
@@ -356,11 +425,39 @@ namespace kt::vkh {
       VK_REQUIRE(pass.getColorOutputs().size() == pass.getColorInputs().size(), "Pass '{}': Size of color inputs and outputs must match",
                  pass.getName());
 
+      VK_REQUIRE(pass.getStorageImageOutputs().size() == pass.getStorageImageInputs().size(),
+                 "Pass '{}': Size of storage image inputs and outputs must match", pass.getName());
+
       VK_REQUIRE(pass.getStorageInputs().size() == pass.getStorageOutputs().size(),
                  "Pass '{}': Size of storage inputs and outputs must match", pass.getName());
 
       VK_REQUIRE(pass.getResolveOutputs().empty() || pass.getResolveOutputs().size() == pass.getColorOutputs().size(),
                  "Pass '{}': Must have a resolve output for each color output, if any", pass.getName());
+
+      for (const auto& [idx, output] : pass.getStorageImageOutputs() | std::views::enumerate) {
+        auto* input = pass.getStorageImageInputs()[idx];
+        if (!input)
+          continue;
+
+        VK_REQUIRE(output->getAttachmentInfo().format == input->getAttachmentInfo().format,
+                   "Pass '{}': Storage image output '{}' and input '{}' must have the same format", pass.getName(), output->getName(),
+                   input->getName());
+        VK_REQUIRE(output->getAttachmentInfo().samples == input->getAttachmentInfo().samples,
+                   "Pass '{}': Storage image output '{}' and input '{}' must have the same sample count", pass.getName(), output->getName(),
+                   input->getName());
+        VK_REQUIRE(output->getAttachmentInfo().layers == input->getAttachmentInfo().layers,
+                   "Pass '{}': Storage image output '{}' and input '{}' must have the same layer count", pass.getName(), output->getName(),
+                   input->getName());
+        VK_REQUIRE(output->getAttachmentInfo().mipLevels == input->getAttachmentInfo().mipLevels,
+                   "Pass '{}': Storage image output '{}' and input '{}' must have the same mip level count", pass.getName(),
+                   output->getName(), input->getName());
+        VK_REQUIRE(output->getAttachmentInfo().sizeType == input->getAttachmentInfo().sizeType,
+                   "Pass '{}': Storage image output '{}' and input '{}' must have the same size type", pass.getName(), output->getName(),
+                   input->getName());
+        VK_REQUIRE(output->getAttachmentInfo().size == input->getAttachmentInfo().size,
+                   "Pass '{}': Storage image output '{}' and input '{}' must have the same size", pass.getName(), output->getName(),
+                   input->getName());
+      }
 
       for (const auto& [idx, output] : pass.getStorageOutputs() | std::views::enumerate) {
         auto* input = pass.getStorageInputs()[idx];
@@ -422,6 +519,13 @@ namespace kt::vkh {
 
     for (auto& input : pass.getGenericTextureInputs()) {
       dependPassesRecursive(pass, input.texture->getWritePasses(), stackCount, false, false, false);
+    }
+
+    for (auto* input : pass.getStorageImageInputs()) {
+      if (input) {
+        dependPassesRecursive(pass, input->getWritePasses(), stackCount, true, false, false);
+        dependPassesRecursive(pass, input->getReadPasses(), stackCount, true, true, false);
+      }
     }
 
     for (auto* input : pass.getStorageInputs()) {
@@ -574,6 +678,27 @@ namespace kt::vkh {
         pass.getColorOutputs()[jdx]->setPhysicalId(input.getPhysicalId());
       }
 
+      for (const auto& [jdx, inputPtr] : pass.getStorageImageInputs() | std::views::enumerate) {
+        if (!inputPtr)
+          continue;
+        auto& input = *inputPtr;
+
+        if (!input.getPhysicalId().used()) {
+          physicalResourceInfos.push_back(getResourceInfo(input));
+          input.setPhysicalId(physId++);
+        } else {
+          physicalResourceInfos[input.getPhysicalId()].queues |= input.getUsedQueues();
+          physicalResourceInfos[input.getPhysicalId()].imageUsage |= input.getImageUsage();
+        }
+
+        VK_REQUIRE(!pass.getStorageImageOutputs()[jdx]->getPhysicalId().used(),
+                   "Pass '{}': Cannot alias storage image output '{}'. Physical ID already claimed.", pass.getName(),
+                   pass.getStorageImageOutputs()[jdx]->getName());
+        VK_DEBUG("Pass '{}': Aliasing storage image output '{}' to input '{}'.", pass.getName(),
+                 pass.getStorageImageOutputs()[jdx]->getName(), input.getName());
+        pass.getStorageImageOutputs()[jdx]->setPhysicalId(input.getPhysicalId());
+      }
+
       for (const auto& [jdx, inputPtr] : pass.getStorageInputs() | std::views::enumerate) {
         if (!inputPtr)
           continue;
@@ -596,6 +721,16 @@ namespace kt::vkh {
       }
 
       for (auto* output : pass.getColorOutputs()) {
+        if (!output->getPhysicalId().used()) {
+          physicalResourceInfos.push_back(getResourceInfo(*output));
+          output->setPhysicalId(physId++);
+        } else {
+          physicalResourceInfos[output->getPhysicalId()].queues |= output->getUsedQueues();
+          physicalResourceInfos[output->getPhysicalId()].imageUsage |= output->getImageUsage();
+        }
+      }
+
+      for (auto* output : pass.getStorageImageOutputs()) {
         if (!output->getPhysicalId().used()) {
           physicalResourceInfos.push_back(getResourceInfo(*output));
           output->setPhysicalId(physId++);
@@ -793,7 +928,30 @@ namespace kt::vkh {
         req.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       }
 
+      for (auto* input : pass.getStorageImageInputs()) {
+        if (!input)
+          continue;
+        auto& req = getInvalidAccess(input->getPhysicalId(), false);
+        req.access |= VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+        if (!COMPUTE_QUEUES.intersects(pass.getQueue())) {
+          req.stages |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+        } else {
+          req.stages |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        }
+
+        VK_REQUIRE(
+            req.layout == VK_IMAGE_LAYOUT_UNDEFINED,
+            "Pass '{}': Storage image input '{}' expected to have undefined layout. Has {}. You have probably added this resource to "
+            "this pass multiple times.",
+            pass.getName(), input->getName(), req.layout);
+
+        req.layout = VK_IMAGE_LAYOUT_GENERAL;
+      }
+
       for (auto* input : pass.getStorageInputs()) {
+        if (!input)
+          continue;
         auto& req = getInvalidAccess(input->getPhysicalId(), false);
         req.access |= VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
 
@@ -868,6 +1026,24 @@ namespace kt::vkh {
         req.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
       }
 
+      for (auto* output : pass.getStorageImageOutputs()) {
+        auto& req = getFlushAccess(output->getPhysicalId(), false);
+        req.access |= VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+        if (!COMPUTE_QUEUES.intersects(pass.getQueue())) {
+          req.stages |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+        } else {
+          req.stages |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        }
+
+        VK_REQUIRE(
+            req.layout == VK_IMAGE_LAYOUT_UNDEFINED,
+            "Pass '{}': Storage image output '{}' expected to have undefined layout. Has {}. You have probably added this resource to this "
+            "pass multiple times.",
+            pass.getName(), output->getName(), req.layout);
+        req.layout = VK_IMAGE_LAYOUT_GENERAL;
+      }
+
       for (auto* output : pass.getStorageOutputs()) {
         auto& req = getFlushAccess(output->getPhysicalId(), false);
         req.access |= VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
@@ -911,7 +1087,8 @@ namespace kt::vkh {
 
         if (dstReq.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
           VK_DEBUG("Pass '{}': Depth-stencil texture '{}' is used as a shader read-only input and as a depth stencil attachment."
-                   "The layout of the texture for this pass has been set to general.",
+                   "The layout of the texture for this pass has been set to general. You should probably avoid this, or enable the "
+                   "VK_KHR_unified_image_layout extension.",
                    pass.getName(), dsInput->getName(), dsOutput->getName());
           dstReq.layout = VK_IMAGE_LAYOUT_GENERAL;
         } else {
@@ -932,10 +1109,10 @@ namespace kt::vkh {
         auto& dstReq = getInvalidAccess(dsInput->getPhysicalId(), false);
 
         if (dstReq.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-          VK_DEBUG("Pass '{}': Depth-stencil texture '{}' is used as a shader read-only input and as a depth stencil attachment."
-                   "The layout of the texture for this pass has been set to general.",
+          VK_DEBUG("Pass '{}': Depth-stencil texture '{}' is used as a shader read-only input and as an input depth stencil attachment."
+                   "The layout of the texture for this pass has been set to depth stencil read only optimal.",
                    pass.getName(), dsInput->getName());
-          dstReq.layout = VK_IMAGE_LAYOUT_GENERAL;
+          dstReq.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
         } else {
           VK_REQUIRE(dstReq.layout == VK_IMAGE_LAYOUT_UNDEFINED,
                      "Pass '{}': Depth-stencil input '{}' expected to have undefined layout. Has {}. You have probably added this "
@@ -950,8 +1127,9 @@ namespace kt::vkh {
         auto& srcReq = getFlushAccess(dsOutput->getPhysicalId(), false);
 
         if (srcReq.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-          VK_DEBUG("Pass '{}': Depth-stencil texture '{}' is used as a shader read-only input and as a depth stencil attachment."
-                   "The layout of the texture for this pass has been set to general.",
+          VK_DEBUG("Pass '{}': Depth-stencil texture '{}' is used as a shader read-only input and as an output depth stencil attachment."
+                   "The layout of the texture for this pass has been set to general. You should probably avoid this, or enable the "
+                   "VK_KHR_unified_image_layout extension.",
                    pass.getName(), dsOutput->getName());
           srcReq.layout = VK_IMAGE_LAYOUT_GENERAL;
         } else {
@@ -970,15 +1148,33 @@ namespace kt::vkh {
     }
   }
 
-  void RenderGraphBuilder::buildBarriers() {
-    // TODO: Handle history resources properly. Currently will be wiped at frame start like any other.
-
+  namespace {
     struct ResInfo {
       VkImageLayout layout{VK_IMAGE_LAYOUT_UNDEFINED};
       VkAccessFlags2 access{VK_ACCESS_2_NONE};
       VkPipelineStageFlags2 stages{VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT};
       QueueType queue{QueueType::Cpu};
+      size_t lastUsedInPass = ~0u;
     };
+
+    template <typename T> bool checkHandoff(const RenderPassBuilder& pass, T& barrier, ResInfo& resInfo) {
+      if (resInfo.queue == QueueType::Cpu) {
+        resInfo.queue = pass.getQueue();
+      } else if (pass.getQueue() == QueueType::AsyncCompute && resInfo.queue != QueueType::AsyncCompute) {
+        barrier.handoff = QueueHandoff::ToCompute;
+        resInfo.queue = QueueType::AsyncCompute;
+        return true;
+      } else if (pass.getQueue() != QueueType::AsyncCompute && resInfo.queue == QueueType::AsyncCompute) {
+        barrier.handoff = QueueHandoff::FromCompute;
+        resInfo.queue = pass.getQueue();
+        return true;
+      }
+      return false;
+    }
+  } // namespace
+
+  void RenderGraphBuilder::buildBarriers() {
+    // TODO: Handle history resources properly. Currently will be wiped at frame start like any other.
 
     passBarriers.clear();
     passBarriers.reserve(passStack.size());
@@ -990,7 +1186,7 @@ namespace kt::vkh {
       auto& pass = *passes[passId];
       auto& reqs = passRequirements[idx];
 
-      Barriers barriers;
+      PrePostBarriers barriers;
 
       auto makeBarrier = [&](const Requirement& req) {
         auto& res = physicalResourceInfos[req.resourceId];
@@ -1008,18 +1204,15 @@ namespace kt::vkh {
           };
 
           resInfo.layout = req.layout;
+          resInfo.stages = req.stages;
           resInfo.access = req.access;
 
-          if (resInfo.queue == QueueType::Cpu) {
-            resInfo.queue = pass.getQueue();
-          } else if (pass.getQueue() == QueueType::AsyncCompute && resInfo.queue != QueueType::AsyncCompute) {
-            barrier.handoff = QueueHandoff::ToCompute;
-            resInfo.queue = QueueType::AsyncCompute;
-          } else if (pass.getQueue() != QueueType::AsyncCompute && resInfo.queue == QueueType::AsyncCompute) {
-            barrier.handoff = QueueHandoff::FromCompute;
-            resInfo.queue = pass.getQueue();
+          if (checkHandoff(pass, barrier, resInfo)) {
+            // Make the pass just before this one initiate the handoff
+            passBarriers[resInfo.lastUsedInPass].post.image.push_back(barrier);
+            barriers.needsWaitFor = resInfo.lastUsedInPass;
           }
-          barriers.image.push_back(barrier);
+          barriers.pre.image.push_back(barrier);
         } else {
           BufferBarrier barrier{
               .resourceId = req.resourceId,
@@ -1031,18 +1224,15 @@ namespace kt::vkh {
           resInfo.access = req.access;
           resInfo.stages = req.stages;
 
-          if (resInfo.queue == QueueType::Cpu) {
-            resInfo.queue = pass.getQueue();
-          } else if (pass.getQueue() == QueueType::AsyncCompute && resInfo.queue != QueueType::AsyncCompute) {
-            barrier.handoff = QueueHandoff::ToCompute;
-            resInfo.queue = QueueType::AsyncCompute;
-          } else if (pass.getQueue() != QueueType::AsyncCompute && resInfo.queue == QueueType::AsyncCompute) {
-            barrier.handoff = QueueHandoff::FromCompute;
-            resInfo.queue = pass.getQueue();
+          if (checkHandoff(pass, barrier, resInfo)) {
+            // Make the pass just before this one initiate the handoff
+            passBarriers[resInfo.lastUsedInPass].post.buffer.push_back(barrier);
+            barriers.needsWaitFor = resInfo.lastUsedInPass;
           }
-
-          barriers.buffer.push_back(barrier);
+          barriers.pre.buffer.push_back(barrier);
         }
+
+        resInfo.lastUsedInPass = idx;
       };
 
       for (auto& req : reqs.invalidate) {

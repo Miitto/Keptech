@@ -50,6 +50,10 @@ int main() {
 #endif
     auto rg = rgBuilder.build(renderer);
 
+#ifndef NDEBUG
+    rg.log();
+#endif
+
     auto& io = ImGui::GetIO();
 
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | // Enable Keyboard Controls

@@ -38,7 +38,7 @@ namespace kt::vkh {
 
     void setGraph(RenderGraph& graph) { this->graph = &graph; }
     void setInterface(RenderPassInterface* interface) { this->interface = interface; }
-    void setBuildCallback(std::function<void(CommandBuffer&)>&& cb) { buildCb = std::move(cb); }
+    void setBuildCallback(std::function<void(const CommandBuffer&)>&& cb) { buildCb = std::move(cb); }
     void setGetClearDepthStencilCallback(std::function<bool(VkClearDepthStencilValue*)>&& cb) { getClearDepthStencilCb = std::move(cb); }
     void setGetClearColorCallback(std::function<bool(unsigned, VkClearColorValue*)>&& cb) { getClearColorCb = std::move(cb); }
 
@@ -52,7 +52,7 @@ namespace kt::vkh {
         interface->prepare(graph);
     }
 
-    void execute(CommandBuffer& cmd) {
+    void execute(const CommandBuffer& cmd) {
       if (interface) {
         interface->execute(cmd);
       } else if (buildCb) {
@@ -78,7 +78,7 @@ namespace kt::vkh {
       return false;
     }
 
-    [[nodiscard]] const Barriers& getBarriers() const { return barriers; }
+    [[nodiscard]] const PrePostBarriers& getBarriers() const { return barriers; }
     [[nodiscard]] const std::string& getName() const { return name; }
     [[nodiscard]] QueueType getQueue() const { return queue; }
 
@@ -89,7 +89,7 @@ namespace kt::vkh {
     [[nodiscard]] PhysResourceId getExtentSourceId() const { return extentSourceId; }
 
   private:
-    RenderPass(std::string&& name, QueueType queue, Barriers&& barriers, std::vector<RenderAttachment>&& colorAttachments,
+    RenderPass(std::string&& name, QueueType queue, PrePostBarriers&& barriers, std::vector<RenderAttachment>&& colorAttachments,
                RenderAttachment depthStencilAttachment)
         : name(std::move(name)), queue(queue), barriers(std::move(barriers)), colorAttachments(std::move(colorAttachments)),
           depthStencilAttachment(depthStencilAttachment) {}
@@ -101,11 +101,11 @@ namespace kt::vkh {
     PhysResourceId extentSourceId{};
 
     RenderPassInterface* interface = nullptr;
-    std::function<void(CommandBuffer&)> buildCb = nullptr;
+    std::function<void(const CommandBuffer&)> buildCb = nullptr;
     std::function<bool(VkClearDepthStencilValue*)> getClearDepthStencilCb = nullptr;
     std::function<bool(unsigned, VkClearColorValue*)> getClearColorCb = nullptr;
 
-    Barriers barriers;
+    PrePostBarriers barriers;
     std::vector<RenderAttachment> colorAttachments;
     RenderAttachment depthStencilAttachment;
   };
@@ -174,18 +174,37 @@ namespace kt::vkh {
       return images[backbufferSourceIndex];
     }
 
+    void log() const;
+
   private:
-    RenderGraph(Renderer& renderer, std::vector<RenderPass>&& passes, std::vector<Image>&& images, std::vector<Buffer>&& buffers,
-                std::unordered_map<std::string, size_t>&& nameToImage, std::unordered_map<std::string, size_t>&& nameToBuffer,
-                std::vector<bool>&& physicalImageHasHistory, std::vector<RelativeImage>&& swapchainRelativeImages,
-                std::vector<RelativeImage>&& resolutionRelativeImages)
-        : renderer(&renderer), passes(std::move(passes)), images(std::move(images)), buffers(std::move(buffers)),
-          nameToImage(std::move(nameToImage)), nameToBuffer(std::move(nameToBuffer)),
+    struct PassGroup {
+      QueueType queue;
+      size_t count = 0;
+      uint64_t waitFor = 0;
+    };
+
+    RenderGraph(Renderer& renderer, std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, std::vector<Image>&& images,
+                std::vector<Buffer>&& buffers, std::unordered_map<std::string, size_t>&& nameToImage,
+                std::unordered_map<std::string, size_t>&& nameToBuffer, std::vector<bool>&& physicalImageHasHistory,
+                std::vector<RelativeImage>&& swapchainRelativeImages, std::vector<RelativeImage>&& resolutionRelativeImages)
+        : renderer(&renderer), passGroups(std::move(passGroups)), passes(std::move(passes)), images(std::move(images)),
+          buffers(std::move(buffers)), nameToImage(std::move(nameToImage)), nameToBuffer(std::move(nameToBuffer)),
           physicalImageHasHistory(std::move(physicalImageHasHistory)), swapchainRelativeImages(std::move(swapchainRelativeImages)),
-          resolutionRelativeImages(std::move(resolutionRelativeImages)) {}
+          resolutionRelativeImages(std::move(resolutionRelativeImages)) {
+      for (const auto& group : this->passGroups) {
+        if (group.queue == QueueType::Graphics) {
+          graphicsQueuePassCount += group.count;
+        } else if (group.queue == QueueType::AsyncCompute) {
+          computeQueuePassCount += group.count;
+        } // Shouldn't be any normal compute queue groups as they have been compacted into the graphics queue groups.
+      }
+    }
 
     Renderer* renderer;
 
+    size_t graphicsQueuePassCount = 0;
+    size_t computeQueuePassCount = 0;
+    std::vector<PassGroup> passGroups;
     std::vector<RenderPass> passes;
 
     size_t backbufferSourceIndex = 0;

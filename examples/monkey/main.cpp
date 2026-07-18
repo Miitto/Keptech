@@ -96,10 +96,16 @@ public:
 
     lightingPass.setBuildCallback([&](auto cmd) { KT_TRACE("Building lighting pass"); });
 
+    auto& ssaoPass = builder.addPass("kt::ssao", QueueType::AsyncCompute);
+    ssaoPass.addTextureInput("kt::depth");
+    ssaoPass.addTextureInput("kt::normal");
+    ssaoPass.addStorageImageOutput("kt::ssao", {.format = VK_FORMAT_R8_UNORM});
+
     auto& lightCombinePass = builder.addPass("kt::lightCombine", QueueType::Graphics);
     lightCombinePass.addTextureInput("kt::albedo");
     lightCombinePass.addTextureInput("kt::diffuse");
     lightCombinePass.addTextureInput("kt::specular");
+    lightCombinePass.addTextureInput("kt::ssao");
     lightCombinePass.addColorOutput("kt::lighting", {.format = formats.render.emissive}, "kt::emissive");
 
     lightCombinePass.setBuildCallback([&](auto cmd) { KT_TRACE("Building light combine pass"); });
