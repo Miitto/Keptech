@@ -119,8 +119,6 @@ namespace kt::vkh {
     auto& members = renderer.getMembers();
 
     auto resources = buildResources(members);
-    auto bakedPasses = bakePasses(resources);
-    auto passGroups = buildPassGroups(bakedPasses);
 
     struct DescriptorCounts {
       size_t textures = 0;
@@ -185,7 +183,7 @@ namespace kt::vkh {
       std::vector<VkDescriptorBindingFlags> bindingFlags;
       std::vector<VkDescriptorSetLayoutBinding> bindings;
       for (const auto& texture : pass->getGenericTextureInputs()) {
-        if (texture.texture) {
+        if (texture.texture && texture.texture->getPhysicalId().used()) {
           VK_TRACE("Pass '{}' has texture input '{}' at binding {}", pass->getName(), texture.texture->getName(), bindings.size());
           bindings.push_back(VkDescriptorSetLayoutBinding{
               .binding = static_cast<uint32_t>(bindings.size()),
@@ -221,7 +219,7 @@ namespace kt::vkh {
         }
       }
       for (const auto& buffer : pass->getGenericBufferInputs()) {
-        if (buffer.buffer) {
+        if (buffer.buffer && buffer.buffer->getPhysicalId().used()) {
           VK_TRACE("Pass '{}' has {} buffer input '{}' at binding {}", pass->getName(),
                    (buffer.access & VK_ACCESS_UNIFORM_READ_BIT) ? "uniform" : "storage", buffer.buffer->getName(), bindings.size());
           bindings.push_back(VkDescriptorSetLayoutBinding{
@@ -261,7 +259,7 @@ namespace kt::vkh {
       }
 
       for (const auto& image : pass->getStorageImageOutputs()) {
-        if (image) {
+        if (image && image->getPhysicalId().used()) {
           VK_TRACE("Pass '{}' has storage image output '{}' at binding {}", pass->getName(), image->getName(), bindings.size());
           bindings.push_back(VkDescriptorSetLayoutBinding{
               .binding = static_cast<uint32_t>(bindings.size()),
@@ -298,7 +296,7 @@ namespace kt::vkh {
       }
 
       for (const auto& buffer : pass->getStorageOutputs()) {
-        if (buffer) {
+        if (buffer && buffer->getPhysicalId().used()) {
           VK_TRACE("Pass '{}' has storage buffer output '{}' at binding {}", pass->getName(), buffer->getName(), bindings.size());
           bindings.push_back(VkDescriptorSetLayoutBinding{
               .binding = static_cast<uint32_t>(bindings.size()),
@@ -368,6 +366,9 @@ namespace kt::vkh {
 
       passDescriptors.push_back(Descriptors{.layout = layout, .sets = sets});
     }
+
+    auto bakedPasses = bakePasses(resources);
+    auto passGroups = buildPassGroups(bakedPasses);
 
     RenderGraph res{
         renderer, std::move(passGroups), std::move(bakedPasses), std::move(resources), descriptorPool, std::move(passDescriptors),

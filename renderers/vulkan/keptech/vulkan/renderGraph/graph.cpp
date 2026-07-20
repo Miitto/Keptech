@@ -104,6 +104,8 @@ namespace kt::vkh {
       uint64_t signalValue = sem.value + static_cast<uint64_t>(groupIdx + 1);
       uint64_t waitValue = sem.value + static_cast<uint64_t>(group.waitFor);
 
+      VK_ASSERT(waitValue < signalValue, "Wait value must be less than signal value for timeline semaphore.");
+
       VkSemaphoreSubmitInfo timelineSemInfo{
           .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
           .semaphore = sem.semaphore,
