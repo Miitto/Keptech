@@ -20,7 +20,6 @@ link_vulkan(${PROJECT_NAME} PUBLIC)
 
 target_compile_definitions(${PROJECT_NAME}
   PUBLIC
-    MAX_FRAMES_IN_FLIGHT=2
     IMGUI_IMPL_VULKAN_USE_VOLK=1
 )
 

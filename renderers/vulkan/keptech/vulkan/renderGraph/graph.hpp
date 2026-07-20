@@ -38,26 +38,31 @@ namespace kt::vkh {
 
     void setGraph(RenderGraph& graph) { this->graph = &graph; }
     void setInterface(RenderPassInterface* interface) { this->interface = interface; }
-    void setBuildCallback(std::function<void(const CommandBuffer&)>&& cb) { buildCb = std::move(cb); }
+    void setBuildCallback(PassExecuteCb&& cb) { buildCb = std::move(cb); }
     void setGetClearDepthStencilCallback(std::function<bool(VkClearDepthStencilValue*)>&& cb) { getClearDepthStencilCb = std::move(cb); }
     void setGetClearColorCallback(std::function<bool(unsigned, VkClearColorValue*)>&& cb) { getClearColorCb = std::move(cb); }
 
-    void setup(RenderGraph& graph, const Renderer& renderer) {
+    void setup(Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) {
       if (interface)
-        interface->setup(renderer);
+        interface->setup(renderer, descriptorSetLayout);
     }
 
-    void prepare(RenderGraph& graph) {
+    void prepare(RenderGraph& graph, Renderer& renderer) {
       if (interface)
-        interface->prepare(graph);
+        interface->prepare(graph, renderer);
     }
 
-    void execute(const CommandBuffer& cmd) {
+    void execute(const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec3 framebufferSize = {}) {
       if (interface) {
-        interface->execute(cmd);
+        interface->execute(cmd, descriptorSet, framebufferSize);
       } else if (buildCb) {
-        buildCb(cmd);
+        buildCb(cmd, descriptorSet, framebufferSize);
       }
+    }
+
+    void shutdown(Renderer& renderer) {
+      if (interface)
+        interface->shutdown(renderer);
     }
 
     bool getClearColor(size_t attachmentIndex, VkClearColorValue* value = nullptr) const {
@@ -88,6 +93,9 @@ namespace kt::vkh {
     void setExtentSourceId(PhysResourceId id) { extentSourceId = id; }
     [[nodiscard]] PhysResourceId getExtentSourceId() const { return extentSourceId; }
 
+    void setDepthStencilLayout(VkImageLayout layout) { depthStencilLayout = layout; }
+    [[nodiscard]] VkImageLayout getDepthStencilLayout() const { return depthStencilLayout; }
+
   private:
     RenderPass(std::string&& name, QueueType queue, PrePostBarriers&& barriers, std::vector<RenderAttachment>&& colorAttachments,
                RenderAttachment depthStencilAttachment)
@@ -101,18 +109,14 @@ namespace kt::vkh {
     PhysResourceId extentSourceId{};
 
     RenderPassInterface* interface = nullptr;
-    std::function<void(const CommandBuffer&)> buildCb = nullptr;
+    PassExecuteCb buildCb = nullptr;
     std::function<bool(VkClearDepthStencilValue*)> getClearDepthStencilCb = nullptr;
     std::function<bool(unsigned, VkClearColorValue*)> getClearColorCb = nullptr;
 
     PrePostBarriers barriers;
     std::vector<RenderAttachment> colorAttachments;
     RenderAttachment depthStencilAttachment;
-  };
-
-  struct RelativeImage {
-    size_t index;
-    glm::vec3 ratio;
+    VkImageLayout depthStencilLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   };
 
   class RenderGraph {
@@ -125,14 +129,14 @@ namespace kt::vkh {
     void setRenderer(Renderer& renderer) { this->renderer = &renderer; }
 
     [[nodiscard]] const std::vector<RenderPass>& getPasses() const { return passes; }
-    [[nodiscard]] const std::vector<bool>& getPhysicalImageHasHistory() const { return physicalImageHasHistory; }
+    [[nodiscard]] const std::vector<bool>& getPhysicalImageHasHistory() const { return resources.physicalImageHasHistory; }
 
     /// Get the index of the image resource with the given name. Throws if the resource does not exist.
     /// The returned index is safe to store as it will remain constant even if the image is resized. Use getImage() to get the image at the
     /// index.
     [[nodiscard]] size_t getImageIndex(const std::string& name) const {
-      auto it = nameToImage.find(name);
-      VK_REQUIRE(it != nameToImage.end(), "Image resource with name '{}' not found in render graph", name);
+      auto it = resources.nameToImage.find(name);
+      VK_REQUIRE(it != resources.nameToImage.end(), "Image resource with name '{}' not found in render graph", name);
       return it->second;
     }
 
@@ -140,57 +144,47 @@ namespace kt::vkh {
     /// The returned index is safe to store as it will remain constant even if the buffer is resized. Use getBuffer() to get the buffer at
     /// the index.
     [[nodiscard]] size_t getBufferIndex(const std::string& name) const {
-      auto it = nameToBuffer.find(name);
-      VK_REQUIRE(it != nameToBuffer.end(), "Buffer resource with name '{}' not found in render graph", name);
+      auto it = resources.nameToBuffer.find(name);
+      VK_REQUIRE(it != resources.nameToBuffer.end(), "Buffer resource with name '{}' not found in render graph", name);
       return it->second;
     }
 
     /// Get the image at the given index. Do not store a reference to the image as it may become invalid if the image is resized. Use the
     /// index to get the image again if needed.
     [[nodiscard]] const Image& getImage(size_t index) const {
-      VK_REQUIRE(index < images.size(), "Image index {} is out of bounds (size: {})", index, images.size());
-      return images[index];
+      VK_REQUIRE(index < resources.images.size(), "Image index {} is out of bounds (size: {})", index, resources.images.size());
+      return resources.images[index];
     }
 
     /// Get the buffer at the given index. Do not store a reference to the buffer as it may become invalid if the buffer is resized. Use the
     /// index to get the buffer again if needed.
     [[nodiscard]] const Buffer& getBuffer(size_t index) const {
-      VK_REQUIRE(index < buffers.size(), "Buffer index {} is out of bounds (size: {})", index, buffers.size());
-      return buffers[index];
+      VK_REQUIRE(index < resources.buffers.size(), "Buffer index {} is out of bounds (size: {})", index, resources.buffers.size());
+      return resources.buffers[index];
     }
 
     void destroy();
 
     void setBackbufferSource(const std::string& name) {
-      auto it = nameToImage.find(name);
-      VK_REQUIRE(it != nameToImage.end(), "Backbuffer source '{}' not found in render graph", name);
+      auto it = resources.nameToImage.find(name);
+      VK_REQUIRE(it != resources.nameToImage.end(), "Backbuffer source '{}' not found in render graph", name);
       backbufferSourceIndex = it->second;
       VK_DEBUG("Backbuffer source set to '{}' (index {})", name, backbufferSourceIndex);
     }
 
     [[nodiscard]] const Image& getBackbufferImage() const {
-      VK_REQUIRE(backbufferSourceIndex < images.size(), "Backbuffer source index {} is out of bounds (size: {})", backbufferSourceIndex,
-                 images.size());
-      return images[backbufferSourceIndex];
+      VK_REQUIRE(backbufferSourceIndex < resources.images.size(), "Backbuffer source index {} is out of bounds (size: {})",
+                 backbufferSourceIndex, resources.images.size());
+      return resources.images[backbufferSourceIndex];
     }
 
     void log() const;
 
   private:
-    struct PassGroup {
-      QueueType queue;
-      size_t count = 0;
-      uint64_t waitFor = 0;
-    };
-
-    RenderGraph(Renderer& renderer, std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, std::vector<Image>&& images,
-                std::vector<Buffer>&& buffers, std::unordered_map<std::string, size_t>&& nameToImage,
-                std::unordered_map<std::string, size_t>&& nameToBuffer, std::vector<bool>&& physicalImageHasHistory,
-                std::vector<RelativeImage>&& swapchainRelativeImages, std::vector<RelativeImage>&& resolutionRelativeImages)
-        : renderer(&renderer), passGroups(std::move(passGroups)), passes(std::move(passes)), images(std::move(images)),
-          buffers(std::move(buffers)), nameToImage(std::move(nameToImage)), nameToBuffer(std::move(nameToBuffer)),
-          physicalImageHasHistory(std::move(physicalImageHasHistory)), swapchainRelativeImages(std::move(swapchainRelativeImages)),
-          resolutionRelativeImages(std::move(resolutionRelativeImages)) {
+    RenderGraph(Renderer& renderer, std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
+                VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors)
+        : renderer(&renderer), passGroups(std::move(passGroups)), passes(std::move(passes)), resources(std::move(resources)),
+          descriptorPool(descriptorPool), passDescriptors(std::move(descriptors)) {
       for (const auto& group : this->passGroups) {
         if (group.queue == QueueType::Graphics) {
           graphicsQueuePassCount += group.count;
@@ -207,18 +201,15 @@ namespace kt::vkh {
     std::vector<PassGroup> passGroups;
     std::vector<RenderPass> passes;
 
+    Resources resources;
+
+    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+    std::vector<Descriptors> passDescriptors;
+
     size_t backbufferSourceIndex = 0;
 
-    std::vector<Image> images;
-    std::vector<Buffer> buffers;
-    std::unordered_map<std::string, size_t> nameToImage;
-    std::unordered_map<std::string, size_t> nameToBuffer;
-    std::vector<bool> physicalImageHasHistory;
-    std::vector<RelativeImage> swapchainRelativeImages;
-    std::vector<RelativeImage> resolutionRelativeImages;
-
-    void executeGraphicsPass(RenderPass& pass, CommandBuffer& cmd);
-    void executeComputePass(RenderPass& pass, CommandBuffer& cmd);
+    void executeGraphicsPass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd);
+    void executeComputePass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd);
 
     void pipelineBarrier(const Barriers& barriers, const CommandBuffer& cmd) const;
     void beginRendering(const RenderPass& pass, const CommandBuffer& cmd) const;

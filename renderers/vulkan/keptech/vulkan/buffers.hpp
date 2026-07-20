@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/vulkan/constants.hpp"
 #include "keptech/vulkan/helpers/owned.hpp"
 #include "keptech/vulkan/wrappers/buffer.hpp"
 #include <Volk/volk.h>

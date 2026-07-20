@@ -57,6 +57,7 @@ namespace kt::vkh {
 
   void Renderer::newFrame() {
     KT_PROFILE_FUNCTION
+    VK_TRACE("Starting frame {}", m.frameInfo.index);
     imGuiNewFrame();
     auto& perFrame = m.vkcore.perFrame[m.frameInfo.index];
 
@@ -132,7 +133,7 @@ namespace kt::vkh {
   void Renderer::endFrame(CommandBuffer cmdBuf) {
     KT_PROFILE_FUNCTION
 
-    VK_TRACE("Renderer::endFrame");
+    VK_TRACE("Renderer::endFrame. Waiting for {}.", m.vkcore.mainSemaphore.value);
 
 #ifndef NDEBUG
     debugUi();
@@ -157,9 +158,9 @@ namespace kt::vkh {
         },
         {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-            .semaphore = m.vkcore.timelineSemaphore,
-            .value = m.frameInfo.ssaoTimelineSubmit,
-            .stageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+            .semaphore = m.vkcore.mainSemaphore.semaphore,
+            .value = m.vkcore.mainSemaphore.value,
+            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
         },
     };
 
@@ -186,6 +187,7 @@ namespace kt::vkh {
         .pSignalSemaphoreInfos = &signalInfo,
     };
 
+    VK_TRACE("Resetting fence for frame {}.", m.frameInfo.index);
     vkResetFences(m.vkcore.device.logical, 1, &m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
 
     auto res = vkQueueSubmit2(m.vkcore.queues.graphics.queue, 1, &submitInfo, m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
@@ -197,7 +199,7 @@ namespace kt::vkh {
   void Renderer::present() {
     KT_PROFILE_FUNCTION
     uint32_t imageIndex = m.frameInfo.imageIndex;
-    auto& sem = m.vkcore.swapchain.nPresentSemaphore(imageIndex);
+    auto sem = m.vkcore.swapchain.nPresentSemaphore(imageIndex);
 
     VkPresentInfoKHR presentInfo{
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -211,11 +213,11 @@ namespace kt::vkh {
     VkResult result = VK_SUCCESS;
     {
       KT_PROFILE_SCOPE("vkQueuePresentKHR");
+      VK_TRACE("Presenting swapchain image {} for frame {}.", imageIndex, m.frameInfo.index);
       result = vkQueuePresentKHR(m.vkcore.queues.present.queue, &presentInfo);
     }
 
-    m.frameInfo.index = m.frameInfo.nextIndex; // Advance to next frame index
-
+    m.frameInfo.index = m.frameInfo.nextIndex;
     m.frameInfo.nextIndex = (m.frameInfo.nextIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 
 #ifndef NDEBUG

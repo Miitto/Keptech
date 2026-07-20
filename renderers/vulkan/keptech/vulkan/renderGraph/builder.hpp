@@ -13,6 +13,7 @@
 
 namespace kt::vkh {
   class Renderer;
+  struct Members;
 
   class RenderGraph;
 
@@ -25,7 +26,7 @@ namespace kt::vkh {
 
     /// Analyses the registered passes and resources, and populates the internal data structures. This function must be called before
     /// build().
-    void bake();
+    void bake(const Renderer& renderer);
     /// @brief Constructs the render graph. bake() must have been called before this function. This function will return a RenderGraph
     /// object that can be used to execute the render passes in the correct order.
     /// @param renderer The renderer. Used to create the Vulkan resources.
@@ -130,6 +131,9 @@ namespace kt::vkh {
      *  @see buildRequirements()
      */
     void buildBarriers();
+
+    Resources buildResources(const Members& members);
+    std::vector<RenderPass> bakePasses(const Resources& resources);
 
     ResourceInfo getResourceInfo(RenderTextureResource& resource) const;
     ResourceInfo getResourceInfo(RenderBufferResource& resource) const;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/vulkan/constants.hpp"
 #include "keptech/vulkan/helpers/owned.hpp"
 #include "keptech/vulkan/wrappers/buffer.hpp"
 #include "keptech/vulkan/wrappers/device.hpp"
@@ -35,13 +36,12 @@ namespace kt::vkh {
     VkFence inFlightFence;
     VkSemaphore imageAvailableSemaphore;
     Pools pools;
-    VkSemaphore timelineSemaphore;
-    uint64_t timelineValue = 0;
     std::vector<TextureUpdateInfo> texToUpdate;
+  };
 
-    uint64_t getTimelineWaitValue() const { return timelineValue; }
-    uint64_t getTimelineSignalValue() const { return timelineValue + 1; }
-    void signalledTimeline() { ++timelineValue; }
+  struct TimelineSemaphore {
+    VkSemaphore semaphore = nullptr;
+    uint64_t value = 0;
   };
 
   struct VulkanCore {
@@ -51,9 +51,9 @@ namespace kt::vkh {
     VmaAllocator allocator;
     Queues queues;
     Swapchain swapchain;
+    TimelineSemaphore mainSemaphore;
     std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame;
     CommandPool transferPool;
-    VkSemaphore timelineSemaphore;
-    uint64_t timelineValue = 0;
+    TimelineSemaphore transferSemaphore;
   };
 } // namespace kt::vkh

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/vulkan/constants.hpp"
 #include "keptech/vulkan/macros.hpp"
 #include <Volk/volk.h>
 #include <cstdint>

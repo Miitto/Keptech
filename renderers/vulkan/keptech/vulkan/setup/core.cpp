@@ -155,16 +155,6 @@ namespace kt::vkh::setup {
       };
       VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].imageAvailableSemaphore),
               "Failed to create image available semaphore");
-
-      VkSemaphore timelineSemaphore = nullptr;
-      VkSemaphoreTypeCreateInfo timelineSemaphoreTypeInfo{
-          .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
-          .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
-          .initialValue = 0,
-      };
-      semaphoreCreateInfo.pNext = &timelineSemaphoreTypeInfo;
-      VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].timelineSemaphore),
-              "Failed to create timeline semaphore");
     }
 
     VkSemaphoreTypeCreateInfo timelineSemaphoreTypeInfo{
@@ -177,8 +167,10 @@ namespace kt::vkh::setup {
         .pNext = &timelineSemaphoreTypeInfo,
         .flags = 0,
     };
+    VkSemaphore transferSemaphore = nullptr;
     VkSemaphore timelineSemaphore = nullptr;
-    VK_CHECK(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &timelineSemaphore), "Failed to create timeline semaphore.");
+    VK_MAKE(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &timelineSemaphore), "Failed to create timeline semaphore.");
+    VK_MAKE(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &transferSemaphore), "Failed to create timeline semaphore.");
 
     return VulkanCore{
         .instance = instance,
@@ -187,9 +179,10 @@ namespace kt::vkh::setup {
         .allocator = allocator,
         .queues = queues,
         .swapchain = std::move(swapchain),
+        .mainSemaphore = TimelineSemaphore{.semaphore = timelineSemaphore, .value = 0},
         .perFrame = perFrame,
         .transferPool = transferPoolStruct,
-        .timelineSemaphore = timelineSemaphore,
+        .transferSemaphore = TimelineSemaphore{.semaphore = transferSemaphore, .value = 0},
     };
   }
 } // namespace kt::vkh::setup

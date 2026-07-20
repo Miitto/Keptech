@@ -2,6 +2,7 @@
 
 #include "keptech/rendering/gltf/data.hpp"
 #include "keptech/vulkan/buffers.hpp"
+#include "keptech/vulkan/constants.hpp"
 #include "keptech/vulkan/core.hpp"
 #include "keptech/vulkan/helpers/owned.hpp"
 #include "keptech/vulkan/passes/geometry.hpp"
@@ -173,7 +174,7 @@ namespace kt::vkh {
 
     void setRenderGraphProps(RenderGraphBuilder& builder) const;
 
-    const Formats& getFormats() const { return m.formats; }
+    [[nodiscard]] const Formats& getFormats() const { return m.formats; }
 
     // Render
   public:

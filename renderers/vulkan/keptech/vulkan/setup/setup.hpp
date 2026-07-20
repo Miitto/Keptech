@@ -4,6 +4,7 @@
 #include "keptech/vulkan/wrappers/fwd.hpp"
 
 #include "core.hpp"
+#include "keptech/vulkan/constants.hpp"
 #include <Volk/volk.h>
 #include <expected>
 #include <glm/fwd.hpp>

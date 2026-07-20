@@ -1,5 +1,3 @@
-#pragma once
-
 #include "keptech/vulkan/helpers/physicalDevice.hpp"
 #include "macros.hpp"
 #include "setup.hpp"

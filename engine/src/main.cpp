@@ -44,7 +44,7 @@ int main() {
       return -1;
     }
 
-    rgBuilder.bake();
+    rgBuilder.bake(renderer);
 #ifndef NDEBUG
     rgBuilder.log();
 #endif

@@ -1,5 +1,3 @@
-#pragma once
-
 #include "keptech/vulkan/wrappers/swapchain.hpp"
 #include "keptech/vulkan/core.hpp"
 #include "macros.hpp"

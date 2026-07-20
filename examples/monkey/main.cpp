@@ -1,3 +1,4 @@
+#include "imgui.h"
 #include <keptech/app.hpp>
 #include <keptech/keptech.hpp>
 
@@ -17,6 +18,43 @@ kt::SetupInfo kt::configureApp() {
   return {.window = {.title = "Material Editor", .width = WINDOW_WIDTH, .height = WINDOW_HEIGHT},
           .renderer = {.applicationName = "Material Editor"}};
 }
+
+class GeometryPass : public kt::rendering::RenderPassInterface {
+public:
+  void setupDependencies(kt::rendering::RenderPassBuilder& self, kt::rendering::RenderGraphBuilder& graph,
+                         const kt::rendering::Renderer& renderer) override {
+    auto& formats = renderer.getFormats();
+    self.addColorOutput("kt::albedo", {.format = formats.render.albedo});
+    self.addColorOutput("kt::normal", {.format = formats.render.normal});
+    self.addColorOutput("kt::material", {.format = formats.render.metRought});
+    self.addColorOutput("kt::emissive", {.format = formats.render.emissive});
+    self.setDepthStencilOutput("kt::depth", {.format = formats.render.depth});
+  }
+
+  void setup(kt::rendering::Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override {
+    KT_TRACE("Setting up geometry pass");
+  }
+
+  void prepare(kt::rendering::RenderGraph& graph, kt::rendering::Renderer& renderer) override { KT_TRACE("Preparing geometry pass"); }
+
+  void execute(const kt::rendering::CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize) override {
+    KT_TRACE("Executing geometry pass");
+  }
+
+  bool getClearColor(size_t attachmentIndex, VkClearColorValue* value) const override {
+    if (value) {
+      *value = {};
+    }
+    return true;
+  }
+
+  bool getClearDepthStencil(VkClearDepthStencilValue* value) const override {
+    if (value) {
+      *value = {};
+    }
+    return true;
+  }
+};
 
 class BenchmarkLayer : public kt::core::layers::Layer {
 public:
@@ -76,13 +114,8 @@ public:
     using kt::rendering::QueueType;
     auto& formats = renderer.getFormats();
     auto& geometryPass = builder.addPass("kt::geometry", QueueType::Graphics);
-    geometryPass.addColorOutput("kt::albedo", {.format = formats.render.albedo});
-    geometryPass.addColorOutput("kt::normal", {.format = formats.render.normal});
-    geometryPass.addColorOutput("kt::material", {.format = formats.render.metRought});
-    geometryPass.addColorOutput("kt::emissive", {.format = formats.render.emissive});
-    geometryPass.setDepthStencilOutput("kt::depth", {.format = formats.render.depth});
 
-    geometryPass.setBuildCallback([&](auto cmd) { KT_TRACE("Building geometry pass"); });
+    geometryPass.setInterface(&this->geometryPass);
 
     auto& lightingPass = builder.addPass("kt::lighting", QueueType::Graphics);
     lightingPass.addTextureInput("kt::albedo");
@@ -94,7 +127,7 @@ public:
     lightingPass.addColorOutput("kt::diffuse", {.format = formats.render.emissive});
     lightingPass.addColorOutput("kt::specular", {.format = formats.render.emissive});
 
-    lightingPass.setBuildCallback([&](auto cmd) { KT_TRACE("Building lighting pass"); });
+    lightingPass.setBuildCallback([&](auto cmd, auto set, auto framebufferSize) { KT_TRACE("Building lighting pass"); });
 
     auto& ssaoPass = builder.addPass("kt::ssao", QueueType::AsyncCompute);
     ssaoPass.addTextureInput("kt::depth");
@@ -105,22 +138,16 @@ public:
     lightCombinePass.addTextureInput("kt::albedo");
     lightCombinePass.addTextureInput("kt::diffuse");
     lightCombinePass.addTextureInput("kt::specular");
-    lightCombinePass.addTextureInput("kt::ssao");
+    // lightCombinePass.addTextureInput("kt::ssao");
     lightCombinePass.addColorOutput("kt::lighting", {.format = formats.render.emissive}, "kt::emissive");
 
-    lightCombinePass.setBuildCallback([&](auto cmd) { KT_TRACE("Building light combine pass"); });
+    lightCombinePass.setBuildCallback([&](auto cmd, auto set, auto framebufferSize) { KT_TRACE("Building light combine pass"); });
 
     auto& tonemapPass = builder.addPass("kt::tonemap", QueueType::Graphics);
     tonemapPass.addTextureInput("kt::lighting");
     tonemapPass.addColorOutput("kt::tonemapped", {.sizeType = AttachmentSize::SwapchainRelative, .format = formats.swapchain});
 
-    tonemapPass.setBuildCallback([&](auto cmd) { KT_TRACE("Building tonemap pass"); });
-    tonemapPass.setGetClearColorCallback([&](unsigned index, VkClearColorValue* value) {
-      if (value) {
-        *value = {{1.0f, 0.0f, 0.0f, 1.0f}};
-      }
-      return true;
-    });
+    tonemapPass.setBuildCallback([&](auto cmd, auto set, auto framebufferSize) { KT_TRACE("Building tonemap pass"); });
 
     builder.setBackbufferSource("kt::tonemapped");
   }
@@ -146,6 +173,8 @@ private:
   kt::Window& window;
   kt::Scene scene;
   kt::cameras::FreeCameraController freeController;
+
+  GeometryPass geometryPass;
 };
 
 std::expected<void, std::string> kt::setupAppLayers(core::layers::LayerStack& layerStack, core::window::Window& window,

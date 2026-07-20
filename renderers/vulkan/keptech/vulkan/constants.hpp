@@ -3,6 +3,8 @@
 #include "keptech/rendering/constants.hpp"
 #include <Volk/volk.h>
 
+#define MAX_FRAMES_IN_FLIGHT 2
+
 namespace kt::vkh {
   namespace constants {
     constexpr uint32_t SHADOW_MAP_SIZE = 4096;
@@ -13,13 +15,13 @@ namespace kt::vkh {
   } // namespace constants
 
   namespace limits {
-    extern VkDeviceSize minUniformBufferOffsetAlignment;
-    extern VkDeviceSize minStorageBufferOffsetAlignment;
-    extern VkDeviceSize maxPushConstantsSize;
-    extern VkDeviceSize maxMemoryAllocationSize;
+    extern VkDeviceSize minUniformBufferOffsetAlignment; // NOLINT
+    extern VkDeviceSize minStorageBufferOffsetAlignment; // NOLINT
+    extern VkDeviceSize maxPushConstantsSize;            // NOLINT
+    extern VkDeviceSize maxMemoryAllocationSize;         // NOLINT
   } // namespace limits
 
-  extern VkDeviceSize samplerDescriptorSize;
-  extern VkDeviceSize bufferDescriptorSize;
-  extern VkDeviceSize imageDescriptorSize;
+  extern VkDeviceSize samplerDescriptorSize; // NOLINT
+  extern VkDeviceSize bufferDescriptorSize;  // NOLINT
+  extern VkDeviceSize imageDescriptorSize;   // NOLINT
 } // namespace kt::vkh

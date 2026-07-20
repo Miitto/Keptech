@@ -1,5 +1,6 @@
 #include "graph.hpp"
 #include "helpers/transitions.hpp"
+#include "interface.hpp"
 #include "renderer.hpp"
 #include <vector>
 
@@ -11,7 +12,8 @@ namespace kt::vkh {
     auto& m = renderer->getMembers();
 
     auto& perFrame = *m.frameInfo.perFrame;
-    auto timelineSem = perFrame.timelineSemaphore;
+    auto& sem = m.vkcore.mainSemaphore;
+    VK_ASSERT(sem.semaphore != VK_NULL_HANDLE, "Timeline semaphore must be valid before executing the render graph.");
 
     auto graphicsCmds = m.frameInfo.perFrame->pools.graphics.allocate(m.vkcore.device,
                                                                       graphicsQueuePassCount + 1); // +1 For the end of frame swapchain work
@@ -40,11 +42,11 @@ namespace kt::vkh {
         for (; passIndex < passEnd; ++passIndex) {
           auto& pass = passes[passIndex];
           VK_TRACE("Executing graphics pass '{}'", pass.getName());
-          pass.prepare(*this);
+          pass.prepare(*this, *renderer);
 
           pipelineBarrier(pass.getBarriers().pre, cmd);
 
-          executeGraphicsPass(pass, cmd);
+          executeGraphicsPass(passIndex, pass, cmd);
 
           pipelineBarrier(pass.getBarriers().post, cmd);
         }
@@ -65,11 +67,11 @@ namespace kt::vkh {
         for (; passIndex < passEnd; ++passIndex) {
           auto& pass = passes[passIndex];
           VK_TRACE("Executing compute pass '{}'", pass.getName());
-          pass.prepare(*this);
+          pass.prepare(*this, *renderer);
 
           pipelineBarrier(pass.getBarriers().pre, cmd);
 
-          executeComputePass(pass, cmd);
+          executeComputePass(passIndex, pass, cmd);
 
           pipelineBarrier(pass.getBarriers().post, cmd);
         }
@@ -88,10 +90,10 @@ namespace kt::vkh {
         for (; passIndex < passEnd; ++passIndex) {
           auto& pass = passes[passIndex];
           VK_TRACE("Executing async compute pass '{}'", pass.getName());
-          pass.prepare(*this);
+          pass.prepare(*this, *renderer);
 
           pipelineBarrier(pass.getBarriers().pre, cmd);
-          executeComputePass(pass, cmd);
+          executeComputePass(passIndex, pass, cmd);
           pipelineBarrier(pass.getBarriers().post, cmd);
         }
 
@@ -99,17 +101,23 @@ namespace kt::vkh {
       }; break;
       }
 
+      uint64_t signalValue = sem.value + static_cast<uint64_t>(groupIdx + 1);
+      uint64_t waitValue = sem.value + static_cast<uint64_t>(group.waitFor);
+
       VkSemaphoreSubmitInfo timelineSemInfo{
           .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-          .semaphore = timelineSem,
-          .value = perFrame.timelineValue + static_cast<uint64_t>(groupIdx + 1),
+          .semaphore = sem.semaphore,
+          .value = signalValue,
           .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
       };
 
+      VK_TRACE("Submitting render graph command buffer for pass group {} on queue {}. Waiting for {} then signalling {}", groupIdx,
+               static_cast<int>(group.queue), waitValue, signalValue);
+
       VkSemaphoreSubmitInfo waitSemInfo{
           .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-          .semaphore = timelineSem,
-          .value = perFrame.timelineValue + static_cast<uint64_t>(group.waitFor),
+          .semaphore = sem.semaphore,
+          .value = waitValue,
           .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
       };
 
@@ -129,11 +137,10 @@ namespace kt::vkh {
           .pSignalSemaphoreInfos = &timelineSemInfo,
       };
 
-      VK_TRACE("Submitting render graph command buffer");
       vkQueueSubmit2(queue, 1, &submitInfo, nullptr);
     }
 
-    perFrame.timelineValue += static_cast<uint64_t>(passGroups.size());
+    sem.value += static_cast<uint64_t>(passGroups.size());
 
     {
       // TODO: Swapchain resource may not end up as a color attachment, or even on the grapics queue.
@@ -210,15 +217,21 @@ namespace kt::vkh {
     }
   }
 
-  void RenderGraph::executeGraphicsPass(RenderPass& pass, CommandBuffer& cmd) {
+  void RenderGraph::executeGraphicsPass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd) {
     beginRendering(pass, cmd);
 
-    pass.execute(cmd);
+    auto img = resources.images[pass.getExtentSourceId()];
+    auto set = passDescriptors[passIdx].sets[renderer->getMembers().frameInfo.index];
+
+    pass.execute(cmd, set, img.extent());
 
     cmd.endRendering();
   }
 
-  void RenderGraph::executeComputePass(RenderPass& pass, CommandBuffer& cmd) { pass.execute(cmd); }
+  void RenderGraph::executeComputePass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd) {
+    auto set = passDescriptors[passIdx].sets[renderer->getMembers().frameInfo.index];
+    pass.execute(cmd, set);
+  }
 
   void RenderGraph::pipelineBarrier(const Barriers& barriers, const CommandBuffer& cmd) const {
     if (barriers.image.empty() && barriers.buffer.empty())
@@ -227,7 +240,7 @@ namespace kt::vkh {
     std::vector<VkImageMemoryBarrier2> imageBarriers;
     imageBarriers.reserve(barriers.image.size());
     for (auto& barrier : barriers.image) {
-      auto& img = images[barrier.resourceId];
+      auto& img = resources.images[barrier.resourceId];
       VkImageMemoryBarrier2 barrierInfo{
           .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
           .srcStageMask = barrier.srcStages,
@@ -259,7 +272,7 @@ namespace kt::vkh {
     std::vector<VkBufferMemoryBarrier2> bufferBarriers;
     bufferBarriers.reserve(barriers.buffer.size());
     for (auto& barrier : barriers.buffer) {
-      auto& buf = buffers[barrier.resourceId];
+      auto& buf = resources.buffers[barrier.resourceId];
       VkBufferMemoryBarrier2 barrierInfo{
           .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
           .srcStageMask = barrier.srcStages,
@@ -302,7 +315,7 @@ namespace kt::vkh {
     std::vector<VkRenderingAttachmentInfo> colorAttachments;
     colorAttachments.reserve(pass.getColorAttachments().size());
     for (const auto& [idx, attachment] : pass.getColorAttachments() | std::views::enumerate) {
-      auto& img = images[attachment.resourceId];
+      auto& img = resources.images[attachment.resourceId];
       VkClearColorValue clearValue{};
       pass.getClearColor(idx, &clearValue);
       VkRenderingAttachmentInfo attachmentInfo{
@@ -320,13 +333,15 @@ namespace kt::vkh {
     VkRenderingAttachmentInfo* depthStencilAttachmentPtr = nullptr;
     auto ds = pass.getDepthStencilAttachment();
     if (ds.resourceId.used()) {
-      auto& img = images[ds.resourceId];
+      VK_ASSERT(pass.getDepthStencilLayout() != VK_IMAGE_LAYOUT_UNDEFINED, "Pass '{}' has a depth-stencil attachment but no layout set",
+                pass.getName());
+      auto& img = resources.images[ds.resourceId];
       VkClearDepthStencilValue clearValue{};
       pass.getClearDepthStencil(&clearValue);
       depthStencilAttachment = VkRenderingAttachmentInfo{
           .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
           .imageView = img,
-          .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+          .imageLayout = pass.getDepthStencilLayout(),
           .loadOp = ds.loadOp,
           .storeOp = ds.storeOp,
           .clearValue = VkClearValue{.depthStencil = clearValue},
@@ -335,7 +350,7 @@ namespace kt::vkh {
     }
 
     VK_ASSERT(pass.getExtentSourceId().used(), "Pass '{}' does not have an extent source set", pass.getName());
-    auto img = images[pass.getExtentSourceId()];
+    auto img = resources.images[pass.getExtentSourceId()];
 
     VkRenderingInfo renderInfo{
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -359,14 +374,26 @@ namespace kt::vkh {
 
     vkDeviceWaitIdle(m.vkcore.device);
 
-    for (auto& img : images)
+    for (auto& pass : passes) {
+      pass.shutdown(*renderer);
+    }
+
+    // Just incase the passes have enqueued work on the device that needs to be completed before destroying resources.
+    vkDeviceWaitIdle(m.vkcore.device);
+
+    for (auto& d : passDescriptors) {
+      vkDestroyDescriptorSetLayout(m.vkcore.device, d.layout, nullptr);
+    }
+    vkDestroyDescriptorPool(m.vkcore.device, descriptorPool, nullptr);
+
+    for (auto& img : resources.images)
       img.destroy(m.vkcore.allocator, m.vkcore.device);
-    for (auto& buf : buffers)
+    for (auto& buf : resources.buffers)
       buf.destroy(m.vkcore.allocator);
   }
 
   void RenderGraph::log() const {
-#define LOG(...) VK_DEBUG(__VA_ARGS__)
+#define LOG(...) VK_DEBUG(__VA_ARGS__) // NOLINT
 
     LOG("RenderGraph:");
     LOG("  Pass Groups: {}", passGroups.size());

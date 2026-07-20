@@ -1,14 +1,14 @@
 #include "pass.hpp"
 
 #include "builder.hpp"
-#include "helpers/formatting.hpp"
+#include "helpers/formatting.hpp" // Actually is used, clangd is wrong. Havn't found a way to disable clangd warnings per line yet.
 #include "vk-logger.hpp"
 #include <algorithm>
 
 namespace kt::vkh {
   static constexpr Bitflag<QueueType> COMPUTE_QUEUES = QueueType::Compute | QueueType::AsyncCompute;
 
-#define LOG(...) VK_DEBUG(__VA_ARGS__)
+#define LOG(...) VK_TRACE(__VA_ARGS__) // NOLINT
 
   RenderTextureResource& RenderPassBuilder::addAttachmentInput(const std::string& name) {
     LOG("Adding attachment input '{}' to pass '{}'", name, this->name);
@@ -92,8 +92,6 @@ namespace kt::vkh {
 
     if (!input.empty()) {
       auto& inputRes = graph.getBufferResource(input);
-      VK_REQUIRE(inputRes.getBufferInfo().size == info.size, "Storage buffer input '{}' and output '{}' must have the same size. {} vs {}",
-                 input, name, inputRes.getBufferInfo().size, info.size);
       inputRes.addBufferUsage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT).addQueue(queue).readInPass(id);
       storageInputs.push_back(&inputRes);
     } else {
@@ -153,24 +151,6 @@ namespace kt::vkh {
 
     if (!input.empty()) {
       auto& inputRes = graph.getTextureResource(input);
-      VK_REQUIRE(inputRes.getAttachmentInfo().format == info.format, "Color input '{}' and output '{}' must have the same format. {} vs {}",
-                 input, name, inputRes.getAttachmentInfo().format, info.format);
-      VK_REQUIRE(inputRes.getAttachmentInfo().mipLevels == info.mipLevels,
-                 "Color input '{}' and output '{}' must have the same number of mip levels. {} vs {}", input, name,
-                 inputRes.getAttachmentInfo().mipLevels, info.mipLevels);
-      VK_REQUIRE(inputRes.getAttachmentInfo().samples == info.samples,
-                 "Color input '{}' and output '{}' must have the same number of samples. {} vs {}", input, name,
-                 inputRes.getAttachmentInfo().samples, info.samples);
-      VK_REQUIRE(inputRes.getAttachmentInfo().layers == info.layers,
-                 "Color input '{}' and output '{}' must have the same number of array layers. {} vs {}", input, name,
-                 inputRes.getAttachmentInfo().layers, info.layers);
-      VK_REQUIRE(inputRes.getAttachmentInfo().sizeType == info.sizeType,
-                 "Color input '{}' and output '{}' must have the same size type. {} vs {}", input, name,
-                 inputRes.getAttachmentInfo().sizeType, info.sizeType);
-      VK_REQUIRE(inputRes.getAttachmentInfo().size == info.size,
-                 "Color input '{}' and output '{}' must have the same size. ({}, {}, {}) vs ({}, {}, {})", input, name,
-                 inputRes.getAttachmentInfo().size.x, inputRes.getAttachmentInfo().size.y, inputRes.getAttachmentInfo().size.z, info.size.x,
-                 info.size.y, info.size.z);
       inputRes.addImageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).addQueue(queue).readInPass(id);
       colorInputs.push_back(&inputRes);
     } else {
@@ -193,25 +173,6 @@ namespace kt::vkh {
 
     if (!input.empty()) {
       auto& inputRes = graph.getTextureResource(input);
-      VK_REQUIRE(inputRes.getAttachmentInfo().format == info.format,
-                 "Storage image input '{}' and output '{}' must have the same format. {} vs {}", input, name,
-                 inputRes.getAttachmentInfo().format, info.format);
-      VK_REQUIRE(inputRes.getAttachmentInfo().mipLevels == info.mipLevels,
-                 "Storage image input '{}' and output '{}' must have the same number of mip levels. {} vs {}", input, name,
-                 inputRes.getAttachmentInfo().mipLevels, info.mipLevels);
-      VK_REQUIRE(inputRes.getAttachmentInfo().samples == info.samples,
-                 "Storage image input '{}' and output '{}' must have the same number of samples. {} vs {}", input, name,
-                 inputRes.getAttachmentInfo().samples, info.samples);
-      VK_REQUIRE(inputRes.getAttachmentInfo().layers == info.layers,
-                 "Storage image input '{}' and output '{}' must have the same number of array layers. {} vs {}", input, name,
-                 inputRes.getAttachmentInfo().layers, info.layers);
-      VK_REQUIRE(inputRes.getAttachmentInfo().sizeType == info.sizeType,
-                 "Storage image input '{}' and output '{}' must have the same size type. {} vs {}", input, name,
-                 inputRes.getAttachmentInfo().sizeType, info.sizeType);
-      VK_REQUIRE(inputRes.getAttachmentInfo().size == info.size,
-                 "Storage image input '{}' and output '{}' must have the same size. ({}, {}, {}) vs ({}, {}, {})", input, name,
-                 inputRes.getAttachmentInfo().size.x, inputRes.getAttachmentInfo().size.y, inputRes.getAttachmentInfo().size.z, info.size.x,
-                 info.size.y, info.size.z);
       inputRes.addImageUsage(VK_IMAGE_USAGE_STORAGE_BIT).addQueue(queue).readInPass(id);
       storageImageInputs.push_back(&inputRes);
     } else {

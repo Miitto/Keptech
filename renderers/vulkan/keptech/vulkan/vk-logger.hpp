@@ -65,6 +65,11 @@
     std::abort();                                                                                                                          \
   }
 
+#define VK_ABORT(...)                                                                                                                      \
+  kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical, "Aborting: " __VA_ARGS__);        \
+  spdlog::shutdown();                                                                                                                      \
+  std::abort();
+
 namespace kt::vkh {
   extern const std::shared_ptr<spdlog::logger> logger;
 } // namespace kt::vkh

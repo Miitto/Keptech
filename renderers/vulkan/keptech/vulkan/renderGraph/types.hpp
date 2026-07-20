@@ -3,7 +3,11 @@
 #include "glm/ext/vector_uint3.hpp"
 #include "keptech/core/bitflag.hpp"
 #include "keptech/core/macros.hpp"
+#include "keptech/vulkan/constants.hpp"
+#include "keptech/vulkan/wrappers/buffer.hpp"
+#include "keptech/vulkan/wrappers/image.hpp"
 #include <Volk/volk.h>
+#include <array>
 #include <cstdint>
 #include <glm/ext/vector_float3.hpp>
 #include <spdlog/fmt/bundled/format.h>
@@ -11,6 +15,9 @@
 #include <vma/vk_mem_alloc.h>
 
 namespace kt::vkh {
+  class CommandBuffer;
+  using PassExecuteCb = std::function<void(const CommandBuffer&, VkDescriptorSet, glm::uvec3)>;
+
   class PassId {
   public:
     PassId() = default;
@@ -87,7 +94,6 @@ namespace kt::vkh {
     Graphics = BIT(0),
     Compute = BIT(1),
     AsyncCompute = BIT(2),
-    Cpu = BIT(3),
   };
 } // namespace kt::vkh
 
@@ -186,6 +192,32 @@ namespace kt::vkh {
     Barriers post;
     size_t needsWaitFor = ~0u;
   };
+
+  struct PassGroup {
+    QueueType queue = static_cast<QueueType>(0);
+    size_t count = 0;
+    uint64_t waitFor = 0;
+  };
+
+  struct RelativeImage {
+    size_t index;
+    glm::vec3 ratio;
+  };
+
+  struct Resources {
+    std::vector<Image> images;
+    std::vector<Buffer> buffers;
+    std::unordered_map<std::string, size_t> nameToImage;
+    std::unordered_map<std::string, size_t> nameToBuffer;
+    std::vector<bool> physicalImageHasHistory;
+    std::vector<RelativeImage> swapchainRelativeImages;
+    std::vector<RelativeImage> resolutionRelativeImages;
+  };
+
+  struct Descriptors {
+    VkDescriptorSetLayout layout = nullptr;
+    std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> sets{};
+  };
 } // namespace kt::vkh
 
 namespace std {
@@ -230,9 +262,6 @@ template <> struct fmt::formatter<kt::vkh::QueueType> : fmt::formatter<std::stri
       break;
     case kt::vkh::QueueType::AsyncCompute:
       name = "AsyncCompute";
-      break;
-    case kt::vkh::QueueType::Cpu:
-      name = "Cpu";
       break;
     }
     return fmt::formatter<std::string_view>::format(name, ctx);

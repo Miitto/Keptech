@@ -3,6 +3,7 @@
 #include "renderResources.hpp"
 #include <Volk/volk.h>
 #include <functional>
+#include <glm/ext/vector_uint2.hpp>
 
 namespace kt::vkh {
   class RenderGraphBuilder;
@@ -34,15 +35,20 @@ namespace kt::vkh {
       return true;
     }
 
-    /// Called once before the render graph is baked.
-    virtual void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph) {}
+    /// Called once before the render graph is baked. The renderer should not be used to create resources in this function, only used to
+    /// query information about the device and queues. Create resources in `setup()` instead.
+    virtual void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph, const Renderer& renderer) {}
+
     /// Called once after the render graph has been built.
-    virtual void setup(const Renderer& renderer) {}
+    virtual void setup(Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) {}
 
     /// Called before the pass is executed. This is where you should update any resources that are used by the pass.
-    virtual void prepare(RenderGraph& graph) {}
+    virtual void prepare(RenderGraph& graph, Renderer& renderer) {}
     /// Called when the pass is executed. This is where you should record the commands for the pass.
-    virtual void execute(const CommandBuffer& cmd) {}
+    virtual void execute(const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize = {}) {}
+
+    /// Called when the render graph is destroyed.
+    virtual void shutdown(Renderer& renderer) {}
   };
 
   struct AccessedResource {
@@ -84,9 +90,9 @@ namespace kt::vkh {
     RenderBufferResource& addIndexBufferInput(const std::string& name);
     RenderBufferResource& addIndirectBufferInput(const std::string& name);
 
-    void setupDependencies() {
+    void setupDependencies(const Renderer& renderer) {
       if (interface)
-        interface->setupDependencies(*this, graph);
+        interface->setupDependencies(*this, graph, renderer);
     }
 
     RenderPassBuilder& setName(const std::string& name) {
@@ -104,11 +110,11 @@ namespace kt::vkh {
       this->interface = interface;
       return *this;
     }
-    RenderPassBuilder& setBuildCallback(std::function<void(const CommandBuffer&)> cb) {
+    RenderPassBuilder& setBuildCallback(PassExecuteCb cb) {
       this->buildCb = std::move(cb);
       return *this;
     }
-    [[nodiscard]] std::function<void(const CommandBuffer&)>& getBuildCallback() { return buildCb; }
+    [[nodiscard]] PassExecuteCb& getBuildCallback() { return buildCb; }
     RenderPassBuilder& setGetClearDepthStencilCallback(std::function<bool(VkClearDepthStencilValue*)> cb) {
       this->getClearDepthStencilCb = std::move(cb);
       return *this;
@@ -159,6 +165,9 @@ namespace kt::vkh {
     }
     [[nodiscard]] size_t getIndex() const { return index; }
 
+    void setDepthStencilLayout(VkImageLayout layout) { depthStencilLayout = layout; }
+    [[nodiscard]] VkImageLayout getDepthStencilLayout() const { return depthStencilLayout; }
+
   private:
     RenderGraphBuilder& graph;
     PassId id;
@@ -167,7 +176,7 @@ namespace kt::vkh {
     std::string name;
 
     RenderPassInterface* interface = nullptr;
-    std::function<void(const CommandBuffer&)> buildCb = nullptr;
+    PassExecuteCb buildCb = nullptr;
     std::function<bool(VkClearDepthStencilValue*)> getClearDepthStencilCb = nullptr;
     std::function<bool(unsigned, VkClearColorValue*)> getClearColorCb = nullptr;
 
@@ -185,6 +194,8 @@ namespace kt::vkh {
     std::vector<AccessedBufferResource> genericBuffers;
     RenderTextureResource* depthStencilInput = nullptr;
     RenderTextureResource* depthStencilOutput = nullptr;
+
+    VkImageLayout depthStencilLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     RenderBufferResource& addGenericBufferInput(const std::string& name, VkPipelineStageFlags2 stages, VkAccessFlags2 access,
                                                 VkBufferUsageFlags usage);

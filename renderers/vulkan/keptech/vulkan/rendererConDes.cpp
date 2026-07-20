@@ -52,7 +52,6 @@ namespace kt::vkh {
     for (auto& perFrame : m.vkcore.perFrame) {
       vkDestroySemaphore(device, perFrame.imageAvailableSemaphore, nullptr);
       vkDestroyFence(device, perFrame.inFlightFence, nullptr);
-      vkDestroySemaphore(device, perFrame.timelineSemaphore, nullptr);
 
       vkDestroyCommandPool(device, perFrame.pools.graphics.pool, nullptr);
       vkDestroyCommandPool(device, perFrame.pools.compute.pool, nullptr);
@@ -81,7 +80,8 @@ namespace kt::vkh {
 
     m.renderTargets.~RenderTargets();
 
-    vkDestroySemaphore(device, m.vkcore.timelineSemaphore, nullptr);
+    vkDestroySemaphore(device, m.vkcore.mainSemaphore.semaphore, nullptr);
+    vkDestroySemaphore(device, m.vkcore.transferSemaphore.semaphore, nullptr);
 
     vmaDestroyAllocator(allocator);
 

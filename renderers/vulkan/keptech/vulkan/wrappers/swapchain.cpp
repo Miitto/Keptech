@@ -166,12 +166,26 @@ namespace kt::vkh {
   namespace {
     void waitForImageAvailable(const VkDevice& device, VkFence& waitFence) {
       KT_PROFILE_FUNCTION
-      while (VK_TIMEOUT == vkWaitForFences(device, 1, &waitFence, VK_TRUE, UINT64_MAX)) {
-        // Doubt will ever be hit
-        VK_WARN(
-            "Wait for fence timed out while acquiring next swapchain image. This should not happen, but if it does, it means the GPU is "
-            "taking a very long time to render a frame. Yielding thread to avoid busy waiting.");
+
+      constexpr uint64_t timeoutNs = 1'000'000'000; // 1 second
+
+      VK_TRACE("Waiting for fence to acquire next swapchain image.");
+
+      uint8_t waits = 0;
+      VkResult res = VK_TIMEOUT;
+      while (res = vkWaitForFences(device, 1, &waitFence, VK_TRUE, timeoutNs), res == VK_TIMEOUT) {
+        // Doubt will ever be hit unless there is a problem
+        VK_WARN("Waited longer than 1s while acquiring next swapchain image. This should not happen, but if it does, it means the GPU is "
+                "taking a very long time to render a frame. Yielding thread to avoid busy waiting.");
+        ++waits;
+        if (waits > 30) {
+          VK_ABORT("Waited longer than 30s while acquiring next swapchain image.");
+        }
         std::this_thread::yield();
+      }
+
+      if (res != VK_SUCCESS) {
+        VK_ABORT("Failed to wait for fence while acquiring next swapchain image.");
       }
     }
   } // namespace
@@ -181,9 +195,13 @@ namespace kt::vkh {
     KT_PROFILE_FUNCTION
     waitForImageAvailable(device, waitFence);
 
+    VK_TRACE("Previous frame finished, resetting fence and acquiring next swapchain image.");
+
     vkResetFences(device, 1, &waitFence);
     uint32_t index = 0;
+    VK_TRACE("Acquiring next swapchain image");
     auto result = vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(), signalSemaphore, VK_NULL_HANDLE, &index);
+    VK_TRACE("Acquired swapchain image {}.", index);
 
     if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
       return std::unexpected("Failed to acquire next image");
