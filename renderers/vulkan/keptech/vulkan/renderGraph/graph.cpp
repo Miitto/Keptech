@@ -57,9 +57,9 @@ namespace kt::vkh {
       case QueueType::Compute: {
         VK_TRACE("Executing compute pass group {} on graphics queue with {} passes", groupIdx, group.count);
 
-        auto& cmd = computeCmds[graphicsPassIndex++];
+        auto& cmd = graphicsCmds[graphicsPassIndex++];
         vkCmd = cmd;
-        queue = m.vkcore.queues.compute.queue;
+        queue = m.vkcore.queues.graphics.queue;
         cmd.label(m.vkcore.device, fmt::format("RenderGraph::execute() - Pass Group {}: Compute Queue", groupIdx));
 
         cmd.begin();
@@ -102,7 +102,10 @@ namespace kt::vkh {
       }
 
       uint64_t signalValue = sem.value + static_cast<uint64_t>(groupIdx + 1);
-      uint64_t waitValue = sem.value + static_cast<uint64_t>(group.waitFor);
+      uint64_t waitValue = group.waitFor == ~0ull
+                               ? 0
+                               : sem.value + static_cast<uint64_t>(group.waitFor) +
+                                     1; // Need add 1 since the signalled value for a pass group will be the pass group index + 1.
 
       VK_ASSERT(waitValue < signalValue, "Wait value must be less than signal value for timeline semaphore.");
 

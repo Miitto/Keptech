@@ -196,7 +196,8 @@ namespace kt::vkh {
   struct PassGroup {
     QueueType queue = static_cast<QueueType>(0);
     size_t count = 0;
-    uint64_t waitFor = 0;
+    /// The index of the pass group that this group should wait for before executing. If ~0, then no wait is needed.
+    uint64_t waitFor = ~0ull;
   };
 
   struct RelativeImage {

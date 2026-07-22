@@ -138,7 +138,7 @@ public:
     lightCombinePass.addTextureInput("kt::albedo");
     lightCombinePass.addTextureInput("kt::diffuse");
     lightCombinePass.addTextureInput("kt::specular");
-    // lightCombinePass.addTextureInput("kt::ssao");
+    lightCombinePass.addTextureInput("kt::ssao");
     lightCombinePass.addColorOutput("kt::lighting", {.format = formats.render.emissive}, "kt::emissive");
 
     lightCombinePass.setBuildCallback([&](auto cmd, auto set, auto framebufferSize) { KT_TRACE("Building light combine pass"); });
