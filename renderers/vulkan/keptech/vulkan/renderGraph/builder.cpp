@@ -184,7 +184,7 @@ namespace kt::vkh {
       std::vector<VkDescriptorSetLayoutBinding> bindings;
       for (const auto& texture : pass->getGenericTextureInputs()) {
         if (texture.texture && texture.texture->getPhysicalId().used()) {
-          VK_TRACE("Pass '{}' has texture input '{}' at binding {}", pass->getName(), texture.texture->getName(), bindings.size());
+          VK_DEBUG("Pass '{}' has texture input '{}' at binding {}", pass->getName(), texture.texture->getName(), bindings.size());
           bindings.push_back(VkDescriptorSetLayoutBinding{
               .binding = static_cast<uint32_t>(bindings.size()),
               .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
@@ -220,7 +220,7 @@ namespace kt::vkh {
       }
       for (const auto& buffer : pass->getGenericBufferInputs()) {
         if (buffer.buffer && buffer.buffer->getPhysicalId().used()) {
-          VK_TRACE("Pass '{}' has {} buffer input '{}' at binding {}", pass->getName(),
+          VK_DEBUG("Pass '{}' has {} buffer input '{}' at binding {}", pass->getName(),
                    (buffer.access & VK_ACCESS_UNIFORM_READ_BIT) ? "uniform" : "storage", buffer.buffer->getName(), bindings.size());
           bindings.push_back(VkDescriptorSetLayoutBinding{
               .binding = static_cast<uint32_t>(bindings.size()),
@@ -260,7 +260,7 @@ namespace kt::vkh {
 
       for (const auto& image : pass->getStorageImageOutputs()) {
         if (image && image->getPhysicalId().used()) {
-          VK_TRACE("Pass '{}' has storage image output '{}' at binding {}", pass->getName(), image->getName(), bindings.size());
+          VK_DEBUG("Pass '{}' has storage image output '{}' at binding {}", pass->getName(), image->getName(), bindings.size());
           bindings.push_back(VkDescriptorSetLayoutBinding{
               .binding = static_cast<uint32_t>(bindings.size()),
               .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -297,7 +297,7 @@ namespace kt::vkh {
 
       for (const auto& buffer : pass->getStorageOutputs()) {
         if (buffer && buffer->getPhysicalId().used()) {
-          VK_TRACE("Pass '{}' has storage buffer output '{}' at binding {}", pass->getName(), buffer->getName(), bindings.size());
+          VK_DEBUG("Pass '{}' has storage buffer output '{}' at binding {}", pass->getName(), buffer->getName(), bindings.size());
           bindings.push_back(VkDescriptorSetLayoutBinding{
               .binding = static_cast<uint32_t>(bindings.size()),
               .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -400,87 +400,87 @@ namespace kt::vkh {
       VK_DEBUG("    {}: {} ({})", idx, pass.getName(), *passId);
     }
     VK_DEBUG("");
-    VK_DEBUG("  Requirements:");
+    VK_TRACE("  Requirements:");
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       const auto& pass = *passes[passId];
       const auto& reqs = passRequirements[idx];
 
-      VK_DEBUG("    {}: {} ({})", idx, pass.getName(), *passId);
-      VK_DEBUG("      Read Requirements: {}", reqs.invalidate.size());
+      VK_TRACE("    {}: {} ({})", idx, pass.getName(), *passId);
+      VK_TRACE("      Read Requirements: {}", reqs.invalidate.size());
       for (const auto& req : reqs.invalidate) {
-        VK_DEBUG("        Resource: {}{}", physicalResourceInfos[req.resourceId].name, req.history ? " (History)" : "");
-        VK_DEBUG("          Layout: {}", req.layout);
-        VK_DEBUG("          Access: {}", VkAccessFlags2Formatter(req.access));
-        VK_DEBUG("          Stages: {}", VkPipelineStageFlags2Formatter(req.stages));
+        VK_TRACE("        Resource: {}{}", physicalResourceInfos[req.resourceId].name, req.history ? " (History)" : "");
+        VK_TRACE("          Layout: {}", req.layout);
+        VK_TRACE("          Access: {}", VkAccessFlags2Formatter(req.access));
+        VK_TRACE("          Stages: {}", VkPipelineStageFlags2Formatter(req.stages));
       }
-      VK_DEBUG("");
+      VK_TRACE("");
 
-      VK_DEBUG("      Write Requirements: {}", reqs.flush.size());
+      VK_TRACE("      Write Requirements: {}", reqs.flush.size());
       for (const auto& req : reqs.flush) {
-        VK_DEBUG("        Resource: {}{}", physicalResourceInfos[req.resourceId].name, req.history ? " (History)" : "");
-        VK_DEBUG("          Layout: {}", req.layout);
-        VK_DEBUG("          Access: {}", VkAccessFlags2Formatter(req.access));
-        VK_DEBUG("          Stages: {}", VkPipelineStageFlags2Formatter(req.stages));
+        VK_TRACE("        Resource: {}{}", physicalResourceInfos[req.resourceId].name, req.history ? " (History)" : "");
+        VK_TRACE("          Layout: {}", req.layout);
+        VK_TRACE("          Access: {}", VkAccessFlags2Formatter(req.access));
+        VK_TRACE("          Stages: {}", VkPipelineStageFlags2Formatter(req.stages));
       }
-      VK_DEBUG("");
+      VK_TRACE("");
     }
-    VK_DEBUG("  Barriers:");
+    VK_TRACE("  Barriers:");
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       const auto& pass = *passes[passId];
       const auto& barriers = passBarriers[idx];
 
-      VK_DEBUG("    {}: {} ({})", idx, pass.getName(), *passId);
-      VK_DEBUG("      Pre-pass Image Barriers: {}", barriers.pre.image.size());
+      VK_TRACE("    {}: {} ({})", idx, pass.getName(), *passId);
+      VK_TRACE("      Pre-pass Image Barriers: {}", barriers.pre.image.size());
       for (const auto& barrier : barriers.pre.image) {
         const auto& res = physicalResourceInfos[barrier.resourceId];
-        VK_DEBUG("        Resource: {}", res.name);
-        VK_DEBUG("          Old Layout: {}", barrier.oldLayout);
-        VK_DEBUG("          New Layout: {}", barrier.newLayout);
-        VK_DEBUG("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
-        VK_DEBUG("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
-        VK_DEBUG("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
-        VK_DEBUG("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
-        VK_DEBUG("          Handoff: {}", barrier.handoff);
+        VK_TRACE("        Resource: {}", res.name);
+        VK_TRACE("          Old Layout: {}", barrier.oldLayout);
+        VK_TRACE("          New Layout: {}", barrier.newLayout);
+        VK_TRACE("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
+        VK_TRACE("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
+        VK_TRACE("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
+        VK_TRACE("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
+        VK_TRACE("          Handoff: {}", barrier.handoff);
       }
-      VK_DEBUG("");
+      VK_TRACE("");
 
-      VK_DEBUG("      Pre-pass Buffer Barriers: {}", barriers.pre.buffer.size());
+      VK_TRACE("      Pre-pass Buffer Barriers: {}", barriers.pre.buffer.size());
       for (const auto& barrier : barriers.pre.buffer) {
         const auto& res = physicalResourceInfos[barrier.resourceId];
-        VK_DEBUG("        Resource: {}", res.name);
-        VK_DEBUG("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
-        VK_DEBUG("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
-        VK_DEBUG("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
-        VK_DEBUG("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
-        VK_DEBUG("          Handoff: {}", barrier.handoff);
+        VK_TRACE("        Resource: {}", res.name);
+        VK_TRACE("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
+        VK_TRACE("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
+        VK_TRACE("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
+        VK_TRACE("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
+        VK_TRACE("          Handoff: {}", barrier.handoff);
       }
-      VK_DEBUG("");
+      VK_TRACE("");
 
-      VK_DEBUG("      Post-pass Image Barriers: {}", barriers.post.image.size());
+      VK_TRACE("      Post-pass Image Barriers: {}", barriers.post.image.size());
       for (const auto& barrier : barriers.post.image) {
         const auto& res = physicalResourceInfos[barrier.resourceId];
-        VK_DEBUG("        Resource: {}", res.name);
-        VK_DEBUG("          Old Layout: {}", barrier.oldLayout);
-        VK_DEBUG("          New Layout: {}", barrier.newLayout);
-        VK_DEBUG("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
-        VK_DEBUG("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
-        VK_DEBUG("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
-        VK_DEBUG("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
-        VK_DEBUG("          Handoff: {}", barrier.handoff);
+        VK_TRACE("        Resource: {}", res.name);
+        VK_TRACE("          Old Layout: {}", barrier.oldLayout);
+        VK_TRACE("          New Layout: {}", barrier.newLayout);
+        VK_TRACE("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
+        VK_TRACE("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
+        VK_TRACE("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
+        VK_TRACE("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
+        VK_TRACE("          Handoff: {}", barrier.handoff);
       }
-      VK_DEBUG("");
+      VK_TRACE("");
 
-      VK_DEBUG("      Post-pass Buffer Barriers: {}", barriers.post.buffer.size());
+      VK_TRACE("      Post-pass Buffer Barriers: {}", barriers.post.buffer.size());
       for (const auto& barrier : barriers.post.buffer) {
         const auto& res = physicalResourceInfos[barrier.resourceId];
-        VK_DEBUG("        Resource: {}", res.name);
-        VK_DEBUG("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
-        VK_DEBUG("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
-        VK_DEBUG("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
-        VK_DEBUG("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
-        VK_DEBUG("          Handoff: {}", barrier.handoff);
+        VK_TRACE("        Resource: {}", res.name);
+        VK_TRACE("          Src Stages: {}", VkPipelineStageFlags2Formatter(barrier.srcStages));
+        VK_TRACE("          Src Access: {}", VkAccessFlags2Formatter(barrier.srcAccess));
+        VK_TRACE("          Dst Stages: {}", VkPipelineStageFlags2Formatter(barrier.dstStages));
+        VK_TRACE("          Dst Access: {}", VkAccessFlags2Formatter(barrier.dstAccess));
+        VK_TRACE("          Handoff: {}", barrier.handoff);
       }
-      VK_DEBUG("");
+      VK_TRACE("");
     }
   }
 
