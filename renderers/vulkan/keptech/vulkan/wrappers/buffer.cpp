@@ -18,7 +18,7 @@ namespace kt::vkh {
     VkBufferDeviceAddressInfo addrVknfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
     VkDeviceAddress address = vkGetBufferDeviceAddress(device, &addrVknfo);
 
-#if VK_LOG_LEVEL >= VK_LOG_LEVEL_TRACE
+#if VK_LOG_LEVEL <= VK_LOG_LEVEL_TRACE
     VkMemoryPropertyFlags props{};
     vmaGetAllocationMemoryProperties(allocator, alloc, &props);
     bool isHostVisible = (props & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
@@ -33,7 +33,7 @@ namespace kt::vkh {
     if (mapped)
       flags.emplace_back("Mapped");
 
-    VK_DEBUG("Created buffer [{}] with size {} bytes. {}", name, aInfo.size, fmt::join(flags, ", "));
+    VK_TRACE("Created buffer [{}] with size {} bytes. {}", name, aInfo.size, fmt::join(flags, ", "));
 #endif
 
 #ifndef NDEBUG
@@ -56,7 +56,7 @@ namespace kt::vkh {
   void Buffer::destroy(const VmaAllocator& allocator) {
     VK_ASSERT(allocator != nullptr, "Allocator is null");
     if (alloc && !*destroyed) {
-      VK_DEBUG("Destroying buffer {} with size {}", allocInfo.pName ? allocInfo.pName : "Unnamed", allocInfo.size);
+      VK_TRACE("Destroying buffer {} with size {}", allocInfo.pName ? allocInfo.pName : "Unnamed", allocInfo.size);
       vmaDestroyBuffer(allocator, buffer, alloc);
       buffer = nullptr;
       alloc = nullptr;
