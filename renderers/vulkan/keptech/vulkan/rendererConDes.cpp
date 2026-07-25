@@ -24,7 +24,7 @@ namespace kt::vkh {
 
   void Renderer::shutdownImGui() {
     ImGui_ImplVulkan_Shutdown();
-    vkDestroyDescriptorPool(m.vkcore.device.logical, m.imGuiDescriptorPool, nullptr);
+    vkDestroyDescriptorPool(m.vkcore.device, m.imGuiDescriptorPool, nullptr);
     VK_DEBUG("Shut down ImGui Vulkan backend");
     rendering::shutdownImGui();
   }
@@ -41,7 +41,7 @@ namespace kt::vkh {
       return;
     }
 
-    auto& device = m.vkcore.device.logical;
+    auto& device = m.vkcore.device;
     auto& allocator = m.vkcore.allocator;
 
     vkDeviceWaitIdle(device);
@@ -67,18 +67,17 @@ namespace kt::vkh {
     m.buffers.~Buffers();
 
     for (auto& texture : m.loadedTextures) {
-      texture.destroy(allocator, device);
+      vkDestroyImageView(device, texture.view, nullptr);
+      vmaDestroyImage(allocator, texture.image, texture.alloc);
     }
     for (auto& buffer : m.loadedBuffers) {
-      buffer.destroy(allocator);
+      buffer.destroy();
     }
 
     m.samplers.destroy(device);
 
     m.pipelines.destroy(device);
     m.layouts.destroy(device);
-
-    m.renderTargets.~RenderTargets();
 
     vkDestroySemaphore(device, m.vkcore.mainSemaphore.semaphore, nullptr);
     vkDestroySemaphore(device, m.vkcore.transferSemaphore.semaphore, nullptr);
@@ -89,7 +88,7 @@ namespace kt::vkh {
     m.vkcore.swapchain.destroy();
 
     vkDeviceWaitIdle(device); // Sometimes complains that some of the swapchain resources havn't been destroyed yet.
-    vkDestroyDevice(device, nullptr);
+    device.destroy();
 
     vkDestroySurfaceKHR(m.vkcore.instance, m.vkcore.surface, nullptr);
     m.vkcore.instance.destroy();

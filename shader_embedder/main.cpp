@@ -83,7 +83,11 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  auto& shader = res.value();
+  auto& [shader, shaderDiag] = res.value();
+
+  if (shaderDiag) {
+    std::cerr << (char*)shaderDiag->getBufferPointer() << '\n';
+  }
 
   shader.file = inputFile;
 

@@ -35,10 +35,3 @@ compile_shader(${PROJECT_NAME} SPIRV
     ssaoBlur
     lightCombine
 )
-
-if(KT_USE_PCH)
-  target_precompile_headers(${PROJECT_NAME}
-    PRIVATE
-      ${KT_PCH_HEADERS}
-  )
-endif()

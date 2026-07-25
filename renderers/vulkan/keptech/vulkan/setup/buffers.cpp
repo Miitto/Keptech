@@ -9,6 +9,16 @@
 #include "macros.hpp"
 #include "wrappers/buffer.hpp"
 
+#undef VKH_MAKE
+
+#define VKH_MAKE(_NAME, _EXPR, _ERROR)                                                                                                     \
+  auto _NAME##_res = _EXPR;                                                                                                                \
+  if (!_NAME##_res.isOk()) {                                                                                                               \
+    VK_ERROR(_ERROR ": {}", _NAME##_res.error());                                                                                          \
+    return std::unexpected(_ERROR);                                                                                                        \
+  }                                                                                                                                        \
+  auto&(_NAME) = _NAME##_res.value();
+
 namespace {
   constexpr VmaAllocationCreateFlags hostWriteFlags =
       VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
@@ -28,9 +38,9 @@ namespace {
 
 namespace kt::vkh::setup {
   template <typename T>
-  std::expected<Buffer, std::string> createBuffer(const VulkanCore& vkcore, const size_t elementCount, const std::string& name,
-                                                  const VkBufferUsageFlags usage = 0, const bool allowTransfer = false,
-                                                  const bool roundToAlignment = false) {
+  kt::Result<Buffer, VkResult, VK_SUCCESS> createBuffer(const VulkanCore& vkcore, const size_t elementCount, const std::string& name,
+                                                        const VkBufferUsageFlags usage = 0, const bool allowTransfer = false,
+                                                        const bool roundToAlignment = false) {
     size_t perElementSize = roundToAlignment ? maths::roundToAlignment(sizeof(T), limits::minUniformBufferOffsetAlignment) : sizeof(T);
     size_t size = perElementSize * elementCount;
 
@@ -46,7 +56,7 @@ namespace kt::vkh::setup {
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
     };
 
-    return Buffer::create(vkcore.device.logical, vkcore.allocator, bufInfo, allocInfo, name);
+    return Buffer::create(vkcore.device, bufInfo, allocInfo, name.c_str());
   }
 
   std::expected<Buffers, std::string> createBuffers(const VulkanCore& vkcore) {
@@ -88,9 +98,9 @@ namespace kt::vkh::setup {
                "Failed to create shadow matrix buffer.");
 
       perFrameBuffers[i] = PerFrameBuffers{
-          .objects = {objectBuffer, vkcore.allocator, vkcore.device.logical},
-          .pointLights = {pointLightBuffer, vkcore.allocator, vkcore.device.logical},
-          .shadowMatrices = {shadowMatrixBuffer, vkcore.allocator, vkcore.device.logical},
+          .objects = std::move(objectBuffer),
+          .pointLights = std::move(pointLightBuffer),
+          .shadowMatrices = std::move(shadowMatrixBuffer),
       };
     }
 
@@ -108,21 +118,21 @@ namespace kt::vkh::setup {
         .alphaCutoff = 0.0f,
     };
 
-    SubdivBuffer<GpuMaterial> gpuMaterials{materialBuffer};
+    SubdivBuffer<GpuMaterial> gpuMaterials{std::move(materialBuffer)};
     gpuMaterials.write(defaultMaterial);
 
-    return std::move(Buffers{
-        .camera = {camera, vkcore.allocator, vkcore.device.logical},
-        .addresses = {addresses, vkcore.allocator, vkcore.device.logical},
-        .ssaoKernel = {ssaoKernel, vkcore.allocator, vkcore.device.logical},
-        .indices = {indexBuffer, vkcore.allocator, vkcore.device.logical},
-        .vertexPositions = {vertexPosBuffer, vkcore.allocator, vkcore.device.logical},
-        .vertexAttribs = {vertexAttribBuffer, vkcore.allocator, vkcore.device.logical},
-        .meshlets = {meshletBuffer, vkcore.allocator, vkcore.device.logical},
-        .meshletVertices = {meshletVertexBuffer, vkcore.allocator, vkcore.device.logical},
-        .meshletTriangles = {meshletPrimitiveBuffer, vkcore.allocator, vkcore.device.logical},
-        .materials = {gpuMaterials, vkcore.allocator, vkcore.device.logical},
+    return Buffers{
+        .camera = std::move(camera),
+        .addresses = std::move(addresses),
+        .ssaoKernel = std::move(ssaoKernel),
+        .indices = std::move(indexBuffer),
+        .vertexPositions = std::move(vertexPosBuffer),
+        .vertexAttribs = std::move(vertexAttribBuffer),
+        .meshlets = std::move(meshletBuffer),
+        .meshletVertices = std::move(meshletVertexBuffer),
+        .meshletTriangles = std::move(meshletPrimitiveBuffer),
+        .materials = std::move(gpuMaterials),
         .perFrame = std::move(perFrameBuffers),
-    });
+    };
   }
 } // namespace kt::vkh::setup

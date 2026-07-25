@@ -39,7 +39,7 @@ namespace kt::vkh::passes {
     size_t sizePerCamera = maths::roundToAlignment(sizeof(components::Camera::Uniforms), limits::minUniformBufferOffsetAlignment);
     size_t offset = index * sizePerCamera;
 
-    memcpy(buffers.camera->mapping() + offset, &camUniforms, sizeof(components::Camera::Uniforms));
+    memcpy(buffers.camera.mapping() + offset, &camUniforms, sizeof(components::Camera::Uniforms));
 
     return frustum;
   }

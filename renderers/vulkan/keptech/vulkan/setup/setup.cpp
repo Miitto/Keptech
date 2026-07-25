@@ -24,7 +24,7 @@ namespace kt::vkh {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
         .pNext = &maintenance3Properties,
     };
-    vkGetPhysicalDeviceProperties2(vkcore.device.physical, &properties);
+    vkGetPhysicalDeviceProperties2(vkcore.device, &properties);
 
     limits::minUniformBufferOffsetAlignment = properties.properties.limits.minUniformBufferOffsetAlignment;
     limits::minStorageBufferOffsetAlignment = properties.properties.limits.minStorageBufferOffsetAlignment;
@@ -35,46 +35,30 @@ namespace kt::vkh {
       limits::maxMemoryAllocationSize = p.maxMemoryAllocationSize;
     }
 
-    VKH_MAKE(samplers, createSamplers(vkcore.device.logical), "Failed to create samplers for renderer.");
+    VKH_MAKE(samplers, createSamplers(vkcore.device), "Failed to create samplers for renderer.");
 
     VKH_MAKE(imGuiObjects, setupImGui(window, vkcore, samplers), "Failed to set up ImGui for Vulkan.");
 
-    VKH_MAKE(globalDescriptorSets, createGlobalDescriptors(vkcore.device.logical), "Failed to create global descriptor sets.");
+    VKH_MAKE(globalDescriptorSets, createGlobalDescriptors(vkcore.device), "Failed to create global descriptor sets.");
     VKH_MAKE(staticDescriptorSets, createStaticDescriptors(vkcore), "Failed to create static descriptor sets.");
 
     VKH_MAKE(buffers, createBuffers(vkcore), "Failed to create buffers for renderer.");
     VKH_MAKE(formats, findFormats(vkcore), "Failed to find suitable formats for renderer.");
 
-    VKH_MAKE(layouts, createLayouts(vkcore.device.logical, globalDescriptorSets.layout, staticDescriptorSets.layout),
+    VKH_MAKE(layouts, createLayouts(vkcore.device, globalDescriptorSets.layout, staticDescriptorSets.layout),
              "Failed to create layouts for renderer.");
-    VKH_MAKE(pipelines, createPipelines(vkcore, formats, layouts), "Failed to create pipelines for renderer.");
-
-    auto d = SDL_GetDisplayForWindow(window.getHandle());
-    auto* dm = SDL_GetCurrentDisplayMode(d);
-
-    VKH_MAKE(renderTargets, createRenderTargets(vkcore, formats, glm::ivec2{dm->w, dm->h}),
-             "Failed to create render targets for renderer.");
-
-    {
-      auto res = writeSsao(vkcore, buffers, renderTargets);
-      if (!res) {
-        VK_CRITICAL("Failed to write SSAO noise texture: {}", res.error());
-        abort();
-      }
-    }
+    VKH_MAKE(pipelines, createPipelines(vkcore, formats, layouts), "Failed to create pipelines for renderer.")
 
 #ifdef KT_PROFILE
-    auto gctx = KT_VK_CONTEXT(vkcore.device.physical, vkcore.device.logical);
-    auto cctx = KT_VK_CONTEXT(vkcore.device.physical, vkcore.device.logical);
+    auto gctx = KT_VK_CONTEXT(vkcore.device, vkcore.device);
+    auto cctx = KT_VK_CONTEXT(vkcore.device, vkcore.device);
     KT_VK_CONTEXT_NAME(gctx, "Graphics");
     KT_VK_CONTEXT_NAME(cctx, "Compute");
 #endif
 
-    vkDeviceWaitIdle(vkcore.device.logical);
+    vkDeviceWaitIdle(vkcore.device);
 
     VK_DEBUG("Creating test render graph.");
-
-    RenderGraphBuilder builder{};
 
     Renderer::Members members{
         .window = &window,
@@ -82,7 +66,6 @@ namespace kt::vkh {
         .samplers = samplers,
         .imGuiDescriptorPool = imGuiObjects,
         .formats = formats,
-        .renderTargets = std::move(renderTargets),
         .buffers = std::move(buffers),
         .layouts = layouts,
         .pipelines = pipelines,
@@ -97,7 +80,7 @@ namespace kt::vkh {
     VK_DEBUG("Writing Global Descriptor Sets.");
     writeGlobalDescriptors(members, members.globalDescriptorSets);
     VK_DEBUG("Writing Static Descriptor Sets.");
-    writeStaticDescriptors(members.vkcore, members.staticDescriptors, members.buffers, members.renderTargets, members.samplers);
+    writeStaticDescriptors(members.vkcore, members.staticDescriptors, members.buffers);
 
     Renderer r{std::move(members)};
 

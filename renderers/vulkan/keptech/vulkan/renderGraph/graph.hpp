@@ -36,20 +36,20 @@ namespace kt::vkh {
   public:
     friend class RenderGraphBuilder;
 
-    void setGraph(RenderGraph& graph) { this->graph = &graph; }
-    void setInterface(RenderPassInterface* interface) { this->interface = interface; }
+    void setGraph(RenderGraph& g) { graph = &g; }
+    void setInterface(RenderPassInterface* i) { interface = i; }
     void setBuildCallback(PassExecuteCb&& cb) { buildCb = std::move(cb); }
     void setGetClearDepthStencilCallback(std::function<bool(VkClearDepthStencilValue*)>&& cb) { getClearDepthStencilCb = std::move(cb); }
-    void setGetClearColorCallback(std::function<bool(unsigned, VkClearColorValue*)>&& cb) { getClearColorCb = std::move(cb); }
+    void setGetClearColorCallback(std::function<bool(uint32_t, VkClearColorValue*)>&& cb) { getClearColorCb = std::move(cb); }
 
     void setup(Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) {
       if (interface)
         interface->setup(renderer, descriptorSetLayout);
     }
 
-    void prepare(RenderGraph& graph, Renderer& renderer) {
+    void prepare(Renderer& renderer) {
       if (interface)
-        interface->prepare(graph, renderer);
+        interface->prepare(*graph, renderer);
     }
 
     void execute(const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec3 framebufferSize = {}) {
@@ -65,7 +65,7 @@ namespace kt::vkh {
         interface->shutdown(renderer);
     }
 
-    bool getClearColor(size_t attachmentIndex, VkClearColorValue* value = nullptr) const {
+    bool getClearColor(uint32_t attachmentIndex, VkClearColorValue* value = nullptr) const {
       if (interface)
         return interface->getClearColor(attachmentIndex, value);
       else if (getClearColorCb)
@@ -126,7 +126,7 @@ namespace kt::vkh {
 
     void execute();
 
-    void setRenderer(Renderer& renderer) { this->renderer = &renderer; }
+    void setRenderer(Renderer& r) { renderer = &r; }
 
     [[nodiscard]] const std::vector<RenderPass>& getPasses() const { return passes; }
     [[nodiscard]] const std::vector<bool>& getPhysicalImageHasHistory() const { return resources.physicalImageHasHistory; }

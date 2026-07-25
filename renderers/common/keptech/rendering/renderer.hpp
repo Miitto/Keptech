@@ -15,7 +15,6 @@ namespace kt {
   concept CRenderer = requires(T a, const RendererCreateInfo& ci, const core::window::Window& w, Scene& scene) {
     { T::create(ci, w) } -> std::same_as<std::expected<T, std::string>>;
     { a.newFrame() } -> std::same_as<void>;
-    { a.render() } -> std::same_as<void>;
   };
 
 } // namespace kt

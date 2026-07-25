@@ -5,15 +5,9 @@ project(Keptech_ESC LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)
 add_library(keptech::ecs ALIAS ${PROJECT_NAME})
 
-set_target_properties(${PROJECT_NAME}
-    PROPERTIES
-    CXX_STANDARD 23
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF
-)
+KT_SETUP_TARGET(${PROJECT_NAME})
 
 # Deps
-
 FetchContent_Declare(
   entt
   GIT_REPOSITORY https://github.com/skypjack/entt.git
@@ -29,13 +23,7 @@ target_link_libraries(${PROJECT_NAME}
   EnTT::EnTT
 )
 
-# Lint
-
-include(keptech_warnings)
-KT_SETUP_WARNINGS(${PROJECT_NAME})
-
 # Sourses
-
 target_sources(${PROJECT_NAME}
    PUBLIC
     FILE_SET HEADERS
@@ -45,9 +33,3 @@ target_sources(${PROJECT_NAME}
 add_subdirectory(src)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC keptech::core)
-
-if (KT_USE_PCH)
-  target_precompile_headers(${PROJECT_NAME} PRIVATE
-    ${KT_PCH_HEADERS}
-  )
-endif()

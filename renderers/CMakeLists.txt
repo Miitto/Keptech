@@ -5,6 +5,7 @@ project(Keptech_Renderer_Common)
 
 add_library(${PROJECT_NAME} STATIC)
 add_library(keptech::renderer_common ALIAS ${PROJECT_NAME})
+KT_SETUP_TARGET(${PROJECT_NAME})
 
 set(RENDERER_DEBUG_LOG_LEVEL DEBUG CACHE STRING "Set the log level for the rendererer")
 set(RENDERER_RELEASE_LOG_LEVEL ERROR CACHE STRING "Set the log level for the rendererer in release mode")
@@ -16,13 +17,6 @@ target_compile_definitions(${PROJECT_NAME}
   PRIVATE
   $<$<CONFIG:Debug>:RENDERER_LOG_LEVEL=SPDLOG_LEVEL_${RENDERER_DEBUG_LOG_LEVEL}>
   $<$<CONFIG:Release>:RENDERER_LOG_LEVEL=SPDLOG_LEVEL_${RENDERER_RELEASE_LOG_LEVEL}>
-)
-
-set_target_properties(${PROJECT_NAME}
-  PROPERTIES
-    CXX_STANDARD 23
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF
 )
 
 target_link_libraries(${PROJECT_NAME}

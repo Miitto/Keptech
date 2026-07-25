@@ -2,9 +2,7 @@
 
 #include "keptech/core/macros.hpp"
 #include "keptech/rendering/mesh.hpp"
-#include "keptech/vulkan/helpers/owned.hpp"
 #include "keptech/vulkan/wrappers/fwd.hpp"
-
 
 namespace kt::vkh {
   struct Buffers;
@@ -14,7 +12,7 @@ namespace kt::vkh {
 namespace kt::vkh::passes::geometry {
 
   struct Target {
-    using T = Owned<Image>;
+    using T = Image;
     T albedo;
     T normal;
     T emissive;

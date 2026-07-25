@@ -4,6 +4,7 @@ project(Keptech_Renderer LANGUAGES CXX)
 
 add_library(${PROJECT_NAME} STATIC)
 add_library(keptech::renderer ALIAS ${PROJECT_NAME})
+KT_SETUP_TARGET(${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC keptech::renderer_common )
 target_link_libraries(${PROJECT_NAME} PRIVATE Keptech_Renderer_Common_shaders)
@@ -26,7 +27,6 @@ target_compile_definitions(${PROJECT_NAME}
 if(KT_USE_PCH)
   target_precompile_headers(${PROJECT_NAME}
     PRIVATE
-      ${KT_PCH_HEADER}
       <Volk/volk.h>
       <vk_mem_alloc.h>
   )

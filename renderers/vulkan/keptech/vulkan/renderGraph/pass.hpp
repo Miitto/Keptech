@@ -95,8 +95,8 @@ namespace kt::vkh {
         interface->setupDependencies(*this, graph, renderer);
     }
 
-    RenderPassBuilder& setName(const std::string& name) {
-      this->name = name;
+    RenderPassBuilder& setName(const std::string& n) {
+      name = n;
       return *this;
     }
     [[nodiscard]] std::string& getName() { return name; }
@@ -106,8 +106,8 @@ namespace kt::vkh {
     [[nodiscard]] QueueType getQueue() const { return queue; }
 
     [[nodiscard]] RenderPassInterface* getInterface() const { return interface; }
-    RenderPassBuilder& setInterface(RenderPassInterface* interface) {
-      this->interface = interface;
+    RenderPassBuilder& setInterface(RenderPassInterface* i) {
+      interface = i;
       return *this;
     }
     RenderPassBuilder& setBuildCallback(PassExecuteCb cb) {
@@ -126,7 +126,7 @@ namespace kt::vkh {
     }
     [[nodiscard]] std::function<bool(unsigned, VkClearColorValue*)>& getGetClearColorCallback() { return getClearColorCb; }
 
-    bool getClearColor(size_t attachmentIndex, VkClearColorValue* value = nullptr) const {
+    bool getClearColor(uint32_t attachmentIndex, VkClearColorValue* value = nullptr) const {
       if (interface)
         return interface->getClearColor(attachmentIndex, value);
       else if (getClearColorCb)

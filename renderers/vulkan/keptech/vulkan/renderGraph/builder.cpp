@@ -1,7 +1,9 @@
 #include "builder.hpp"
 
 #include "graph.hpp"
+#if VK_LOG_LEVEL <= VK_LOG_LEVEL_TRACE
 #include "helpers/formatting.hpp"
+#endif
 #include "renderResources.hpp"
 #include "renderer.hpp"
 #include "vk-logger.hpp"
@@ -1356,25 +1358,18 @@ namespace kt::vkh {
     std::vector<RelativeImage> resolutionRelativeImages;
     for (const auto& [idx, res] : physicalResourceInfos | std::views::enumerate) {
       if (res.isBufferLike()) {
-        VkBufferCreateInfo bufferInfo{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = res.bufferInfo.size,
-            .usage = res.bufferInfo.usage,
-        };
-        VmaAllocationCreateInfo allocInfo{
-            .flags = res.bufferInfo.allocationFlags,
-            .usage = res.bufferInfo.memoryUsage,
-        };
-
-        auto result = Buffer::create(members.vkcore.device, members.vkcore.allocator, bufferInfo, allocInfo, res.name);
-        VK_REQUIRE(result.has_value(), "Failed to create buffer for resource '{}': {}", res.name, result.error());
+        auto result = members.vkcore.device.createBuffer(
+            {res.bufferInfo.size, res.bufferInfo.usage, res.bufferInfo.allocationFlags, res.bufferInfo.memoryUsage, res.name.c_str()});
+        VK_REQUIRE(result.isOk(), "Failed to create buffer for resource '{}': {}", res.name, result.error());
         auto& buf = result.value();
-        buffers.push_back(buf);
+        buffers.push_back(std::move(buf));
         nameToBuffer[res.name] = buffers.size() - 1;
         VK_DEBUG("Created buffer {} in slot {}", res.name, buffers.size() - 1);
       } else {
         VkImageCreateInfo imageInfo{
             .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
             .imageType = VK_IMAGE_TYPE_2D,
             .format = res.format,
             .extent = VkExtent3D{.width = res.size.x, .height = res.size.y, .depth = res.size.z},
@@ -1383,6 +1378,10 @@ namespace kt::vkh {
             .samples = static_cast<VkSampleCountFlagBits>(res.samples),
             .tiling = VK_IMAGE_TILING_OPTIMAL,
             .usage = res.imageUsage,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 0,
+            .pQueueFamilyIndices = nullptr,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         };
 
         VkImageAspectFlags aspectMask = 0;
@@ -1406,8 +1405,18 @@ namespace kt::vkh {
         }
         VkImageViewCreateInfo viewInfo{
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .image = VK_NULL_HANDLE,
             .format = res.format,
+            .components =
+                VkComponentMapping{
+                    .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+                },
             .subresourceRange =
                 VkImageSubresourceRange{
                     .aspectMask = aspectMask,
@@ -1418,14 +1427,19 @@ namespace kt::vkh {
                 },
         };
 
-        VmaAllocationCreateInfo allocInfo{
-            .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-        };
+        VmaAllocationCreateInfo allocInfo{.flags = 0,
+                                          .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+                                          .requiredFlags = 0,
+                                          .preferredFlags = 0,
+                                          .memoryTypeBits = 0,
+                                          .pool = nullptr,
+                                          .pUserData = nullptr,
+                                          .priority = 0.0f};
 
-        auto result = Image::create(members.vkcore.allocator, members.vkcore.device, imageInfo, allocInfo, viewInfo, res.name, true);
-        VK_REQUIRE(result.has_value(), "Failed to create image for resource '{}': {}", res.name, result.error());
+        auto result = Image::create(members.vkcore.device, imageInfo, allocInfo, viewInfo, res.name.c_str(), true);
+        VK_REQUIRE(result.isOk(), "Failed to create image for resource '{}': {}", res.name, result.error());
         auto& img = result.value();
-        images.push_back(img);
+        images.push_back(std::move(img));
         nameToImage[res.name] = images.size() - 1;
         VK_DEBUG("Created image {} in slot {}", res.name, images.size() - 1);
         switch (res.sizeType) {
@@ -1452,29 +1466,27 @@ namespace kt::vkh {
     };
   }
 
-  std::vector<RenderPass> RenderGraphBuilder::bakePasses(const Resources& resources) {
+  std::vector<RenderPass> RenderGraphBuilder::bakePasses(const Resources& createdResources) {
     std::vector<RenderPass> bakedPasses;
     bakedPasses.reserve(passStack.size());
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       auto& pass = *passes[passId];
-      auto& barriers = passBarriers[idx];
-
-      bool depthAlsoTexture = false;
+      auto& barriers = passBarriers[static_cast<size_t>(idx)];
 
       for (auto& barrier : barriers.pre.image) {
-        barrier.resourceId = resources.nameToImage.at(physicalResourceInfos[barrier.resourceId].name);
+        barrier.resourceId = createdResources.nameToImage.at(physicalResourceInfos[barrier.resourceId].name);
       }
 
       for (auto& barrier : barriers.post.image) {
-        barrier.resourceId = resources.nameToImage.at(physicalResourceInfos[barrier.resourceId].name);
+        barrier.resourceId = createdResources.nameToImage.at(physicalResourceInfos[barrier.resourceId].name);
       }
 
       for (auto& barrier : barriers.pre.buffer) {
-        barrier.resourceId = resources.nameToBuffer.at(physicalResourceInfos[barrier.resourceId].name);
+        barrier.resourceId = createdResources.nameToBuffer.at(physicalResourceInfos[barrier.resourceId].name);
       }
 
       for (auto& barrier : barriers.post.buffer) {
-        barrier.resourceId = resources.nameToBuffer.at(physicalResourceInfos[barrier.resourceId].name);
+        barrier.resourceId = createdResources.nameToBuffer.at(physicalResourceInfos[barrier.resourceId].name);
       }
 
       PhysResourceId extentSourceId{};
@@ -1483,7 +1495,7 @@ namespace kt::vkh {
         if (id.unused()) {
           return PhysResourceId{};
         }
-        return PhysResourceId{resources.nameToImage.at(physicalResourceInfos[id].name)};
+        return PhysResourceId{createdResources.nameToImage.at(physicalResourceInfos[id].name)};
       };
 
       std::vector<RenderAttachment> colorAttachments;
@@ -1588,7 +1600,7 @@ namespace kt::vkh {
   }
 
   RenderPassBuilder& RenderGraphBuilder::addPass(const std::string& name, Bitflag<QueueType> queueTypes) {
-    VK_DEBUG("Adding pass '{}'", name);
+    VK_TRACE("Adding pass '{}'", name);
     auto it = passNameToId.find(name);
     if (it != passNameToId.end()) {
       return *passes[it->second];

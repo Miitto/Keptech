@@ -23,7 +23,7 @@
 namespace kt::vkh {
   bool Renderer::canRenderToFormat(VkFormat format) const {
     VkFormatProperties formatProps;
-    vkGetPhysicalDeviceFormatProperties(m.vkcore.device.physical, format, &formatProps);
+    vkGetPhysicalDeviceFormatProperties(m.vkcore.device, format, &formatProps);
     return ((formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BIT) |
             (formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_2_DEPTH_STENCIL_ATTACHMENT_BIT)) != 0;
   }
@@ -47,7 +47,7 @@ namespace kt::vkh {
     KT_PROFILE_FUNCTION
     VKH_MAKE(gltfData, gltf::Data::fromFile(path), "Failed to load glTF data from file");
 
-    VkCommandBuffer transferCmd = m.vkcore.transferPool.allocate(m.vkcore.device.logical);
+    VkCommandBuffer transferCmd = m.vkcore.transferPool.allocate(m.vkcore.device);
 
     VkCommandBufferBeginInfo cmdBeginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -75,27 +75,27 @@ namespace kt::vkh {
     VkFenceCreateInfo fenceCreateInfo{
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
     };
-    VK_CHECK(vkCreateFence(m.vkcore.device.logical, &fenceCreateInfo, nullptr, &transferFence), "Failed to create fence for mesh upload");
+    VK_CHECK(vkCreateFence(m.vkcore.device, &fenceCreateInfo, nullptr, &transferFence), "Failed to create fence for mesh upload");
     vkQueueSubmit2(m.vkcore.queues.transfer.queue, 1, &submitInfo, transferFence);
 
     VkResult res = VK_SUCCESS;
     {
       KT_PROFILE_SCOPE("Wait for Mesh Upload");
-      while (res = vkWaitForFences(m.vkcore.device.logical, 1, &transferFence, VK_TRUE, UINT64_MAX), res == VK_TIMEOUT) {
+      while (res = vkWaitForFences(m.vkcore.device, 1, &transferFence, VK_TRUE, UINT64_MAX), res == VK_TIMEOUT) {
         std::this_thread::yield();
       }
     }
     VK_ASSERT(res == VK_SUCCESS, "Failed to wait for mesh upload fence");
-    vkDestroyFence(m.vkcore.device.logical, transferFence, nullptr);
-    vkFreeCommandBuffers(m.vkcore.device.logical, m.vkcore.transferPool.pool, 1, &transferCmd);
+    vkDestroyFence(m.vkcore.device, transferFence, nullptr);
+    vkFreeCommandBuffers(m.vkcore.device, m.vkcore.transferPool.pool, 1, &transferCmd);
     for (auto& buf : meshesRes.stagingBuffers) {
-      buf.destroy(m.vkcore.allocator);
+      buf.destroy();
     }
     for (auto& buf : imagesRes.stagingBuffers) {
-      buf.destroy(m.vkcore.allocator);
+      buf.destroy();
     }
     for (auto& buf : materialsRes.stagingBuffers) {
-      buf.destroy(m.vkcore.allocator);
+      buf.destroy();
     }
 
     gltf::Scene scene{};
@@ -262,11 +262,10 @@ namespace kt::vkh {
 
       for (auto& sbuf : stagingBuffers) {
         stagingBufferCreateInfo.size = sbuf.size;
-        VKH_MAKE(
-            buffer,
-            Buffer::create(m.vkcore.device.logical, m.vkcore.allocator, stagingBufferCreateInfo, stagingAllocInfo, "Image staging buffer."),
-            "Failed to create staging buffer for image upload");
-        sbuf.buffer = buffer;
+        auto res = Buffer::create(m.vkcore.device, stagingBufferCreateInfo, stagingAllocInfo, "Image staging buffer.");
+        if (!res.isOk())
+          return std::unexpected("Failed to create staging buffer for image upload");
+        sbuf.buffer = std::move(res.value());
       }
     }
 
@@ -337,15 +336,20 @@ namespace kt::vkh {
 
       memcpy(buf.buffer.mapping() + offset, tex.ktx->pData, tex.ktx->dataSize);
 
-      VKH_MAKE(
-          image,
-          Image::create(m.vkcore.allocator, m.vkcore.device.logical, imageCreateInfo, imageAllocInfo, imageViewCreateInfo, tex.name, true),
-          "Failed to create image for texture");
+      auto res = Image::create(m.vkcore.device, imageCreateInfo, imageAllocInfo, imageViewCreateInfo, tex.name.c_str(), true);
+      if (!res.isOk())
+        return std::unexpected("Failed to create image for texture");
 
-      loadImage(image);
-      result.emplace_back(image);
+      loadImage(res.value());
+      result.emplace_back(std::move(res.value()));
 
-      m.loadedTextures.push_back(image);
+      auto& image = result.back();
+
+      m.loadedTextures.push_back({
+          .image = image,
+          .view = image,
+          .alloc = image.getAllocation(),
+      });
 
       VkImageMemoryBarrier2 imgTransferBarrier{
           .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
@@ -427,7 +431,7 @@ namespace kt::vkh {
     std::vector<Buffer> stagingBufs;
     stagingBufs.reserve(stagingBuffers.size());
     for (auto& sbuf : stagingBuffers) {
-      stagingBufs.push_back(sbuf.buffer);
+      stagingBufs.push_back(std::move(sbuf.buffer));
     }
     UploadResult<Image> results{
         .resources = std::move(result),
@@ -447,14 +451,14 @@ namespace kt::vkh {
     VK_DEBUG("Uploading {} meshes from glTF data", meshes.size());
 
     VKH_MAKE(bufs,
-             loading::ensureBuffersAreLargeEnough(m.vkcore.device, m.vkcore.allocator, meshes, m.buffers.vertexPositions,
-                                                  m.buffers.vertexAttribs, m.buffers.indices, m.buffers.meshlets, m.buffers.meshletVertices,
+             loading::ensureBuffersAreLargeEnough(m.vkcore.device, meshes, m.buffers.vertexPositions, m.buffers.vertexAttribs,
+                                                  m.buffers.indices, m.buffers.meshlets, m.buffers.meshletVertices,
                                                   m.buffers.meshletTriangles),
              "Failed to ensure buffers are large enough for mesh upload");
 
-    bool canWriteDirectly = m.buffers.vertexPositions->buffer.isMapped() && m.buffers.vertexAttribs->buffer.isMapped() &&
-                            m.buffers.meshlets->buffer.isMapped() && m.buffers.meshletVertices->buffer.isMapped() &&
-                            m.buffers.meshletTriangles->buffer.isMapped();
+    bool canWriteDirectly = m.buffers.vertexPositions->isMapped() && m.buffers.vertexAttribs->isMapped() &&
+                            m.buffers.meshlets->isMapped() && m.buffers.meshletVertices->isMapped() &&
+                            m.buffers.meshletTriangles->isMapped();
     if (!canWriteDirectly) {
       VK_CRITICAL("None ReBAR is not supported yet, please enable ReBAR in your GPU settings and ensure your GPU supports it.");
       abort();
@@ -468,19 +472,24 @@ namespace kt::vkh {
       submeshes.clear();
       submeshes.reserve(mesh.submeshes.size());
 
-      VKH_MAKE(vertexOffsets,
-               loading::uploadVertices(mesh, m.vkcore.device, m.vkcore.allocator, m.buffers.vertexPositions, m.buffers.vertexAttribs),
+      VKH_MAKE(vertexOffsets, loading::uploadVertices(mesh, m.vkcore.device, m.buffers.vertexPositions, m.buffers.vertexAttribs),
                "Failed to upload vertices for mesh");
-      VKH_MAKE(indexOffset, loading::uploadIndices(mesh, m.vkcore.device, m.vkcore.allocator, m.buffers.indices),
-               "Failed to upload indices for mesh");
+      VKH_MAKE(indexOffset, loading::uploadIndices(mesh, m.vkcore.device, m.buffers.indices), "Failed to upload indices for mesh");
       VKH_MAKE(meshletOffsets,
-               loading::uploadMeshlets(mesh, m.vkcore.device, m.vkcore.allocator, m.buffers.meshlets, m.buffers.meshletVertices,
-                                       m.buffers.meshletTriangles),
+               loading::uploadMeshlets(mesh, m.vkcore.device, m.buffers.meshlets, m.buffers.meshletVertices, m.buffers.meshletTriangles),
                "Failed to upload meshlets for mesh");
 
-      bufs.append_range(vertexOffsets.reallocatedBuffers);
-      bufs.append_range(indexOffset.reallocatedBuffers);
-      bufs.append_range(meshletOffsets.reallocatedBuffers);
+      bufs.reserve(bufs.size() + vertexOffsets.reallocatedBuffers.size() + indexOffset.reallocatedBuffers.size() +
+                   meshletOffsets.reallocatedBuffers.size());
+      for (auto& buf : vertexOffsets.reallocatedBuffers) {
+        bufs.push_back(std::move(buf));
+      }
+      for (auto& buf : indexOffset.reallocatedBuffers) {
+        bufs.push_back(std::move(buf));
+      }
+      for (auto& buf : meshletOffsets.reallocatedBuffers) {
+        bufs.push_back(std::move(buf));
+      }
 
       for (const auto& primitive : mesh.submeshes) {
         Submesh submesh{
@@ -518,14 +527,14 @@ namespace kt::vkh {
     KT_PROFILE_FUNCTION
     auto& materials = data.materials;
 
-    auto getTexture = [&](const fastgltf::TextureInfo& i) -> const Image& {
+    auto getTexture = [&](const fastgltf::TextureInfo& i) -> const Image* {
       auto& tex = data.textures[i.textureIndex];
       if (tex.basisuImageIndex.has_value()) {
         auto idx = tex.basisuImageIndex.value();
-        return textures[idx];
+        return &textures[idx];
       } else {
         VK_ASSERT(tex.imageIndex.has_value(), "Texture {} has no image index", tex.name);
-        return textures[tex.imageIndex.value()];
+        return &textures[tex.imageIndex.value()];
       }
     };
 
@@ -537,7 +546,7 @@ namespace kt::vkh {
     std::vector<GpuMaterial> gpuMaterials;
     gpuMaterials.reserve(materials.size());
 
-    uint32_t materialIndex = m.buffers.materials->count;
+    uint32_t materialIndex = m.buffers.materials.count();
 
     for (const auto& mat : materials) {
       VK_TRACE("Creating material {}", mat.name);
@@ -570,13 +579,13 @@ namespace kt::vkh {
       }
 
       GpuMaterial gpuMat{
-          .albedo = matLayer.albedo.handle(),
-          .bump = matLayer.bump.handle(),
-          .emissive = matLayer.emissive.handle(),
-          .metRough = matLayer.metRough.handle(),
+          .albedo = matLayer.albedo->handle(),
+          .bump = matLayer.bump->handle(),
+          .emissive = matLayer.emissive->handle(),
+          .metRough = matLayer.metRough->handle(),
           .albedoFactor = matLayer.albedoFactor,
           .emissiveFactor = matLayer.emissiveFactor,
-          .ao = matLayer.ao.handle(),
+          .ao = matLayer.ao->handle(),
           .metFactor = matLayer.metFactor,
           .roughFactor = matLayer.roughFactor,
           .specFactor = matLayer.specFactor,
@@ -592,8 +601,8 @@ namespace kt::vkh {
         .resources = std::move(result),
     };
 
-    if (m.buffers.materials->buffer.isMapped()) {
-      m.buffers.materials->write(gpuMaterials);
+    if (m.buffers.materials->isMapped()) {
+      m.buffers.materials.write(gpuMaterials);
     } else {
       const size_t stagingBufferSize = gpuMaterials.size() * sizeof(GpuMaterial);
       VkBufferCreateInfo stagingBufferCreateInfo{
@@ -605,20 +614,20 @@ namespace kt::vkh {
           .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
           .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
       };
-      VKH_MAKE(
-          stagingBuffer,
-          Buffer::create(m.vkcore.device.logical, m.vkcore.allocator, stagingBufferCreateInfo, stagingAllocInfo, "Material staging buffer"),
-          "Failed to create staging buffer for material upload");
+      auto res = Buffer::create(m.vkcore.device, stagingBufferCreateInfo, stagingAllocInfo, "Material staging buffer");
+      if (!res.isOk())
+        return std::unexpected("Failed to create staging buffer for material upload");
 
-      resultStruct.stagingBuffers.push_back(stagingBuffer);
+      resultStruct.stagingBuffers.push_back(std::move(res.value()));
+      auto& stagingBuffer = resultStruct.stagingBuffers.back();
 
       memcpy(stagingBuffer.mapping(), gpuMaterials.data(), stagingBufferSize);
       VkBufferCopy copy{
           .srcOffset = 0,
-          .dstOffset = m.buffers.materials->count * sizeof(GpuMaterial),
+          .dstOffset = m.buffers.materials.count() * sizeof(GpuMaterial),
           .size = stagingBufferSize,
       };
-      vkCmdCopyBuffer(transferCmd, stagingBuffer, m.buffers.materials->buffer, 1, &copy);
+      vkCmdCopyBuffer(transferCmd, stagingBuffer, m.buffers.materials, 1, &copy);
     }
 
     return std::move(resultStruct);

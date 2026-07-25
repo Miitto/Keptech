@@ -1,10 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
-#include <span>
-#include <spdlog/fmt/bundled/format.h>
-#include <string>
 #include <vector>
 
 #ifndef BIT
@@ -85,77 +81,11 @@ namespace kt::shaders {
   };
 
   struct Shader {
-    std::string name;
-    std::optional<std::string> file = std::nullopt;
+    const char* name;
+    const char* file = nullptr;
     std::vector<uint8_t> code;
     RenderingMode mode;
     std::vector<ShaderStage> stages;
     std::vector<std::vector<DataType>> vertexLayout;
   };
 } // namespace kt::shaders
-
-template <> struct fmt::formatter<kt::shaders::DataType> : fmt::formatter<std::string_view> {
-  template <typename FormatContext> auto format(const kt::shaders::DataType t, FormatContext& ctx) const {
-    using S = kt::shaders::DataType;
-    std::string_view name = "";
-
-#define N(_n)                                                                                                                              \
-  case S::_n:                                                                                                                              \
-    name = #_n;                                                                                                                            \
-    break;
-
-    switch (t) {
-      N(None)
-      N(Void)
-      N(Bool)
-      N(F16)
-      N(F32)
-      N(F64)
-      N(F16_2)
-      N(F32_2)
-      N(F64_2)
-      N(F16_3)
-      N(F32_3)
-      N(F64_3)
-      N(F16_4)
-      N(F32_4)
-      N(F64_4)
-      N(I8)
-      N(I16)
-      N(I32)
-      N(I64)
-      N(I8_2)
-      N(I16_2)
-      N(I32_2)
-      N(I64_2)
-      N(I8_3)
-      N(I16_3)
-      N(I32_3)
-      N(I64_3)
-      N(I8_4)
-      N(I16_4)
-      N(I32_4)
-      N(I64_4)
-      N(U8)
-      N(U16)
-      N(U32)
-      N(U64)
-      N(U8_2)
-      N(U16_2)
-      N(U32_2)
-      N(U64_2)
-      N(U8_3)
-      N(U16_3)
-      N(U32_3)
-      N(U64_3)
-      N(U8_4)
-      N(U16_4)
-      N(U32_4)
-      N(U64_4)
-      N(F32_4x4)
-      N(Sampler2D)
-    }
-#undef N
-    return fmt::formatter<std::string_view>::format(name, ctx);
-  }
-};

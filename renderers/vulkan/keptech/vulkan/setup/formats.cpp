@@ -31,7 +31,7 @@ namespace kt::vkh::setup {
     auto findFormat = [&](std::span<const VkFormat> candidates, VkFormatFeatureFlags features) -> VkFormat {
       for (auto& format : candidates) {
         VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(vkcore.device.physical, format, &props);
+        vkGetPhysicalDeviceFormatProperties(vkcore.device, format, &props);
         if ((props.optimalTilingFeatures & features) == features) {
           return format;
         }

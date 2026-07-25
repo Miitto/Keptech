@@ -4,8 +4,8 @@
 #include <vector>
 namespace kt::vkh {
 
-  std::expected<Buffer, std::string> Buffer::create(const VkDevice device, const VmaAllocator& allocator, VkBufferCreateInfo bufInfo,
-                                                    const VmaAllocationCreateInfo& allocInfo, const std::string& name) {
+  kt::Result<Buffer, VkResult, VK_SUCCESS> Buffer::create(const Device& device, VkBufferCreateInfo bufInfo,
+                                                          const VmaAllocationCreateInfo& allocInfo, const char* name) {
     VK_ASSERT(bufInfo.size > 0, "Buffer size must be greater than 0");
 
     bufInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
@@ -13,14 +13,18 @@ namespace kt::vkh {
     VkBuffer buffer{};
     VmaAllocation alloc{};
     VmaAllocationInfo aInfo{};
-    VK_MAKE(vmaCreateBuffer(allocator, &bufInfo, &allocInfo, &buffer, &alloc, &aInfo), "Failed to create allocated buffer");
+    {
+      auto res = vmaCreateBuffer(device, &bufInfo, &allocInfo, &buffer, &alloc, &aInfo);
+      if (res != VK_SUCCESS)
+        return {res};
+    }
 
-    VkBufferDeviceAddressInfo addrVknfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
+    VkBufferDeviceAddressInfo addrVknfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = buffer};
     VkDeviceAddress address = vkGetBufferDeviceAddress(device, &addrVknfo);
 
 #if VK_LOG_LEVEL <= VK_LOG_LEVEL_TRACE
     VkMemoryPropertyFlags props{};
-    vmaGetAllocationMemoryProperties(allocator, alloc, &props);
+    vmaGetAllocationMemoryProperties(device, alloc, &props);
     bool isHostVisible = (props & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
     bool deviceLocal = (props & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0;
     bool mapped = aInfo.pMappedData != nullptr;
@@ -36,31 +40,21 @@ namespace kt::vkh {
     VK_TRACE("Created buffer [{}] with size {} bytes. {}", name, aInfo.size, fmt::join(flags, ", "));
 #endif
 
-#ifndef NDEBUG
-    if (!name.empty()) {
-      vmaSetAllocationName(allocator, alloc, name.c_str());
-
-      VkDebugUtilsObjectNameInfoEXT nameInfo{
-          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-          .objectType = VK_OBJECT_TYPE_BUFFER,
-          .objectHandle = reinterpret_cast<uint64_t>(buffer),
-          .pObjectName = name.c_str(),
-      };
-      vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
+    if (name) {
+      device.setAllocationName(alloc, name);
+      device.setDebugName(buffer, name);
     }
-#endif
 
-    return Buffer(buffer, alloc, aInfo, address);
+    return Buffer(buffer, bufInfo.size, device, alloc, aInfo, address);
   }
 
-  void Buffer::destroy(const VmaAllocator& allocator) {
-    VK_ASSERT(allocator != nullptr, "Allocator is null");
-    if (alloc && !*destroyed) {
+  void Buffer::destroy() {
+    VK_ASSERT(device, "Device is null");
+    if (alloc) {
       VK_TRACE("Destroying buffer {} with size {}", allocInfo.pName ? allocInfo.pName : "Unnamed", allocInfo.size);
-      vmaDestroyBuffer(allocator, buffer, alloc);
+      vmaDestroyBuffer(device, buffer, alloc);
       buffer = nullptr;
       alloc = nullptr;
-      *destroyed = true;
     }
   }
 } // namespace kt::vkh

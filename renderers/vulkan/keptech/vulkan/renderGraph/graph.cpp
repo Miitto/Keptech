@@ -42,7 +42,7 @@ namespace kt::vkh {
         for (; passIndex < passEnd; ++passIndex) {
           auto& pass = passes[passIndex];
           VK_TRACE("Executing graphics pass '{}'", pass.getName());
-          pass.prepare(*this, *renderer);
+          pass.prepare(*renderer);
 
           pipelineBarrier(pass.getBarriers().pre, cmd);
 
@@ -67,7 +67,7 @@ namespace kt::vkh {
         for (; passIndex < passEnd; ++passIndex) {
           auto& pass = passes[passIndex];
           VK_TRACE("Executing compute pass '{}'", pass.getName());
-          pass.prepare(*this, *renderer);
+          pass.prepare(*renderer);
 
           pipelineBarrier(pass.getBarriers().pre, cmd);
 
@@ -90,7 +90,7 @@ namespace kt::vkh {
         for (; passIndex < passEnd; ++passIndex) {
           auto& pass = passes[passIndex];
           VK_TRACE("Executing async compute pass '{}'", pass.getName());
-          pass.prepare(*this, *renderer);
+          pass.prepare(*renderer);
 
           pipelineBarrier(pass.getBarriers().pre, cmd);
           executeComputePass(passIndex, pass, cmd);
@@ -152,7 +152,7 @@ namespace kt::vkh {
       auto& cmdBuf = graphicsCmds.back();
       cmdBuf.label(m.vkcore.device, "RenderGraph::swapchain");
       cmdBuf.begin();
-      auto backbuffer = getBackbufferImage();
+      auto& backbuffer = getBackbufferImage();
       auto swapchainImg = m.vkcore.swapchain.nImage(m.frameInfo.imageIndex);
 
       layoutTransitions<2>(cmdBuf, {
@@ -225,7 +225,7 @@ namespace kt::vkh {
   void RenderGraph::executeGraphicsPass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd) {
     beginRendering(pass, cmd);
 
-    auto img = resources.images[pass.getExtentSourceId()];
+    auto& img = resources.images[pass.getExtentSourceId()];
     auto set = passDescriptors[passIdx].sets[renderer->getMembers().frameInfo.index];
 
     pass.execute(cmd, set, img.extent());
@@ -355,7 +355,7 @@ namespace kt::vkh {
     }
 
     VK_ASSERT(pass.getExtentSourceId().used(), "Pass '{}' does not have an extent source set", pass.getName());
-    auto img = resources.images[pass.getExtentSourceId()];
+    auto& img = resources.images[pass.getExtentSourceId()];
 
     VkRenderingInfo renderInfo{
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -392,9 +392,9 @@ namespace kt::vkh {
     vkDestroyDescriptorPool(m.vkcore.device, descriptorPool, nullptr);
 
     for (auto& img : resources.images)
-      img.destroy(m.vkcore.allocator, m.vkcore.device);
+      img.destroy();
     for (auto& buf : resources.buffers)
-      buf.destroy(m.vkcore.allocator);
+      buf.destroy();
   }
 
   void RenderGraph::log() const {

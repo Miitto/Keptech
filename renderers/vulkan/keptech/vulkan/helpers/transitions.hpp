@@ -17,12 +17,15 @@ namespace kt::vkh {
     constexpr TransitionInfo(kt::rendering::ImageType imageType, kt::rendering::ImageLayout oldLayout, kt::rendering::ImageLayout newLayout,
                              uint8_t mips = 1, uint8_t layers = 1)
         : barrier(VkImageMemoryBarrier2{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                                        .pNext = nullptr,
                                         .srcStageMask = utils::toVkPipelineStageFlags(imageType, oldLayout),
                                         .srcAccessMask = utils::toVkAccessFlags(imageType, oldLayout),
                                         .dstStageMask = utils::toVkPipelineStageFlags(imageType, newLayout),
                                         .dstAccessMask = utils::toVkAccessFlags(imageType, newLayout),
                                         .oldLayout = utils::toVkImageLayout(imageType, oldLayout),
                                         .newLayout = utils::toVkImageLayout(imageType, newLayout),
+                                        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                                        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                                         .image = nullptr,
                                         .subresourceRange = VkImageSubresourceRange{
                                             .aspectMask = utils::toVkImageAspectFlags(imageType),
@@ -60,8 +63,12 @@ namespace kt::vkh {
                                                            float a = 1.f) {
     return VkRenderingAttachmentInfo{
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .pNext = nullptr,
         .imageView = view,
         .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .resolveMode = VkResolveModeFlagBits::VK_RESOLVE_MODE_NONE,
+        .resolveImageView = nullptr,
+        .resolveImageLayout = VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         .clearValue =
@@ -77,8 +84,12 @@ namespace kt::vkh {
   constexpr VkRenderingAttachmentInfo clearDepthAttachment(const VkImageView view, float depth, uint32_t stencil = 0) {
     return VkRenderingAttachmentInfo{
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .pNext = nullptr,
         .imageView = view,
         .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .resolveMode = VkResolveModeFlagBits::VK_RESOLVE_MODE_NONE,
+        .resolveImageView = nullptr,
+        .resolveImageLayout = VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         .clearValue =
@@ -95,20 +106,30 @@ namespace kt::vkh {
   constexpr VkRenderingAttachmentInfo loadColorAttachment(const VkImageView view) {
     return VkRenderingAttachmentInfo{
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .pNext = nullptr,
         .imageView = view,
         .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .resolveMode = VkResolveModeFlagBits::VK_RESOLVE_MODE_NONE,
+        .resolveImageView = nullptr,
+        .resolveImageLayout = VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
         .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue = VkClearValue{},
     };
   }
 
   constexpr VkRenderingAttachmentInfo loadDepthAttachment(const VkImageView view) {
     return VkRenderingAttachmentInfo{
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .pNext = nullptr,
         .imageView = view,
         .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .resolveMode = VkResolveModeFlagBits::VK_RESOLVE_MODE_NONE,
+        .resolveImageView = nullptr,
+        .resolveImageLayout = VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
         .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue = VkClearValue{},
     };
   }
 
@@ -142,11 +163,15 @@ namespace kt::vkh {
                                uint32_t layerCount = 1) {
     VkRenderingInfo renderingInfo{
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .pNext = nullptr,
+        .flags = 0,
         .renderArea = renderArea,
         .layerCount = layerCount,
+        .viewMask = 0,
         .colorAttachmentCount = 0,
         .pColorAttachments = nullptr,
         .pDepthAttachment = &depthAttachment,
+        .pStencilAttachment = nullptr,
     };
     vkCmdBeginRendering(cmdBuf, &renderingInfo);
   }

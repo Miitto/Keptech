@@ -17,7 +17,7 @@ namespace kt::vkh::setup {
     auto funcLoader = [](const char* funcName, void* d) {
       VulkanCore* vkcore = static_cast<VulkanCore*>(d);
       PFN_vkVoidFunction instanceAddr = vkGetInstanceProcAddr(vkcore->instance, funcName);
-      PFN_vkVoidFunction deviceAddr = vkGetDeviceProcAddr(vkcore->device.logical, funcName);
+      PFN_vkVoidFunction deviceAddr = vkGetDeviceProcAddr(vkcore->device, funcName);
       return deviceAddr ? deviceAddr : instanceAddr;
     };
     const bool funcsLoaded = ImGui_ImplVulkan_LoadFunctions(VK_API_VERSION_1_4, funcLoader, (void*)&vkcore);
@@ -78,7 +78,7 @@ namespace kt::vkh::setup {
     };
 
     VkDescriptorPool imguiPool{};
-    VK_MAKE(vkCreateDescriptorPool(vkcore.device.logical, &pool_info, nullptr, &imguiPool), "Failed to create ImGui descriptor pool");
+    VK_MAKE(vkCreateDescriptorPool(vkcore.device, &pool_info, nullptr, &imguiPool), "Failed to create ImGui descriptor pool");
 
     // 2: initialize imgui library
 
@@ -94,7 +94,7 @@ namespace kt::vkh::setup {
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.ApiVersion = VK_API_VERSION_1_4;
     init_info.Instance = vkcore.instance;
-    init_info.PhysicalDevice = vkcore.device.physical, init_info.Device = vkcore.device.logical;
+    init_info.PhysicalDevice = vkcore.device, init_info.Device = vkcore.device;
     init_info.QueueFamily = vkcore.queues.graphics.index;
     init_info.Queue = vkcore.queues.graphics.queue;
     init_info.DescriptorPool = imguiPool;

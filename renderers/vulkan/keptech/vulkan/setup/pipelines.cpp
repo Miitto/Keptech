@@ -59,7 +59,7 @@ namespace kt::vkh::setup {
   } // namespace
 
   std::expected<Pipelines, std::string> createPipelines(const VulkanCore& vkcore, const Formats& formats, const Layouts& layouts) {
-    VKH_MAKE(shaders, createShaders(vkcore.device.logical), "Failed to create shaders.");
+    VKH_MAKE(shaders, createShaders(vkcore.device), "Failed to create shaders.");
     auto configs = createConfigs(formats);
 
     auto basic = configs.basic.shaders(shaders.basic).layout(layouts.onlyGlobals);
@@ -69,13 +69,12 @@ namespace kt::vkh::setup {
     auto ssaoBlur = configs.ssaoBlur.shaders(shaders.ssaoBlur).layout(layouts.ssaoBlurLayout);
     auto lightCombine = configs.hdrNoBlend.shaders(shaders.lightCombine).layout(layouts.onlyGlobals);
 
-    VKH_MAKE(graphics,
-             Pipeline::createGraphics<6>(vkcore.device.logical,
-                                         {basic, mesh_shader, pointLightShadows, deferredPointLight, ssaoBlur, lightCombine}),
-             "Failed to create basic graphics pipeline.");
+    VKH_MAKE(
+        graphics,
+        Pipeline::createGraphics<6>(vkcore.device, {basic, mesh_shader, pointLightShadows, deferredPointLight, ssaoBlur, lightCombine}),
+        "Failed to create basic graphics pipeline.");
 
-    VKH_MAKE(ssao, Pipeline::createCompute(vkcore.device.logical, shaders.ssao, layouts.onlyGlobals),
-             "Failed to create SSAO compute pipeline.");
+    VKH_MAKE(ssao, Pipeline::createCompute(vkcore.device, shaders.ssao, layouts.onlyGlobals), "Failed to create SSAO compute pipeline.");
 
     destroyShaders(vkcore.device, shaders);
 

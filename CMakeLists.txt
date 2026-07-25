@@ -25,6 +25,7 @@ option(KT_BUILD_EXAMPLES "Build example applications" OFF)
 option(KT_ADD_RESOURCE_INFO "Add a name to resources. Allows for better debugging and for use in editors - but increaces memory usage." OFF)
 option(KT_PROFILE "Enable profiling with Tracy" OFF)
 option(PIPED_BUILD "Compiler output is piped, disabled colored output" OFF)
+option(KT_TRACE_COMPILER "Create a trace of the compiler" OFF)
 
 if (NOT PIPED_BUILD)
   message(STATUS "Enabling colored output for compiler diagnostics")
@@ -33,28 +34,31 @@ if (NOT PIPED_BUILD)
   set(CMAKE_COLOR_DIAGNOSTICS ON)
 endif()
 
+if (KT_PROFILE)
+  set(TRACY_ENABLE ON)
+  message(STATUS "Profiling enabled, linking Tracy")
+  FetchContent_Declare (
+    tracy
+    GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+    GIT_TAG v0.13.1
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+    SYSTEM
+  )
+  FetchContent_MakeAvailable(tracy)
+else()
+  message(STATUS "Profiling disabled")
+endif()
+
+include(kt_fns)
+
 if(KT_BUILD_EXAMPLES)
   set(CMAKE_CXX_STANDARD 23)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
   set(CMAKE_CXX_EXTENSIONS OFF)
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+  add_compile_definitions(_LIBCPP_REMOVE_TRANSITIVE_INCLUDES)
 endif()
-
-set(KT_PCH_HEADERS
-  <algorithm>
-  <expected>
-  <optional>
-  <functional>
-  <memory>
-  <string>
-  <vector>
-  <array>
-  <spdlog/spdlog.h>
-  <string>
-  <string_view>
-  <concepts>
-  <type_traits>
-)
 
 project(Keptech VERSION 0.1 LANGUAGES C CXX)
 

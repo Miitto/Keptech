@@ -30,14 +30,6 @@ namespace kt::vkh {
     VkFormat swapchain = VK_FORMAT_UNDEFINED;
   };
 
-  struct ImageCreateInfo {
-    VkFormat format;
-    VkExtent3D extent;
-    uint32_t mipLevels;
-    uint32_t arrayLayers;
-    VkImageUsageFlags usage;
-  };
-
   template <size_t N> struct DescriptorPoolSet {
     VkDescriptorPool pool;
     VkDescriptorSetLayout layout;

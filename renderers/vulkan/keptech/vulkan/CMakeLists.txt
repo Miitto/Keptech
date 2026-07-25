@@ -6,7 +6,6 @@ set(HELPER_HEADERS
     helpers/transitions.hpp
     helpers/validators.hpp
     helpers/viewScissor.hpp
-    helpers/owned.hpp
     helpers/transitions.hpp
 )
 
@@ -68,11 +67,11 @@ set(SETUP_SOURCES
     setup/samplers.cpp
     setup/setup.cpp
     setup/swapchain.cpp
-    setup/targets.cpp
 )
 
 set(WRAPPER_SOURCES
     wrappers/buffer.cpp
+    wrappers/device.cpp
     wrappers/image.cpp
     wrappers/instance.cpp
     wrappers/pipeline.cpp

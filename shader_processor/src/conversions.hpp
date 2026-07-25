@@ -1,11 +1,7 @@
-#include "keptech/shader_processor/shader_processor.hpp"
-
-#include "printing.hpp"
-#include <array>
-#include <expected>
-#include <iostream>
+#include "keptech/shaders/shader.h"
 #include <slang-com-ptr.h>
 #include <slang.h>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -46,9 +42,11 @@ const char* slangStagetoString(SlangStage stage) {
   case SLANG_STAGE_COUNT:
     return "count";
   }
+
+  throw std::runtime_error("Unsupported shader stage");
 }
 
-const kt::shaders::ShaderStages slangStagetoKeptechStage(SlangStage stage) {
+kt::shaders::ShaderStages slangStagetoKeptechStage(SlangStage stage) {
   switch (stage) {
   case SLANG_STAGE_VERTEX:
     return kt::shaders::ShaderStages::Vertex;
@@ -63,7 +61,6 @@ const kt::shaders::ShaderStages slangStagetoKeptechStage(SlangStage stage) {
   case SLANG_STAGE_AMPLIFICATION:
     return kt::shaders::ShaderStages::Task;
   default:
-    std::cerr << "Unsupported shader stage: " << slangStagetoString(stage) << '\n';
     throw std::runtime_error("Unsupported shader stage");
   }
 }
@@ -103,6 +100,12 @@ const std::vector<kt::shaders::DataType> slangTypeToKeptechTypes(slang::TypeRefl
       return {DataType::I16};
     case slang::TypeReflection::UInt16:
       return {DataType::U16};
+    case slang::TypeReflection::IntPtr:
+    case slang::TypeReflection::UIntPtr:
+    case slang::TypeReflection::BFloat16:
+    case slang::TypeReflection::FloatE4M3:
+    case slang::TypeReflection::FloatE5M2:
+      throw std::runtime_error("Unsupported scalar type for resource type extraction");
     }
   } break;
   case slang::TypeReflection::Kind::Vector: {
@@ -114,8 +117,12 @@ const std::vector<kt::shaders::DataType> slangTypeToKeptechTypes(slang::TypeRefl
       case slang::TypeReflection::None:
       case slang::TypeReflection::Void:
       case slang::TypeReflection::Bool:
-        logger->error("Unsupported type in vector for resource type extraction");
-        abort();
+      case slang::TypeReflection::IntPtr:
+      case slang::TypeReflection::UIntPtr:
+      case slang::TypeReflection::BFloat16:
+      case slang::TypeReflection::FloatE4M3:
+      case slang::TypeReflection::FloatE5M2:
+        throw std::runtime_error("Unsupported type in vector for resource type extraction");
       case slang::TypeReflection::Int32:
         return {DataType::I32_2};
       case slang::TypeReflection::UInt32:
@@ -144,8 +151,12 @@ const std::vector<kt::shaders::DataType> slangTypeToKeptechTypes(slang::TypeRefl
       case slang::TypeReflection::None:
       case slang::TypeReflection::Void:
       case slang::TypeReflection::Bool:
-        logger->error("Unsupported type in vector for resource type extraction");
-        abort();
+      case slang::TypeReflection::IntPtr:
+      case slang::TypeReflection::UIntPtr:
+      case slang::TypeReflection::BFloat16:
+      case slang::TypeReflection::FloatE4M3:
+      case slang::TypeReflection::FloatE5M2:
+        throw std::runtime_error("Unsupported type in vector for resource type extraction");
       case slang::TypeReflection::Int32:
         return {DataType::I32_3};
       case slang::TypeReflection::UInt32:
@@ -175,8 +186,12 @@ const std::vector<kt::shaders::DataType> slangTypeToKeptechTypes(slang::TypeRefl
       case slang::TypeReflection::None:
       case slang::TypeReflection::Void:
       case slang::TypeReflection::Bool:
-        logger->error("Unsupported type in vector for resource type extraction");
-        abort();
+      case slang::TypeReflection::IntPtr:
+      case slang::TypeReflection::UIntPtr:
+      case slang::TypeReflection::BFloat16:
+      case slang::TypeReflection::FloatE4M3:
+      case slang::TypeReflection::FloatE5M2:
+        throw std::runtime_error("Unsupported type in vector for resource type extraction");
       case slang::TypeReflection::Int32:
         return {DataType::I32_4};
       case slang::TypeReflection::UInt32:
@@ -219,7 +234,7 @@ const std::vector<kt::shaders::DataType> slangTypeToKeptechTypes(slang::TypeRefl
   case slang::TypeReflection::Kind::Struct: {
     auto fieldCount = type->getFieldCount();
     std::vector<DataType> fieldTypes{};
-    for (size_t i = 0; i < fieldCount; ++i) {
+    for (uint32_t i = 0; i < fieldCount; ++i) {
       slang::VariableReflection* field = type->getFieldByIndex(i);
       auto fieldType = field->getType();
       auto t = slangTypeToKeptechTypes(fieldType);
@@ -233,18 +248,14 @@ const std::vector<kt::shaders::DataType> slangTypeToKeptechTypes(slang::TypeRefl
     auto colCount = type->getColumnCount();
 
     if (rowCount != 4 || colCount != 4) {
-      logger->error("Unsupported matrix size in type for resource type extraction");
-      abort();
+      throw std::runtime_error("Unsupported matrix size in type for resource type extraction");
     }
     if (elemType != slang::TypeReflection::Float32) {
-      logger->error("Unsupported matrix element type for resource type extraction");
-      abort();
+      throw std::runtime_error("Unsupported matrix element type for resource type extraction");
     }
+  }
 
     return {DataType::F32_4x4};
   }
-  }
-
-  logger->error("Unsupported type kind for resource type extraction");
-  abort();
+  throw std::runtime_error("Unsupported type kind for resource type extraction");
 }

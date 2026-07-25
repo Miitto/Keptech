@@ -23,7 +23,9 @@ namespace kt::vkh::setup {
 
     VkCommandPoolCreateInfo poolCreateInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext = nullptr,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .queueFamilyIndex = 0, // Will be set in the loop below
     };
 
     auto makePool = [&](VkCommandPool& p1, VkCommandPool& p2) {
@@ -120,7 +122,7 @@ namespace kt::vkh::setup {
         .pVulkanFunctions = &vulkanFunctions,
         .instance = instance,
     };
-    VK_MAKE(vmaCreateAllocator(&allocInfo, &allocator), "Failed to create VMA allocator.");
+    VK_CHECK(vmaCreateAllocator(&allocInfo, &allocator), "Failed to create VMA allocator.");
 
     VKH_MAKE(swapchain, createSwapchain(physDevice, window.getRenderSize(), device, surface, queues, nullptr),
              "Failed to create swapchain.");
@@ -133,7 +135,7 @@ namespace kt::vkh::setup {
         .flags = VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
         .queueFamilyIndex = queueIndices.transfer,
     };
-    VK_MAKE(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &transferPool), "Failed to create transfer command pool.");
+    VK_CHECK(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &transferPool), "Failed to create transfer command pool.");
 
     CommandPool transferPoolStruct{
         .pool = transferPool,
@@ -147,14 +149,14 @@ namespace kt::vkh::setup {
           .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
           .flags = VkFenceCreateFlagBits::VK_FENCE_CREATE_SIGNALED_BIT,
       };
-      VK_MAKE(vkCreateFence(device, &fenceCreateInfo, nullptr, &perFrame[i].inFlightFence), "Failed to create fence1.");
+      VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &perFrame[i].inFlightFence), "Failed to create fence1.");
 
       VkSemaphore sem = nullptr;
       VkSemaphoreCreateInfo semaphoreCreateInfo{
           .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
       };
-      VK_MAKE(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].imageAvailableSemaphore),
-              "Failed to create image available semaphore");
+      VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].imageAvailableSemaphore),
+               "Failed to create image available semaphore");
     }
 
     VkSemaphoreTypeCreateInfo timelineSemaphoreTypeInfo{
@@ -169,14 +171,13 @@ namespace kt::vkh::setup {
     };
     VkSemaphore transferSemaphore = nullptr;
     VkSemaphore timelineSemaphore = nullptr;
-    VK_MAKE(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &timelineSemaphore), "Failed to create timeline semaphore.");
-    VK_MAKE(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &transferSemaphore), "Failed to create timeline semaphore.");
+    VK_CHECK(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &timelineSemaphore), "Failed to create timeline semaphore.");
+    VK_CHECK(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &transferSemaphore), "Failed to create timeline semaphore.");
 
     return VulkanCore{
         .instance = instance,
         .surface = surface,
-        .device = Device{.physical = physDevice, .logical = device},
-        .allocator = allocator,
+        .device = Device(physDevice, device, allocator),
         .queues = queues,
         .swapchain = std::move(swapchain),
         .mainSemaphore = TimelineSemaphore{.semaphore = timelineSemaphore, .value = 0},

@@ -4,7 +4,6 @@
 #include "keptech/vulkan/buffers.hpp"
 #include "keptech/vulkan/constants.hpp"
 #include "keptech/vulkan/core.hpp"
-#include "keptech/vulkan/helpers/owned.hpp"
 #include "keptech/vulkan/passes/geometry.hpp"
 #include "keptech/vulkan/pipelines.hpp"
 #include "keptech/vulkan/wrappers/buffer.hpp"
@@ -38,14 +37,10 @@ namespace kt::vkh {
 
   class RenderGraph;
 
-  struct LightBuffer {
-    using T = Owned<Image>;
-    T diffuse;
-    T specular;
-    T ssaoResult;
-    T ssaoNoise;
-    T ssaoBlur;
-    T combined;
+  struct LoadedImage {
+    VkImage image;
+    VkImageView view;
+    VmaAllocation alloc;
   };
 
   struct Samplers {
@@ -55,12 +50,6 @@ namespace kt::vkh {
     VkSampler nearestClamp;
 
     void destroy(const VkDevice device);
-  };
-
-  struct RenderTargets {
-    passes::geometry::Target gBuffer;
-    LightBuffer lights;
-    glm::ivec2 framebufferSize;
   };
 
   struct StaticDescriptors {
@@ -103,7 +92,6 @@ namespace kt::vkh {
     VkDescriptorPool imGuiDescriptorPool;
 
     Formats formats;
-    RenderTargets renderTargets;
 
     Buffers buffers;
     Layouts layouts;
@@ -117,7 +105,7 @@ namespace kt::vkh {
     Indices indices{};
     uint32_t nextMeshIndex = 0;
 
-    std::vector<Image> loadedTextures{};
+    std::vector<LoadedImage> loadedTextures{};
     std::vector<Buffer> loadedBuffers{};
 
 #ifdef KT_PROFILE
@@ -136,10 +124,19 @@ namespace kt::vkh {
     const Members& getMembers() const { return m; }
     Members& getMembers() { return m; }
 
+    [[nodiscard]] Result<Buffer, VkResult, VK_SUCCESS> createBuffer(const BufferCreateInfo& info) const {
+      return m.vkcore.device.createBuffer(info);
+    }
+    [[nodiscard]] Result<Image, VkResult, VK_SUCCESS> createImage(const ImageCreateInfo& info) const {
+      return m.vkcore.device.createImage(info);
+    }
+
     std::expected<Renderer, std::string> static create(const RendererCreateInfo& createInfo, const core::window::Window& window);
 
+    /// Loads a glTF mesh from the specified path. Returns a gltf::Scene on success, or an error message on failure.
     std::expected<gltf::Scene, std::string> loadMesh(std::string_view path);
 
+    /// Initializes the internal ImGui handle for the provided image.
     void loadImGuiImageHandle(Image& texture);
 
     template <typename T> struct UploadResult {
@@ -153,9 +150,10 @@ namespace kt::vkh {
     std::expected<UploadResult<rendering::Material>, std::string>
     createMaterials(const gltf::Data& data, const std::vector<Image>& textures, const VkCommandBuffer transferCmd);
 
+    /// Assigns the image a slot in the global texture descriptor set and queues the descriptor update.
     void loadImage(Image& image);
 
-    void setScene(Scene& scene) { this->scene = &scene; }
+    void setScene(Scene& s) { scene = &s; }
 
     Renderer() = delete;
     Renderer(const Renderer&) = delete;
@@ -166,20 +164,29 @@ namespace kt::vkh {
 
     // Util
   public:
+    /// Returns true if the renderer can render to the specified VkFormat. This is useful for determining if a particular format is
+    /// supported for use as a render target.
     [[nodiscard]] bool canRenderToFormat(VkFormat format) const;
+    /// Returns the VkFormat of the swapchain.
     [[nodiscard]] VkFormat backbufferFormat() const;
+    /// Returns true if this renderer object has been moved from. If true, this object should not be used.
     [[nodiscard]] bool hasMoved() const noexcept { return m.moveGuard.moved(); }
 
     PerFrameBuffers& fBufs() { return m.buffers.perFrame[m.frameInfo.index]; }
 
+    /// Sets the resolution and formats properties for the provided RenderGraphBuilder. This is used to ensure that the render graph is
+    /// aware of the swapchain format and size, as well as the active resolution.
+    /// Is called internally during engine starup.
     void setRenderGraphProps(RenderGraphBuilder& builder) const;
 
+    /// Returns the preferred formats for different types of images that can be rendered to. This is useful for creating images that will be
+    /// used as render targets.
     [[nodiscard]] const Formats& getFormats() const { return m.formats; }
 
-    // Render
-  public:
+    /// Called at the start of each frame. This function handles waiting for the previous frame with the same index to finish, acquiring the
+    /// next swapchain image, and updating per frame resources (such as texture descriptors) with enqueued updates.
+    /// Is called internally by the engine during the render loop.
     void newFrame();
-    void render();
 
   private:
     Renderer(Members&& m) : m(std::move(m)) { this->m.frameInfo.perFrame = &this->m.vkcore.perFrame[0]; }

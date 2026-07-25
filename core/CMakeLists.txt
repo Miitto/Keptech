@@ -4,13 +4,7 @@ project(Keptech_Core LANGUAGES CXX)
 
 add_library(${PROJECT_NAME} STATIC)
 add_library(keptech::core ALIAS ${PROJECT_NAME})
-
-set_target_properties(${PROJECT_NAME}
-    PROPERTIES
-    CXX_STANDARD 23
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF
-)
+KT_SETUP_TARGET(${PROJECT_NAME})
 
 # Deps
 
@@ -58,35 +52,6 @@ target_link_libraries(${PROJECT_NAME}
     fastgltf::fastgltf
 )
 
-if (KT_PROFILE)
-  set(TRACY_ENABLE ON)
-  message(STATUS "Profiling enabled, linking Tracy")
-  FetchContent_Declare (
-    tracy
-    GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-    GIT_TAG v0.13.1
-    GIT_SHALLOW TRUE
-    GIT_PROGRESS TRUE
-    SYSTEM
-  )
-  FetchContent_MakeAvailable(tracy)
-  target_link_libraries(${PROJECT_NAME}
-    PUBLIC
-    TracyClient
-  )
-  target_compile_definitions(${PROJECT_NAME}
-    PUBLIC
-    TRACY_ENABLE
-    KT_PROFILE
-  )
-else()
-  message(STATUS "Profiling disabled")
-endif()
-
-# Lint
-
-include(keptech_warnings)
-KT_SETUP_WARNINGS(${PROJECT_NAME})
 
 # Sourses
 
@@ -101,7 +66,6 @@ add_subdirectory(src)
 if (KT_USE_PCH)
   target_precompile_headers(${PROJECT_NAME}
     PRIVATE
-      ${KT_PCH_HEADERS}
       <glm/glm.hpp>
   )
 endif()

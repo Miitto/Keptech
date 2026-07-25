@@ -55,6 +55,11 @@
 #define KT_ASSERT(cond, ...) (void)0
 #endif
 
+#define KT_ABORT(...)                                                                                                                      \
+  kt::core::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical, "Aborted: " __VA_ARGS__);        \
+  spdlog::shutdown();                                                                                                                      \
+  std::abort();
+
 namespace kt::core {
   extern const std::shared_ptr<spdlog::logger> logger;
 } // namespace kt::core

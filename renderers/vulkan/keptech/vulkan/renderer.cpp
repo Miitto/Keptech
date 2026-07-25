@@ -24,8 +24,6 @@ namespace kt::vkh {
   using rendering::ImageLayout;
   using rendering::ImageType;
 
-  constexpr VkDeviceSize NO_VERTEX_OFFSET = 0;
-
   void Renderer::debugUi() {
     ImGui::Begin("Debug View");
 
@@ -43,9 +41,13 @@ namespace kt::vkh {
   void Renderer::setRenderGraphProps(RenderGraphBuilder& builder) const {
     builder.setSwapchainFormat(m.formats.swapchain);
     builder.setSwapchainSize({m.vkcore.swapchain.config().extent.width, m.vkcore.swapchain.config().extent.height});
-    builder.setRenderResolution(m.renderTargets.framebufferSize);
+
+    auto d = SDL_GetDisplayForWindow(m.window->getHandle());
+    auto* dm = SDL_GetCurrentDisplayMode(d);
+    builder.setRenderResolution({dm->w, dm->h});
   }
 
+  /*
   void Renderer::render() {
     KT_PROFILE_FUNCTION
     VK_TRACE("Frame Start");
@@ -54,6 +56,7 @@ namespace kt::vkh {
     components::Transform::recalcAllTransforms(scene->getEcs());
     auto frustum = passes::writeCameraData(m.buffers, scene->getActiveCamera(), m.renderTargets.framebufferSize, m.frameInfo.index);
   }
+    */
 
   void Renderer::newFrame() {
     KT_PROFILE_FUNCTION
@@ -92,7 +95,7 @@ namespace kt::vkh {
     KT_PROFILE_FUNCTION
     VK_ASSERT(m.frameInfo.perFrame->pools.graphics.pool != VK_NULL_HANDLE, "Graphics command pool is null");
     VK_ASSERT(m.frameInfo.perFrame->pools.compute.pool != VK_NULL_HANDLE, "Compute command pool is null");
-    m.frameInfo.perFrame->pools.resetAll(m.vkcore.device.logical);
+    m.frameInfo.perFrame->pools.resetAll(m.vkcore.device);
 
     m.frameInfo.objectsRendered = 0;
 
@@ -188,7 +191,7 @@ namespace kt::vkh {
     };
 
     VK_TRACE("Resetting fence for frame {}.", m.frameInfo.index);
-    vkResetFences(m.vkcore.device.logical, 1, &m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
+    vkResetFences(m.vkcore.device, 1, &m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
 
     auto res = vkQueueSubmit2(m.vkcore.queues.graphics.queue, 1, &submitInfo, m.vkcore.perFrame[m.frameInfo.index].inFlightFence);
     VK_ASSERT(res == VK_SUCCESS, "Failed to submit command buffer: {}", res);
@@ -245,8 +248,8 @@ namespace kt::vkh {
     KT_PROFILE_FUNCTION
     VK_TRACE("Recreating swapchain");
     VKH_MAKE(newSwapchain,
-             setup::createSwapchain(m.vkcore.device.physical, m.window->getRenderSize(), m.vkcore.device.logical, m.vkcore.surface,
-                                    m.vkcore.queues, *m.vkcore.swapchain),
+             setup::createSwapchain(m.vkcore.device, m.window->getRenderSize(), m.vkcore.device, m.vkcore.surface, m.vkcore.queues,
+                                    *m.vkcore.swapchain),
              "Failed to recreate swapchain");
 
     {
@@ -256,7 +259,7 @@ namespace kt::vkh {
       m.vkcore.swapchain = std::move(newSwapchain);
 
       VK_DEBUG("Waiting for device idle after swapchain recreation");
-      vkDeviceWaitIdle(m.vkcore.device.logical);
+      vkDeviceWaitIdle(m.vkcore.device);
     }
 
     m.frameInfo.suboptimalSwapchain = false;

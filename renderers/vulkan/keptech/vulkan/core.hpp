@@ -1,7 +1,6 @@
 #pragma once
 
 #include "keptech/vulkan/constants.hpp"
-#include "keptech/vulkan/helpers/owned.hpp"
 #include "keptech/vulkan/wrappers/buffer.hpp"
 #include "keptech/vulkan/wrappers/device.hpp"
 #include "keptech/vulkan/wrappers/image.hpp"
@@ -28,7 +27,7 @@ namespace kt::vkh {
   };
 
   struct TextureUpdateInfo {
-    Image texture;
+    Image* texture = nullptr;
     size_t indexInDescriptorSet = 0;
   };
 

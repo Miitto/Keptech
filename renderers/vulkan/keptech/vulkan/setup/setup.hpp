@@ -10,11 +10,9 @@
 #include <glm/fwd.hpp>
 #include <set>
 
-namespace kt::core {
-  namespace window {
-    class Window;
-  }
-} // namespace kt::core
+namespace kt::core::window {
+  class Window;
+}
 
 namespace kt {
   struct RendererCreateInfo;
@@ -44,8 +42,7 @@ namespace kt {
       std::expected<DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>, std::string> createGlobalDescriptors(VkDevice device);
       void writeGlobalDescriptors(Members& m, DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>& sets);
       std::expected<StaticDescriptors, std::string> createStaticDescriptors(const VulkanCore& vkcore);
-      void writeStaticDescriptors(const VulkanCore& vkcore, const StaticDescriptors& staticDescriptorSets, const Buffers& buffers,
-                                  const RenderTargets& renderTargets, const Samplers& samplers);
+      void writeStaticDescriptors(const VulkanCore& vkcore, const StaticDescriptors& staticDescriptorSets, const Buffers& buffers);
       std::expected<VkPhysicalDevice, std::string> createPhysicalDevice(VkInstance instance, VkSurfaceKHR surface);
       std::expected<QueueIndices, std::string> findQueues(VkPhysicalDevice physDevice, VkSurfaceKHR surface);
       std::expected<VkDevice, std::string> createDevice(VkPhysicalDevice physDevice, const std::set<uint32_t>& uniqueQueueFamilies);
@@ -62,10 +59,6 @@ namespace kt {
       std::expected<Layouts, std::string> createLayouts(const VkDevice device, const VkDescriptorSetLayout globalLayout,
                                                         const VkDescriptorSetLayout staticLayout);
       std::expected<Pipelines, std::string> createPipelines(const VulkanCore& vkcore, const Formats& formats, const Layouts& layouts);
-
-      std::expected<RenderTargets, std::string> createRenderTargets(const VulkanCore& vkcore, const Formats& formats,
-                                                                    const glm::ivec2& framebufferSize);
-      std::expected<void, std::string> writeSsao(const VulkanCore& vkcore, const Buffers& buffers, const RenderTargets& renderTargets);
     } // namespace setup
   } // namespace vkh
 } // namespace kt

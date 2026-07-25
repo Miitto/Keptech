@@ -17,14 +17,11 @@ namespace kt::vkh {
       std::vector<VkWriteDescriptorSet> descriptorWrites;
       descriptorWrites.reserve(textureUpdates.size());
       for (auto& update : textureUpdates) {
-        if (update.texture.isDestroyed()) {
-          continue;
-        }
         auto imageIndex = update.indexInDescriptorSet;
 
         imageInfos.push_back(VkDescriptorImageInfo{
             .sampler = m.samplers.linearRepeat,
-            .imageView = update.texture,
+            .imageView = *update.texture,
             .imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         });
 
@@ -40,31 +37,31 @@ namespace kt::vkh {
       }
 
       VK_DEBUG("Updating {} texture descriptors for frame {}", descriptorWrites.size(), m.frameInfo.index);
-      vkUpdateDescriptorSets(m.vkcore.device.logical, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
+      vkUpdateDescriptorSets(m.vkcore.device, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
       textureUpdates.clear();
     }
   }
 
   void Renderer::updateBufferPointers() const {
     BufferPointers bufferPointers{
-        .vertexPositions = m.buffers.vertexPositions->buffer.address(),
-        .vertexAttribs = m.buffers.vertexAttribs->buffer.address(),
-        .indices = m.buffers.indices->buffer.address(),
-        .meshlets = m.buffers.meshlets->buffer.address(),
-        .meshletVertices = m.buffers.meshletVertices->buffer.address(),
-        .meshletTriangles = m.buffers.meshletTriangles->buffer.address(),
-        .materials = m.buffers.materials->buffer.address(),
+        .vertexPositions = m.buffers.vertexPositions->address(),
+        .vertexAttribs = m.buffers.vertexAttribs->address(),
+        .indices = m.buffers.indices->address(),
+        .meshlets = m.buffers.meshlets->address(),
+        .meshletVertices = m.buffers.meshletVertices->address(),
+        .meshletTriangles = m.buffers.meshletTriangles->address(),
+        .materials = m.buffers.materials->address(),
     };
 
     size_t offset = maths::roundToAlignment(m.frameInfo.index * sizeof(BufferPointers), limits::minUniformBufferOffsetAlignment);
-    memcpy(m.buffers.addresses->mapping() + offset, &bufferPointers, sizeof(BufferPointers));
+    memcpy(m.buffers.addresses.mapping() + offset, &bufferPointers, sizeof(BufferPointers));
   }
 
   void Renderer::loadImage(Image& image) {
     ImageHandle index = m.indices.nextCombinedImageIndex++;
     image.setHandle(index);
     for (auto& frame : m.vkcore.perFrame) {
-      frame.texToUpdate.emplace_back(image, index);
+      frame.texToUpdate.emplace_back(&image, index);
     }
   }
 } // namespace kt::vkh

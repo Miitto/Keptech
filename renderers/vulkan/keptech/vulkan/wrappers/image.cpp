@@ -1,17 +1,23 @@
 #include "image.hpp"
 #include "helpers/transitions.hpp"
+#include "keptech/core/result.hpp"
 #include "keptech/vulkan/macros.hpp"
+#include "wrappers/device.hpp"
 #include <glm/vec3.hpp>
+
 namespace kt::vkh {
   using namespace kt::rendering;
 
-  std::expected<Image, std::string> Image::create(const VmaAllocator& allocator, const VkDevice& device, const VkImageCreateInfo& imgInfo,
-                                                  const VmaAllocationCreateInfo& allocInfo, VkImageViewCreateInfo viewInfo,
-                                                  const std::string& name, bool useSameFormat) {
+  kt::Result<Image, VkResult, VK_SUCCESS> Image::create(const Device& device, const VkImageCreateInfo& imgInfo,
+                                                        const VmaAllocationCreateInfo& allocInfo, VkImageViewCreateInfo viewInfo,
+                                                        const char* name, bool useSameFormat) {
+    VkImage image = VK_NULL_HANDLE;
     VmaAllocation alloc{};
     VmaAllocationInfo aInfo = {};
-    VkImage image = VK_NULL_HANDLE;
-    VK_MAKE(vmaCreateImage(allocator, &imgInfo, &allocInfo, &image, &alloc, &aInfo), "Failed to create allocated image");
+    auto res = vmaCreateImage(device, &imgInfo, &allocInfo, &image, &alloc, &aInfo);
+    if (res != VK_SUCCESS) {
+      return {res};
+    }
 
     viewInfo.image = image;
     if (useSameFormat) {
@@ -19,28 +25,13 @@ namespace kt::vkh {
     }
 
     VkImageView view = VK_NULL_HANDLE;
-    VK_MAKE(vkCreateImageView(device, &viewInfo, nullptr, &view), "Failed to create image view for allocated image");
+    res = vkCreateImageView(device, &viewInfo, nullptr, &view);
+    if (res != VK_SUCCESS) {
+      return {res};
+    }
 
     VK_TRACE("Created image [{}] with size {} bytes, format {}, extent: {}x{}x{}", name, aInfo.size, imgInfo.format, imgInfo.extent.width,
              imgInfo.extent.height, imgInfo.extent.depth);
-
-#ifndef NDEBUG
-    if (!name.empty()) {
-      vmaSetAllocationName(allocator, alloc, name.c_str());
-
-      VkDebugUtilsObjectNameInfoEXT nameInfo{
-          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-          .objectType = VK_OBJECT_TYPE_IMAGE,
-          .objectHandle = reinterpret_cast<uint64_t>(image),
-          .pObjectName = name.c_str(),
-      };
-      vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
-
-      nameInfo.objectType = VK_OBJECT_TYPE_IMAGE_VIEW;
-      nameInfo.objectHandle = reinterpret_cast<uint64_t>(view);
-      vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
-    }
-#endif
 
     ImageType imgType = ImageType::Color;
 
@@ -60,13 +51,19 @@ namespace kt::vkh {
       break;
     }
 
-    return Image(imgType, image, view, alloc, imgInfo.extent, imgInfo.format);
+    Image i(device, imgType, image, view, alloc, imgInfo.extent, imgInfo.format);
+    if (name) {
+      device.setAllocationName(i.alloc, name);
+      device.setDebugName(i, name);
+    }
+
+    return std::move(i);
   }
 
-  void Image::destroy(const VmaAllocator& allocator, const VkDevice& d) {
+  void Image::destroy() {
     if (image) {
-      vmaDestroyImage(allocator, image, alloc);
-      vkDestroyImageView(d, view, nullptr);
+      vmaDestroyImage(device, image, alloc);
+      vkDestroyImageView(device, view, nullptr);
       image = nullptr;
       view = nullptr;
       alloc = nullptr;

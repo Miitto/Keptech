@@ -34,6 +34,11 @@ namespace kt::shader_processor {
 
   class CompilerSession;
 
+  template <typename T> struct Return {
+    T value;
+    Slang::ComPtr<slang::IBlob> diagnostics;
+  };
+
   class Program {
     friend class CompilerSession;
     Program(Slang::ComPtr<slang::IComponentType> componentType);
@@ -50,7 +55,7 @@ namespace kt::shader_processor {
 
     [[nodiscard]] slang::ProgramLayout* getLayout() const { return program->getLayout(); }
 
-    [[nodiscard]] std::expected<kt::shaders::Shader, std::string> toShader(const char* name) const;
+    [[nodiscard]] std::expected<Return<kt::shaders::Shader>, std::string> toShader(const char* name) const;
 
   private:
     Slang::ComPtr<slang::IComponentType> program;
@@ -60,10 +65,9 @@ namespace kt::shader_processor {
   public:
     CompilerSession(SessionConfig config);
 
-    std::pair<slang::IModule*, Slang::ComPtr<slang::IBlob>> loadModule(const char* moduleName, const std::string& source,
-                                                                       const char* path = nullptr);
+    Return<slang::IModule*> loadModule(const char* moduleName, const std::string& source, const char* path = nullptr);
 
-    std::pair<Program, Slang::ComPtr<slang::IBlob>> link();
+    Return<Program> link();
 
   private:
     Slang::ComPtr<slang::ISession> session;

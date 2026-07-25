@@ -7,13 +7,13 @@
 namespace kt {
   namespace rendering {
     struct MaterialLayer {
-      Image albedo;
-      Image bump;
-      Image emissive;
-      Image metRough;
+      const Image* albedo;
+      const Image* bump;
+      const Image* emissive;
+      const Image* metRough;
       glm::vec4 albedoFactor;
       glm::vec3 emissiveFactor;
-      Image ao;
+      const Image* ao;
       float metFactor;
       float roughFactor;
       float specFactor = 1.f;
