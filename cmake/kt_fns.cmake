@@ -31,6 +31,7 @@ set(KT_GNU_WARNINGS
   -Wno-format-security
   -Wno-old-style-cast
   -Wno-missing-designated-field-initializers
+  -Wno-nullability-extension
 )
 
 set(KT_MSVC_WARNINGS

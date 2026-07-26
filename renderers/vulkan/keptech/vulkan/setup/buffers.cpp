@@ -44,19 +44,12 @@ namespace kt::vkh::setup {
     size_t perElementSize = roundToAlignment ? maths::roundToAlignment(sizeof(T), limits::minUniformBufferOffsetAlignment) : sizeof(T);
     size_t size = perElementSize * elementCount;
 
-    VkBufferCreateInfo bufInfo{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = size,
-        .usage = usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                 (allowTransfer ? (VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT) : 0),
-    };
-
-    VmaAllocationCreateInfo allocInfo{
-        .flags = allowTransfer ? hostWriteOrTransferFlags : hostWriteFlags,
-        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-    };
-
-    return Buffer::create(vkcore.device, bufInfo, allocInfo, name.c_str());
+    return Buffer::create(vkcore.device,
+                          BufferCreateInfo(size,
+                                           usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                                               (allowTransfer ? (VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT) : 0),
+                                           allowTransfer ? hostWriteOrTransferFlags : hostWriteFlags, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+                                           name.c_str()));
   }
 
   std::expected<Buffers, std::string> createBuffers(const VulkanCore& vkcore) {

@@ -1,20 +1,21 @@
 #include "buffer.hpp"
-#include "keptech/vulkan/macros.hpp"
+#if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_TRACE
 #include <spdlog/fmt/bundled/ranges.h>
+#endif
 #include <vector>
 namespace kt::vkh {
 
-  kt::Result<Buffer, VkResult, VK_SUCCESS> Buffer::create(const Device& device, VkBufferCreateInfo bufInfo,
-                                                          const VmaAllocationCreateInfo& allocInfo, const char* name) {
-    VK_ASSERT(bufInfo.size > 0, "Buffer size must be greater than 0");
+  kt::Result<Buffer, VkResult, VK_SUCCESS> Buffer::create(const Device& device, const BufferCreateInfo& info) {
+    VK_ASSERT(info.getBufferInfo().size > 0, "Buffer size must be greater than 0");
 
+    auto bufInfo = info.getBufferInfo();
     bufInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
     VkBuffer buffer{};
     VmaAllocation alloc{};
     VmaAllocationInfo aInfo{};
     {
-      auto res = vmaCreateBuffer(device, &bufInfo, &allocInfo, &buffer, &alloc, &aInfo);
+      auto res = vmaCreateBuffer(device, &bufInfo, &info.getAllocInfo(), &buffer, &alloc, &aInfo);
       if (res != VK_SUCCESS)
         return {res};
     }
@@ -22,7 +23,7 @@ namespace kt::vkh {
     VkBufferDeviceAddressInfo addrVknfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = buffer};
     VkDeviceAddress address = vkGetBufferDeviceAddress(device, &addrVknfo);
 
-#if VK_LOG_LEVEL <= VK_LOG_LEVEL_TRACE
+#if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_TRACE
     VkMemoryPropertyFlags props{};
     vmaGetAllocationMemoryProperties(device, alloc, &props);
     bool isHostVisible = (props & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
@@ -40,9 +41,9 @@ namespace kt::vkh {
     VK_TRACE("Created buffer [{}] with size {} bytes. {}", name, aInfo.size, fmt::join(flags, ", "));
 #endif
 
-    if (name) {
-      device.setAllocationName(alloc, name);
-      device.setDebugName(buffer, name);
+    if (info.getName()) {
+      device.setAllocationName(alloc, info.getName());
+      device.setDebugName(buffer, info.getName());
     }
 
     return Buffer(buffer, bufInfo.size, device, alloc, aInfo, address);

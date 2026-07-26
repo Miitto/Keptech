@@ -14,18 +14,11 @@ namespace kt::vkh::loading {
       std::optional<Buffer> reallocatedBuffer;
       if (newSize > buf.size()) {
         VK_DEBUG("Current {} buffer size {} is too small for {}, creating new buffer", name, buf.size(), newSize);
-        VkBufferCreateInfo bufferCreateInfo{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = newSize,
-            .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        };
-        constexpr VmaAllocationCreateInfo allocInfo{
-            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
-                     VMA_ALLOCATION_CREATE_MAPPED_BIT,
-            .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-        };
-        auto res = Buffer::create(device, bufferCreateInfo, allocInfo, name.c_str());
+        auto res =
+            Buffer::create(device, {newSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
+                                    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                        VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+                                    VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, name.c_str()});
         if (res.isError())
           return std::unexpected("Failed to create buffer for mesh upload");
         SubdivBuffer<T> newBuffer(std::move(res.value()));
@@ -179,7 +172,7 @@ namespace kt::vkh::loading {
     size_t totalMeshletVerticesSize = meshletVertexBuffer.occupied() + newMeshletVerticesSize;
     size_t totalMeshletTrianglesSize = meshletTriangleBuffer.occupied() + newMeshletTrianglesSize;
 
-#if VK_LOG_LEVEL >= VK_LOG_LEVEL_DEBUG
+#if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_DEBUG
     VK_DEBUG("Ensuring buffers are large enough for mesh upload:");
     if (totalPositionsSize > positionBuffer.size()) {
       VK_DEBUG("  Vertex Position Buffer: {} bytes -> {} bytes (+{})", positionBuffer.size(), totalPositionsSize,

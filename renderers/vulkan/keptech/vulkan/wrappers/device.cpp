@@ -2,15 +2,40 @@
 #include "keptech/core/result.hpp"
 #include "wrappers/buffer.hpp"
 #include "wrappers/image.hpp"
+#include "wrappers/pipeline.hpp"
 
 namespace kt::vkh {
 
-  kt::Result<Buffer, VkResult, VK_SUCCESS> Device::createBuffer(const BufferCreateInfo& info) const {
-    return Buffer::create(*this, info.getBufferInfo(), info.getAllocInfo(), info.getName());
+  kt::Result<Buffer, VkResult, VK_SUCCESS> Device::createBuffer(const BufferCreateInfo& info) const { return Buffer::create(*this, info); }
+
+  kt::Result<Image, VkResult, VK_SUCCESS> Device::createImage(const ImageCreateInfo& info) const { return Image::create(*this, info); }
+
+  kt::Result<Shader, VkResult, VK_SUCCESS> Device::createShader(const shaders::Shader& info) const { return Shader::create(*this, info); }
+
+  kt::Result<VkPipelineLayout, VkResult, VK_SUCCESS> Device::createPipelineLayout(const VkPipelineLayoutCreateInfo& info) const {
+    VkPipelineLayout layout = VK_NULL_HANDLE;
+    auto res = vkCreatePipelineLayout(logical, &info, nullptr, &layout);
+    if (res != VK_SUCCESS) {
+      return {res};
+    }
+    return {layout};
   }
 
-  kt::Result<Image, VkResult, VK_SUCCESS> Device::createImage(const ImageCreateInfo& info) const {
-    return Image::create(*this, info.getImageInfo(), info.getAllocInfo(), info.getViewInfo(), info.getName());
+  kt::Result<Pipeline, VkResult, VK_SUCCESS> Device::createPipeline(const VkGraphicsPipelineCreateInfo& info) const {
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    auto res = vkCreateGraphicsPipelines(logical, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
+    if (res != VK_SUCCESS) {
+      return {res};
+    }
+    return {Pipeline{.layout = info.layout, .pipeline = pipeline}};
+  }
+  kt::Result<Pipeline, VkResult, VK_SUCCESS> Device::createPipeline(const VkComputePipelineCreateInfo& info) const {
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    auto res = vkCreateComputePipelines(logical, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
+    if (res != VK_SUCCESS) {
+      return {res};
+    }
+    return {Pipeline{.layout = info.layout, .pipeline = pipeline}};
   }
 
   const Device& Device::setAllocationName(VmaAllocation alloc, const char* name) const {

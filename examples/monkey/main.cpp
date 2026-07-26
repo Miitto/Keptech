@@ -11,6 +11,9 @@
 #include <keptech/ecs/entity.hpp>
 #include <keptech/renderer.hpp>
 
+#include "keptech/vulkan/helpers/pipeline.hpp"
+#include "shaders/keptech/mesh_shader.h"
+
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 
@@ -32,7 +35,50 @@ public:
   }
 
   void setup(kt::rendering::Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override {
-    KT_TRACE("Setting up geometry pass");
+    auto& device = renderer.getMembers().vkcore.device;
+    auto shaderRes = renderer.createShader(::shaders::mesh_shader);
+    if (!shaderRes.isOk()) {
+      KT_ABORT("Failed to create mesh shader: {}", shaderRes.error());
+    }
+    kt::vkh::PipelineLayoutBuilder layoutBuilder{};
+    layoutBuilder.addDescriptorSetLayout(renderer.getGlobalDescriptorSetLayout())
+        .addDescriptorSetLayout(descriptorSetLayout)
+        .addPushConstantRange<glm::mat4, uint32_t, uint32_t>(
+            VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0);
+
+    auto layoutRes = renderer.createPipelineLayout(layoutBuilder);
+    if (!layoutRes.isOk()) {
+      shaderRes.value().destroy(device);
+      KT_ABORT("Failed to create pipeline layout: {}", layoutRes.error());
+    }
+
+    auto& formats = renderer.getFormats();
+
+    auto vertexInput = kt::vkh::Shader::getVertexInput(::shaders::mesh_shader);
+
+    kt::vkh::GraphicsPipelineBuilder pipelineBuilder{};
+    pipelineBuilder.layout(layoutRes.value())
+        .addShaderStages(shaderRes.value().stages)
+        .addColorAttachment(formats.render.albedo)
+        .addColorAttachment(formats.render.normal)
+        .addColorAttachment(formats.render.metRought)
+        .addColorAttachment(formats.render.emissive)
+        .depthAttachment(formats.render.depth)
+        .addVertexInputAttributes(vertexInput.attributes)
+        .addVertexInputBindings(vertexInput.bindings)
+        .cullMode(kt::vkh::CullMode::Back)
+        .depthWrite()
+        .depthTest();
+    auto pipelineRes = renderer.createPipeline(pipelineBuilder);
+    if (!pipelineRes.isOk()) {
+      shaderRes.value().destroy(device);
+      vkDestroyPipelineLayout(device, layoutRes.value(), nullptr);
+      KT_ABORT("Failed to create graphics pipeline: {}", pipelineRes.error());
+    }
+
+    pipeline = pipelineRes.value();
+
+    shaderRes.value().destroy(renderer.getMembers().vkcore.device);
   }
 
   void prepare(kt::rendering::RenderGraph& graph, kt::rendering::Renderer& renderer) override { KT_TRACE("Preparing geometry pass"); }
@@ -43,7 +89,9 @@ public:
 
   bool getClearColor(size_t attachmentIndex, VkClearColorValue* value) const override {
     if (value) {
-      *value = {};
+      *value = {
+          .float32 = {1.0f, 0.0f, 0.0f, 1.0f},
+      };
     }
     return true;
   }
@@ -54,6 +102,16 @@ public:
     }
     return true;
   }
+
+  void shutdown(kt::rendering::Renderer& renderer) override {
+    KT_TRACE("Shutting down geometry pass");
+    auto device = renderer.getMembers().vkcore.device;
+    vkDestroyPipeline(device, pipeline.pipeline, nullptr);
+    vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
+  }
+
+private:
+  kt::vkh::Pipeline pipeline{};
 };
 
 class BenchmarkLayer : public kt::core::layers::Layer {
@@ -149,7 +207,7 @@ public:
 
     tonemapPass.setBuildCallback([&](auto cmd, auto set, auto framebufferSize) { KT_TRACE("Building tonemap pass"); });
 
-    builder.setBackbufferSource("kt::tonemapped");
+    builder.setBackbufferSource("kt::albedo");
   }
 
   void onUpdate(kt::Timestep ts) final {

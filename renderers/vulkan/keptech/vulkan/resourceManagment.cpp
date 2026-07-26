@@ -33,7 +33,7 @@ namespace kt::vkh {
       gltf::Scene::Node result{
           .name = std::string(node.node.name),
           .transform = node.transform,
-          .mesh = node.meshIndex == ~0 ? Mesh() : meshes[node.meshIndex],
+          .mesh = node.meshIndex == ~0u ? Mesh() : meshes[node.meshIndex],
       };
       for (auto& child : node.children) {
         result.children.push_back(createNode(child, meshes));
@@ -98,14 +98,14 @@ namespace kt::vkh {
       buf.destroy();
     }
 
-    gltf::Scene scene{};
-    scene.roots.reserve(gltfData.roots.size());
+    gltf::Scene s{};
+    s.roots.reserve(gltfData.roots.size());
 
     for (const auto& node : gltfData.roots) {
-      scene.roots.push_back(createNode(node, meshesRes.resources));
+      s.roots.push_back(createNode(node, meshesRes.resources));
     }
 
-    return scene;
+    return s;
   }
 
   std::expected<Renderer::UploadResult<Image>, std::string> Renderer::createImages(const gltf::Data& gltf,
@@ -145,8 +145,8 @@ namespace kt::vkh {
         bool needsTranscode = ktxTexture2_NeedsTranscoding(tex);
 
         if (needsTranscode) {
-          auto err = ktxTexture2_TranscodeBasis(tex, KTX_TTF_BC7_RGBA, 0);
-          VK_ASSERT(err == KTX_SUCCESS, "Failed to transcode ktxTexture: {}", ktxErrorString(err));
+          auto e = ktxTexture2_TranscodeBasis(tex, KTX_TTF_BC7_RGBA, 0);
+          VK_ASSERT(e == KTX_SUCCESS, "Failed to transcode ktxTexture: {}", ktxErrorString(err));
         }
 
         VK_ASSERT(tex->vkFormat != VK_FORMAT_UNDEFINED, "ktxTexture has undefined Vulkan format");
@@ -250,19 +250,11 @@ namespace kt::vkh {
     }
 
     {
-      VkBufferCreateInfo stagingBufferCreateInfo{
-          .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-          .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-      };
-
-      VmaAllocationCreateInfo stagingAllocInfo{
-          .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-          .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-      };
-
       for (auto& sbuf : stagingBuffers) {
-        stagingBufferCreateInfo.size = sbuf.size;
-        auto res = Buffer::create(m.vkcore.device, stagingBufferCreateInfo, stagingAllocInfo, "Image staging buffer.");
+        auto res =
+            Buffer::create(m.vkcore.device, {sbuf.size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                             VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+                                             VMA_MEMORY_USAGE_AUTO_PREFER_HOST, "Image staging buffer"});
         if (!res.isOk())
           return std::unexpected("Failed to create staging buffer for image upload");
         sbuf.buffer = std::move(res.value());
@@ -271,38 +263,6 @@ namespace kt::vkh {
 
     VkDeviceSize offset = 0;
     size_t bufIdx = 0;
-    VkImageCreateInfo imageCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .imageType = VK_IMAGE_TYPE_2D,
-        .mipLevels = 1,
-        .arrayLayers = 1,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    };
-    VkImageViewCreateInfo imageViewCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .components =
-            {
-                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-            },
-        .subresourceRange =
-            {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-    };
-    VmaAllocationCreateInfo imageAllocInfo{
-        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-    };
 
     std::vector<Image> result;
     result.reserve(textures.size());
@@ -322,21 +282,19 @@ namespace kt::vkh {
       VK_ASSERT(tex.ktx->baseWidth > 0 && tex.ktx->baseHeight > 0, "Texture dimensions are invalid for image {}", tex.name);
       VK_ASSERT(tex.ktx->numLevels > 0, "Texture has no mip levels for image {}", tex.name);
 
-      imageCreateInfo.format = (VkFormat)tex.ktx->vkFormat;
-      imageCreateInfo.extent = VkExtent3D{
-          .width = tex.ktx->baseWidth,
-          .height = tex.ktx->baseHeight,
-          .depth = 1,
-      };
-      imageCreateInfo.mipLevels = tex.ktx->numLevels;
-      imageViewCreateInfo.subresourceRange.levelCount = imageCreateInfo.mipLevels;
-
       VK_TRACE("Creating image {} with format {} and extent {}x{}", tex.name, tex.ktx->vkFormat, imageCreateInfo.extent.width,
                imageCreateInfo.extent.height);
 
       memcpy(buf.buffer.mapping() + offset, tex.ktx->pData, tex.ktx->dataSize);
 
-      auto res = Image::create(m.vkcore.device, imageCreateInfo, imageAllocInfo, imageViewCreateInfo, tex.name.c_str(), true);
+      auto res = Image::create(m.vkcore.device, ImageCreateInfo(VK_IMAGE_TYPE_2D, (VkFormat)tex.ktx->vkFormat,
+                                                                VkExtent3D{
+                                                                    .width = tex.ktx->baseWidth,
+                                                                    .height = tex.ktx->baseHeight,
+                                                                    .depth = 1,
+                                                                },
+                                                                VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                tex.ktx->numLevels, 1, tex.name.c_str()));
       if (!res.isOk())
         return std::unexpected("Failed to create image for texture");
 
@@ -364,7 +322,7 @@ namespace kt::vkh {
               {
                   .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                   .baseMipLevel = 0,
-                  .levelCount = imageCreateInfo.mipLevels,
+                  .levelCount = tex.ktx->numLevels,
                   .baseArrayLayer = 0,
                   .layerCount = 1,
               },
@@ -409,7 +367,7 @@ namespace kt::vkh {
               {
                   .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                   .baseMipLevel = 0,
-                  .levelCount = imageCreateInfo.mipLevels,
+                  .levelCount = tex.ktx->numLevels,
                   .baseArrayLayer = 0,
                   .layerCount = 1,
               },
@@ -444,9 +402,9 @@ namespace kt::vkh {
     return std::move(results);
   }
 
-  std::expected<Renderer::UploadResult<Mesh>, std::string> Renderer::uploadMeshes(const std::vector<gltf::MeshData>& meshes,
-                                                                                  const std::vector<rendering::Material>& materials,
-                                                                                  const VkCommandBuffer transferCmd) {
+  std::expected<Renderer::UploadResult<Mesh>, std::string>
+  Renderer::uploadMeshes(const std::vector<gltf::MeshData>& meshes, const std::vector<rendering::Material>& materials,
+                         const VkCommandBuffer) { // TODO: Support none ReBAR systems
     KT_PROFILE_FUNCTION
     VK_DEBUG("Uploading {} meshes from glTF data", meshes.size());
 
@@ -510,7 +468,7 @@ namespace kt::vkh {
         submeshes.push_back(submesh);
       }
 
-      Mesh resultMesh(mesh.positions.size(), submeshes, mesh.name);
+      Mesh resultMesh(static_cast<uint32_t>(mesh.positions.size()), submeshes, mesh.name);
       result.push_back(std::move(resultMesh));
     }
 
@@ -546,7 +504,7 @@ namespace kt::vkh {
     std::vector<GpuMaterial> gpuMaterials;
     gpuMaterials.reserve(materials.size());
 
-    uint32_t materialIndex = m.buffers.materials.count();
+    uint32_t materialIndex = static_cast<uint32_t>(m.buffers.materials.count());
 
     for (const auto& mat : materials) {
       VK_TRACE("Creating material {}", mat.name);
@@ -605,16 +563,9 @@ namespace kt::vkh {
       m.buffers.materials.write(gpuMaterials);
     } else {
       const size_t stagingBufferSize = gpuMaterials.size() * sizeof(GpuMaterial);
-      VkBufferCreateInfo stagingBufferCreateInfo{
-          .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-          .size = stagingBufferSize,
-          .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-      };
-      VmaAllocationCreateInfo stagingAllocInfo{
-          .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-          .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-      };
-      auto res = Buffer::create(m.vkcore.device, stagingBufferCreateInfo, stagingAllocInfo, "Material staging buffer");
+      auto res = Buffer::create(m.vkcore.device, {stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                  VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+                                                  VMA_MEMORY_USAGE_AUTO_PREFER_HOST, "Material staging buffer"});
       if (!res.isOk())
         return std::unexpected("Failed to create staging buffer for material upload");
 

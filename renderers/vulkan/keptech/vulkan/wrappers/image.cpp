@@ -1,28 +1,25 @@
 #include "image.hpp"
 #include "helpers/transitions.hpp"
 #include "keptech/core/result.hpp"
-#include "keptech/vulkan/macros.hpp"
+#include "vk-logger.hpp"
 #include "wrappers/device.hpp"
 #include <glm/vec3.hpp>
+
 
 namespace kt::vkh {
   using namespace kt::rendering;
 
-  kt::Result<Image, VkResult, VK_SUCCESS> Image::create(const Device& device, const VkImageCreateInfo& imgInfo,
-                                                        const VmaAllocationCreateInfo& allocInfo, VkImageViewCreateInfo viewInfo,
-                                                        const char* name, bool useSameFormat) {
+  kt::Result<Image, VkResult, VK_SUCCESS> Image::create(const Device& device, const ImageCreateInfo& info) {
     VkImage image = VK_NULL_HANDLE;
     VmaAllocation alloc{};
     VmaAllocationInfo aInfo = {};
-    auto res = vmaCreateImage(device, &imgInfo, &allocInfo, &image, &alloc, &aInfo);
+    auto res = vmaCreateImage(device, &info.getImageInfo(), &info.getAllocInfo(), &image, &alloc, &aInfo);
     if (res != VK_SUCCESS) {
       return {res};
     }
 
+    VkImageViewCreateInfo viewInfo = info.getViewInfo();
     viewInfo.image = image;
-    if (useSameFormat) {
-      viewInfo.format = imgInfo.format;
-    }
 
     VkImageView view = VK_NULL_HANDLE;
     res = vkCreateImageView(device, &viewInfo, nullptr, &view);
@@ -30,12 +27,12 @@ namespace kt::vkh {
       return {res};
     }
 
-    VK_TRACE("Created image [{}] with size {} bytes, format {}, extent: {}x{}x{}", name, aInfo.size, imgInfo.format, imgInfo.extent.width,
-             imgInfo.extent.height, imgInfo.extent.depth);
+    VK_TRACE("Created image [{}] with size {} bytes, format {}, extent: {}x{}x{}", info.getName(), aInfo.size, info.getImageInfo().format,
+             info.getImageInfo().extent.width, info.getImageInfo().extent.height, info.getImageInfo().extent.depth);
 
     ImageType imgType = ImageType::Color;
 
-    switch (imgInfo.format) {
+    switch (info.getImageInfo().format) {
     case VK_FORMAT_D16_UNORM:
     case VK_FORMAT_D32_SFLOAT:
       imgType = ImageType::Depth;
@@ -51,10 +48,10 @@ namespace kt::vkh {
       break;
     }
 
-    Image i(device, imgType, image, view, alloc, imgInfo.extent, imgInfo.format);
-    if (name) {
-      device.setAllocationName(i.alloc, name);
-      device.setDebugName(i, name);
+    Image i(device, imgType, image, view, alloc, info.getImageInfo().extent, info.getImageInfo().format);
+    if (info.getName()) {
+      device.setAllocationName(i.alloc, info.getName());
+      device.setDebugName(i, info.getName());
     }
 
     return std::move(i);

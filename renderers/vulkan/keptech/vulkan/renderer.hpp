@@ -94,8 +94,6 @@ namespace kt::vkh {
     Formats formats;
 
     Buffers buffers;
-    Layouts layouts;
-    Pipelines pipelines;
 
     DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
     StaticDescriptors staticDescriptors;
@@ -124,11 +122,26 @@ namespace kt::vkh {
     const Members& getMembers() const { return m; }
     Members& getMembers() { return m; }
 
+    [[nodiscard]] VkDescriptorSetLayout getGlobalDescriptorSetLayout() const { return m.globalDescriptorSets.layout; }
+    [[nodiscard]] VkDescriptorSet getGlobalDescriptorSet() const { return m.globalDescriptorSets.sets[m.frameInfo.index]; }
+
+    [[nodiscard]] const Buffers& getBuffers() const { return m.buffers; }
+
     [[nodiscard]] Result<Buffer, VkResult, VK_SUCCESS> createBuffer(const BufferCreateInfo& info) const {
       return m.vkcore.device.createBuffer(info);
     }
     [[nodiscard]] Result<Image, VkResult, VK_SUCCESS> createImage(const ImageCreateInfo& info) const {
       return m.vkcore.device.createImage(info);
+    }
+
+    [[nodiscard]] Result<Shader, VkResult, VK_SUCCESS> createShader(const shaders::Shader& info) const {
+      return m.vkcore.device.createShader(info);
+    }
+    [[nodiscard]] Result<VkPipelineLayout, VkResult, VK_SUCCESS> createPipelineLayout(const VkPipelineLayoutCreateInfo& info) const {
+      return m.vkcore.device.createPipelineLayout(info);
+    }
+    [[nodiscard]] Result<Pipeline, VkResult, VK_SUCCESS> createPipeline(const VkGraphicsPipelineCreateInfo& info) const {
+      return m.vkcore.device.createPipeline(info);
     }
 
     std::expected<Renderer, std::string> static create(const RendererCreateInfo& createInfo, const core::window::Window& window);

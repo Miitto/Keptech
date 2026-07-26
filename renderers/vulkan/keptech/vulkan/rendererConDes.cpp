@@ -76,9 +76,6 @@ namespace kt::vkh {
 
     m.samplers.destroy(device);
 
-    m.pipelines.destroy(device);
-    m.layouts.destroy(device);
-
     vkDestroySemaphore(device, m.vkcore.mainSemaphore.semaphore, nullptr);
     vkDestroySemaphore(device, m.vkcore.transferSemaphore.semaphore, nullptr);
 

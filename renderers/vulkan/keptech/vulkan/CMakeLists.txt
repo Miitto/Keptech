@@ -34,7 +34,7 @@ set(PASSES_HEADERS
 )
 
 set(PASSES_SOURCES
-    passes/geometry.cpp
+    # passes/geometry.cpp
     passes/global.cpp
     passes/shadows.cpp
 )
@@ -63,7 +63,6 @@ set(SETUP_SOURCES
     setup/device.cpp
     setup/formats.cpp
     setup/imgui.cpp
-    setup/pipelines.cpp
     setup/samplers.cpp
     setup/setup.cpp
     setup/swapchain.cpp

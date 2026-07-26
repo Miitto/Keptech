@@ -45,10 +45,6 @@ namespace kt::vkh {
     VKH_MAKE(buffers, createBuffers(vkcore), "Failed to create buffers for renderer.");
     VKH_MAKE(formats, findFormats(vkcore), "Failed to find suitable formats for renderer.");
 
-    VKH_MAKE(layouts, createLayouts(vkcore.device, globalDescriptorSets.layout, staticDescriptorSets.layout),
-             "Failed to create layouts for renderer.");
-    VKH_MAKE(pipelines, createPipelines(vkcore, formats, layouts), "Failed to create pipelines for renderer.")
-
 #ifdef KT_PROFILE
     auto gctx = KT_VK_CONTEXT(vkcore.device, vkcore.device);
     auto cctx = KT_VK_CONTEXT(vkcore.device, vkcore.device);
@@ -67,8 +63,6 @@ namespace kt::vkh {
         .imGuiDescriptorPool = imGuiObjects,
         .formats = formats,
         .buffers = std::move(buffers),
-        .layouts = layouts,
-        .pipelines = pipelines,
         .globalDescriptorSets = globalDescriptorSets,
         .staticDescriptors = staticDescriptorSets,
 #ifdef KT_PROFILE

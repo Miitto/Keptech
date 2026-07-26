@@ -7,7 +7,7 @@ set(KT_SHADER_OPT_LEVEL_DEBUG "0" CACHE STRING "Optimization level for shader co
 set(KT_SHADER_OPT_LEVEL_RELEASE "3" CACHE STRING "Optimization level for shader compilation in Release mode")
 
 function(compile_shader target shader_target)
-  set(SINGLEVALUE NAMESPACE BASE_DIR OUTPUT_DIR)
+  set(SINGLEVALUE NAMESPACE BASE_DIR OUTPUT_DIR LINK)
   set(MULTIVALUE SOURCES INCLUDES)
   cmake_parse_arguments(PARSE_ARGV 0 arg "" "${SINGLEVALUE}" "${MULTIVALUE}")
 
@@ -65,5 +65,9 @@ function(compile_shader target shader_target)
 
   target_sources(${target}_shaders PUBLIC FILE_SET HEADERS BASE_DIRS ${CMAKE_BINARY_DIR}/shaders/gen FILES ${OUT_HEADERS} PRIVATE ${OUT_SOURCES})
 
-  target_link_libraries(${target} PRIVATE ${target}_shaders)
+  if (NOT arg_LINK)
+    set(arg_LINK PRIVATE)
+  endif()
+
+  target_link_libraries(${target} ${arg_LINK} ${target}_shaders)
 endfunction()

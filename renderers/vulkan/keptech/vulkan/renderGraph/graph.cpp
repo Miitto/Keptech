@@ -403,7 +403,8 @@ namespace kt::vkh {
     LOG("RenderGraph:");
     LOG("  Pass Groups: {}", passGroups.size());
     for (const auto& [idx, group] : passGroups | std::views::enumerate) {
-      LOG("    {}: Queue: {}, Count: {}, WaitFor: {}", idx, group.queue, group.count, group.waitFor);
+      LOG("    {}: Queue: {}, Count: {}, WaitFor: {}", idx, group.queue, group.count,
+          group.waitFor == ~0ull ? "None" : std::to_string(group.waitFor));
     }
     LOG("");
   }

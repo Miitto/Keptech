@@ -26,6 +26,7 @@ compile_shader(${PROJECT_NAME} SPIRV
     ${KT_SHADER_DIR}
   OUTPUT_DIR
     keptech
+  LINK PUBLIC
   SOURCES
     basic
     mesh_shader

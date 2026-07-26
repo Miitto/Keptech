@@ -1,7 +1,7 @@
 #include "builder.hpp"
 
 #include "graph.hpp"
-#if VK_LOG_LEVEL <= VK_LOG_LEVEL_TRACE
+#if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_TRACE
 #include "helpers/formatting.hpp"
 #endif
 #include "renderResources.hpp"
@@ -107,12 +107,6 @@ namespace kt::vkh {
       }
       passGroups.push_back(currentGroup); // Should always be none 0?
 
-#ifndef NDEBUG
-      for (const auto& [idx, group] : passGroups | std::views::enumerate) {
-        VK_DEBUG("Pass Group {}: Queue: {}, Count: {}, WaitFor: {}", idx, group.queue, group.count, group.waitFor);
-      }
-#endif
-
       return passGroups;
     }
   } // namespace
@@ -129,7 +123,8 @@ namespace kt::vkh {
       size_t storageBuffers = 0;
     } counts;
 
-    for (const auto& pass : passes) {
+    for (const auto& passId : passStack) {
+      auto& pass = passes[passId];
       counts.textures += pass->getGenericTextureInputs().size();
       counts.storageImages += pass->getStorageImageOutputs().size();
       for (const auto& buffer : pass->getGenericBufferInputs()) {
@@ -170,7 +165,8 @@ namespace kt::vkh {
                "Failed to create descriptor pool for render graph.");
 
     std::vector<Descriptors> passDescriptors;
-    for (const auto& pass : passes) {
+    for (const auto& passId : passStack) {
+      auto& pass = passes[passId];
       std::vector<VkDescriptorImageInfo> imageInfos;
       std::vector<VkDescriptorBufferInfo> bufferInfos;
       std::vector<VkWriteDescriptorSet> writes;
@@ -390,9 +386,8 @@ namespace kt::vkh {
 
   void RenderGraphBuilder::log() const {
     VK_DEBUG("Render Graph Log:");
-    VK_DEBUG("  Passes (Used/Total): {}/{}", passes.size(), passStack.size());
-    VK_DEBUG("  Resources (Phys/Virtual): {}/{} ({} Combined)", physicalResourceInfos.size(), resources.size(),
-             resources.size() - physicalResourceInfos.size());
+    VK_DEBUG("  Passes (Used/Total): {}/{}", passStack.size(), passes.size());
+    VK_DEBUG("  Resources (Phys/Virtual): {}/{}", physicalResourceInfos.size(), resources.size());
     VK_DEBUG("  Backbuffer Source: {}", backbufferSource);
     VK_DEBUG("");
     VK_DEBUG("  Pass Execution Order:");
@@ -402,6 +397,7 @@ namespace kt::vkh {
       VK_DEBUG("    {}: {} ({})", idx, pass.getName(), *passId);
     }
     VK_DEBUG("");
+#if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_TRACE
     VK_TRACE("  Requirements:");
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       const auto& pass = *passes[passId];
@@ -484,6 +480,7 @@ namespace kt::vkh {
       }
       VK_TRACE("");
     }
+#endif
   }
 
   void RenderGraphBuilder::validatePasses() const {
@@ -1366,77 +1363,9 @@ namespace kt::vkh {
         nameToBuffer[res.name] = buffers.size() - 1;
         VK_DEBUG("Created buffer {} in slot {}", res.name, buffers.size() - 1);
       } else {
-        VkImageCreateInfo imageInfo{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .imageType = VK_IMAGE_TYPE_2D,
-            .format = res.format,
-            .extent = VkExtent3D{.width = res.size.x, .height = res.size.y, .depth = res.size.z},
-            .mipLevels = res.mipLevels,
-            .arrayLayers = res.layers,
-            .samples = static_cast<VkSampleCountFlagBits>(res.samples),
-            .tiling = VK_IMAGE_TILING_OPTIMAL,
-            .usage = res.imageUsage,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-            .queueFamilyIndexCount = 0,
-            .pQueueFamilyIndices = nullptr,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        };
-
-        VkImageAspectFlags aspectMask = 0;
-        switch (res.format) {
-        case VK_FORMAT_D16_UNORM:
-        case VK_FORMAT_X8_D24_UNORM_PACK32:
-        case VK_FORMAT_D32_SFLOAT:
-          aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-          break;
-        case VK_FORMAT_S8_UINT:
-          aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
-          break;
-        case VK_FORMAT_D16_UNORM_S8_UINT:
-        case VK_FORMAT_D24_UNORM_S8_UINT:
-        case VK_FORMAT_D32_SFLOAT_S8_UINT:
-          aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-          break;
-        default:
-          aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-          break;
-        }
-        VkImageViewCreateInfo viewInfo{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .image = VK_NULL_HANDLE,
-            .format = res.format,
-            .components =
-                VkComponentMapping{
-                    .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                    .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                    .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                    .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-                },
-            .subresourceRange =
-                VkImageSubresourceRange{
-                    .aspectMask = aspectMask,
-                    .baseMipLevel = 0,
-                    .levelCount = res.mipLevels,
-                    .baseArrayLayer = 0,
-                    .layerCount = res.layers,
-                },
-        };
-
-        VmaAllocationCreateInfo allocInfo{.flags = 0,
-                                          .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-                                          .requiredFlags = 0,
-                                          .preferredFlags = 0,
-                                          .memoryTypeBits = 0,
-                                          .pool = nullptr,
-                                          .pUserData = nullptr,
-                                          .priority = 0.0f};
-
-        auto result = Image::create(members.vkcore.device, imageInfo, allocInfo, viewInfo, res.name.c_str(), true);
+        auto result = Image::create(members.vkcore.device, {VK_IMAGE_TYPE_2D, res.format,
+                                                            VkExtent3D{.width = res.size.x, .height = res.size.y, .depth = res.size.z},
+                                                            res.imageUsage, res.mipLevels, res.layers, res.name.c_str()});
         VK_REQUIRE(result.isOk(), "Failed to create image for resource '{}': {}", res.name, result.error());
         auto& img = result.value();
         images.push_back(std::move(img));

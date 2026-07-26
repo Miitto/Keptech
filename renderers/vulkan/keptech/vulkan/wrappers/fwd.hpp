@@ -1,6 +1,8 @@
 #pragma once
 
 namespace kt::vkh {
+  class BufferCreateInfo;
+  class ImageCreateInfo;
   class Image;
   class Buffer;
   class Instance;

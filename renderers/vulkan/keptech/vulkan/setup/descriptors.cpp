@@ -195,20 +195,10 @@ namespace kt::vkh::setup {
   }
 
   std::expected<StaticDescriptors, std::string> createStaticDescriptors(const VulkanCore& vkcore) {
-    std::array poolSizes{
-        VkDescriptorPoolSize{
-            .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = 1,
-        },
-        VkDescriptorPoolSize{
-            .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .descriptorCount = 1,
-        },
-        VkDescriptorPoolSize{
-            .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .descriptorCount = constants::STATIC_TEXTURE_COUNT,
-        },
-    };
+    std::array poolSizes{VkDescriptorPoolSize{
+        .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+    }};
 
     VkDescriptorPoolCreateInfo poolCreateInfo{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -220,27 +210,14 @@ namespace kt::vkh::setup {
     VkDescriptorPool descriptorPool{};
     VK_MAKE(vkCreateDescriptorPool(vkcore.device, &poolCreateInfo, nullptr, &descriptorPool), "Failed to create static descriptor pool.");
 
-    constexpr size_t descriptorBindingCount = 3;
+    constexpr size_t descriptorBindingCount = 1;
 
-    std::array<VkDescriptorSetLayoutBinding, descriptorBindingCount> bindings{
-        VkDescriptorSetLayoutBinding{
-            .binding = 0,
-            .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_ALL,
-        },
-        VkDescriptorSetLayoutBinding{
-            .binding = 1,
-            .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_ALL,
-        },
-        VkDescriptorSetLayoutBinding{
-            .binding = 2,
-            .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .descriptorCount = constants::STATIC_TEXTURE_COUNT,
-            .stageFlags = VK_SHADER_STAGE_ALL,
-        }};
+    std::array<VkDescriptorSetLayoutBinding, descriptorBindingCount> bindings{VkDescriptorSetLayoutBinding{
+        .binding = 0,
+        .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_ALL,
+    }};
 
     VkDescriptorSetLayoutCreateInfo layoutCreateInfo{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,

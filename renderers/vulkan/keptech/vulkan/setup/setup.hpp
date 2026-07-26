@@ -22,8 +22,6 @@ namespace kt {
     struct Buffers;
     struct RenderTargets;
     struct Samplers;
-    struct Layouts;
-    struct Pipelines;
     struct StaticDescriptors;
     struct Members;
 
@@ -56,9 +54,6 @@ namespace kt {
                                                             VkSwapchainKHR oldSwapchain);
 
       std::expected<Buffers, std::string> createBuffers(const VulkanCore& vkcore);
-      std::expected<Layouts, std::string> createLayouts(const VkDevice device, const VkDescriptorSetLayout globalLayout,
-                                                        const VkDescriptorSetLayout staticLayout);
-      std::expected<Pipelines, std::string> createPipelines(const VulkanCore& vkcore, const Formats& formats, const Layouts& layouts);
     } // namespace setup
   } // namespace vkh
 } // namespace kt

@@ -23,6 +23,7 @@ namespace kt {
     bool isError() const {
       return !isOk();
     }
+    operator bool() const { return isOk(); }
 
     [[nodiscard]]
     T& value() {
