@@ -120,6 +120,19 @@ namespace kt::vkh {
 
     [[nodiscard]] const Buffers& getBuffers() const { return m.buffers; }
 
+    std::array<VkBuffer, 2> getVertexBuffers() const { return {m.buffers.vertexPositions, m.buffers.vertexAttribs}; }
+
+    [[nodiscard]] VkBuffer getIndexBuffer() const { return m.buffers.indices; }
+    [[nodiscard]] VkBuffer getMeshletBuffer() const { return m.buffers.meshlets; }
+    [[nodiscard]] VkBuffer getMeshletVertexBuffer() const { return m.buffers.meshletVertices; }
+    [[nodiscard]] VkBuffer getMeshletTriangleBuffer() const { return m.buffers.meshletTriangles; }
+    [[nodiscard]] VkBuffer getMaterialBuffer() const { return m.buffers.materials; }
+
+    [[nodiscard]] VkSampler getLinearRepeatSampler() const { return m.samplers.linearRepeat; }
+    [[nodiscard]] VkSampler getLinearClampSampler() const { return m.samplers.linearClamp; }
+    [[nodiscard]] VkSampler getNearestRepeatSampler() const { return m.samplers.nearestRepeat; }
+    [[nodiscard]] VkSampler getNearestClampSampler() const { return m.samplers.nearestClamp; }
+
     [[nodiscard]] Result<Buffer, VkResult, VK_SUCCESS> createBuffer(const BufferCreateInfo& info) const {
       return m.vkcore.device.createBuffer(info);
     }
@@ -188,6 +201,10 @@ namespace kt::vkh {
     /// Is called internally by the engine during the render loop.
     void newFrame();
 
+    /// Called before rendering each frame. This function handles starting the ImGui frame, and any other per-frame setup that needs to be
+    /// done before rendering. Is called internally by the engine during the render loop.
+    void startFrame();
+
     std::expected<void, std::string> static init(const RendererCreateInfo& createInfo, const core::window::Window& window);
 
   private:
@@ -195,9 +212,9 @@ namespace kt::vkh {
 
     std::expected<void, std::string> initInternal(const RendererCreateInfo& createInfo, const core::window::Window& window);
     std::expected<void, std::string> initVulkanCore(const RendererCreateInfo& createInfo, const core::window::Window& window);
-    std::expected<std::set<uint32_t>, std::string> initDevice();
-    std::expected<void, std::string> initPhysicalDevice();
-    std::expected<void, std::string> initLogicalDevice(const std::set<uint32_t>& uniqueQueueFamilies);
+    std::expected<std::set<uint32_t>, std::string> initDevice(const RendererCreateInfo& createInfo);
+    std::expected<void, std::string> initPhysicalDevice(const RendererCreateInfo& createInfo);
+    std::expected<void, std::string> initLogicalDevice(const RendererCreateInfo& createInfo, const std::set<uint32_t>& uniqueQueueFamilies);
     std::expected<void, std::string> initCommandPools(const std::set<uint32_t>& uniqueQueueFamilies);
     std::expected<void, std::string> initSync();
     std::expected<void, std::string> initSamplers();
@@ -207,7 +224,6 @@ namespace kt::vkh {
     std::expected<void, std::string> initFormats();
     void writeDescriptors();
 
-    void startFrame();
     void renderImGui(VkCommandBuffer graphicsCmd);
     void endFrame(CommandBuffer graphicsCmd);
     void present();

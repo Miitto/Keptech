@@ -53,6 +53,12 @@ namespace kt::vkh {
     return *this;
   }
 
+  const CommandBuffer& CommandBuffer::bindVertexBuffers(std::span<const VkBuffer> buffers, std::span<const VkDeviceSize> offsets,
+                                                        uint32_t first) const {
+    vkCmdBindVertexBuffers(cmdBuf, first, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
+    return *this;
+  }
+
   const CommandBuffer& CommandBuffer::beginRendering(const VkRenderingInfo& renderingInfo) const {
     vkCmdBeginRendering(cmdBuf, &renderingInfo);
     return *this;

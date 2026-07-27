@@ -39,6 +39,7 @@ message(STATUS "Renderer: " ${RENDERER})
 
 # Deps
 include(kt_deps)
+include(shaders)
 
 if(KT_BUILD_EXAMPLES)
   message(STATUS "Building examples")

@@ -2,19 +2,12 @@ import keptech;
 
 struct PushConstants {
   float4x4 modelMatrix;
-  uint materialIndex;
   uint meshletCount;
 };
 
 struct VertexOutput {
   float4 position : SV_Position;
   float4 color : COLOR0;
-  // float3 normal : NORMAL0;
-  // float uvX : TEXCOORD0;
-  // float3 tangent : TANGENT0;
-  // float uvY : TEXCOORD1;
-  // float3 bitangent : BITANGENT0;
-  // nointerpolation uint materialIndex : MATERIAL_INDEX;
 };
 
 const static uint TASK_SHADER_DISPATCH_SIZE = 64;
@@ -128,10 +121,4 @@ void mesh(in payload Payload payload, out indices uint3 triangles[MAX_TRIANGLES_
 }
 
 [shader("pixel")]
-kt::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
-  kt::DeferredOutput output;
-
-  output.albedo = input.color;
-
-  return output;
-}
+float4 frag(VertexOutput input) { return input.color; }

@@ -6,5 +6,3 @@ target_sources(${PROJECT_NAME}
     main.cpp
     input.cpp
 )
-
-

@@ -1,4 +1,3 @@
-
 add_executable(monkey)
 
 target_link_libraries(monkey PRIVATE keptech::keptech keptech::shader_processor)
@@ -18,3 +17,14 @@ if (NOT SDL3_FOUND)
     COMMAND_EXPAND_LISTS
   )
 endif()
+
+compile_shader(monkey SPIRV
+  NAMESPACE shaders
+  BASE_DIR
+    ${CMAKE_CURRENT_SOURCE_DIR}
+  OUTPUT_DIR
+    examples/monkey
+  LINK PRIVATE
+  SOURCES
+    mesh
+)

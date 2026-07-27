@@ -14,6 +14,10 @@ namespace kt::vkh {
   class RenderPassBuilder;
   class Renderer;
 
+#if __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#endif
   class RenderPassInterface {
   public:
     RenderPassInterface() = default;
@@ -44,11 +48,18 @@ namespace kt::vkh {
 
     /// Called before the pass is executed. This is where you should update any resources that are used by the pass.
     virtual void prepare(RenderGraph& graph, Renderer& renderer) {}
-    /// Called when the pass is executed. This is where you should record the commands for the pass.
+    /// @brief Called when the pass is executed. This is where you should record the commands for the pass.
+    /// @param cmd The command buffer to record commands to.
+    /// @param descriptorSet The descriptor set for the pass. This is populated with the resources that were specified during setup.
+    /// @param framebufferSize The size of the framebuffer for this pass. This is useful for setting the viewport and scissor.
     virtual void execute(const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize = {}) {}
 
     /// Called when the render graph is destroyed.
     virtual void shutdown(Renderer& renderer) {}
+
+#if __clang__
+#pragma clang diagnostic pop
+#endif
   };
 
   struct AccessedResource {

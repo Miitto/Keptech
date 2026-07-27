@@ -12,38 +12,38 @@
 #include <keptech/renderer.hpp>
 
 #include "keptech/renderGraphBuilder.hpp"
+#include "keptech/rendering/renderer.hpp"
 #include "keptech/vulkan/helpers/pipeline.hpp"
-#include "shaders/keptech/mesh_shader.h"
+#include "shaders/examples/monkey/mesh.h"
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 
 kt::SetupInfo kt::configureApp() {
   return {.window = {.title = "Material Editor", .width = WINDOW_WIDTH, .height = WINDOW_HEIGHT},
-          .renderer = {.applicationName = "Material Editor"}};
+          .renderer = {.applicationName = "Material Editor", .capabilities = kt::RendererCapabilities::MeshShader}};
 }
 
 class GeometryPass : public kt::RenderPassInterface {
 public:
+  GeometryPass(kt::Scene& scene) : scene(scene) {}
+
   void setupDependencies(kt::RenderPassBuilder& self, kt::RenderGraphBuilder& graph, const kt::Renderer& renderer) override {
     auto& formats = renderer.getFormats();
     self.addColorOutput("kt::albedo", {.format = formats.render.albedo});
-    self.addColorOutput("kt::normal", {.format = formats.render.normal});
-    self.addColorOutput("kt::material", {.format = formats.render.metRought});
-    self.addColorOutput("kt::emissive", {.format = formats.render.emissive});
     self.setDepthStencilOutput("kt::depth", {.format = formats.render.depth});
   }
 
   void setup(kt::Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override {
     auto& device = renderer.getMembers().vkcore.device;
-    auto shaderRes = renderer.createShader(::shaders::mesh_shader);
+    auto shaderRes = renderer.createShader(::shaders::mesh);
     if (!shaderRes.isOk()) {
       KT_ABORT("Failed to create mesh shader: {}", shaderRes.error());
     }
     kt::vkh::PipelineLayoutBuilder layoutBuilder{};
     layoutBuilder.addDescriptorSetLayout(renderer.getGlobalDescriptorSetLayout())
         .addDescriptorSetLayout(descriptorSetLayout)
-        .addPushConstantRange<glm::mat4, uint32_t, uint32_t>(
+        .addPushConstantRange<glm::mat4, uint32_t>(
             VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0);
 
     auto layoutRes = renderer.createPipelineLayout(layoutBuilder);
@@ -54,21 +54,14 @@ public:
 
     auto& formats = renderer.getFormats();
 
-    auto vertexInput = kt::vkh::Shader::getVertexInput(::shaders::mesh_shader);
-
     kt::vkh::GraphicsPipelineBuilder pipelineBuilder{};
     pipelineBuilder.layout(layoutRes.value())
         .addShaderStages(shaderRes.value().stages)
         .addColorAttachment(formats.render.albedo)
-        .addColorAttachment(formats.render.normal)
-        .addColorAttachment(formats.render.metRought)
-        .addColorAttachment(formats.render.emissive)
         .depthAttachment(formats.render.depth)
-        .addVertexInputAttributes(vertexInput.attributes)
-        .addVertexInputBindings(vertexInput.bindings)
         .cullMode(kt::vkh::CullMode::Back)
         .depthWrite()
-        .depthTest();
+        .depthTest(kt::vkh::DepthCompareOp::LessOrEqual);
     auto pipelineRes = renderer.createPipeline(pipelineBuilder);
     if (!pipelineRes.isOk()) {
       shaderRes.value().destroy(device);
@@ -85,18 +78,41 @@ public:
 
   void execute(const kt::CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize) override {
     KT_TRACE("Executing geometry pass");
+    auto& r = kt::Renderer::get();
 
-    std::array<VkDescriptorSet, 2> descriptorSets = {kt::Renderer::get().getGlobalDescriptorSet(), descriptorSet};
+    std::array<VkDescriptorSet, 2> descriptorSets = {r.getGlobalDescriptorSet(), descriptorSet};
+    constexpr std::array<VkDeviceSize, 2> vertexOffsets = {0, 0};
 
     cmd.bindPipeline(pipeline)
         .setViewportScissor(framebufferSize)
         .bindDescriptorSets(pipeline, VK_PIPELINE_BIND_POINT_GRAPHICS, 0, descriptorSets);
+
+    auto meshView = scene.view<kt::components::Mesh, kt::components::Transform>();
+
+    for (const auto& [entity, mesh, transform] : meshView.each()) {
+      const glm::mat4 modelMatrix = transform.getGlobal();
+      vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                         0, sizeof(glm::mat4), &modelMatrix);
+
+      for (const auto& submesh : mesh.getSubmeshes()) {
+        uint32_t meshletCount = submesh.meshletCount;
+        if (meshletCount == 0) {
+          continue;
+        }
+
+        vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                           sizeof(glm::mat4), sizeof(uint32_t), &meshletCount);
+
+        uint32_t taskShaderDispatches = (submesh.meshletCount + 63) / 64;
+        vkCmdDrawMeshTasksEXT(cmd, taskShaderDispatches, 1, 1);
+      }
+    }
   }
 
   bool getClearColor(size_t attachmentIndex, VkClearColorValue* value) const override {
     if (value) {
       *value = {
-          .float32 = {1.0f, 0.0f, 0.0f, 1.0f},
+          .float32 = {0.0f, 0.0f, 0.0f, 1.0f},
       };
     }
     return true;
@@ -104,7 +120,10 @@ public:
 
   bool getClearDepthStencil(VkClearDepthStencilValue* value) const override {
     if (value) {
-      *value = {};
+      *value = {
+          .depth = 1.0f,
+          .stencil = 0,
+      };
     }
     return true;
   }
@@ -117,13 +136,14 @@ public:
   }
 
 private:
+  kt::Scene& scene;
   kt::vkh::Pipeline pipeline{};
 };
 
 class BenchmarkLayer : public kt::core::layers::Layer {
 public:
   BenchmarkLayer(kt::Window& window, kt::RenderGraphBuilder& builder, kt::Renderer& renderer)
-      : kt::core::layers::Layer("Monkey"), window(window), scene({}) {
+      : kt::core::layers::Layer("Monkey"), window(window), scene({}), geometryPass(scene) {
     renderer.setScene(scene);
 
     auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
@@ -178,40 +198,7 @@ public:
     using kt::QueueType;
     auto& formats = renderer.getFormats();
     auto& geometryPass = builder.addPass("kt::geometry", QueueType::Graphics);
-
     geometryPass.setInterface(&this->geometryPass);
-
-    auto& lightingPass = builder.addPass("kt::lighting", QueueType::Graphics);
-    lightingPass.addTextureInput("kt::albedo");
-    lightingPass.addTextureInput("kt::normal");
-    lightingPass.addTextureInput("kt::material");
-    lightingPass.addTextureInput("kt::emissive");
-    lightingPass.addTextureInput("kt::depth");
-    lightingPass.setDepthStencilInput("kt::depth");
-    lightingPass.addColorOutput("kt::diffuse", {.format = formats.render.emissive});
-    lightingPass.addColorOutput("kt::specular", {.format = formats.render.emissive});
-
-    lightingPass.setBuildCallback([&](auto cmd, auto set, auto framebufferSize) { KT_TRACE("Building lighting pass"); });
-
-    auto& ssaoPass = builder.addPass("kt::ssao", QueueType::AsyncCompute);
-    ssaoPass.addTextureInput("kt::depth");
-    ssaoPass.addTextureInput("kt::normal");
-    ssaoPass.addStorageImageOutput("kt::ssao", {.format = VK_FORMAT_R8_UNORM});
-
-    auto& lightCombinePass = builder.addPass("kt::lightCombine", QueueType::Graphics);
-    lightCombinePass.addTextureInput("kt::albedo");
-    lightCombinePass.addTextureInput("kt::diffuse");
-    lightCombinePass.addTextureInput("kt::specular");
-    lightCombinePass.addTextureInput("kt::ssao");
-    lightCombinePass.addColorOutput("kt::lighting", {.format = formats.render.emissive}, "kt::emissive");
-
-    lightCombinePass.setBuildCallback([&](auto cmd, auto set, auto framebufferSize) { KT_TRACE("Building light combine pass"); });
-
-    auto& tonemapPass = builder.addPass("kt::tonemap", QueueType::Graphics);
-    tonemapPass.addTextureInput("kt::lighting");
-    tonemapPass.addColorOutput("kt::tonemapped", {.sizeType = AttachmentSize::SwapchainRelative, .format = formats.swapchain});
-
-    tonemapPass.setBuildCallback([&](auto cmd, auto set, auto framebufferSize) { KT_TRACE("Building tonemap pass"); });
 
     builder.setBackbufferSource("kt::albedo");
   }

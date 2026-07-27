@@ -38,7 +38,7 @@ namespace kt::vkh {
       return std::unexpected("Failed to create Vulkan surface from SDL window.");
     }
 
-    auto device_res = initDevice();
+    auto device_res = initDevice(createInfo);
     if (!device_res) {
       return std::unexpected(device_res.error());
     }

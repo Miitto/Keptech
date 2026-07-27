@@ -13,8 +13,6 @@ target_link_libraries(${PROJECT_NAME}
     keptech::core
 )
 
-include(shaders)
-
 compile_shader(${PROJECT_NAME} SPIRV
   NAMESPACE shaders
   BASE_DIR
@@ -24,7 +22,6 @@ compile_shader(${PROJECT_NAME} SPIRV
   LINK PUBLIC
   SOURCES
     basic
-    mesh_shader
     pointLightShadows
     pointLight
     ssao

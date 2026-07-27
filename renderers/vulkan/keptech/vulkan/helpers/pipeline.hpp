@@ -38,13 +38,21 @@ namespace kt::vkh {
   };
 
   enum class DepthCompareOp : uint32_t { // NOLINT
+    /// Fragment will always fail the depth test. No pixels will be drawn.
     Never = VK_COMPARE_OP_NEVER,
+    /// Fragment will pass the depth test if its depth value is less than the current depth buffer value.
     Less = VK_COMPARE_OP_LESS,
+    /// Fragment will pass the depth test if its depth value is equal to the current depth buffer value.
     Equal = VK_COMPARE_OP_EQUAL,
+    /// Fragment will pass the depth test if its depth value is less than or equal to the current depth buffer value.
     LessOrEqual = VK_COMPARE_OP_LESS_OR_EQUAL,
+    /// Fragment will pass the depth test if its depth value is greater than the current depth buffer value.
     Greater = VK_COMPARE_OP_GREATER,
+    /// Fragment will pass the depth test if its depth value is not equal to the current depth buffer value.
     NotEqual = VK_COMPARE_OP_NOT_EQUAL,
+    /// Fragment will pass the depth test if its depth value is greater than or equal to the current depth buffer value.
     GreaterOrEqual = VK_COMPARE_OP_GREATER_OR_EQUAL,
+    /// Fragment will always pass the depth test. All pixels will be drawn (Unless failed by other criteria).
     Always = VK_COMPARE_OP_ALWAYS,
   };
 
@@ -164,12 +172,8 @@ namespace kt::vkh {
     /// Set the primitive topology for the graphics pipeline (default TriangleList).
     GraphicsPipelineBuilder& primitiveTopology(PrimitiveTopology topology);
 
-    /// Set the depth compare operation for the graphics pipeline (default Less).
-    GraphicsPipelineBuilder& depthCompareOp(DepthCompareOp op);
-    /// Set the depth test enable for the graphics pipeline (default disabled).
-    GraphicsPipelineBuilder& depthTest(bool enable);
-    /// Enable depth testing for the graphics pipeline.
-    GraphicsPipelineBuilder& depthTest();
+    /// Enables depth testing and sets the depth compare operation for the graphics pipeline (default Disabled).
+    GraphicsPipelineBuilder& depthTest(DepthCompareOp op);
     // Disable depth testing for the graphics pipeline (default).
     GraphicsPipelineBuilder& noDepthTest();
     /// Set the depth write enable for the graphics pipeline (default disabled).

@@ -21,6 +21,8 @@ namespace kt::vkh {
     const CommandBuffer& bindDescriptorSets(VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint32_t firstSet,
                                             std::span<const VkDescriptorSet> descriptorSets,
                                             std::span<const uint32_t> dynamicOffsets = {}) const;
+    const CommandBuffer& bindVertexBuffers(std::span<const VkBuffer> buffers, std::span<const VkDeviceSize> offsets,
+                                           uint32_t first = 0) const;
 
     const CommandBuffer& beginRendering(const VkRenderingInfo& renderingInfo) const;
     const CommandBuffer& endRendering() const;

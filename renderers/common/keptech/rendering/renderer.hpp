@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/core/macros.hpp"
 #include "keptech/core/scene.hpp"
 #include <concepts>
 #include <expected>
@@ -7,8 +8,14 @@
 #include <string>
 
 namespace kt {
+  enum class RendererCapabilities : uint8_t {
+    /// Support for mesh and task shaders.
+    MeshShader = BIT(0),
+  };
+
   struct RendererCreateInfo {
     const char* applicationName = "Keptech App";
+    Bitflag<RendererCapabilities> capabilities = {};
   };
 
   template <typename T>
@@ -18,3 +25,5 @@ namespace kt {
   };
 
 } // namespace kt
+
+DEFINE_BITFLAG_ENUM_OPERATORS(kt::RendererCapabilities)

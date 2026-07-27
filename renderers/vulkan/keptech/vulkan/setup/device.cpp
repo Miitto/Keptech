@@ -17,17 +17,33 @@ namespace kt::vkh {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME,
       VK_EXT_MESH_SHADER_EXTENSION_NAME,
       VK_KHR_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME,
+#ifdef KT_USE_DESCRIPTOR_HEAP
+      // Renderdoc does not support this extension!
       VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME,
+#endif
 #ifdef KT_PROFILE
       VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME,
 #endif
   };
 
-  std::expected<void, std::string> Renderer::initPhysicalDevice() {
+  // TODO: Actually respect the RendererCreateInfo::capabilities.
+
+  std::expected<void, std::string> Renderer::initPhysicalDevice(const RendererCreateInfo& createInfo) {
     VKH_MAKE(selector, kt::vkh::PhysicalDeviceSelector::create(m.vkcore.instance), "Failed to create physical device selector.");
 
+    VK_DEBUG("Physical Devices in System:");
+    for (const auto& device : selector.getDevices()) {
+      VK_DEBUG("  - {}", device.properties.deviceName);
+    }
+
     selector.requireVersion(1, 4, 0);
+    if (selector.getDevices().empty()) {
+      return std::unexpected("No physical devices found that support Vulkan 1.4.");
+    }
     selector.requireExtensions(REQUIRED_DEVICE_EXTENSIONS);
+    if (selector.getDevices().empty()) {
+      return std::unexpected("No physical devices found that support the required engine extensions.");
+    }
     selector.requireQueueFamily(VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT | VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT);
 
     selector.scoreDevices([](auto& specs) {
@@ -122,7 +138,8 @@ namespace kt::vkh {
     }
   } // namespace
 
-  std::expected<void, std::string> Renderer::initLogicalDevice(const std::set<uint32_t>& uniqueQueueFamilies) {
+  std::expected<void, std::string> Renderer::initLogicalDevice(const RendererCreateInfo& createInfo,
+                                                               const std::set<uint32_t>& uniqueQueueFamilies) {
     constexpr float priority = 1.f;
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfo{};
@@ -231,8 +248,8 @@ namespace kt::vkh {
     }
   } // namespace
 
-  std::expected<std::set<uint32_t>, std::string> Renderer::initDevice() {
-    auto phys_res = initPhysicalDevice();
+  std::expected<std::set<uint32_t>, std::string> Renderer::initDevice(const RendererCreateInfo& createInfo) {
+    auto phys_res = initPhysicalDevice(createInfo);
     if (!phys_res) {
       return std::unexpected(phys_res.error());
     }
@@ -244,7 +261,7 @@ namespace kt::vkh {
     setup::QueueIndices& queueIndices = queues_res.value();
     std::set<uint32_t> uniqueQueueFamilies = {queueIndices.graphics, queueIndices.present, queueIndices.compute, queueIndices.transfer};
 
-    auto logic_res = initLogicalDevice(uniqueQueueFamilies);
+    auto logic_res = initLogicalDevice(createInfo, uniqueQueueFamilies);
     if (!logic_res) {
       return std::unexpected(logic_res.error());
     }

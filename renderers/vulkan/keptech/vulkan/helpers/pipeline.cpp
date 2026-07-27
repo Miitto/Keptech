@@ -151,16 +151,15 @@ namespace kt::vkh {
     return *this;
   }
 
-  GraphicsPipelineBuilder& GraphicsPipelineBuilder::depthCompareOp(DepthCompareOp op) {
+  GraphicsPipelineBuilder& GraphicsPipelineBuilder::depthTest(DepthCompareOp op) {
+    _depthStencilState.depthTestEnable = VK_TRUE;
     _depthStencilState.depthCompareOp = static_cast<VkCompareOp>(op);
     return *this;
   }
-  GraphicsPipelineBuilder& GraphicsPipelineBuilder::depthTest(bool enable) {
-    _depthStencilState.depthTestEnable = enable ? VK_TRUE : VK_FALSE;
+  GraphicsPipelineBuilder& GraphicsPipelineBuilder::noDepthTest() {
+    _depthStencilState.depthTestEnable = VK_FALSE;
     return *this;
   }
-  GraphicsPipelineBuilder& GraphicsPipelineBuilder::depthTest() { return depthTest(true); }
-  GraphicsPipelineBuilder& GraphicsPipelineBuilder::noDepthTest() { return depthTest(false); }
   GraphicsPipelineBuilder& GraphicsPipelineBuilder::depthWrite(bool enable) {
     _depthStencilState.depthWriteEnable = enable ? VK_TRUE : VK_FALSE;
     return *this;

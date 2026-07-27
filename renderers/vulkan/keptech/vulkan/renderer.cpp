@@ -101,6 +101,9 @@ namespace kt::vkh {
 
     updateTextureDescriptors();
     updateBufferPointers();
+
+    components::Transform::recalcAllTransforms(scene->getEcs());
+    passes::writeCameraData(m.buffers, scene->getActiveCamera(), m.window->getRenderSize(), m.frameInfo.index);
   }
 
   void Renderer::renderImGui(VkCommandBuffer cmdBuf) {
