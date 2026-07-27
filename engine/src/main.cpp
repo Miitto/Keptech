@@ -9,8 +9,8 @@
 #include <keptech/core/profile.hpp>
 #include <string>
 
-#include "keptech/renderGraphBuilder.hpp"
-#include "keptech/renderer.hpp"
+#include "keptech/render/renderGraph/builder.hpp"
+#include "keptech/render/renderer.hpp"
 
 using namespace kt;
 

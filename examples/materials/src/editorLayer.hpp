@@ -11,29 +11,17 @@
 #include <keptech/core/gui.h>
 #include <keptech/core/window.hpp>
 #include <keptech/keptech.hpp>
-#include <keptech/vulkan.hpp>
+#include <keptech/render.hpp>
 
 class MaterialEditorLayer;
 
 class MaterialEditorLayer : public kt::core::layers::Layer {
 public:
-  using SelectedItem = std::variant<std::monostate, kt::ecs::EntityHandle,
-                                    kt::MeshPtr, kt::PipelinePtr, kt::ImgPtr>;
+  using SelectedItem = std::variant<std::monostate, kt::ecs::EntityHandle, kt::MeshPtr, kt::PipelinePtr, kt::ImgPtr>;
 
-  enum class ActiveDebugView : uint8_t {
-    Albedo,
-    Normals,
-    EmissiveAo,
-    MetallicRoughness,
-    Depth,
-    Diffuse,
-    Specular,
-    Final
-  };
+  enum class ActiveDebugView : uint8_t { Albedo, Normals, EmissiveAo, MetallicRoughness, Depth, Diffuse, Specular, Final };
 
-  MaterialEditorLayer(kt::Window& window, kt::Renderer& renderer,
-                      std::unique_ptr<kt::Scene>&& scene,
-                      std::vector<kt::MeshPtr>&& meshes,
+  MaterialEditorLayer(kt::Window& window, kt::Renderer& renderer, std::unique_ptr<kt::Scene>&& scene, std::vector<kt::MeshPtr>&& meshes,
                       std::vector<kt::PipelinePtr>&& pipelines);
 
   static void initMeta();
@@ -88,11 +76,9 @@ private:
   void drawViewport();
   void drawToolbar();
   void drawSceneTree();
-  void addNodeToList(
-      kt::ecs::EntityHandle entity, kt::components::Name& name,
-      std::vector<std::unique_ptr<MaterialEditorLayer::SceneNode>>& roots,
-      std::unordered_map<kt::ecs::EntityHandle,
-                         MaterialEditorLayer::SceneNode*>& nodeMap);
+  void addNodeToList(kt::ecs::EntityHandle entity, kt::components::Name& name,
+                     std::vector<std::unique_ptr<MaterialEditorLayer::SceneNode>>& roots,
+                     std::unordered_map<kt::ecs::EntityHandle, MaterialEditorLayer::SceneNode*>& nodeMap);
   void drawSceneNodeInTree(SceneNode& node);
   /// Returns true if the node was deleted
   bool drawSceneTreeEntityContextMenu(SceneNode& node);
@@ -100,8 +86,7 @@ private:
   bool reloadShader(kt::PipelinePtr& pipeline);
 
   void drawSelectedProperties();
-  void drawEntityProperties(kt::gui::Frame& frame,
-                            kt::ecs::EntityHandle entity);
+  void drawEntityProperties(kt::gui::Frame& frame, kt::ecs::EntityHandle entity);
 
   kt::Window& window;
   kt::Renderer& renderer;
@@ -115,9 +100,7 @@ private:
   ActiveDebugView activeDebugView = ActiveDebugView::Final;
 };
 
-template <typename Comp>
-void forwardCompInspectorUi(MaterialEditorLayer* layer, kt::gui::Frame* frame,
-                            kt::ecs::EntityHandle entity) {
+template <typename Comp> void forwardCompInspectorUi(MaterialEditorLayer* layer, kt::gui::Frame* frame, kt::ecs::EntityHandle entity) {
   auto& comp = layer->getScene().getEcs().get<Comp>(entity);
   layer->inspectorUi(*frame, comp);
 }

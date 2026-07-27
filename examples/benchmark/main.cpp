@@ -1,4 +1,4 @@
-#include "keptech/vulkan/interface.hpp"
+#include "keptech/render/interface.hpp"
 #include <keptech/app.hpp>
 #include <keptech/keptech.hpp>
 
@@ -9,7 +9,7 @@
 #include <keptech/core/kt-logger.hpp>
 #include <keptech/core/window.hpp>
 #include <keptech/ecs/entity.hpp>
-#include <keptech/renderer.hpp>
+#include <keptech/render/renderer.hpp>
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;

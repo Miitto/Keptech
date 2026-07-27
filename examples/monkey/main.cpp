@@ -2,6 +2,10 @@
 #include <keptech/app.hpp>
 #include <keptech/keptech.hpp>
 
+#include "keptech/render/helpers/pipeline.hpp"
+#include "keptech/render/renderGraph/builder.hpp"
+#include "keptech/render/renderer.hpp"
+#include "shaders/examples/monkey/mesh.h"
 #include <expected>
 #include <keptech/cameras/freeCamera.hpp>
 #include <keptech/components.hpp>
@@ -9,12 +13,6 @@
 #include <keptech/core/kt-logger.hpp>
 #include <keptech/core/window.hpp>
 #include <keptech/ecs/entity.hpp>
-#include <keptech/renderer.hpp>
-
-#include "keptech/renderGraphBuilder.hpp"
-#include "keptech/rendering/renderer.hpp"
-#include "keptech/vulkan/helpers/pipeline.hpp"
-#include "shaders/examples/monkey/mesh.h"
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
@@ -48,7 +46,7 @@ public:
 
     auto layoutRes = renderer.createPipelineLayout(layoutBuilder);
     if (!layoutRes.isOk()) {
-      shaderRes.value().destroy(device);
+      shaderRes.value().destroy();
       KT_ABORT("Failed to create pipeline layout: {}", layoutRes.error());
     }
 
@@ -64,14 +62,14 @@ public:
         .depthTest(kt::vkh::DepthCompareOp::LessOrEqual);
     auto pipelineRes = renderer.createPipeline(pipelineBuilder);
     if (!pipelineRes.isOk()) {
-      shaderRes.value().destroy(device);
+      shaderRes.value().destroy();
       vkDestroyPipelineLayout(device, layoutRes.value(), nullptr);
       KT_ABORT("Failed to create graphics pipeline: {}", pipelineRes.error());
     }
 
     pipeline = pipelineRes.value();
 
-    shaderRes.value().destroy(renderer.getMembers().vkcore.device);
+    shaderRes.value().destroy();
   }
 
   void prepare(kt::RenderGraph& graph, kt::Renderer& renderer) override { KT_TRACE("Preparing geometry pass"); }
@@ -136,7 +134,7 @@ public:
   }
 
 private:
-  kt::Scene& scene;
+  kt::Scene& scene; // NOLINT - This never moves. TODO: Make active scene a singleton or something so we don't have to pass it around
   kt::vkh::Pipeline pipeline{};
 };
 

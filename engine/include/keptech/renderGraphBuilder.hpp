@@ -1,5 +1,0 @@
-#pragma once
-
-#ifdef KEPTECH_RENDERER_VULKAN
-#include "keptech/vulkan/renderGraph/builder.hpp"
-#endif
