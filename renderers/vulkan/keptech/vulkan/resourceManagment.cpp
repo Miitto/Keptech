@@ -403,7 +403,7 @@ namespace kt::vkh {
   }
 
   std::expected<Renderer::UploadResult<Mesh>, std::string>
-  Renderer::uploadMeshes(const std::vector<gltf::MeshData>& meshes, const std::vector<rendering::Material>& materials,
+  Renderer::uploadMeshes(const std::vector<gltf::MeshData>& meshes, const std::vector<Material>& materials,
                          const VkCommandBuffer) { // TODO: Support none ReBAR systems
     KT_PROFILE_FUNCTION
     VK_DEBUG("Uploading {} meshes from glTF data", meshes.size());
@@ -480,7 +480,7 @@ namespace kt::vkh {
     return std::move(resultStruct);
   }
 
-  std::expected<Renderer::UploadResult<rendering::Material>, std::string>
+  std::expected<Renderer::UploadResult<Material>, std::string>
   Renderer::createMaterials(const gltf::Data& data, const std::vector<Image>& textures, const VkCommandBuffer transferCmd) {
     KT_PROFILE_FUNCTION
     auto& materials = data.materials;
@@ -499,7 +499,7 @@ namespace kt::vkh {
     auto toGlmVec4 = [](const fastgltf::math::nvec4& g) { return glm::vec4(g.x(), g.y(), g.z(), g.w()); };
     auto toGlmVec3 = [](const fastgltf::math::nvec3& g) { return glm::vec3(g.x(), g.y(), g.z()); };
 
-    std::vector<rendering::Material> result;
+    std::vector<Material> result;
     result.reserve(materials.size());
     std::vector<GpuMaterial> gpuMaterials;
     gpuMaterials.reserve(materials.size());
@@ -509,7 +509,7 @@ namespace kt::vkh {
     for (const auto& mat : materials) {
       VK_TRACE("Creating material {}", mat.name);
 
-      rendering::MaterialLayer matLayer{
+      MaterialLayer matLayer{
           .albedoFactor = toGlmVec4(mat.pbrData.baseColorFactor),
           .emissiveFactor = toGlmVec3(mat.emissiveFactor),
           .metFactor = mat.pbrData.metallicFactor,
@@ -555,7 +555,7 @@ namespace kt::vkh {
       result.emplace_back(materialIndex++);
     }
 
-    UploadResult<rendering::Material> resultStruct{
+    UploadResult<Material> resultStruct{
         .resources = std::move(result),
     };
 

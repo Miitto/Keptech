@@ -5,10 +5,7 @@
 #include "wrappers/device.hpp"
 #include <glm/vec3.hpp>
 
-
 namespace kt::vkh {
-  using namespace kt::rendering;
-
   kt::Result<Image, VkResult, VK_SUCCESS> Image::create(const Device& device, const ImageCreateInfo& info) {
     VkImage image = VK_NULL_HANDLE;
     VmaAllocation alloc{};

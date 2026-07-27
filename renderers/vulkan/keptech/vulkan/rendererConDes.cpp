@@ -5,18 +5,6 @@
 #include "vk-logger.hpp"
 
 namespace kt::vkh {
-  Renderer::Renderer(Renderer&& o) noexcept : m(std::move(o.m)) { m.frameInfo.perFrame = &m.vkcore.perFrame[m.frameInfo.index]; }
-
-  Renderer& Renderer::operator=(Renderer&& o) noexcept {
-    if (this == &o)
-      return *this;
-
-    m = std::move(o.m);
-
-    m.frameInfo.perFrame = &m.vkcore.perFrame[m.frameInfo.index];
-    return *this;
-  }
-
   void Renderer::imGuiNewFrame() const {
     ImGui_ImplVulkan_NewFrame();
     rendering::newImGuiFrame();
@@ -37,10 +25,6 @@ namespace kt::vkh {
   }
 
   Renderer::~Renderer() {
-    if (m.moveGuard.moved()) {
-      return;
-    }
-
     auto& device = m.vkcore.device;
     auto& allocator = m.vkcore.allocator;
 
@@ -60,9 +44,6 @@ namespace kt::vkh {
 
     vkDestroyDescriptorSetLayout(device, m.globalDescriptorSets.layout, nullptr);
     vkDestroyDescriptorPool(device, m.globalDescriptorSets.pool, nullptr);
-
-    vkDestroyDescriptorSetLayout(device, m.staticDescriptors.layout, nullptr);
-    vkDestroyDescriptorPool(device, m.staticDescriptors.pool, nullptr);
 
     m.buffers.~Buffers();
 

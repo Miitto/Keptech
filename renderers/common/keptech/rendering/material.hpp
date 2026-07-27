@@ -5,25 +5,23 @@
 #include <glm/vec4.hpp>
 
 namespace kt {
-  namespace rendering {
-    struct MaterialLayer {
-      const Image* albedo;
-      const Image* bump;
-      const Image* emissive;
-      const Image* metRough;
-      glm::vec4 albedoFactor;
-      glm::vec3 emissiveFactor;
-      const Image* ao;
-      float metFactor;
-      float roughFactor;
-      float specFactor = 1.f;
-      float alphaCutoff = 0.f;
-    };
+  struct MaterialLayer {
+    const Image* albedo;
+    const Image* bump;
+    const Image* emissive;
+    const Image* metRough;
+    glm::vec4 albedoFactor;
+    glm::vec3 emissiveFactor;
+    const Image* ao;
+    float metFactor;
+    float roughFactor;
+    float specFactor = 1.f;
+    float alphaCutoff = 0.f;
+  };
 
-    using Material = uint32_t;
-  } // namespace rendering
+  using Material = uint32_t;
 
   namespace components {
-    using Material = rendering::Material;
+    using Material = Material;
   }
 } // namespace kt

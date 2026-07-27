@@ -21,8 +21,8 @@
 namespace kt::vkh {
   static_assert(CRenderer<Renderer>, "Renderer does not satisfy CRenderer concept");
 
-  using rendering::ImageLayout;
-  using rendering::ImageType;
+  Renderer Renderer::singleton{};
+  bool Renderer::isInitialized = false;
 
   void Renderer::debugUi() {
     ImGui::Begin("Debug View");
@@ -248,7 +248,7 @@ namespace kt::vkh {
     KT_PROFILE_FUNCTION
     VK_TRACE("Recreating swapchain");
     VKH_MAKE(newSwapchain,
-             setup::createSwapchain(m.vkcore.device, m.window->getRenderSize(), m.vkcore.device, m.vkcore.surface, m.vkcore.queues,
+             setup::createSwapchain(m.vkcore.device, m.vkcore.device, m.window->getRenderSize(), m.vkcore.surface, m.vkcore.queues,
                                     *m.vkcore.swapchain),
              "Failed to recreate swapchain");
 

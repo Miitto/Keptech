@@ -1,12 +1,12 @@
 #include "setup.hpp"
 
-#include "keptech/vulkan/helpers/formatting.hpp"
 #include "keptech/vulkan/structs.hpp"
+#include "renderer.hpp"
 #include "vk-logger.hpp"
 #include <Volk/volk.h>
 #include <keptech/shaders/shader.h>
 
-namespace kt::vkh::setup {
+namespace kt::vkh {
   // Formats
   namespace {
     constexpr std::array GBUFFER_ALBEDO_FORMATS = {VK_FORMAT_B8G8R8A8_SRGB};
@@ -27,11 +27,11 @@ namespace kt::vkh::setup {
     constexpr std::array TEXTURE_EMISSIVE_FORMATS = {VK_FORMAT_B10G11R11_UFLOAT_PACK32};
   } // namespace
 
-  std::expected<Formats, std::string> findFormats(const VulkanCore& vkcore) {
+  std::expected<void, std::string> Renderer::initFormats() {
     auto findFormat = [&](std::span<const VkFormat> candidates, VkFormatFeatureFlags features) -> VkFormat {
       for (auto& format : candidates) {
         VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(vkcore.device, format, &props);
+        vkGetPhysicalDeviceFormatProperties(m.vkcore.device, format, &props);
         if ((props.optimalTilingFeatures & features) == features) {
           return format;
         }
@@ -48,60 +48,56 @@ namespace kt::vkh::setup {
       return findFormat(candidates, VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT);
     };
 
-    Formats f{
-        .render =
-            {
-                .albedo = findColorAttachmentFormat(GBUFFER_ALBEDO_FORMATS),
-                .position = findColorAttachmentFormat(GBUFFER_POSITION_FORMATS),
-                .normal = findColorAttachmentFormat(GBUFFER_NORMAL_FORMATS),
-                .emissive = findColorAttachmentFormat(GBUFFER_EMISSIVE_FORMATS),
-                .metRought = findColorAttachmentFormat(GBUFFER_METROUGH_FORMATS),
-                .depth = findDepthAttachmentFormat(GBUFFER_DEPTH_FORMATS),
-                .hdr = findColorAttachmentFormat(HDR_FORMATS),
-            },
-        .texture =
-            {
-                .albedo = findTextureFormat(TEXTYRE_ALBEDO_FORMATS),
-                .normal = findTextureFormat(TEXTURE_NORMAL_FORMATS),
-                .metRough = findTextureFormat(TEXTURE_METROUGH_FORMATS),
-                .emissive = findTextureFormat(TEXTURE_EMISSIVE_FORMATS),
-            },
-        .swapchain = vkcore.swapchain.config().format.format,
+    m.formats.render = {
+        .albedo = findColorAttachmentFormat(GBUFFER_ALBEDO_FORMATS),
+        .position = findColorAttachmentFormat(GBUFFER_POSITION_FORMATS),
+        .normal = findColorAttachmentFormat(GBUFFER_NORMAL_FORMATS),
+        .emissive = findColorAttachmentFormat(GBUFFER_EMISSIVE_FORMATS),
+        .metRought = findColorAttachmentFormat(GBUFFER_METROUGH_FORMATS),
+        .depth = findDepthAttachmentFormat(GBUFFER_DEPTH_FORMATS),
+        .hdr = findColorAttachmentFormat(HDR_FORMATS),
     };
+    m.formats.texture = {
+        .albedo = findTextureFormat(TEXTYRE_ALBEDO_FORMATS),
+        .normal = findTextureFormat(TEXTURE_NORMAL_FORMATS),
+        .metRough = findTextureFormat(TEXTURE_METROUGH_FORMATS),
+        .emissive = findTextureFormat(TEXTURE_EMISSIVE_FORMATS),
+    };
+    m.formats.swapchain = m.vkcore.swapchain.config().format.format;
 
 #define CHECK_FORMAT(format)                                                                                                               \
   if (!(format)) {                                                                                                                         \
     return std::unexpected("Failed to find suitable " #format " format.");                                                                 \
   }
-    CHECK_FORMAT(f.render.albedo);
-    CHECK_FORMAT(f.render.normal);
-    CHECK_FORMAT(f.render.emissive);
-    CHECK_FORMAT(f.render.metRought);
-    CHECK_FORMAT(f.render.depth);
-    CHECK_FORMAT(f.render.hdr);
-    CHECK_FORMAT(f.texture.albedo);
-    CHECK_FORMAT(f.texture.normal);
-    CHECK_FORMAT(f.texture.metRough);
-    CHECK_FORMAT(f.texture.emissive);
-    CHECK_FORMAT(f.swapchain);
-    CHECK_FORMAT(f.render.albedo);
-    CHECK_FORMAT(f.render.normal);
-    CHECK_FORMAT(f.render.emissive);
-    CHECK_FORMAT(f.render.metRought);
+    CHECK_FORMAT(m.formats.render.albedo);
+    CHECK_FORMAT(m.formats.render.normal);
+    CHECK_FORMAT(m.formats.render.emissive);
+    CHECK_FORMAT(m.formats.render.metRought);
+    CHECK_FORMAT(m.formats.render.depth);
+    CHECK_FORMAT(m.formats.render.hdr);
+    CHECK_FORMAT(m.formats.texture.albedo);
+    CHECK_FORMAT(m.formats.texture.normal);
+    CHECK_FORMAT(m.formats.texture.metRough);
+    CHECK_FORMAT(m.formats.texture.emissive);
+    CHECK_FORMAT(m.formats.swapchain);
+    CHECK_FORMAT(m.formats.render.albedo);
+    CHECK_FORMAT(m.formats.render.normal);
+    CHECK_FORMAT(m.formats.render.emissive);
+    CHECK_FORMAT(m.formats.render.metRought);
 
     VK_DEBUG("Selected formats:");
-    VK_DEBUG("  Albedo: {}", f.render.albedo);
-    VK_DEBUG("  Normal: {}", f.render.normal);
-    VK_DEBUG("  Emissive: {}", f.render.emissive);
-    VK_DEBUG("  Metallic-Roughness: {}", f.render.metRought);
-    VK_DEBUG("  Depth: {}", f.render.depth);
-    VK_DEBUG("  HDR: {}", f.render.hdr);
-    VK_DEBUG("  Texture Albedo: {}", f.texture.albedo);
-    VK_DEBUG("  Texture Normal: {}", f.texture.normal);
-    VK_DEBUG("  Texture Metallic-Roughness: {}", f.texture.metRough);
-    VK_DEBUG("  Texture Emissive: {}", f.texture.emissive);
-    VK_DEBUG("  Swapchain: {}", f.swapchain);
+    VK_DEBUG("  Albedo: {}", m.formats.render.albedo);
+    VK_DEBUG("  Normal: {}", m.formats.render.normal);
+    VK_DEBUG("  Emissive: {}", m.formats.render.emissive);
+    VK_DEBUG("  Metallic-Roughness: {}", m.formats.render.metRought);
+    VK_DEBUG("  Depth: {}", m.formats.render.depth);
+    VK_DEBUG("  HDR: {}", m.formats.render.hdr);
+    VK_DEBUG("  Texture Albedo: {}", m.formats.texture.albedo);
+    VK_DEBUG("  Texture Normal: {}", m.formats.texture.normal);
+    VK_DEBUG("  Texture Metallic-Roughness: {}", m.formats.texture.metRough);
+    VK_DEBUG("  Texture Emissive: {}", m.formats.texture.emissive);
+    VK_DEBUG("  Swapchain: {}", m.formats.swapchain);
 
-    return f;
+    return {};
   }
-} // namespace kt::vkh::setup
+} // namespace kt::vkh

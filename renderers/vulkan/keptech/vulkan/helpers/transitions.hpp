@@ -14,8 +14,8 @@ namespace kt::vkh {
   struct TransitionInfo {
     VkImageMemoryBarrier2 barrier;
 
-    constexpr TransitionInfo(kt::rendering::ImageType imageType, kt::rendering::ImageLayout oldLayout, kt::rendering::ImageLayout newLayout,
-                             uint8_t mips = 1, uint8_t layers = 1)
+    constexpr TransitionInfo(kt::ImageType imageType, kt::ImageLayout oldLayout, kt::ImageLayout newLayout, uint8_t mips = 1,
+                             uint8_t layers = 1)
         : barrier(VkImageMemoryBarrier2{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
                                         .pNext = nullptr,
                                         .srcStageMask = utils::toVkPipelineStageFlags(imageType, oldLayout),

@@ -1,17 +1,16 @@
 #include "keptech/rendering/imgui.hpp"
 #include "keptech/vulkan/renderer.hpp"
 #include "macros.hpp"
+#include "renderer.hpp"
 #include <expected>
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
 #include <keptech/core/window.hpp>
 
-namespace kt::vkh::setup {
-  using namespace kt::vkh;
+namespace kt::vkh {
 
-  std::expected<VkDescriptorPool, std::string> setupImGui(const kt::core::window::Window& window, const VulkanCore& vkcore,
-                                                          const Samplers& samplers) {
+  std::expected<void, std::string> Renderer::initImGui() {
     rendering::initImGui();
 
     auto funcLoader = [](const char* funcName, void* d) {
@@ -20,7 +19,10 @@ namespace kt::vkh::setup {
       PFN_vkVoidFunction deviceAddr = vkGetDeviceProcAddr(vkcore->device, funcName);
       return deviceAddr ? deviceAddr : instanceAddr;
     };
-    const bool funcsLoaded = ImGui_ImplVulkan_LoadFunctions(VK_API_VERSION_1_4, funcLoader, (void*)&vkcore);
+    const bool funcsLoaded = ImGui_ImplVulkan_LoadFunctions(VK_API_VERSION_1_4, funcLoader, (void*)&m.vkcore);
+    if (!funcsLoaded) {
+      return std::unexpected("Failed to load ImGui Vulkan functions.");
+    }
 
     std::array<VkDescriptorPoolSize, 11> pool_sizes = {{
         {
@@ -77,8 +79,7 @@ namespace kt::vkh::setup {
         .pPoolSizes = pool_sizes.data(),
     };
 
-    VkDescriptorPool imguiPool{};
-    VK_MAKE(vkCreateDescriptorPool(vkcore.device, &pool_info, nullptr, &imguiPool), "Failed to create ImGui descriptor pool");
+    VK_MAKE(vkCreateDescriptorPool(m.vkcore.device, &pool_info, nullptr, &m.imGuiDescriptorPool), "Failed to create ImGui descriptor pool");
 
     // 2: initialize imgui library
 
@@ -88,16 +89,16 @@ namespace kt::vkh::setup {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;     // Enable Docking
 
-    ImGui_ImplSDL3_InitForVulkan(window.getHandle());
+    ImGui_ImplSDL3_InitForVulkan(m.window->getHandle());
 
     // this initializes imgui for Vulkan
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.ApiVersion = VK_API_VERSION_1_4;
-    init_info.Instance = vkcore.instance;
-    init_info.PhysicalDevice = vkcore.device, init_info.Device = vkcore.device;
-    init_info.QueueFamily = vkcore.queues.graphics.index;
-    init_info.Queue = vkcore.queues.graphics.queue;
-    init_info.DescriptorPool = imguiPool;
+    init_info.Instance = m.vkcore.instance;
+    init_info.PhysicalDevice = m.vkcore.device, init_info.Device = m.vkcore.device;
+    init_info.QueueFamily = m.vkcore.queues.graphics.index;
+    init_info.Queue = m.vkcore.queues.graphics.queue;
+    init_info.DescriptorPool = m.imGuiDescriptorPool;
     init_info.MinImageCount = 3;
     init_info.ImageCount = 3;
     init_info.UseDynamicRendering = true;
@@ -106,7 +107,7 @@ namespace kt::vkh::setup {
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     info.colorAttachmentCount = 1;
 
-    auto swapchainFormatC = static_cast<VkFormat>(vkcore.swapchain.config().format.format);
+    auto swapchainFormatC = static_cast<VkFormat>(m.vkcore.swapchain.config().format.format);
 
     info.pColorAttachmentFormats = &swapchainFormatC;
 
@@ -115,6 +116,6 @@ namespace kt::vkh::setup {
 
     ImGui_ImplVulkan_Init(&init_info);
 
-    return imguiPool;
+    return {};
   }
-} // namespace kt::vkh::setup
+} // namespace kt::vkh

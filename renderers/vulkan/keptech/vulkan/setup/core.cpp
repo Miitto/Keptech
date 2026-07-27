@@ -5,6 +5,7 @@
 #include "keptech/vulkan/structs.hpp"
 #include "keptech/vulkan/wrappers/device.hpp"
 #include "macros.hpp"
+#include "renderer.hpp"
 #include <SDL3/SDL_vulkan.h>
 #include <Volk/volk.h>
 #include <array>
@@ -13,53 +14,10 @@
 #include <set>
 #include <string>
 
-namespace kt::vkh::setup {
+namespace kt::vkh {
   using namespace kt::vkh;
 
-  std::expected<std::array<Pools, 2>, std::string> createPools(std::set<uint32_t>& uniqueQueueFamilies, const QueueIndices& queueIndices,
-                                                               VkDevice& device, const Queues& queues) {
-    Pools pools1{};
-    Pools pools2{};
-
-    VkCommandPoolCreateInfo poolCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-        .queueFamilyIndex = 0, // Will be set in the loop below
-    };
-
-    auto makePool = [&](VkCommandPool& p1, VkCommandPool& p2) {
-      VK_CHECK(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &p1), "Failed to create first command pool.");
-      VK_CHECK(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &p2), "Failed to create second command pool.");
-    };
-
-    for (uint32_t familyIndex : uniqueQueueFamilies) {
-      poolCreateInfo.queueFamilyIndex = familyIndex;
-
-      if (familyIndex == queueIndices.graphics) {
-        pools1.graphics.queue = queues.graphics;
-        pools2.graphics.queue = queues.graphics;
-        makePool(pools1.graphics.pool, pools2.graphics.pool);
-        if (queueIndices.graphics == queueIndices.compute) {
-          pools1.compute = pools1.graphics;
-          pools2.compute = pools2.graphics;
-        }
-      } else if (familyIndex == queueIndices.compute) {
-        pools1.compute.queue = queues.compute;
-        pools2.compute.queue = queues.compute;
-        makePool(pools1.compute.pool, pools2.compute.pool);
-      }
-    }
-
-    VK_ASSERT(pools1.graphics.pool != nullptr, "Graphics command pool was not created.");
-    VK_ASSERT(pools1.compute.pool != nullptr, "Compute command pool was not created.");
-    VK_ASSERT(pools2.graphics.pool != nullptr, "Graphics command pool was not created.");
-    VK_ASSERT(pools2.compute.pool != nullptr, "Compute command pool was not created.");
-
-    return std::array<Pools, 2>{pools1, pools2};
-  }
-
-  std::expected<VulkanCore, std::string> createVulkanCore(const RendererCreateInfo& createInfo, const core::window::Window& window) {
+  std::expected<void, std::string> Renderer::initVulkanCore(const RendererCreateInfo& createInfo, const core::window::Window& window) {
 
     VK_CHECK(volkInitialize(), "Failed to initialize Volk.");
 
@@ -74,88 +32,105 @@ namespace kt::vkh::setup {
     if (!instance_res) {
       return std::unexpected(instance_res.error());
     }
-    auto& instance = instance_res.value();
+    m.vkcore.instance = instance_res.value();
 
-    VkSurfaceKHR surface = nullptr;
-    if (!SDL_Vulkan_CreateSurface(window.getHandle(), instance, nullptr, &surface)) {
+    if (!SDL_Vulkan_CreateSurface(window.getHandle(), m.vkcore.instance, nullptr, &m.vkcore.surface)) {
       return std::unexpected("Failed to create Vulkan surface from SDL window.");
     }
 
-    VKH_MAKE(physDevice, createPhysicalDevice(instance, surface), "Failed to create physical device.");
+    auto device_res = initDevice();
+    if (!device_res) {
+      return std::unexpected(device_res.error());
+    }
+    auto& uniqueQueueFamilies = device_res.value();
 
-    VKH_MAKE(queueIndices, findQueues(physDevice, surface), "Failed to find required queue families.");
+    m.vkcore.transferPool.queue = m.vkcore.queues.transfer;
 
-    std::set<uint32_t> uniqueQueueFamilies = {queueIndices.graphics, queueIndices.present, queueIndices.compute, queueIndices.transfer};
+    auto swapchain_res =
+        setup::createSwapchain(m.vkcore.device, m.vkcore.device, m.window->getRenderSize(), m.vkcore.surface, m.vkcore.queues, nullptr);
+    if (!swapchain_res) {
+      return std::unexpected(swapchain_res.error());
+    }
+    m.vkcore.swapchain = std::move(swapchain_res.value());
 
-    VKH_MAKE(device, createDevice(physDevice, uniqueQueueFamilies), "Failed to create logical device.");
+    auto pools_res = initCommandPools(uniqueQueueFamilies);
+    if (!pools_res) {
+      return std::unexpected(pools_res.error());
+    }
 
-    VKH_MAKE(queues, getQueues(device, queueIndices, uniqueQueueFamilies), "Failed to get device queues.");
+    auto sync_res = initSync();
+    if (!sync_res) {
+      return std::unexpected(sync_res.error());
+    }
 
-    VmaAllocator allocator = nullptr;
+    return {};
+  }
 
-    VmaVulkanFunctions vulkanFunctions{
-        .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
-        .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
-        .vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties,
-        .vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties,
-        .vkAllocateMemory = vkAllocateMemory,
-        .vkFreeMemory = vkFreeMemory,
-        .vkMapMemory = vkMapMemory,
-        .vkUnmapMemory = vkUnmapMemory,
-        .vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges,
-        .vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges,
-        .vkBindBufferMemory = vkBindBufferMemory,
-        .vkBindImageMemory = vkBindImageMemory,
-        .vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements,
-        .vkGetImageMemoryRequirements = vkGetImageMemoryRequirements,
-        .vkCreateBuffer = vkCreateBuffer,
-        .vkDestroyBuffer = vkDestroyBuffer,
-        .vkCreateImage = vkCreateImage,
-        .vkDestroyImage = vkDestroyImage,
-        .vkCmdCopyBuffer = vkCmdCopyBuffer,
+  std::expected<void, std::string> Renderer::initCommandPools(const std::set<uint32_t>& uniqueQueueFamilies) {
+    setup::QueueIndices queueIndices{
+        .graphics = m.vkcore.queues.graphics.index,
+        .present = m.vkcore.queues.present.index,
+        .compute = m.vkcore.queues.compute.index,
+        .transfer = m.vkcore.queues.transfer.index,
     };
-
-    VmaAllocatorCreateInfo allocInfo{
-        .flags = VmaAllocatorCreateFlagBits::VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-        .physicalDevice = physDevice,
-        .device = device,
-        .pVulkanFunctions = &vulkanFunctions,
-        .instance = instance,
-    };
-    VK_CHECK(vmaCreateAllocator(&allocInfo, &allocator), "Failed to create VMA allocator.");
-
-    VKH_MAKE(swapchain, createSwapchain(physDevice, window.getRenderSize(), device, surface, queues, nullptr),
-             "Failed to create swapchain.");
-
-    VKH_MAKE(poolsArray, createPools(uniqueQueueFamilies, queueIndices, device, queues), "Failed to create command pools.");
-
-    VkCommandPool transferPool = nullptr;
     VkCommandPoolCreateInfo poolCreateInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .flags = VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-        .queueFamilyIndex = queueIndices.transfer,
-    };
-    VK_CHECK(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &transferPool), "Failed to create transfer command pool.");
-
-    CommandPool transferPoolStruct{
-        .pool = transferPool,
-        .queue = queues.transfer,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .queueFamilyIndex = 0,
     };
 
-    std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame{};
+    auto makePool = [&](VkCommandPool& p1, VkCommandPool& p2) {
+      VK_CHECK(vkCreateCommandPool(m.vkcore.device, &poolCreateInfo, nullptr, &p1), "Failed to create first command pool.");
+      VK_CHECK(vkCreateCommandPool(m.vkcore.device, &poolCreateInfo, nullptr, &p2), "Failed to create second command pool.");
+    };
+
+    auto& pools1 = m.vkcore.perFrame[0].pools;
+    auto& pools2 = m.vkcore.perFrame[1].pools;
+
+    for (uint32_t familyIndex : uniqueQueueFamilies) {
+      poolCreateInfo.queueFamilyIndex = familyIndex;
+
+      if (familyIndex == queueIndices.graphics) {
+        pools1.graphics.queue = m.vkcore.queues.graphics;
+        pools2.graphics.queue = m.vkcore.queues.graphics;
+        makePool(pools1.graphics.pool, pools2.graphics.pool);
+        if (queueIndices.graphics == queueIndices.compute) {
+          pools1.compute = pools1.graphics;
+          pools2.compute = pools2.graphics;
+        }
+      } else if (familyIndex == queueIndices.compute) {
+        pools1.compute.queue = m.vkcore.queues.compute;
+        pools2.compute.queue = m.vkcore.queues.compute;
+        makePool(pools1.compute.pool, pools2.compute.pool);
+      }
+    }
+
+    poolCreateInfo.queueFamilyIndex = queueIndices.transfer;
+    VK_CHECK(vkCreateCommandPool(m.vkcore.device, &poolCreateInfo, nullptr, &m.vkcore.transferPool.pool),
+             "Failed to create transfer command pool.");
+
+    VK_ASSERT(pools1.graphics.pool != nullptr, "Graphics command pool was not created.");
+    VK_ASSERT(pools1.compute.pool != nullptr, "Compute command pool was not created.");
+    VK_ASSERT(pools2.graphics.pool != nullptr, "Graphics command pool was not created.");
+    VK_ASSERT(pools2.compute.pool != nullptr, "Compute command pool was not created.");
+
+    return {};
+  }
+
+  std::expected<void, std::string> Renderer::initSync() {
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-      perFrame[i].pools = poolsArray[i];
+      auto& perFrame = m.vkcore.perFrame[i];
       VkFenceCreateInfo fenceCreateInfo{
           .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
           .flags = VkFenceCreateFlagBits::VK_FENCE_CREATE_SIGNALED_BIT,
       };
-      VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &perFrame[i].inFlightFence), "Failed to create fence1.");
+      VK_CHECK(vkCreateFence(m.vkcore.device, &fenceCreateInfo, nullptr, &perFrame.inFlightFence), "Failed to create fence1.");
 
-      VkSemaphore sem = nullptr;
       VkSemaphoreCreateInfo semaphoreCreateInfo{
           .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
       };
-      VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &perFrame[i].imageAvailableSemaphore),
+      VK_CHECK(vkCreateSemaphore(m.vkcore.device, &semaphoreCreateInfo, nullptr, &perFrame.imageAvailableSemaphore),
                "Failed to create image available semaphore");
     }
 
@@ -167,23 +142,13 @@ namespace kt::vkh::setup {
     VkSemaphoreCreateInfo timelineSemaphoreCreateInfo{
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
         .pNext = &timelineSemaphoreTypeInfo,
-        .flags = 0,
     };
-    VkSemaphore transferSemaphore = nullptr;
-    VkSemaphore timelineSemaphore = nullptr;
-    VK_CHECK(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &timelineSemaphore), "Failed to create timeline semaphore.");
-    VK_CHECK(vkCreateSemaphore(device, &timelineSemaphoreCreateInfo, nullptr, &transferSemaphore), "Failed to create timeline semaphore.");
 
-    return VulkanCore{
-        .instance = instance,
-        .surface = surface,
-        .device = Device(physDevice, device, allocator),
-        .queues = queues,
-        .swapchain = std::move(swapchain),
-        .mainSemaphore = TimelineSemaphore{.semaphore = timelineSemaphore, .value = 0},
-        .perFrame = perFrame,
-        .transferPool = transferPoolStruct,
-        .transferSemaphore = TimelineSemaphore{.semaphore = transferSemaphore, .value = 0},
-    };
+    VK_CHECK(vkCreateSemaphore(m.vkcore.device, &timelineSemaphoreCreateInfo, nullptr, &m.vkcore.mainSemaphore.semaphore),
+             "Failed to create timeline semaphore.");
+    VK_CHECK(vkCreateSemaphore(m.vkcore.device, &timelineSemaphoreCreateInfo, nullptr, &m.vkcore.transferSemaphore.semaphore),
+             "Failed to create timeline semaphore.");
+
+    return {};
   }
-} // namespace kt::vkh::setup
+} // namespace kt::vkh

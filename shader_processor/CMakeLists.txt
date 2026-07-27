@@ -20,7 +20,6 @@ add_library(keptech_shader_processor)
 add_library(keptech::shader_processor ALIAS keptech_shader_processor)
 KT_SETUP_TARGET(keptech_shader_processor)
 
-include(slang)
 link_slang(keptech_shader_processor PUBLIC)
 
 target_sources(keptech_shader_processor

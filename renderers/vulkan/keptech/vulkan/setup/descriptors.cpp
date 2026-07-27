@@ -7,7 +7,7 @@
 #include <array>
 #include <keptech/components/camera.hpp>
 
-namespace kt::vkh::setup {
+namespace kt::vkh {
 
   enum ResourceBindingIndices : uint8_t {
     SAMPLER = 0,
@@ -27,7 +27,7 @@ namespace kt::vkh::setup {
     MAX_PER_FRAME_UNIFORM_BUFFER_COUNT,
   };
 
-  std::expected<DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>, std::string> createGlobalDescriptors(VkDevice device) {
+  std::expected<void, std::string> Renderer::initDescriptors() {
 
     std::array sizes{
         VkDescriptorPoolSize{
@@ -73,8 +73,8 @@ namespace kt::vkh::setup {
         .pPoolSizes = sizes.data(),
     };
 
-    VkDescriptorPool descriptorPool{};
-    VK_MAKE(vkCreateDescriptorPool(device, &poolCreateInfo, nullptr, &descriptorPool), "Failed to create bindless descriptor pool.");
+    VK_MAKE(vkCreateDescriptorPool(m.vkcore.device, &poolCreateInfo, nullptr, &m.globalDescriptorSets.pool),
+            "Failed to create bindless descriptor pool.");
 
     constexpr size_t descriptorBindingCount = 8;
 
@@ -132,29 +132,25 @@ namespace kt::vkh::setup {
         .pBindings = bindings.data(),
     };
 
-    VkDescriptorSetLayout layout{};
-    VK_MAKE(vkCreateDescriptorSetLayout(device, &layoutCreateInfo, nullptr, &layout), "Failed to create bindless descriptor layout.");
+    VK_MAKE(vkCreateDescriptorSetLayout(m.vkcore.device, &layoutCreateInfo, nullptr, &m.globalDescriptorSets.layout),
+            "Failed to create bindless descriptor layout.");
 
-    std::array<VkDescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{{layout, layout}};
+    std::array<VkDescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{{m.globalDescriptorSets.layout, m.globalDescriptorSets.layout}};
 
     VkDescriptorSetAllocateInfo allocInfo{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = descriptorPool,
+        .descriptorPool = m.globalDescriptorSets.pool,
         .descriptorSetCount = 2,
         .pSetLayouts = layouts.data(),
     };
 
-    std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> descriptorSets{};
-    VK_MAKE(vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()), "Failed to allocate bindless descriptor set.");
+    VK_MAKE(vkAllocateDescriptorSets(m.vkcore.device, &allocInfo, m.globalDescriptorSets.sets.data()),
+            "Failed to allocate bindless descriptor set.");
 
-    return DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>{
-        .pool = descriptorPool,
-        .layout = layout,
-        .sets = descriptorSets,
-    };
+    return {};
   }
 
-  void writeGlobalDescriptors(Members& m, DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>& sets) {
+  void Renderer::writeDescriptors() {
     const auto& vkcore = m.vkcore;
     const auto& buffers = m.buffers;
 
@@ -180,7 +176,7 @@ namespace kt::vkh::setup {
       };
       writes[writeIdx] = VkWriteDescriptorSet{
           .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-          .dstSet = sets.sets[writeIdx],
+          .dstSet = m.globalDescriptorSets.sets[writeIdx],
           .dstBinding = UNIFORM_BUFFER,
           .dstArrayElement = 0,
           .descriptorCount = 2,
@@ -193,75 +189,4 @@ namespace kt::vkh::setup {
 
     m.indices.nextUniformBufferIndex = BUFFER_COUNT;
   }
-
-  std::expected<StaticDescriptors, std::string> createStaticDescriptors(const VulkanCore& vkcore) {
-    std::array poolSizes{VkDescriptorPoolSize{
-        .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 1,
-    }};
-
-    VkDescriptorPoolCreateInfo poolCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = 1,
-        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
-        .pPoolSizes = poolSizes.data(),
-    };
-
-    VkDescriptorPool descriptorPool{};
-    VK_MAKE(vkCreateDescriptorPool(vkcore.device, &poolCreateInfo, nullptr, &descriptorPool), "Failed to create static descriptor pool.");
-
-    constexpr size_t descriptorBindingCount = 1;
-
-    std::array<VkDescriptorSetLayoutBinding, descriptorBindingCount> bindings{VkDescriptorSetLayoutBinding{
-        .binding = 0,
-        .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = 1,
-        .stageFlags = VK_SHADER_STAGE_ALL,
-    }};
-
-    VkDescriptorSetLayoutCreateInfo layoutCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = descriptorBindingCount,
-        .pBindings = bindings.data(),
-    };
-
-    VkDescriptorSetLayout layout{};
-    VK_MAKE(vkCreateDescriptorSetLayout(vkcore.device, &layoutCreateInfo, nullptr, &layout), "Failed to create static descriptor layout.");
-
-    VkDescriptorSetAllocateInfo allocInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = descriptorPool,
-        .descriptorSetCount = 1,
-        .pSetLayouts = &layout,
-    };
-
-    VkDescriptorSet descriptorSet{};
-    VK_MAKE(vkAllocateDescriptorSets(vkcore.device, &allocInfo, &descriptorSet), "Failed to allocate static descriptor set.");
-
-    return StaticDescriptors{
-        .pool = descriptorPool,
-        .layout = layout,
-        .set = descriptorSet,
-    };
-  }
-
-  void writeStaticDescriptors(const VulkanCore& vkcore, const StaticDescriptors& staticDescriptorSets, const Buffers& buffers) {
-    VkDescriptorBufferInfo bufferInfo{
-        .buffer = buffers.ssaoKernel,
-        .offset = 0,
-        .range = sizeof(glm::vec4) * constants::SSAO_KERNEL_SIZE,
-    };
-
-    std::array writes = {VkWriteDescriptorSet{
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = staticDescriptorSets.set,
-        .dstBinding = 0,
-        .dstArrayElement = 0,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .pBufferInfo = &bufferInfo,
-    }};
-
-    vkUpdateDescriptorSets(vkcore.device, writes.size(), writes.data(), 0, nullptr);
-  }
-} // namespace kt::vkh::setup
+} // namespace kt::vkh

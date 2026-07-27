@@ -27,10 +27,4 @@ function(link_vulkan target ACCESS)
       "${Vulkan_INCLUDE_DIR}/vma"
       "${Vulkan_INCLUDE_DIR}/Volk"
   )
-
-  if (KT_USE_PCH)
-    target_precompile_headers(${target} ${ACCESS}
-      <Volk/volk.h>
-    )
-  endif()
 endfunction()

@@ -11,6 +11,7 @@
 #include <keptech/ecs/entity.hpp>
 #include <keptech/renderer.hpp>
 
+#include "keptech/renderGraphBuilder.hpp"
 #include "keptech/vulkan/helpers/pipeline.hpp"
 #include "shaders/keptech/mesh_shader.h"
 
@@ -22,10 +23,9 @@ kt::SetupInfo kt::configureApp() {
           .renderer = {.applicationName = "Material Editor"}};
 }
 
-class GeometryPass : public kt::rendering::RenderPassInterface {
+class GeometryPass : public kt::RenderPassInterface {
 public:
-  void setupDependencies(kt::rendering::RenderPassBuilder& self, kt::rendering::RenderGraphBuilder& graph,
-                         const kt::rendering::Renderer& renderer) override {
+  void setupDependencies(kt::RenderPassBuilder& self, kt::RenderGraphBuilder& graph, const kt::Renderer& renderer) override {
     auto& formats = renderer.getFormats();
     self.addColorOutput("kt::albedo", {.format = formats.render.albedo});
     self.addColorOutput("kt::normal", {.format = formats.render.normal});
@@ -34,7 +34,7 @@ public:
     self.setDepthStencilOutput("kt::depth", {.format = formats.render.depth});
   }
 
-  void setup(kt::rendering::Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override {
+  void setup(kt::Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override {
     auto& device = renderer.getMembers().vkcore.device;
     auto shaderRes = renderer.createShader(::shaders::mesh_shader);
     if (!shaderRes.isOk()) {
@@ -81,10 +81,16 @@ public:
     shaderRes.value().destroy(renderer.getMembers().vkcore.device);
   }
 
-  void prepare(kt::rendering::RenderGraph& graph, kt::rendering::Renderer& renderer) override { KT_TRACE("Preparing geometry pass"); }
+  void prepare(kt::RenderGraph& graph, kt::Renderer& renderer) override { KT_TRACE("Preparing geometry pass"); }
 
-  void execute(const kt::rendering::CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize) override {
+  void execute(const kt::CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize) override {
     KT_TRACE("Executing geometry pass");
+
+    std::array<VkDescriptorSet, 2> descriptorSets = {kt::Renderer::get().getGlobalDescriptorSet(), descriptorSet};
+
+    cmd.bindPipeline(pipeline)
+        .setViewportScissor(framebufferSize)
+        .bindDescriptorSets(pipeline, VK_PIPELINE_BIND_POINT_GRAPHICS, 0, descriptorSets);
   }
 
   bool getClearColor(size_t attachmentIndex, VkClearColorValue* value) const override {
@@ -103,7 +109,7 @@ public:
     return true;
   }
 
-  void shutdown(kt::rendering::Renderer& renderer) override {
+  void shutdown(kt::Renderer& renderer) override {
     KT_TRACE("Shutting down geometry pass");
     auto device = renderer.getMembers().vkcore.device;
     vkDestroyPipeline(device, pipeline.pipeline, nullptr);
@@ -116,7 +122,7 @@ private:
 
 class BenchmarkLayer : public kt::core::layers::Layer {
 public:
-  BenchmarkLayer(kt::Window& window, kt::rendering::RenderGraphBuilder& builder, kt::rendering::Renderer& renderer)
+  BenchmarkLayer(kt::Window& window, kt::RenderGraphBuilder& builder, kt::Renderer& renderer)
       : kt::core::layers::Layer("Monkey"), window(window), scene({}) {
     renderer.setScene(scene);
 
@@ -167,9 +173,9 @@ public:
     setupRenderGraph(builder, renderer);
   }
 
-  void setupRenderGraph(kt::rendering::RenderGraphBuilder& builder, kt::rendering::Renderer& renderer) {
-    using kt::rendering::AttachmentSize;
-    using kt::rendering::QueueType;
+  void setupRenderGraph(kt::RenderGraphBuilder& builder, kt::Renderer& renderer) {
+    using kt::AttachmentSize;
+    using kt::QueueType;
     auto& formats = renderer.getFormats();
     auto& geometryPass = builder.addPass("kt::geometry", QueueType::Graphics);
 
@@ -236,7 +242,7 @@ private:
 };
 
 std::expected<void, std::string> kt::setupAppLayers(core::layers::LayerStack& layerStack, core::window::Window& window,
-                                                    kt::rendering::RenderGraphBuilder& builder, kt::rendering::Renderer& renderer) {
+                                                    kt::RenderGraphBuilder& builder, kt::Renderer& renderer) {
 
   layerStack.emplaceLayer<BenchmarkLayer>(window, builder, renderer);
 

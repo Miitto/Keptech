@@ -1,46 +1,39 @@
 #pragma once
 
-#include "keptech/vulkan/macros.hpp"
 #include <Volk/volk.h>
+#include <span>
 
 namespace kt::vkh {
   class CommandBuffer {
   public:
     CommandBuffer() = default;
-    constexpr CommandBuffer(VkCommandBuffer cmdBuf) : cmdBuf(cmdBuf) {}
+    CommandBuffer(VkCommandBuffer cmdBuf) : cmdBuf(cmdBuf) {}
 
-    void begin() const {
-      VkCommandBufferBeginInfo beginInfo{
-          .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-          .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-      };
-      VK_CHECK(vkBeginCommandBuffer(cmdBuf, &beginInfo), "Failed to begin command buffer");
-    }
+    const CommandBuffer& begin() const;
 
-    void barrier(const VkDependencyInfo& dependencyInfo) const { vkCmdPipelineBarrier2(cmdBuf, &dependencyInfo); }
+    const CommandBuffer& barrier(const VkDependencyInfo& dependencyInfo) const;
+    const CommandBuffer& bindPipeline(VkPipeline pipeline) const;
+    const CommandBuffer& bindComputePipeline(VkPipeline pipeline) const;
 
-    void beginRendering(const VkRenderingInfo& renderingInfo) const { vkCmdBeginRendering(cmdBuf, &renderingInfo); }
-    void endRendering() const { vkCmdEndRendering(cmdBuf); }
+    const CommandBuffer& setViewportScissor(glm::uvec2 framebufferSize, glm::vec2 minMaxDepth = {0.f, 1.f},
+                                            glm::vec2 offset = {0.f, 0.f}) const;
 
-    void end() const { VK_CHECK(vkEndCommandBuffer(cmdBuf), "Failed to end command buffer"); }
+    const CommandBuffer& bindDescriptorSets(VkPipelineLayout layout, VkPipelineBindPoint bindPoint, uint32_t firstSet,
+                                            std::span<const VkDescriptorSet> descriptorSets,
+                                            std::span<const uint32_t> dynamicOffsets = {}) const;
 
-    [[nodiscard]] constexpr operator VkCommandBuffer() const { return cmdBuf; }
-    [[nodiscard]] constexpr VkCommandBuffer get() const { return cmdBuf; }
-    [[nodiscard]] constexpr VkCommandBuffer operator*() const { return cmdBuf; }
+    const CommandBuffer& beginRendering(const VkRenderingInfo& renderingInfo) const;
+    const CommandBuffer& endRendering() const;
 
-    void label(const VkDevice device, const std::string& name) const { label(device, name.c_str()); }
+    const CommandBuffer& end() const;
 
-    void label(const VkDevice device, const char* name) const {
-#ifndef NDEBUG
-      VkDebugUtilsObjectNameInfoEXT nameInfo{
-          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-          .objectType = VK_OBJECT_TYPE_COMMAND_BUFFER,
-          .objectHandle = reinterpret_cast<uint64_t>(cmdBuf),
-          .pObjectName = name,
-      };
-      vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
-#endif
-    }
+    [[nodiscard]] operator VkCommandBuffer() const;
+    [[nodiscard]] VkCommandBuffer get() const;
+    [[nodiscard]] VkCommandBuffer operator*() const;
+
+    const CommandBuffer& label(const VkDevice device, const std::string& name) const;
+
+    const CommandBuffer& label(const VkDevice device, const char* name) const;
 
   private:
     VkCommandBuffer cmdBuf;

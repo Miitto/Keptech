@@ -1,7 +1,8 @@
 #include "setup.hpp"
 
-#include "macros.hpp"
+#ifdef KT_PROFILE
 #include "profile.hpp"
+#endif
 #include "renderer.hpp"
 #include <SDL3/SDL_vulkan.h>
 
@@ -14,8 +15,23 @@
 namespace kt::vkh {
   using namespace kt::vkh::setup;
 
-  std::expected<Renderer, std::string> Renderer::create(const RendererCreateInfo& createInfo, const core::window::Window& window) {
-    VKH_MAKE(vkcore, createVulkanCore(createInfo, window), "Failed to create Vulkan core.");
+  std::expected<void, std::string> Renderer::init(const RendererCreateInfo& createInfo, const core::window::Window& window) {
+    if (isInitialized) {
+      return std::unexpected("Renderer is already initialized.");
+    }
+
+    return singleton.initInternal(createInfo, window);
+  }
+
+  std::expected<void, std::string> Renderer::initInternal(const RendererCreateInfo& createInfo, const core::window::Window& window) {
+    m.window = &window;
+
+    {
+      auto res = initVulkanCore(createInfo, window);
+      if (!res) {
+        return std::unexpected(res.error());
+      }
+    }
 
     VkPhysicalDeviceMaintenance3Properties maintenance3Properties{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES,
@@ -24,7 +40,7 @@ namespace kt::vkh {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
         .pNext = &maintenance3Properties,
     };
-    vkGetPhysicalDeviceProperties2(vkcore.device, &properties);
+    vkGetPhysicalDeviceProperties2(m.vkcore.device, &properties);
 
     limits::minUniformBufferOffsetAlignment = properties.properties.limits.minUniformBufferOffsetAlignment;
     limits::minStorageBufferOffsetAlignment = properties.properties.limits.minStorageBufferOffsetAlignment;
@@ -35,49 +51,42 @@ namespace kt::vkh {
       limits::maxMemoryAllocationSize = p.maxMemoryAllocationSize;
     }
 
-    VKH_MAKE(samplers, createSamplers(vkcore.device), "Failed to create samplers for renderer.");
+    auto samplers_res = initSamplers();
+    if (!samplers_res) {
+      return std::unexpected(samplers_res.error());
+    }
 
-    VKH_MAKE(imGuiObjects, setupImGui(window, vkcore, samplers), "Failed to set up ImGui for Vulkan.");
+    auto imGui_res = initImGui();
+    if (!imGui_res) {
+      return std::unexpected(imGui_res.error());
+    }
 
-    VKH_MAKE(globalDescriptorSets, createGlobalDescriptors(vkcore.device), "Failed to create global descriptor sets.");
-    VKH_MAKE(staticDescriptorSets, createStaticDescriptors(vkcore), "Failed to create static descriptor sets.");
+    auto desc_res = initDescriptors();
+    if (!desc_res) {
+      return std::unexpected(desc_res.error());
+    }
 
-    VKH_MAKE(buffers, createBuffers(vkcore), "Failed to create buffers for renderer.");
-    VKH_MAKE(formats, findFormats(vkcore), "Failed to find suitable formats for renderer.");
+    auto buffers_res = initBuffers();
+    if (!buffers_res) {
+      return std::unexpected(buffers_res.error());
+    }
+
+    auto formats_res = initFormats();
+    if (!formats_res) {
+      return std::unexpected(formats_res.error());
+    }
 
 #ifdef KT_PROFILE
-    auto gctx = KT_VK_CONTEXT(vkcore.device, vkcore.device);
-    auto cctx = KT_VK_CONTEXT(vkcore.device, vkcore.device);
-    KT_VK_CONTEXT_NAME(gctx, "Graphics");
-    KT_VK_CONTEXT_NAME(cctx, "Compute");
+    m.tracyGraphicsContext = KT_VK_CONTEXT(vkcore.device, vkcore.device);
+    m.tracyComputeContext = KT_VK_CONTEXT(vkcore.device, vkcore.device);
+    KT_VK_CONTEXT_NAME(m.tracyGraphicsContext, "Graphics");
+    KT_VK_CONTEXT_NAME(m.tracyComputeContext, "Compute");
 #endif
 
-    vkDeviceWaitIdle(vkcore.device);
+    vkDeviceWaitIdle(m.vkcore.device);
 
-    VK_DEBUG("Creating test render graph.");
+    writeDescriptors();
 
-    Renderer::Members members{
-        .window = &window,
-        .vkcore = std::move(vkcore),
-        .samplers = samplers,
-        .imGuiDescriptorPool = imGuiObjects,
-        .formats = formats,
-        .buffers = std::move(buffers),
-        .globalDescriptorSets = globalDescriptorSets,
-        .staticDescriptors = staticDescriptorSets,
-#ifdef KT_PROFILE
-        .tracyGraphicsContext = gctx,
-        .tracyComputeContext = cctx,
-#endif
-    };
-
-    VK_DEBUG("Writing Global Descriptor Sets.");
-    writeGlobalDescriptors(members, members.globalDescriptorSets);
-    VK_DEBUG("Writing Static Descriptor Sets.");
-    writeStaticDescriptors(members.vkcore, members.staticDescriptors, members.buffers);
-
-    Renderer r{std::move(members)};
-
-    return std::move(r);
+    return {};
   }
 } // namespace kt::vkh

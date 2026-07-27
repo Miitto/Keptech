@@ -51,7 +51,7 @@ namespace kt {
     uint32_t meshletVertexCount;
     uint32_t meshletTriangleCount;
 
-    std::optional<rendering::Material> material;
+    std::optional<Material> material;
     kt::maths::Sphere boundingSphere;
     uint32_t id = ~0u;
   };

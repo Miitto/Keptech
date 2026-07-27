@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <glm/fwd.hpp>
 
-namespace kt::rendering {
+namespace kt {
   enum class ImageLayout : uint8_t {
     Undefined,
     RenderTarget,
@@ -41,4 +41,4 @@ namespace kt::rendering {
       { t.format() } -> std::same_as<typename T::Format>;
     } && TransitionInfo<typename T::TransitionInfoType>;
   } // namespace interface
-} // namespace kt::rendering
+} // namespace kt

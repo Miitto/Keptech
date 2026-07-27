@@ -5,9 +5,9 @@
 #include "keptech/vulkan/constants.hpp"
 #include "keptech/vulkan/core.hpp"
 #include "keptech/vulkan/passes/geometry.hpp"
-#include "keptech/vulkan/pipelines.hpp"
 #include "keptech/vulkan/wrappers/buffer.hpp"
 #include "keptech/vulkan/wrappers/image.hpp"
+#include "keptech/vulkan/wrappers/pipeline.hpp"
 #include "renderGraph/graph.hpp"
 #include "types.hpp"
 #include <Volk/volk.h>
@@ -52,12 +52,6 @@ namespace kt::vkh {
     void destroy(const VkDevice device);
   };
 
-  struct StaticDescriptors {
-    VkDescriptorPool pool;
-    VkDescriptorSetLayout layout;
-    VkDescriptorSet set;
-  };
-
   struct Frame {
     constexpr static uint8_t INVALID_INDEX = 255;
 
@@ -83,8 +77,6 @@ namespace kt::vkh {
   };
 
   struct Members {
-    MoveGuard moveGuard{};
-
     const core::window::Window* window;
     VulkanCore vkcore;
     Samplers samplers;
@@ -96,7 +88,6 @@ namespace kt::vkh {
     Buffers buffers;
 
     DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT> globalDescriptorSets;
-    StaticDescriptors staticDescriptors;
 
     Frame frameInfo{};
 
@@ -119,6 +110,8 @@ namespace kt::vkh {
     using Members = kt::vkh::Members;
     // Creation and destruction
   public:
+    static Renderer& get() { return singleton; }
+
     const Members& getMembers() const { return m; }
     Members& getMembers() { return m; }
 
@@ -144,8 +137,6 @@ namespace kt::vkh {
       return m.vkcore.device.createPipeline(info);
     }
 
-    std::expected<Renderer, std::string> static create(const RendererCreateInfo& createInfo, const core::window::Window& window);
-
     /// Loads a glTF mesh from the specified path. Returns a gltf::Scene on success, or an error message on failure.
     std::expected<gltf::Scene, std::string> loadMesh(std::string_view path);
 
@@ -157,22 +148,20 @@ namespace kt::vkh {
       std::vector<Buffer> stagingBuffers;
     };
     std::expected<UploadResult<Mesh>, std::string> uploadMeshes(const std::vector<gltf::MeshData>& meshes,
-                                                                const std::vector<rendering::Material>& materials,
-                                                                const VkCommandBuffer transferCmd);
+                                                                const std::vector<Material>& materials, const VkCommandBuffer transferCmd);
     std::expected<UploadResult<Image>, std::string> createImages(const gltf::Data& gltfData, const VkCommandBuffer transferCmd);
-    std::expected<UploadResult<rendering::Material>, std::string>
-    createMaterials(const gltf::Data& data, const std::vector<Image>& textures, const VkCommandBuffer transferCmd);
+    std::expected<UploadResult<Material>, std::string> createMaterials(const gltf::Data& data, const std::vector<Image>& textures,
+                                                                       const VkCommandBuffer transferCmd);
 
     /// Assigns the image a slot in the global texture descriptor set and queues the descriptor update.
     void loadImage(Image& image);
 
     void setScene(Scene& s) { scene = &s; }
 
-    Renderer() = delete;
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
-    Renderer(Renderer&&) noexcept;
-    Renderer& operator=(Renderer&&) noexcept;
+    Renderer(Renderer&&) = delete;
+    Renderer& operator=(Renderer&&) = delete;
     ~Renderer();
 
     // Util
@@ -182,8 +171,6 @@ namespace kt::vkh {
     [[nodiscard]] bool canRenderToFormat(VkFormat format) const;
     /// Returns the VkFormat of the swapchain.
     [[nodiscard]] VkFormat backbufferFormat() const;
-    /// Returns true if this renderer object has been moved from. If true, this object should not be used.
-    [[nodiscard]] bool hasMoved() const noexcept { return m.moveGuard.moved(); }
 
     PerFrameBuffers& fBufs() { return m.buffers.perFrame[m.frameInfo.index]; }
 
@@ -201,8 +188,24 @@ namespace kt::vkh {
     /// Is called internally by the engine during the render loop.
     void newFrame();
 
+    std::expected<void, std::string> static init(const RendererCreateInfo& createInfo, const core::window::Window& window);
+
   private:
-    Renderer(Members&& m) : m(std::move(m)) { this->m.frameInfo.perFrame = &this->m.vkcore.perFrame[0]; }
+    Renderer() = default;
+
+    std::expected<void, std::string> initInternal(const RendererCreateInfo& createInfo, const core::window::Window& window);
+    std::expected<void, std::string> initVulkanCore(const RendererCreateInfo& createInfo, const core::window::Window& window);
+    std::expected<std::set<uint32_t>, std::string> initDevice();
+    std::expected<void, std::string> initPhysicalDevice();
+    std::expected<void, std::string> initLogicalDevice(const std::set<uint32_t>& uniqueQueueFamilies);
+    std::expected<void, std::string> initCommandPools(const std::set<uint32_t>& uniqueQueueFamilies);
+    std::expected<void, std::string> initSync();
+    std::expected<void, std::string> initSamplers();
+    std::expected<void, std::string> initImGui();
+    std::expected<void, std::string> initDescriptors();
+    std::expected<void, std::string> initBuffers();
+    std::expected<void, std::string> initFormats();
+    void writeDescriptors();
 
     void startFrame();
     void renderImGui(VkCommandBuffer graphicsCmd);
@@ -223,6 +226,9 @@ namespace kt::vkh {
   private:
     Members m;
     Scene* scene = nullptr;
+
+    static Renderer singleton;
+    static bool isInitialized;
   };
 
 } // namespace kt::vkh

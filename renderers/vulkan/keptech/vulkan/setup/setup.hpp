@@ -8,7 +8,6 @@
 #include <Volk/volk.h>
 #include <expected>
 #include <glm/fwd.hpp>
-#include <set>
 
 namespace kt::core::window {
   class Window;
@@ -33,27 +32,13 @@ namespace kt {
         uint32_t transfer = std::numeric_limits<uint32_t>::max();
       };
 
-      std::expected<std::array<Pools, 2>, std::string>
-      createPools(std::set<uint32_t>& uniqueQueueFamilies, const QueueIndices& queueIndices, VkDevice& device, const Queues& queues);
-      std::expected<VulkanCore, std::string> createVulkanCore(const RendererCreateInfo& createInfo, const core::window::Window& window);
-      std::expected<Formats, std::string> findFormats(const VulkanCore& vkcore);
-      std::expected<DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>, std::string> createGlobalDescriptors(VkDevice device);
       void writeGlobalDescriptors(Members& m, DescriptorPoolSet<MAX_FRAMES_IN_FLIGHT>& sets);
       std::expected<StaticDescriptors, std::string> createStaticDescriptors(const VulkanCore& vkcore);
       void writeStaticDescriptors(const VulkanCore& vkcore, const StaticDescriptors& staticDescriptorSets, const Buffers& buffers);
-      std::expected<VkPhysicalDevice, std::string> createPhysicalDevice(VkInstance instance, VkSurfaceKHR surface);
-      std::expected<QueueIndices, std::string> findQueues(VkPhysicalDevice physDevice, VkSurfaceKHR surface);
-      std::expected<VkDevice, std::string> createDevice(VkPhysicalDevice physDevice, const std::set<uint32_t>& uniqueQueueFamilies);
-      std::expected<Queues, std::string> getQueues(VkDevice& device, QueueIndices& queueIndices,
-                                                   const std::set<uint32_t>& uniqueQueueFamilies);
-      std::expected<Samplers, std::string> createSamplers(VkDevice device);
-      std::expected<VkDescriptorPool, std::string> setupImGui(const kt::core::window::Window& window, const VulkanCore& vkcore,
-                                                              const Samplers& samplers);
-      std::expected<Swapchain, std::string> createSwapchain(const VkPhysicalDevice physicalDevice, glm::ivec2 framebufferSize,
-                                                            const VkDevice device, const VkSurfaceKHR surface, const Queues& queues,
+      std::expected<Swapchain, std::string> createSwapchain(const VkPhysicalDevice physicalDevice, const VkDevice device,
+                                                            glm::uvec2 windowSize, const VkSurfaceKHR surface, const Queues& queues,
                                                             VkSwapchainKHR oldSwapchain);
 
-      std::expected<Buffers, std::string> createBuffers(const VulkanCore& vkcore);
     } // namespace setup
   } // namespace vkh
 } // namespace kt

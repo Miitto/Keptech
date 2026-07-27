@@ -7,11 +7,13 @@
 namespace kt::vkh::setup {
   using namespace kt::vkh;
 
-  std::expected<Swapchain, std::string> createSwapchain(const VkPhysicalDevice physicalDevice, glm::ivec2 framebufferSize,
-                                                        const VkDevice device, const VkSurfaceKHR surface, const Queues& queues,
-                                                        VkSwapchainKHR oldSwapchain) {
+  std::expected<Swapchain, std::string> createSwapchain(const VkPhysicalDevice physicalDevice, const VkDevice device, glm::uvec2 windowSize,
+                                                        const VkSurfaceKHR surface, const Queues& queues, VkSwapchainKHR oldSwapchain) {
+    Swapchain::CreateInfo createInfo{};
+    createInfo.extent.width = windowSize.x;
+    createInfo.extent.height = windowSize.y;
     VKH_MAKE(swapchain,
-             Swapchain::create(device, Swapchain::CreateInfo{}, physicalDevice, surface,
+             Swapchain::create(device, createInfo, physicalDevice, surface,
                                {.graphicsQueueIndex = queues.graphics.index, .presentQueueIndex = queues.present.index}, oldSwapchain),
              "Failed to create swapchain");
 

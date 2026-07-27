@@ -70,6 +70,7 @@ set(SETUP_SOURCES
 
 set(WRAPPER_SOURCES
     wrappers/buffer.cpp
+    wrappers/cmdBuf.cpp
     wrappers/device.cpp
     wrappers/image.cpp
     wrappers/instance.cpp
@@ -78,11 +79,11 @@ set(WRAPPER_SOURCES
 )
 set(WRAPPER_HEADERS
     wrappers/buffer.hpp
+    wrappers/cmdBuf.hpp
     wrappers/image.hpp
     wrappers/instance.hpp
     wrappers/pipeline.hpp
     wrappers/swapchain.hpp
-    wrappers/cmdBuf.hpp
     wrappers/device.hpp
     wrappers/fwd.hpp
     wrappers/queue.hpp

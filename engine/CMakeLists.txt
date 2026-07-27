@@ -21,11 +21,4 @@ target_link_libraries(${PROJECT_NAME}
     keptech::renderer
 )
 
-if (KT_USE_PCH)
-  target_precompile_headers(${PROJECT_NAME}
-    PRIVATE
-      <keptech/components.hpp>
-      <keptech/keptech.hpp>
-      <keptech/vulkan.hpp>
-  )
-endif()
+target_precompile_headers(${PROJECT_NAME} REUSE_FROM keptech::core)

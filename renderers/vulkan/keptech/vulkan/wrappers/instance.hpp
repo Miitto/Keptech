@@ -9,6 +9,7 @@ namespace kt::vkh {
 
   class Instance {
   public:
+    Instance() = default;
     operator VkInstance() const { return handle; }
 
     void destroy() {
@@ -38,9 +39,9 @@ namespace kt::vkh {
     {
     }
 
-    VkInstance handle;
+    VkInstance handle = nullptr;
 #ifndef NDEBUG
-    VkDebugUtilsMessengerEXT debugMessenger;
+    VkDebugUtilsMessengerEXT debugMessenger = nullptr;
 #endif
   };
 } // namespace kt::vkh

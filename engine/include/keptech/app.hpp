@@ -14,5 +14,5 @@ namespace kt {
   // To be defined by the application
   [[nodiscard]] SetupInfo configureApp();
   std::expected<void, std::string> setupAppLayers(core::layers::LayerStack& layerStack, core::window::Window& window,
-                                                  rendering::RenderGraphBuilder& builder, rendering::Renderer& renderer);
+                                                  RenderGraphBuilder& builder, Renderer& renderer);
 } // namespace kt

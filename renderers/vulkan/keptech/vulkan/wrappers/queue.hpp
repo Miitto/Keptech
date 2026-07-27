@@ -8,7 +8,7 @@
 
 namespace kt::vkh {
   struct Queue {
-    uint32_t index = ~0;
+    uint32_t index = ~0u;
     VkQueue queue = nullptr;
   };
 

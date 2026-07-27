@@ -37,7 +37,7 @@ namespace kt::vkh {
       }
 
       VK_DEBUG("Updating {} texture descriptors for frame {}", descriptorWrites.size(), m.frameInfo.index);
-      vkUpdateDescriptorSets(m.vkcore.device, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
+      vkUpdateDescriptorSets(m.vkcore.device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
       textureUpdates.clear();
     }
   }

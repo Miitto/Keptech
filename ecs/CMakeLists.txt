@@ -7,20 +7,11 @@ add_library(keptech::ecs ALIAS ${PROJECT_NAME})
 
 KT_SETUP_TARGET(${PROJECT_NAME})
 
-# Deps
-FetchContent_Declare(
-  entt
-  GIT_REPOSITORY https://github.com/skypjack/entt.git
-  GIT_TAG v3.16.0
-  SYSTEM
-)
-FetchContent_MakeAvailable(entt)
-
 target_link_libraries(${PROJECT_NAME}
   PRIVATE
     keptech::logging
   PUBLIC
-  EnTT::EnTT
+    EnTT::EnTT
 )
 
 # Sourses

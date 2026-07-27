@@ -141,7 +141,7 @@ namespace kt::vkh {
 
   class Image {
   public:
-    using Type = rendering::ImageType;
+    using Type = ImageType;
     using Format = VkFormat;
     using TransitionType = VkImageMemoryBarrier2;
     using TransitionInfoType = TransitionInfo;
@@ -158,7 +158,7 @@ namespace kt::vkh {
 
     [[nodiscard]] const glm::uvec3 extent() const;
     [[nodiscard]] constexpr VkFormat format() const { return _format; }
-    constexpr rendering::ImageType type() const { return _type; }
+    constexpr ImageType type() const { return _type; }
     constexpr uint8_t mips() const { return _mips; }
     constexpr uint8_t layers() const { return _layers; }
 
@@ -213,8 +213,7 @@ namespace kt::vkh {
     }
 
   private:
-    constexpr Image(Device device, rendering::ImageType type, VkImage image, VkImageView view, VmaAllocation alloc, VkExtent3D extent,
-                    VkFormat format)
+    constexpr Image(Device device, ImageType type, VkImage image, VkImageView view, VmaAllocation alloc, VkExtent3D extent, VkFormat format)
         : _type(type), image(image), view(view), device(device), alloc(alloc), _extent(extent), _format(format) {}
 
     Type _type{};

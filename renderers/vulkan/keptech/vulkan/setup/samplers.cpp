@@ -2,9 +2,9 @@
 #include "renderer.hpp"
 #include "setup.hpp"
 
-namespace kt::vkh::setup {
+namespace kt::vkh {
 
-  std::expected<Samplers, std::string> createSamplers(VkDevice device) {
+  std::expected<void, std::string> Renderer::initSamplers() {
     constexpr VkSamplerCreateInfo linearRepeatInfo{
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
         .pNext = nullptr,
@@ -89,13 +89,14 @@ namespace kt::vkh::setup {
         .maxLod = VK_LOD_CLAMP_NONE,
     };
 
-    Samplers samplers{};
+    VK_MAKE(vkCreateSampler(m.vkcore.device, &linearRepeatInfo, nullptr, &m.samplers.linearRepeat),
+            "Failed to create linear repeat sampler");
+    VK_MAKE(vkCreateSampler(m.vkcore.device, &linearClampInfo, nullptr, &m.samplers.linearClamp), "Failed to create linear clamp sampler");
+    VK_MAKE(vkCreateSampler(m.vkcore.device, &nearestRepeatInfo, nullptr, &m.samplers.nearestRepeat),
+            "Failed to create nearest repeat sampler");
+    VK_MAKE(vkCreateSampler(m.vkcore.device, &nearestClampInfo, nullptr, &m.samplers.nearestClamp),
+            "Failed to create nearest clamp sampler");
 
-    VK_MAKE(vkCreateSampler(device, &linearRepeatInfo, nullptr, &samplers.linearRepeat), "Failed to create linear repeat sampler");
-    VK_MAKE(vkCreateSampler(device, &linearClampInfo, nullptr, &samplers.linearClamp), "Failed to create linear clamp sampler");
-    VK_MAKE(vkCreateSampler(device, &nearestRepeatInfo, nullptr, &samplers.nearestRepeat), "Failed to create nearest repeat sampler");
-    VK_MAKE(vkCreateSampler(device, &nearestClampInfo, nullptr, &samplers.nearestClamp), "Failed to create nearest clamp sampler");
-
-    return samplers;
+    return {};
   }
-} // namespace kt::vkh::setup
+} // namespace kt::vkh

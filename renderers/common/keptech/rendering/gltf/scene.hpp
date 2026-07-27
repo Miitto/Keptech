@@ -14,13 +14,13 @@ namespace kt::gltf {
       std::string name;
       maths::Transform transform;
       Mesh mesh;
-      rendering::Material material;
+      Material material;
       std::vector<Node> children{};
     };
 
     std::vector<Node> roots;
     std::vector<Mesh> meshes;
-    std::vector<rendering::Material> materials;
+    std::vector<Material> materials;
 
     void addToEcsScene(kt::Scene& scene, kt::ecs::EntityHandle parent) const;
   };

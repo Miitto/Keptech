@@ -8,6 +8,6 @@ namespace kt::components {
     glm::vec3 color{1.f, 1.f, 1.f};
     float intensity = 1.f;
     float radius = 1.f;
-    rendering::Image shadowMap{};
+    Image shadowMap{};
   };
 } // namespace kt::components

@@ -9,6 +9,7 @@
 #include <keptech/core/profile.hpp>
 #include <string>
 
+#include "keptech/renderGraphBuilder.hpp"
 #include "keptech/renderer.hpp"
 
 using namespace kt;
@@ -23,16 +24,16 @@ int main() {
   bool exitCleanly = false;
   {
     KT_DEBUG("Creating renderer");
-    std::expected<rendering::Renderer, std::string> rendererRes = rendering::Renderer::create(info.renderer, window);
+    std::expected<void, std::string> rendererRes = Renderer::init(info.renderer, window);
     if (!rendererRes) {
       KT_CRITICAL("Failed to create renderer: {}", rendererRes.error());
       return -1;
     }
     KT_DEBUG("Renderer created successfully");
 
-    rendering::RenderGraphBuilder rgBuilder{};
+    RenderGraphBuilder rgBuilder{};
 
-    rendering::Renderer renderer = std::move(rendererRes.value());
+    Renderer& renderer = Renderer::get();
 
     renderer.setRenderGraphProps(rgBuilder);
 

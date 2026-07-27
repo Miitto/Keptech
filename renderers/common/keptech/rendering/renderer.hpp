@@ -13,7 +13,7 @@ namespace kt {
 
   template <typename T>
   concept CRenderer = requires(T a, const RendererCreateInfo& ci, const core::window::Window& w, Scene& scene) {
-    { T::create(ci, w) } -> std::same_as<std::expected<T, std::string>>;
+    { T::init(ci, w) } -> std::same_as<std::expected<void, std::string>>;
     { a.newFrame() } -> std::same_as<void>;
   };
 

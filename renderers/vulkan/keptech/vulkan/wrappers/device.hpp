@@ -11,9 +11,11 @@ namespace kt::shaders {
 namespace kt::vkh {
   class Shader;
   struct Pipeline;
+  class Renderer;
 
   class Device {
   public:
+    friend class Renderer;
     Device() = default;
     Device(VkPhysicalDevice physical, VkDevice logical, VmaAllocator allocator) noexcept
         : physical(physical), logical(logical), allocator(allocator) {}

@@ -36,5 +36,8 @@ namespace kt::vkh {
   struct Pipeline {
     VkPipelineLayout layout;
     VkPipeline pipeline;
+
+    operator VkPipeline() const noexcept { return pipeline; }
+    operator VkPipelineLayout() const noexcept { return layout; }
   };
 } // namespace kt::vkh

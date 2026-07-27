@@ -7,8 +7,3 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(mesh_optimizer)
-
-function(link_mesh_optimizer TARGET_NAME ACCESS)
-  target_link_libraries(${TARGET_NAME} ${ACCESS} meshoptimizer)
-endfunction()
-

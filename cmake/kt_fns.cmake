@@ -1,19 +1,3 @@
-set(KT_PCH_HEADERS
-  <algorithm>
-  <expected>
-  <optional>
-  <functional>
-  <memory>
-  <string>
-  <vector>
-  <array>
-  <spdlog/spdlog.h>
-  <string>
-  <string_view>
-  <concepts>
-  <type_traits>
-)
-
 set(KT_GNU_WARNINGS
   -Wall
   -Wextra
@@ -59,20 +43,21 @@ function(KT_SETUP_TARGET target)
     cmake_parse_arguments(PARSE_ARGV 0 arg "INTERFACE" "" "")
     if (NOT arg_INTERFACE)
         KT_SETUP_WARNINGS(${target})
-        if (KT_USE_PCH)
-        target_precompile_headers(${target} PRIVATE ${KT_PCH_HEADERS})
-        endif()
     endif()
+endfunction()
 
-    if (KT_PROFILE)
-        target_link_libraries(${PROJECT_NAME}
-            PUBLIC
-            TracyClient
-        )
-        target_compile_definitions(${PROJECT_NAME}
-            PUBLIC
-            TRACY_ENABLE
-            KT_PROFILE
-        )
-    endif()
+function(KT_ENABLE_SCCACHE)
+  find_program(Sccache sccache)
+
+  if(Sccache)
+    message(STATUS "Using sccache for compilation")
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${Sccache})
+    set(CMAKE_C_COMPILER_LAUNCHER ${Sccache})
+
+    # For MSVC debug information format
+    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT Embedded)
+    cmake_policy(SET CMP0141 NEW)
+  else()
+    message(STATUS "sccache not found, using default compiler")
+  endif()
 endfunction()

@@ -158,15 +158,15 @@ namespace kt::vkh {
       layoutTransitions<2>(cmdBuf, {
                                        layoutTransition(backbuffer,
                                                         {
-                                                            rendering::ImageType::Color,
-                                                            rendering::ImageLayout::RenderTarget,
-                                                            rendering::ImageLayout::TransferSrc,
+                                                            ImageType::Color,
+                                                            ImageLayout::RenderTarget,
+                                                            ImageLayout::TransferSrc,
                                                         }),
                                        layoutTransition(swapchainImg,
                                                         {
-                                                            rendering::ImageType::Color,
-                                                            rendering::ImageLayout::Undefined,
-                                                            rendering::ImageLayout::TransferDst,
+                                                            ImageType::Color,
+                                                            ImageLayout::Undefined,
+                                                            ImageLayout::TransferDst,
                                                         }),
                                    });
 

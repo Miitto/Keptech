@@ -6,54 +6,13 @@ add_library(${PROJECT_NAME} STATIC)
 add_library(keptech::core ALIAS ${PROJECT_NAME})
 KT_SETUP_TARGET(${PROJECT_NAME})
 
-# Deps
-
-include(glm)
-link_glm(${PROJECT_NAME} PUBLIC)
-
-include(spdlog)
-link_spdlog(${PROJECT_NAME} PUBLIC)
-
-include(sdl)
-link_sdl(${PROJECT_NAME} PUBLIC)
-
-
-
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
+    keptech::deps
     keptech::logging
     keptech::ecs
     keptech::shaders
-    stb::stb
-    imgui::imgui
 )
-
-FetchContent_Declare(
-  fastgltf
-  GIT_REPOSITORY
-  https://github.com/spnda/fastgltf.git
-  GIT_TAG
-  main
-  SYSTEM
-)
-
-FetchContent_MakeAvailable(fastgltf)
-target_compile_options(fastgltf PRIVATE
-  $<$<CXX_COMPILER_ID:MSVC>:/W0>
-  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wno-everything>
-)
-
-set_target_properties(fastgltf PROPERTIES
-  CXX_CLANG_TIDY ""
-)
-
-target_link_libraries(${PROJECT_NAME}
-  PUBLIC
-    fastgltf::fastgltf
-)
-
-
-# Sourses
 
 target_sources(${PROJECT_NAME}
    PUBLIC
@@ -62,15 +21,6 @@ target_sources(${PROJECT_NAME}
 )
 
 add_subdirectory(src)
-
-if (KT_USE_PCH)
-  target_precompile_headers(${PROJECT_NAME}
-    PRIVATE
-      <glm/glm.hpp>
-  )
-endif()
-
-set(KT_CORE_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 
 set(KT_LOG_LEVEL "DEBUG" CACHE STRING "Core log level")
 
@@ -87,3 +37,26 @@ if(KT_ADD_RESOURCE_INFO)
       KT_ADD_RESOURCE_INFO
   )
 endif()
+
+set(KT_PCH_HEADERS
+  <functional>
+  <memory>
+  <vector>
+  <array>
+  <string>
+  <string_view>
+  <concepts>
+  <type_traits>
+  <cstdint>
+  <spdlog/spdlog.h>
+  <glm/glm.hpp>
+)
+
+if (RENDERER STREQUAL "Vulkan")
+  list(APPEND KT_PCH_HEADERS
+    <volk.h>
+    <vk_mem_alloc.h>
+  )
+endif()
+
+target_precompile_headers(${PROJECT_NAME} PRIVATE ${KT_PCH_HEADERS})
