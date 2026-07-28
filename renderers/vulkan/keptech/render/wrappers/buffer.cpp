@@ -55,8 +55,8 @@ namespace kt::rdr {
   }
 
   void Buffer::destroy() {
-    VK_ASSERT(Renderer::isInit(), "Device is null");
     if (alloc) {
+      VK_ASSERT(Renderer::get().getDevice(), "Device is null");
       VK_TRACE("Destroying buffer {} with size {}", allocInfo.pName ? allocInfo.pName : "Unnamed", allocInfo.size);
       vmaDestroyBuffer(Renderer::get().getDevice(), buffer, alloc);
       buffer = nullptr;

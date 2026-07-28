@@ -6,7 +6,7 @@ target_sources(${PROJECT_NAME}
     BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-add_subdirectory(keptech/rendering)
+add_subdirectory(keptech/render)
 
 target_link_libraries(${PROJECT_NAME}
   PUBLIC

@@ -10,19 +10,33 @@
 #include <vector>
 
 namespace kt {
-  using SlotMapRawHandle = size_t;
+  template <typename T> class SlotMap;
+
+  class SlotMapHandle {
+  public:
+    template <typename T> friend class SlotMap;
+    SlotMapHandle() = default;
+
+    operator bool() const { return value != ~0u; }
+
+  private:
+    SlotMapHandle(size_t v) : value(v) {}
+    SlotMapHandle operator++() {
+      ++value;
+      return *this;
+    }
+
+    size_t value = ~0u;
+  };
+
   template <typename T> class SlotMap {
   public:
-    using Handle = SlotMapRawHandle;
+    using Handle = SlotMapHandle;
 
     SlotMap() = default;
     SlotMap(const SlotMap&) = default;
     SlotMap& operator=(const SlotMap&) = default;
-    SlotMap(SlotMap&& o) noexcept
-        : nextFree(o.nextFree), data(std::move(o.data)),
-          indexMap(std::move(o.indexMap)) {
-      o.nextFree = 0;
-    }
+    SlotMap(SlotMap&& o) noexcept : nextFree(o.nextFree), data(std::move(o.data)), indexMap(std::move(o.indexMap)) { o.nextFree = 0; }
     SlotMap& operator=(SlotMap&& o) noexcept {
       if (*this != o) {
         nextFree = o.nextFree;
@@ -34,10 +48,7 @@ namespace kt {
     }
     ~SlotMap() = default;
 
-    [[nodiscard]] bool has(Handle handle) const {
-      return indexMap.find(handle) != indexMap.end() &&
-             data[indexMap.at(handle)].has_value();
-    }
+    [[nodiscard]] bool has(Handle handle) const { return indexMap.find(handle) != indexMap.end() && data[indexMap.at(handle)].has_value(); }
 
     [[nodiscard]] Handle insert(const T& value) {
       size_t index = nextFree;
@@ -93,13 +104,9 @@ namespace kt {
       return handle;
     }
 
-    T& operator[](Handle handle) {
-      return data.at(indexMap.at(handle)).value();
-    }
+    T& operator[](Handle handle) { return data.at(indexMap.at(handle)).value(); }
 
-    const T& operator[](Handle handle) const {
-      return data.at(indexMap.at(handle)).value();
-    }
+    const T& operator[](Handle handle) const { return data.at(indexMap.at(handle)).value(); }
 
     std::optional<T> erase(Handle handle, bool swapEnd = false) {
       auto it = indexMap.find(handle);
@@ -154,7 +161,7 @@ namespace kt {
       return &data[index].value();
     }
 
-    /// DO NOT USE: Resets the entire SlotMap, invalidating all handles.
+    /// Resets the entire SlotMap, invalidating all handles.
     /// This may allow for accidental reuse of handles and should be used with
     /// caution.
     void reset() {
@@ -164,8 +171,10 @@ namespace kt {
       indexMap.clear();
     }
 
-    [[nodiscard]] std::vector<SlotMapRawHandle> handles() const {
-      std::vector<SlotMapRawHandle> handles;
+    /// @brief Returns a vector of all valid handles in the SlotMap.
+    /// @return A vector of all valid handles.
+    [[nodiscard]] std::vector<SlotMapHandle> handles() const {
+      std::vector<SlotMapHandle> handles;
       handles.reserve(indexMap.size());
       for (const auto& [handle, index] : indexMap) {
         handles.push_back(handle);
@@ -173,6 +182,8 @@ namespace kt {
       return handles;
     }
 
+    /// @brief Returns a vector of all valid values in the SlotMap.
+    /// @return A vector of all valid values.
     std::vector<T*> values() {
       std::vector<T*> vals;
       for (auto& opt : data) {
@@ -203,240 +214,5 @@ namespace kt {
     Handle nextHandle = 0;
     std::vector<std::optional<T>> data;
     std::unordered_map<Handle, size_t> indexMap;
-  };
-
-  struct SlotMapRefs {
-    std::atomic<size_t> strongRefs = 1;
-    std::atomic<size_t> weakRefs = 0;
-    std::function<void()> deleter;
-
-    SlotMapRefs(std::function<void()> deleter)
-        : strongRefs(1), weakRefs(0), deleter(std::move(deleter)) {}
-
-    void newStrongRef() { strongRefs.fetch_add(1, std::memory_order_seq_cst); }
-
-    void delStrongRef() { strongRefs.fetch_sub(1, std::memory_order_seq_cst); }
-
-    void newWeakRef() { weakRefs.fetch_add(1, std::memory_order_seq_cst); }
-
-    void delWeakRef() { weakRefs.fetch_sub(1, std::memory_order_seq_cst); }
-
-    void strongToWeak() {
-      strongRefs.fetch_sub(1, std::memory_order_seq_cst);
-      weakRefs.fetch_add(1, std::memory_order_seq_cst);
-    }
-
-    void weakToStrong() {
-      weakRefs.fetch_sub(1, std::memory_order_seq_cst);
-      strongRefs.fetch_add(1, std::memory_order_seq_cst);
-    }
-
-    [[nodiscard]] bool hasStrongRefs() const {
-      return strongRefs.load(std::memory_order_relaxed) > 0;
-    }
-
-    [[nodiscard]] bool hasWeakRefs() const {
-      return weakRefs.load(std::memory_order_relaxed) > 0;
-    }
-
-    [[nodiscard]] bool hasAnyRefs() const {
-      return hasStrongRefs() || hasWeakRefs();
-    }
-  };
-
-  class SlotMapRawSmartHandle;
-
-  class SlotMapRawWeakHandle {
-  public:
-    friend class SlotMapRawSmartHandle;
-    SlotMapRawWeakHandle() = delete;
-
-    SlotMapRawWeakHandle(const SlotMapRawWeakHandle& o)
-        : handle(o.handle), refCount(o.refCount) {
-      if (!refCount)
-        return;
-      refCount->newWeakRef();
-    }
-    SlotMapRawWeakHandle& operator=(const SlotMapRawWeakHandle& o) {
-      if (this != &o) {
-        handle = o.handle;
-        refCount = o.refCount;
-        if (!refCount)
-          return *this;
-        refCount->newWeakRef();
-      }
-      return *this;
-    }
-    SlotMapRawWeakHandle(SlotMapRawWeakHandle&& o) noexcept
-        : handle(o.handle), refCount(o.refCount) {
-      o.refCount = nullptr;
-    }
-
-    SlotMapRawWeakHandle& operator=(SlotMapRawWeakHandle&& o) noexcept {
-      if (this != &o) {
-        handle = o.handle;
-        refCount = o.refCount;
-        o.refCount = nullptr;
-      }
-      return *this;
-    }
-
-    SlotMapRawWeakHandle(SlotMapRawHandle handle, SlotMapRefs& refCount)
-        : handle(handle), refCount(&refCount) {
-      this->refCount->newWeakRef();
-    }
-
-    ~SlotMapRawWeakHandle() {
-      if (refCount == nullptr)
-        return;
-      refCount->delWeakRef();
-
-      if (!refCount->hasAnyRefs()) {
-        delete refCount;
-      }
-
-      refCount = nullptr;
-    }
-
-    [[nodiscard]] bool valid() const {
-      return refCount != nullptr && refCount->hasStrongRefs();
-    }
-
-    operator SlotMapRawHandle() const { return handle; }
-    [[nodiscard]] SlotMapRawHandle get() const { return handle; }
-
-  private:
-    SlotMapRawHandle handle;
-    SlotMapRefs* refCount;
-  };
-
-  class SlotMapRawSmartHandle {
-  public:
-    SlotMapRawSmartHandle() = delete;
-    SlotMapRawSmartHandle(const SlotMapRawSmartHandle& o)
-        : handle(o.handle), refCount(o.refCount) {
-      if (!refCount)
-        return;
-      refCount->newStrongRef();
-    }
-    SlotMapRawSmartHandle& operator=(const SlotMapRawSmartHandle& o) {
-      if (this != &o) {
-        handle = o.handle;
-        refCount = o.refCount;
-        if (!refCount)
-          return *this;
-        refCount->newStrongRef();
-      }
-      return *this;
-    }
-    SlotMapRawSmartHandle(SlotMapRawSmartHandle&& o) noexcept
-        : handle(o.handle), refCount(o.refCount) {
-      o.refCount = nullptr;
-    }
-    SlotMapRawSmartHandle& operator=(SlotMapRawSmartHandle&& o) noexcept {
-      if (this != &o) {
-        handle = o.handle;
-        refCount = o.refCount;
-        o.refCount = nullptr;
-      }
-      return *this;
-    }
-    ~SlotMapRawSmartHandle() {
-      if (refCount == nullptr)
-        return;
-
-      refCount->delStrongRef();
-
-      if (!refCount->hasStrongRefs()) {
-        refCount->deleter();
-      }
-
-      if (!refCount->hasAnyRefs()) {
-        delete refCount;
-      }
-
-      refCount = nullptr;
-    }
-
-    template <typename T>
-    SlotMapRawSmartHandle(SlotMapRawHandle handle, SlotMap<T>& map)
-        : handle(handle), refCount(new SlotMapRefs(
-                              [this, &map]() { map.erase(this->handle); })) {}
-
-    SlotMapRawSmartHandle(SlotMapRawHandle handle,
-                          std::function<void()> deleter)
-        : handle(handle), refCount(new SlotMapRefs(std::move(deleter))) {}
-
-    SlotMapRawSmartHandle(SlotMapRawHandle handle, SlotMapRefs& refCount)
-        : handle(handle), refCount(&refCount) {}
-
-    SlotMapRawSmartHandle(const SlotMapRawWeakHandle& weakHandle)
-        : handle(weakHandle.get()), refCount(weakHandle.refCount) {
-      if (refCount == nullptr || !refCount->hasStrongRefs()) {
-        throw std::runtime_error(
-            "Cannot promote weak handle to strong handle: no strong refs");
-      }
-      refCount->weakToStrong();
-    }
-
-    operator SlotMapRawHandle() const { return handle; }
-
-    [[nodiscard]] SlotMapRawHandle get() const { return handle; }
-
-    [[nodiscard]] bool valid() const {
-      return refCount != nullptr && refCount->hasStrongRefs();
-    }
-
-    [[nodiscard]] SlotMapRawWeakHandle toWeak() const {
-      return {handle, *refCount};
-    }
-
-  private:
-    SlotMapRawHandle handle;
-    SlotMapRefs* refCount;
-  };
-
-  template <typename T> class SlotMapSmartHandle;
-
-  template <typename T> class SlotMapHandle {
-  public:
-    SlotMapHandle() : handle(0) {}
-    SlotMapHandle(SlotMapRawHandle handle) : handle(handle) {}
-
-    operator SlotMapRawHandle() const { return handle; }
-
-    bool operator==(const SlotMapHandle& other) const {
-      return handle == other.handle;
-    }
-    bool operator==(const SlotMapRawHandle other) const {
-      return handle == other;
-    }
-    bool operator==(const SlotMapSmartHandle<T>& other) const {
-      return handle == other;
-    }
-
-  private:
-    SlotMapRawHandle handle;
-  };
-
-  template <typename T> class SlotMapSmartHandle {
-  public:
-    SlotMapSmartHandle(SlotMapRawSmartHandle handle)
-        : handle(std::move(handle)) {}
-
-    operator SlotMapRawSmartHandle() const { return handle; }
-
-    bool operator==(const SlotMapSmartHandle& other) const {
-      return handle == other.handle;
-    }
-    bool operator==(const SlotMapRawHandle other) const {
-      return handle == other;
-    }
-    bool operator==(const SlotMapHandle<T>& other) const {
-      return handle == other;
-    }
-
-  private:
-    SlotMapRawSmartHandle handle;
   };
 } // namespace kt

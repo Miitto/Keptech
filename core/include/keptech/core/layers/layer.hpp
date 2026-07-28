@@ -5,7 +5,7 @@
 #include <string>
 #include <utility>
 
-namespace kt::core::layers {
+namespace kt {
   class Layer {
   public:
     Layer() = default;
@@ -25,11 +25,11 @@ namespace kt::core::layers {
     virtual void onAttach() {}
     virtual void onDetach() {}
     virtual void onUpdate([[maybe_unused]] Timestep ts) {}
-    virtual void onEvent([[maybe_unused]] events::Event& event, [[maybe_unused]] Timestep ts) {}
+    virtual void onEvent([[maybe_unused]] Event& event, [[maybe_unused]] Timestep ts) {}
 
   private:
 #ifndef NDEBUG
     std::string debugName;
 #endif
   };
-} // namespace kt::core::layers
+} // namespace kt

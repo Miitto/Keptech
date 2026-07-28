@@ -10,16 +10,19 @@
 #include <string>
 
 #include "keptech/render/renderGraph/builder.hpp"
+#include "keptech/render/renderGraph/graph.hpp"
 #include "keptech/render/renderer.hpp"
 
 using namespace kt;
 
 int main() {
-  if (!core::window::init())
+  if (!Window::init()) {
+    KT_CRITICAL("Failed to initialize windowing system");
     return -1;
+  }
   auto info = configureApp();
 
-  core::window::Window window(info.window);
+  Window window(info.window);
 
   bool exitCleanly = false;
   {
@@ -31,13 +34,13 @@ int main() {
     }
     KT_DEBUG("Renderer created successfully");
 
-    RenderGraphBuilder rgBuilder{};
+    rdr::RenderGraphBuilder rgBuilder{};
 
-    Renderer& renderer = Renderer::get();
+    rdr::Renderer& renderer = rdr::Renderer::get();
 
     renderer.setRenderGraphProps(rgBuilder);
 
-    core::layers::LayerStack layerStack;
+    LayerStack layerStack{};
 
     auto setupRes = setupAppLayers(layerStack, window, rgBuilder, renderer);
     if (!setupRes) {
@@ -62,7 +65,7 @@ int main() {
 
     // Any UP event is not included, as it's preferable to handle them
     // regardless of if ImGui wants input.
-    auto isKeyboardEvent = [](core::window::Event event) {
+    auto isKeyboardEvent = [](WindowEvent event) {
       switch (event.type) {
       case SDL_EVENT_KEY_DOWN:
       case SDL_EVENT_TEXT_INPUT:
@@ -72,7 +75,7 @@ int main() {
       }
     };
 
-    auto isMouseEvent = [](core::window::Event event) {
+    auto isMouseEvent = [](WindowEvent event) {
       switch (event.type) {
       case SDL_EVENT_MOUSE_MOTION:
       case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -115,7 +118,7 @@ int main() {
 
     auto now = std::chrono::high_resolution_clock::now();
 
-    kt::core::window::Event event;
+    kt::WindowEvent event;
     while (true) {
       KT_PROFILE_SCOPE("Main Loop");
       KT_TRACE("Starting frame");
@@ -133,7 +136,7 @@ int main() {
         }
         inputProcessEvent(event);
 
-        auto eventPtr = kt::core::events::sdlEventToKeptechEvent(event);
+        auto eventPtr = Event::fromSdl(event);
         if (eventPtr.get() == nullptr) {
           continue;
         }
@@ -162,7 +165,7 @@ int main() {
     KT_INFO("Starting shutdown");
     rg.destroy();
   }
-  core::window::shutdown();
+  Window::shutdown();
 
   return exitCleanly;
 }

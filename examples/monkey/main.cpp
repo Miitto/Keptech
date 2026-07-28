@@ -1,12 +1,11 @@
-#include "imgui.h"
-#include <keptech/app.hpp>
-#include <keptech/keptech.hpp>
-
 #include "keptech/render/helpers/pipeline.hpp"
 #include "keptech/render/renderGraph/builder.hpp"
 #include "keptech/render/renderer.hpp"
+#include "keptech/render/rendererCreateInfo.hpp"
 #include "shaders/examples/monkey/mesh.h"
 #include <expected>
+#include <imgui/imgui.h>
+#include <keptech/app.hpp>
 #include <keptech/cameras/freeCamera.hpp>
 #include <keptech/components.hpp>
 #include <keptech/core/gui.h>
@@ -19,14 +18,14 @@ constexpr int WINDOW_HEIGHT = 720;
 
 kt::SetupInfo kt::configureApp() {
   return {.window = {.title = "Material Editor", .width = WINDOW_WIDTH, .height = WINDOW_HEIGHT},
-          .renderer = {.applicationName = "Material Editor", .capabilities = kt::RendererCapabilities::MeshShader}};
+          .renderer = {.applicationName = "Material Editor", .requiredCapabilities = kt::RendererCapabilities::MeshShader}};
 }
 
 class GeometryPass : public kt::RenderPassInterface {
 public:
   GeometryPass(kt::Scene& scene) : scene(scene) {}
 
-  void setupDependencies(kt::RenderPassBuilder& self, kt::RenderGraphBuilder& graph, const kt::Renderer& renderer) override {
+  void setupDependencies(kt::RenderPassBuilder& self, kt::rdr::RenderGraphBuilder& graph, const kt::rdr::Renderer& renderer) override {
     auto& formats = renderer.getFormats();
     self.addColorOutput("kt::albedo", {.format = formats.render.albedo});
     self.setDepthStencilOutput("kt::depth", {.format = formats.render.depth});
@@ -138,10 +137,10 @@ private:
   kt::rdr::Pipeline pipeline{};
 };
 
-class BenchmarkLayer : public kt::core::layers::Layer {
+class BenchmarkLayer : public kt::Layer {
 public:
   BenchmarkLayer(kt::Window& window, kt::RenderGraphBuilder& builder, kt::Renderer& renderer)
-      : kt::core::layers::Layer("Monkey"), window(window), scene({}), geometryPass(scene) {
+      : kt::Layer("Monkey"), window(window), scene({}), geometryPass(scene) {
     renderer.setScene(scene);
 
     auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
@@ -213,7 +212,7 @@ public:
     freeController.update(ts);
   }
 
-  void onEvent(kt::core::events::Event& event, kt::Timestep ts) final {
+  void onEvent(kt::Event& event, kt::Timestep ts) final {
     if (freeController.handleEvent(event, ts))
       return;
   }
@@ -226,8 +225,8 @@ private:
   GeometryPass geometryPass;
 };
 
-std::expected<void, std::string> kt::setupAppLayers(core::layers::LayerStack& layerStack, core::window::Window& window,
-                                                    kt::RenderGraphBuilder& builder, kt::Renderer& renderer) {
+std::expected<void, std::string> kt::setupAppLayers(kt::LayerStack& layerStack, kt::Window& window, kt::rdr::RenderGraphBuilder& builder,
+                                                    kt::rdr::Renderer& renderer) {
 
   layerStack.emplaceLayer<BenchmarkLayer>(window, builder, renderer);
 

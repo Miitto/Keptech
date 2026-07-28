@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/rendering/constants.hpp"
+#include "keptech/render/constants.hpp"
 #include <Volk/volk.h>
 
 #define MAX_FRAMES_IN_FLIGHT 2
@@ -12,6 +12,12 @@ namespace kt::rdr {
     constexpr uint32_t SSAO_NOISE_SIZE = 4;
 
     constexpr uint32_t STATIC_TEXTURE_COUNT = 11;
+
+#ifdef KT_USE_DESCRIPTOR_HEAP
+    extern VkDeviceSize samplerDescriptorSize; // NOLINT
+    extern VkDeviceSize bufferDescriptorSize;  // NOLINT
+    extern VkDeviceSize imageDescriptorSize;   // NOLINT
+#endif
   } // namespace constants
 
   namespace limits {
@@ -20,8 +26,4 @@ namespace kt::rdr {
     extern VkDeviceSize maxPushConstantsSize;            // NOLINT
     extern VkDeviceSize maxMemoryAllocationSize;         // NOLINT
   } // namespace limits
-
-  extern VkDeviceSize samplerDescriptorSize; // NOLINT
-  extern VkDeviceSize bufferDescriptorSize;  // NOLINT
-  extern VkDeviceSize imageDescriptorSize;   // NOLINT
 } // namespace kt::rdr

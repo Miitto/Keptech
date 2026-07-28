@@ -1,7 +1,7 @@
-#include "keptech/rendering/gltf/data.hpp"
+#include "keptech/render/gltf/data.hpp"
 
 #include "keptech/core/kt-logger.hpp"
-#include "keptech/rendering/constants.hpp"
+#include "keptech/render/meshConstants.hpp"
 #include <algorithm>
 #include <execution>
 #include <fastgltf/core.hpp>

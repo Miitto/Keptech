@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/rendering/mesh.hpp"
+#include "keptech/render/mesh.hpp"
 #include <expected>
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>

@@ -4,7 +4,4 @@ project(Examples LANGUAGES CXX)
 
 set(EXAMPLE_ASSET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
 
-# add_subdirectory(materials/src)
-
-add_subdirectory(benchmark)
 add_subdirectory(monkey)

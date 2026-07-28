@@ -4,7 +4,7 @@
 #include "keptech/core/input/keys.hpp"
 #include <glm/glm.hpp>
 
-namespace kt::core::events {
+namespace kt {
   struct MouseMovedEvent : public Event {
     MouseMovedEvent(glm::vec2 movement) : movement(movement) {}
     KT_MAKE_EVENT_FNS(MouseMoved)
@@ -33,22 +33,22 @@ namespace kt::core::events {
   };
 
   struct KeyEvent : public Event {
-    KeyEvent(input::Keys key) : key(key) {}
-    input::Keys key;
+    KeyEvent(Keys key) : key(key) {}
+    Keys key;
   };
 
   struct KeyPressEvent : public KeyEvent {
-    KeyPressEvent(input::Keys key) : KeyEvent(key) {}
+    KeyPressEvent(Keys key) : KeyEvent(key) {}
     KT_MAKE_EVENT_FNS(KeyPressed)
   };
 
   struct KeyRepeatEvent : public KeyEvent {
-    KeyRepeatEvent(input::Keys key) : KeyEvent(key) {}
+    KeyRepeatEvent(Keys key) : KeyEvent(key) {}
     KT_MAKE_EVENT_FNS(KeyRepeated)
   };
 
   struct KeyReleaseEvent : public KeyEvent {
-    KeyReleaseEvent(input::Keys key) : KeyEvent(key) {}
+    KeyReleaseEvent(Keys key) : KeyEvent(key) {}
     KT_MAKE_EVENT_FNS(KeyReleased)
   };
-} // namespace kt::core::events
+} // namespace kt

@@ -9,62 +9,57 @@ namespace kt::cameras {
   class FreeCameraController : public CameraController {
   public:
     FreeCameraController() = default;
-    FreeCameraController(ecs::Entity entity, u8 controlButton = 3)
-        : CameraController(entity), controlButton(controlButton) {}
+    FreeCameraController(ecs::Entity entity, u8 controlButton = 3) : CameraController(entity), controlButton(controlButton) {}
 
     float& getSensitivity() { return sens; }
     u8& getPanButton() { return controlButton; }
 
-    bool handleEvent(core::events::Event& event, Timestep) override {
+    bool handleEvent(Event& event, Timestep) override {
       if (!isValid())
         return false;
 
-      using namespace kt::core::events;
-
       EventDispatcher ed{event};
 
-      auto& camTransform =
-          cameraEntity.getComponents<kt::components::Transform>();
+      auto& camTransform = cameraEntity.getComponents<kt::components::Transform>();
 
       auto& input = Input::get();
       bool moving = input.isMouseButtonDown(controlButton);
 
       if (moving) {
-        bool handled =
-            ed.dispatch<MouseMovedEvent>([&, this](MouseMovedEvent& e) {
-              if (!moving)
-                return false;
+        bool handled = ed.dispatch<MouseMovedEvent>([&, this](MouseMovedEvent& e) {
+          if (!moving)
+            return false;
 
-              auto& rot = camTransform.getLocalMut().rot();
+          auto& rot = camTransform.getLocalMut().rot();
 
-              auto euler = glm::degrees(glm::eulerAngles(rot));
+          auto euler = glm::degrees(glm::eulerAngles(rot));
 
-              float rollFactor = 1.f;
+          float rollFactor = 1.f;
 
-              // Clamp roll
-              if (euler.z > 90.f || euler.z < -90.f) {
-                euler.z = 180.f;
-                rollFactor = -1.f;
-              } else {
-                euler.z = 0.f;
-              }
+          // Clamp roll
+          if (euler.z > 90.f || euler.z < -90.f) {
+            euler.z = 180.f;
+            rollFactor = -1.f;
+          } else {
+            euler.z = 0.f;
+          }
 
-              euler.y += e.movement.x * sens * rollFactor;
-              euler.x += e.movement.y * sens;
+          euler.y += e.movement.x * sens * rollFactor;
+          euler.x += e.movement.y * sens;
 
-              if (rollFactor > 0.5f) {
-                euler.x = std::clamp(euler.x, -89.f, 89.f);
-              } else {
-                if (euler.x < 91.f && euler.x > 0.f)
-                  euler.x = 91.f;
-                else if (euler.x > -91.f && euler.x < 0.f)
-                  euler.x = -91.f;
-              }
+          if (rollFactor > 0.5f) {
+            euler.x = std::clamp(euler.x, -89.f, 89.f);
+          } else {
+            if (euler.x < 91.f && euler.x > 0.f)
+              euler.x = 91.f;
+            else if (euler.x > -91.f && euler.x < 0.f)
+              euler.x = -91.f;
+          }
 
-              rot = glm::quat(glm::radians(euler));
+          rot = glm::quat(glm::radians(euler));
 
-              return true;
-            });
+          return true;
+        });
 
         return handled;
       }
@@ -75,8 +70,7 @@ namespace kt::cameras {
     void update(Timestep dt) override {
       auto& input = Input::get();
 
-      auto& camTransform =
-          cameraEntity.getComponents<kt::components::Transform>();
+      auto& camTransform = cameraEntity.getComponents<kt::components::Transform>();
 
       float speed = .01f;
       if (input.isKeyDown(SDLK_LSHIFT)) {
@@ -117,9 +111,7 @@ namespace kt::cameras {
       camTransform.getLocalMut().translate(movement);
     }
 
-    [[nodiscard]] bool moving() const {
-      return Input::get().isMouseButtonDown(controlButton);
-    }
+    [[nodiscard]] bool moving() const { return Input::get().isMouseButtonDown(controlButton); }
 
   private:
     u8 controlButton = 3;

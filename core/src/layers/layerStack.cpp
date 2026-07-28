@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <ranges>
 
-namespace kt::core::layers {
+namespace kt {
   void LayerStack::pushLayer(LayerPtr layer) {
     layer->onAttach();
     layerInsert = layers.insert(layerInsert, std::move(layer));
@@ -36,7 +36,7 @@ namespace kt::core::layers {
     }
   }
 
-  bool LayerStack::onEvent(events::Event& event, Timestep ts) {
+  bool LayerStack::onEvent(Event& event, Timestep ts) {
     KT_PROFILE_FUNCTION
     for (auto& layer : std::ranges::reverse_view(layers)) {
       layer->onEvent(event, ts);
@@ -45,4 +45,4 @@ namespace kt::core::layers {
     }
     return false;
   }
-} // namespace kt::core::layers
+} // namespace kt

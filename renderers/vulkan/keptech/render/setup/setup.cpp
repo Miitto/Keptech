@@ -15,7 +15,7 @@
 namespace kt::rdr {
   using namespace kt::rdr::setup;
 
-  std::expected<void, std::string> Renderer::init(const RendererCreateInfo& createInfo, const core::window::Window& window) {
+  std::expected<void, std::string> Renderer::init(const RendererCreateInfo& createInfo, const Window& window) {
     if (isInitialized) {
       return std::unexpected("Renderer is already initialized.");
     }
@@ -23,7 +23,7 @@ namespace kt::rdr {
     return singleton.initInternal(createInfo, window);
   }
 
-  std::expected<void, std::string> Renderer::initInternal(const RendererCreateInfo& createInfo, const core::window::Window& window) {
+  std::expected<void, std::string> Renderer::initInternal(const RendererCreateInfo& createInfo, const Window& window) {
     m.window = &window;
 
     {

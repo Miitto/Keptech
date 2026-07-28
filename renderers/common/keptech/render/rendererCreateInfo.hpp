@@ -15,13 +15,11 @@ namespace kt {
 
   struct RendererCreateInfo {
     const char* applicationName = "Keptech App";
-    Bitflag<RendererCapabilities> capabilities = {};
-  };
-
-  template <typename T>
-  concept CRenderer = requires(T a, const RendererCreateInfo& ci, const core::window::Window& w, Scene& scene) {
-    { T::init(ci, w) } -> std::same_as<std::expected<void, std::string>>;
-    { a.newFrame() } -> std::same_as<void>;
+    /// The capabilities that the renderer must support. If the renderer does not support these capabilities, initialization will fail.
+    Bitflag<RendererCapabilities> requiredCapabilities = {};
+    /// These capabilities will be enabled if the renderer supports them. If the renderer does not support these capabilities,
+    /// initialization will still succeed, but the capabilities will not be enabled.
+    Bitflag<RendererCapabilities> requestedCapabilities = {};
   };
 
 } // namespace kt

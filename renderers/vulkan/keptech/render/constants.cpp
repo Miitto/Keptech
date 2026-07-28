@@ -9,7 +9,11 @@ namespace kt::rdr {
     VkDeviceSize maxMemoryAllocationSize = 0;
   } // namespace limits
 
-  VkDeviceSize samplerDescriptorSize = 0;
-  VkDeviceSize bufferDescriptorSize = 0;
-  VkDeviceSize imageDescriptorSize = 0;
+  namespace constants {
+#ifdef KT_USE_DESCRIPTOR_HEAP
+    VkDeviceSize samplerDescriptorSize = 0;
+    VkDeviceSize bufferDescriptorSize = 0;
+    VkDeviceSize imageDescriptorSize = 0;
+#endif
+  } // namespace constants
 } // namespace kt::rdr

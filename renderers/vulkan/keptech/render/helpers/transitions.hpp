@@ -1,7 +1,7 @@
 #pragma once
 //! Utils to reduce the boilerplate code for common image layout transitions.
 
-#include "keptech/rendering/interface/image.hpp"
+#include "keptech/render/interface/image.hpp"
 #include <Volk/volk.h>
 #include <array>
 

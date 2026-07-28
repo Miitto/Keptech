@@ -9,13 +9,11 @@
 #include <memory>
 #include <spdlog/fmt/bundled/format.h>
 
-#define KT_MAKE_EVENT_FNS(EVENT_TYPE)                                          \
-  [[nodiscard]] EventType getType() const override { return getStaticType(); } \
-  [[nodiscard]] static constexpr EventType getStaticType() {                   \
-    return EventType::EVENT_TYPE;                                              \
-  }
+#define KT_MAKE_EVENT_FNS(EVENT_TYPE)                                                                                                      \
+  [[nodiscard]] EventType getType() const override { return getStaticType(); }                                                             \
+  [[nodiscard]] static constexpr EventType getStaticType() { return EventType::EVENT_TYPE; }
 
-namespace kt::core::events {
+namespace kt {
   enum class EventType : uint8_t {
     WindowResize,
     KeyPressed,
@@ -41,6 +39,8 @@ namespace kt::core::events {
     void handle() { handled = true; }
     void handleIf(bool condition) { handled |= condition; }
     [[nodiscard]] bool isHandled() const { return handled; }
+
+    static std::unique_ptr<Event> fromSdl(const SDL_Event& sdlEvent);
 
   private:
     bool handled = false;
@@ -75,20 +75,14 @@ namespace kt::core::events {
   private:
     Event& event; // NOLINT
   };
+} // namespace kt
 
-  std::unique_ptr<Event> sdlEventToKeptechEvent(const SDL_Event& sdlEvent);
-} // namespace kt::core::events
+template <> struct fmt::formatter<kt::EventType> : fmt::formatter<std::string_view> {
 
-template <>
-struct fmt::formatter<kt::core::events::EventType>
-    : fmt::formatter<std::string_view> {
-
-  template <typename FormatContext>
-  auto format(const kt::core::events::EventType& event,
-              FormatContext& ctx) const {
+  template <typename FormatContext> auto format(const kt::EventType& event, FormatContext& ctx) const {
     std::string_view msg;
 
-    using E = kt::core::events::EventType;
+    using E = kt::EventType;
 
     switch (event) {
     case E::WindowResize:
@@ -106,13 +100,13 @@ struct fmt::formatter<kt::core::events::EventType>
     case E::MouseButtonPressed:
       msg = "MouseButtonPressed";
       break;
-    case kt::core::events::EventType::MouseButtonReleased:
+    case E::MouseButtonReleased:
       msg = "MouseButtonReleased";
       break;
-    case kt::core::events::EventType::MouseMoved:
+    case E::MouseMoved:
       msg = "MouseMoved";
       break;
-    case kt::core::events::EventType::MouseScrolled:
+    case E::MouseScrolled:
       msg = "MouseScrolled";
       break;
     }

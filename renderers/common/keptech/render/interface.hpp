@@ -7,4 +7,4 @@
 #include "keptech/render/wrappers/image.hpp"
 #endif
 
-#include "keptech/rendering/interface/image.hpp"
+#include "keptech/render/interface/image.hpp"

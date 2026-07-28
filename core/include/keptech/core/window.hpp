@@ -4,11 +4,8 @@
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
 
-namespace kt::core::window {
-  bool init();
-  void shutdown();
-
-  enum class CreateFlagBits : uint32_t {
+namespace kt {
+  enum class WindowCreateFlagBits : uint32_t {
     Fullscreen = SDL_WINDOW_FULLSCREEN,
     Hidden = SDL_WINDOW_HIDDEN,
     Borderless = SDL_WINDOW_BORDERLESS,
@@ -29,26 +26,24 @@ namespace kt::core::window {
     NotFocusable = SDL_WINDOW_NOT_FOCUSABLE,
   };
 
-  using CreateFlags = Bitflag<CreateFlagBits>;
+  using WindowCreateFlags = Bitflag<WindowCreateFlagBits>;
 
-  struct CreateInfo {
+  struct WindowCreateInfo {
     const char* title = "Keptech App";
     int width = -1;
     int height = -1;
-    CreateFlags flags = CreateFlags::none();
+    WindowCreateFlags flags = WindowCreateFlags::none();
   };
 
-  using Event = SDL_Event;
+  using WindowEvent = SDL_Event;
 
   class Window {
   public:
-    Window(const CreateInfo& createInfo);
+    Window(const WindowCreateInfo& createInfo);
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
 
-    Window(Window&& other) noexcept
-        : handle(other.handle), shouldExit(other.shouldExit), size(other.size),
-          renderSize(other.renderSize) {
+    Window(Window&& other) noexcept : handle(other.handle), shouldExit(other.shouldExit), size(other.size), renderSize(other.renderSize) {
       other.handle = nullptr;
     }
     Window& operator=(Window&& other) noexcept {
@@ -71,9 +66,9 @@ namespace kt::core::window {
 
     [[nodiscard]] bool shouldClose() const;
 
-    bool pollEvent(Event& event);
+    bool pollEvent(WindowEvent& event);
 
-    inline void requestClose() { shouldExit = true; }
+    void requestClose() { shouldExit = true; }
 
     [[nodiscard]] glm::ivec2 getSize() const { return size; }
     [[nodiscard]] glm::ivec2 getRenderSize() const { return renderSize; }
@@ -85,6 +80,9 @@ namespace kt::core::window {
 
     [[nodiscard]] bool isMouseGrabbed() const { return mouseGrabbed; }
     [[nodiscard]] bool isCursorHidden() const { return cursorHidden; }
+
+    static bool init();
+    static void shutdown();
 
   private:
     void updateSize();
@@ -98,4 +96,4 @@ namespace kt::core::window {
     glm::ivec2 size = {};
     glm::ivec2 renderSize = {};
   };
-} // namespace kt::core::window
+} // namespace kt

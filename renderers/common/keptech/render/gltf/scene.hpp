@@ -3,8 +3,8 @@
 #include "keptech/core/scene.hpp"
 #include "keptech/ecs/entity.hpp"
 #include "keptech/maths/transform.hpp"
-#include "keptech/rendering/material.hpp"
-#include "keptech/rendering/mesh.hpp"
+#include "keptech/render/material.hpp"
+#include "keptech/render/mesh.hpp"
 #include <fastgltf/types.hpp>
 #include <string>
 

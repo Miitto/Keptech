@@ -3,12 +3,12 @@
 
 #include "core.hpp"
 #include "keptech/render/structs.hpp"
+#include "keptech/render/structs.hpp>
 #include "keptech/render/wrappers/pipeline.hpp"
 #include "macros.hpp"
 #include "pipelines.hpp"
 #include <Volk/volk.h>
 #include <keptech/components/lights.hpp>
-#include <keptech/rendering/structs.hpp>
 #include <keptech/shaders/shader.h>
 
 #include "shaders/keptech/basic.h"

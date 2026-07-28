@@ -1,9 +1,10 @@
 #include "setup.hpp"
 
 #include "keptech/core/window.hpp"
+#include "keptech/render/renderer.hpp"
+#include "keptech/render/rendererCreateInfo.hpp"
 #include "keptech/render/structs.hpp"
 #include "keptech/render/wrappers/device.hpp"
-#include "keptech/rendering/renderer.hpp"
 #include "macros.hpp"
 #include "renderer.hpp"
 #include <SDL3/SDL_vulkan.h>
@@ -17,7 +18,7 @@
 namespace kt::rdr {
   using namespace kt::rdr;
 
-  std::expected<void, std::string> Renderer::initVulkanCore(const RendererCreateInfo& createInfo, const core::window::Window& window) {
+  std::expected<void, std::string> Renderer::initVulkanCore(const RendererCreateInfo& createInfo, const Window& window) {
 
     VK_CHECK(volkInitialize(), "Failed to initialize Volk.");
 

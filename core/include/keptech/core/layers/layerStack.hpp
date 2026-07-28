@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-namespace kt::core::layers {
+namespace kt {
   class LayerStack {
     using LayerPtr = std::unique_ptr<Layer>;
     using Vec = std::vector<LayerPtr>;
@@ -23,18 +23,17 @@ namespace kt::core::layers {
       layerInsert = layers.insert(layerInsert, std::move(layer));
     }
 
-    template <typename L, typename... Args>
-    void emplaceOverlay(Args&&... args) {
+    template <typename L, typename... Args> void emplaceOverlay(Args&&... args) {
       auto overlay = std::make_unique<L>(std::forward<Args>(args)...);
       overlay->onAttach();
       layers.emplace_back(std::move(overlay));
     }
 
     void onUpdate(Timestep ts);
-    bool onEvent(events::Event& event, Timestep ts);
+    bool onEvent(Event& event, Timestep ts);
 
   private:
     Vec layers{};
     Iter layerInsert = layers.begin();
   };
-} // namespace kt::core::layers
+} // namespace kt

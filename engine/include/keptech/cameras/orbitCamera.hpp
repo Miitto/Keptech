@@ -7,17 +7,14 @@ namespace kt::cameras {
   class OrbitCameraController : public CameraController {
   public:
     OrbitCameraController() = default;
-    OrbitCameraController(ecs::Entity entity, int panButton = 2)
-        : CameraController(entity), panButton(panButton) {}
+    OrbitCameraController(ecs::Entity entity, int panButton = 2) : CameraController(entity), panButton(panButton) {}
 
     float& getSensitivity() { return sens; }
     int& getPanButton() { return panButton; }
 
-    bool handleEvent(core::events::Event& event, Timestep) override {
+    bool handleEvent(Event& event, Timestep) override {
       if (!isValid())
         return false;
-
-      using namespace kt::core::events;
 
       EventDispatcher ed{event};
 
@@ -29,14 +26,13 @@ namespace kt::cameras {
             return false;
           }) ||
 
-          ed.dispatch<MouseButtonReleaseEvent>(
-              [this](MouseButtonReleaseEvent& e) {
-                if (e.button == panButton) {
-                  panning = false;
-                  return true;
-                }
-                return false;
-              }) ||
+          ed.dispatch<MouseButtonReleaseEvent>([this](MouseButtonReleaseEvent& e) {
+            if (e.button == panButton) {
+              panning = false;
+              return true;
+            }
+            return false;
+          }) ||
 
           ed.dispatch<MouseMovedEvent>([this](MouseMovedEvent& e) {
             if (!panning)
@@ -59,8 +55,7 @@ namespace kt::cameras {
             zoom = std::max(zoom, 1.f);
             return true;
           })) {
-        auto& camTransform =
-            cameraEntity.getComponents<kt::components::Transform>();
+        auto& camTransform = cameraEntity.getComponents<kt::components::Transform>();
 
         auto& transform = camTransform.getLocalMut();
 

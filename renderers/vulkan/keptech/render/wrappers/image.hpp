@@ -1,10 +1,11 @@
 #pragma once
 
 #include "keptech/core/fwd.hpp"
+#include "keptech/render/interface/image.hpp"
 #include "keptech/render/types.hpp"
-#include "keptech/rendering/interface/image.hpp"
 #include <Volk/volk.h>
 #include <vma/vk_mem_alloc.h>
+
 
 namespace kt::rdr {
   struct TransitionInfo;

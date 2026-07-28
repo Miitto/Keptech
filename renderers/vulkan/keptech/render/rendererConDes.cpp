@@ -1,8 +1,9 @@
 #include "keptech/render/renderer.hpp"
 
-#include "keptech/rendering/imgui.hpp"
+#include "keptech/render/imgui.hpp"
 #include "profile.hpp"
 #include "vk-logger.hpp"
+#include <imgui/backends/imgui_impl_vulkan.h>
 
 namespace kt::rdr {
   void Renderer::imGuiNewFrame() const {

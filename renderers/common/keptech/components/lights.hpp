@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/rendering/interface.hpp"
+#include "keptech/render/interface.hpp"
 #include <glm/glm.hpp>
 
 namespace kt::components {

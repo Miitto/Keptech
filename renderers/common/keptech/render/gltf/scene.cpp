@@ -1,4 +1,4 @@
-#include "keptech/rendering/gltf/scene.hpp"
+#include "keptech/render/gltf/scene.hpp"
 
 #include "keptech/components/transform.hpp"
 

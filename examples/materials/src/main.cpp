@@ -20,7 +20,7 @@ kt::SetupInfo kt::configureApp() {
           .renderer = {.applicationName = "Material Editor"}};
 }
 
-std::expected<void, std::string> kt::setupAppLayers(core::layers::LayerStack& layerStack, core::window::Window& window,
+std::expected<void, std::string> kt::setupAppLayers(core::layers::LayerStack& layerStack, Window& window,
                                                     kt::rendering::RenderGraphBuilder& builder, kt::rendering::Renderer& renderer) {
   MaterialEditorLayer::initMeta();
 

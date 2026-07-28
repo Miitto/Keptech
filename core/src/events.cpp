@@ -3,8 +3,8 @@
 #include "keptech/core/events/input.hpp"
 #include <memory>
 
-namespace kt::core::events {
-  std::unique_ptr<Event> sdlEventToKeptechEvent(const SDL_Event& sdlEvent) {
+namespace kt {
+  std::unique_ptr<Event> Event::fromSdl(const SDL_Event& sdlEvent) {
     switch (sdlEvent.type) {
     case SDL_EVENT_MOUSE_MOTION: {
       glm::vec2 movement{
@@ -29,21 +29,21 @@ namespace kt::core::events {
       return std::make_unique<MouseButtonReleaseEvent>(button);
     }
     case SDL_EVENT_KEY_DOWN: {
-      input::Keys key = static_cast<input::Keys>(sdlEvent.key.key);
+      Keys key = static_cast<Keys>(sdlEvent.key.key);
       if (sdlEvent.key.repeat)
         return std::make_unique<KeyRepeatEvent>(key);
       return std::make_unique<KeyPressEvent>(key);
     }
     case SDL_EVENT_KEY_UP: {
-      input::Keys key = static_cast<input::Keys>(sdlEvent.key.key);
+      Keys key = static_cast<Keys>(sdlEvent.key.key);
       return std::make_unique<KeyReleaseEvent>(key);
     }
     case SDL_EVENT_TEXT_INPUT: {
-      input::Keys key = static_cast<input::Keys>(sdlEvent.text.text[0]);
+      Keys key = static_cast<Keys>(sdlEvent.text.text[0]);
       return std::make_unique<KeyRepeatEvent>(key);
     }
     default:
       return nullptr;
     }
   }
-} // namespace kt::core::events
+} // namespace kt

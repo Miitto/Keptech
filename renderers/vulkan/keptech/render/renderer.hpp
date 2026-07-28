@@ -1,40 +1,33 @@
 #pragma once
 
 #include "keptech/render/buffers.hpp"
-#include "keptech/render/constants.hpp"
 #include "keptech/render/core.hpp"
-#include "keptech/render/passes/geometry.hpp"
+#include "keptech/render/gltf/data.hpp"
+#include "keptech/render/gltf/scene.hpp"
+#include "keptech/render/material.hpp"
+#include "keptech/render/mesh.hpp"
+#include "keptech/render/structs.hpp"
 #include "keptech/render/wrappers/buffer.hpp"
 #include "keptech/render/wrappers/image.hpp"
 #include "keptech/render/wrappers/pipeline.hpp"
-#include "keptech/rendering/gltf/data.hpp"
-#include "renderGraph/graph.hpp"
-#include "types.hpp"
-#include <Volk/volk.h>
 #include <expected>
-#include <imgui/backends/imgui_impl_vulkan.h>
-#include <keptech/components/transform.hpp>
-#include <keptech/core/base.hpp>
-#include <keptech/core/moveGuard.hpp>
-#include <keptech/core/scene.hpp>
-#include <keptech/core/slotmap.hpp>
-#include <keptech/maths/frustum.hpp>
-#include <keptech/maths/transform.hpp>
-#include <keptech/render/structs.hpp>
-#include <keptech/rendering/gltf/scene.hpp>
-#include <keptech/rendering/mesh.hpp>
-#include <keptech/rendering/renderer.hpp>
-#include <keptech/shaders/shader.h>
-#include <meshoptimizer.h>
-#include <string>
-#include <vk_mem_alloc.h>
 
 #ifdef KT_PROFILE
 #include <tracy/TracyVulkan.hpp>
 #endif
 
-namespace kt::rdr {
+namespace kt {
+  struct RendererCreateInfo;
+  class Window;
 
+  namespace shaders {
+    struct Shader;
+  }
+} // namespace kt
+
+namespace kt::rdr {
+  class BufferCreateInfo;
+  class ImageCreateInfo;
   class RenderGraph;
 
   struct LoadedImage {
@@ -77,7 +70,7 @@ namespace kt::rdr {
   };
 
   struct Members {
-    const core::window::Window* window;
+    const Window* window;
     VulkanCore vkcore;
     Samplers samplers;
 
@@ -198,13 +191,13 @@ namespace kt::rdr {
     void startFrame();
 
     static bool isInit() { return isInitialized; }
-    std::expected<void, std::string> static init(const RendererCreateInfo& createInfo, const core::window::Window& window);
+    std::expected<void, std::string> static init(const RendererCreateInfo& createInfo, const Window& window);
 
   private:
     Renderer() = default;
 
-    std::expected<void, std::string> initInternal(const RendererCreateInfo& createInfo, const core::window::Window& window);
-    std::expected<void, std::string> initVulkanCore(const RendererCreateInfo& createInfo, const core::window::Window& window);
+    std::expected<void, std::string> initInternal(const RendererCreateInfo& createInfo, const Window& window);
+    std::expected<void, std::string> initVulkanCore(const RendererCreateInfo& createInfo, const Window& window);
     std::expected<std::set<uint32_t>, std::string> initDevice(const RendererCreateInfo& createInfo);
     std::expected<void, std::string> initPhysicalDevice(const RendererCreateInfo& createInfo);
     std::expected<void, std::string> initLogicalDevice(const RendererCreateInfo& createInfo, const std::set<uint32_t>& uniqueQueueFamilies);

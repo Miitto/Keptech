@@ -1,18 +1,19 @@
 #pragma once
 
+#include "keptech/render/interface.hpp"
+#include "keptech/render/renderer.hpp"
+#include "keptech/render/rendererCreateInfo.hpp"
 #include <keptech/core/layers/layerStack.hpp>
 #include <keptech/core/window.hpp>
-#include <keptech/rendering/interface.hpp>
-#include <keptech/rendering/renderer.hpp>
 
 namespace kt {
   struct SetupInfo {
-    core::window::CreateInfo window = {};
+    WindowCreateInfo window = {};
     RendererCreateInfo renderer = {};
   };
 
   // To be defined by the application
   [[nodiscard]] SetupInfo configureApp();
-  std::expected<void, std::string> setupAppLayers(core::layers::LayerStack& layerStack, core::window::Window& window,
-                                                  RenderGraphBuilder& builder, Renderer& renderer);
+  std::expected<void, std::string> setupAppLayers(LayerStack& layerStack, Window& window, rdr::RenderGraphBuilder& builder,
+                                                  rdr::Renderer& renderer);
 } // namespace kt

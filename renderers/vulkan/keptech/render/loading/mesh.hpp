@@ -1,7 +1,7 @@
 #pragma once
 
+#include "keptech/render/mesh.hpp"
 #include "keptech/render/wrappers/buffer.hpp"
-#include "keptech/rendering/mesh.hpp"
 #include <Volk/volk.h>
 #include <expected>
 #include <glm/fwd.hpp>

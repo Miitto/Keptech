@@ -6,7 +6,7 @@
 #include <keptech/app.hpp>
 
 #include "keptech/ecs/entity.hpp"
-#include "keptech/rendering/pipeline.hpp"
+#include "keptech/render/pipeline.hpp"
 #include <keptech/components.hpp>
 #include <keptech/core/gui.h>
 #include <keptech/core/window.hpp>

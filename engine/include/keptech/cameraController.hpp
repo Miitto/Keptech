@@ -35,7 +35,7 @@ namespace kt {
       return true;
     }
 
-    virtual bool handleEvent(core::events::Event& event, Timestep ts) = 0;
+    virtual bool handleEvent(Event& event, Timestep ts) = 0;
     virtual void update(Timestep) {}
 
   protected:

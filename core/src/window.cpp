@@ -3,8 +3,8 @@
 
 #include "keptech/core/kt-logger.hpp"
 
-namespace kt::core::window {
-  bool init() {
+namespace kt {
+  bool Window::init() {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
       auto msg = SDL_GetError();
       KT_ERROR("Failed to init SDL: {}", msg);
@@ -12,9 +12,9 @@ namespace kt::core::window {
     }
     return true;
   }
-  void shutdown() { SDL_Quit(); }
+  void Window::shutdown() { SDL_Quit(); }
 
-  Window::Window(const CreateInfo& info)
+  Window::Window(const WindowCreateInfo& info)
       : handle(SDL_CreateWindow(info.title, info.width, info.height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | info.flags)) {
     updateSize();
     updateRenderSize();
@@ -37,7 +37,7 @@ namespace kt::core::window {
     KT_TRACE("Cursor {}", hide ? "hidden" : "visible");
   }
 
-  bool Window::pollEvent(Event& event) {
+  bool Window::pollEvent(WindowEvent& event) {
     if (SDL_PollEvent(&event)) {
       switch (event.type) {
       case SDL_EVENT_QUIT: {
@@ -73,4 +73,4 @@ namespace kt::core::window {
     renderSize = glm::ivec2(w, h);
   }
 
-} // namespace kt::core::window
+} // namespace kt

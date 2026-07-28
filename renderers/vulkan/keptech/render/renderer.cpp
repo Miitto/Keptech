@@ -1,26 +1,22 @@
-#include "keptech/render/renderer.hpp"
+#include "renderer.hpp"
 
-#include "interface.hpp"
+#include "helpers/transitions.hpp"
+#include "keptech/components/transform.hpp"
 #include "keptech/render/wrappers/swapchain.hpp"
 #include "macros.hpp"
-#include <keptech/maths/maths.hpp>
-
 #include "passes/global.hpp"
 #include "profile.hpp"
 #include "renderGraph/builder.hpp"
 #include "setup/setup.hpp"
 #include "vk-logger.hpp"
-#include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/imgui.h>
 #include <keptech/components/camera.hpp>
 #include <keptech/core/profile.hpp>
 #include <keptech/core/window.hpp>
-#include <keptech/rendering/structs.hpp>
+#include <keptech/maths/maths.hpp>
 
 namespace kt::rdr {
-  static_assert(CRenderer<Renderer>, "Renderer does not satisfy CRenderer concept");
-
   Renderer Renderer::singleton{};
   bool Renderer::isInitialized = false;
 

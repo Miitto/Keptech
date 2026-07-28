@@ -1,11 +1,13 @@
-#include "keptech/render/renderer.hpp"
-#include "loading/mesh.hpp"
-#include "stb/image.h"
+#include "renderer.hpp"
 
+#include "constants.hpp"
 #include "gpuObjects.hpp"
-#include "keptech/render/constants.hpp"
+#include "keptech/render/gltf/data.hpp"
+#include "keptech/render/gltf/scene.hpp"
+#include "loading/mesh.hpp"
 #include "macros.hpp"
 #include "profile.hpp"
+#include "stb/image.h"
 #include "vk-logger.hpp"
 #include "wrappers/bufferCreateInfo.hpp"
 #include "wrappers/imageCreateInfo.hpp"
@@ -16,8 +18,6 @@
 #include <imgui/imgui.h>
 #include <keptech/components/camera.hpp>
 #include <keptech/core/window.hpp>
-#include <keptech/rendering/gltf/data.hpp>
-#include <keptech/rendering/gltf/scene.hpp>
 #include <ktx.h>
 #include <ktxvulkan.h>
 #include <string_view>

@@ -6,7 +6,5 @@ target_sources(${PROJECT_NAME}
     gltf/data.cpp
     gltf/scene.cpp
 
-    interface/validate.cpp
-
     imgui.cpp
 )

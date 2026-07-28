@@ -6,7 +6,7 @@
 #include <expected>
 #include <glm/fwd.hpp>
 
-namespace kt::core::window {
+namespace kt {
   class Window;
 }
 
