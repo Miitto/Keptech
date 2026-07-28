@@ -1,6 +1,6 @@
 #pragma once
 
-namespace kt::vkh {
+namespace kt::rdr {
   class BufferCreateInfo {
   public:
     constexpr BufferCreateInfo(size_t size, VkBufferUsageFlags usage, VmaAllocationCreateFlags allocFlags, VmaMemoryUsage memUsage,
@@ -48,4 +48,4 @@ namespace kt::vkh {
     VmaAllocationCreateInfo allocInfo;
     const char* name = nullptr;
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

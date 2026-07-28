@@ -19,7 +19,7 @@
 #include "shaders/keptech/ssao.h"
 #include "shaders/keptech/ssaoBlur.h"
 
-namespace kt::vkh::setup {
+namespace kt::rdr::setup {
   namespace {
     struct Configs {
       GraphicsPipelineConfig basic;
@@ -235,4 +235,4 @@ namespace kt::vkh::setup {
       };
     }
   } // namespace
-} // namespace kt::vkh::setup
+} // namespace kt::rdr::setup

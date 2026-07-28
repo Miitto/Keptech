@@ -4,7 +4,7 @@
 #include "profile.hpp"
 #include "vk-logger.hpp"
 
-namespace kt::vkh {
+namespace kt::rdr {
   void Renderer::imGuiNewFrame() const {
     ImGui_ImplVulkan_NewFrame();
     rendering::newImGuiFrame();
@@ -74,4 +74,4 @@ namespace kt::vkh {
     VK_INFO("Vulkan renderer shut down cleanly");
   }
 
-} // namespace kt::vkh
+} // namespace kt::rdr

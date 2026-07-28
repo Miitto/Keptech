@@ -5,7 +5,7 @@
 #include <Volk/volk.h>
 #include <array>
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   namespace utils {
 #include "transitions.inl"
@@ -175,4 +175,4 @@ namespace kt::vkh {
     };
     vkCmdBeginRendering(cmdBuf, &renderingInfo);
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

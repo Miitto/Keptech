@@ -3,6 +3,6 @@
 #include <keptech/logging/createLogger.hpp>
 #include <spdlog/common.h>
 
-namespace kt::vkh {
+namespace kt::rdr {
   const std::shared_ptr<spdlog::logger> logger = kt::core::createLogger("Vulkan");
 }

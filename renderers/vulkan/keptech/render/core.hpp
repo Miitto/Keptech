@@ -10,7 +10,7 @@
 #include <array>
 #include <vma/vk_mem_alloc.h>
 
-namespace kt::vkh {
+namespace kt::rdr {
   struct Queues {
     Queue graphics;
     Queue present;
@@ -54,4 +54,4 @@ namespace kt::vkh {
     CommandPool transferPool;
     TimelineSemaphore transferSemaphore;
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

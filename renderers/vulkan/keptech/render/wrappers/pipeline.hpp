@@ -9,7 +9,7 @@ namespace kt::shaders {
   struct Shader;
 }
 
-namespace kt::vkh {
+namespace kt::rdr {
   struct VertexInput {
     std::vector<VkVertexInputBindingDescription> bindings;
     std::vector<VkVertexInputAttributeDescription> attributes;
@@ -38,4 +38,4 @@ namespace kt::vkh {
     operator VkPipeline() const noexcept { return pipeline; }
     operator VkPipelineLayout() const noexcept { return layout; }
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

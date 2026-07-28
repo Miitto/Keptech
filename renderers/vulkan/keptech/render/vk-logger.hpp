@@ -7,37 +7,37 @@
 #endif
 
 #if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_TRACE
-#define VK_TRACE(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::trace, __VA_ARGS__)
+#define VK_TRACE(...) kt::rdr::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::trace, __VA_ARGS__)
 #else
 #define VK_TRACE(...) (void)0
 #endif
 
 #if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_DEBUG
-#define VK_DEBUG(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::debug, __VA_ARGS__)
+#define VK_DEBUG(...) kt::rdr::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::debug, __VA_ARGS__)
 #else
 #define VK_DEBUG(...) (void)0
 #endif
 
 #if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_INFO
-#define VK_INFO(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::info, __VA_ARGS__)
+#define VK_INFO(...) kt::rdr::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::info, __VA_ARGS__)
 #else
 #define VK_INFO(...) (void)0
 #endif
 
 #if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_WARN
-#define VK_WARN(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::warn, __VA_ARGS__)
+#define VK_WARN(...) kt::rdr::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::warn, __VA_ARGS__)
 #else
 #define VK_WARN(...) (void)0
 #endif
 
 #if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_ERROR
-#define VK_ERROR(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::err, __VA_ARGS__)
+#define VK_ERROR(...) kt::rdr::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::err, __VA_ARGS__)
 #else
 #define VK_ERROR(...) (void)0
 #endif
 
 #if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_CRITICAL
-#define VK_CRITICAL(...) kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical, __VA_ARGS__)
+#define VK_CRITICAL(...) kt::rdr::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical, __VA_ARGS__)
 #else
 #define VK_CRITICAL(...) (void)0
 #endif
@@ -46,7 +46,7 @@
 /// Assert macro that logs a critical message and aborts if the expression is false. Only active in debug builds.
 #define VK_ASSERT(expr, ...)                                                                                                               \
   if (!(expr)) {                                                                                                                           \
-    kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical,                                 \
+    kt::rdr::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical,                                 \
                          "Assertion failed: " __VA_ARGS__);                                                                                \
     spdlog::shutdown();                                                                                                                    \
     std::abort();                                                                                                                          \
@@ -59,17 +59,17 @@
 /// Same as #VK_ASSERT, but always active regardless of build type.
 #define VK_REQUIRE(expr, ...)                                                                                                              \
   if (!(expr)) {                                                                                                                           \
-    kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical,                                 \
+    kt::rdr::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical,                                 \
                          "Requirement failed: " __VA_ARGS__);                                                                              \
     spdlog::shutdown();                                                                                                                    \
     std::abort();                                                                                                                          \
   }
 
 #define VK_ABORT(...)                                                                                                                      \
-  kt::vkh::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical, "Aborting: " __VA_ARGS__);        \
+  kt::rdr::logger->log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::critical, "Aborting: " __VA_ARGS__);        \
   spdlog::shutdown();                                                                                                                      \
   std::abort();
 
-namespace kt::vkh {
+namespace kt::rdr {
   extern const std::shared_ptr<spdlog::logger> logger;
-} // namespace kt::vkh
+} // namespace kt::rdr

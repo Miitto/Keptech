@@ -5,7 +5,7 @@
 #include "profile.hpp"
 #include "vk-logger.hpp"
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   void Renderer::updateTextureDescriptors() {
     KT_PROFILE_FUNCTION
@@ -64,4 +64,4 @@ namespace kt::vkh {
       frame.texToUpdate.emplace_back(&image, index);
     }
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

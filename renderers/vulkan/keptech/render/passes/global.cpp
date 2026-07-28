@@ -8,7 +8,7 @@
 #include <keptech/components/transform.hpp>
 #include <keptech/maths/frustum.hpp>
 
-namespace kt::vkh::passes {
+namespace kt::rdr::passes {
   kt::maths::Frustum writeCameraData(const Buffers& buffers, const ecs::Entity cameraEntity, const glm::vec2& framebufferSize,
                                      size_t index) {
     KT_PROFILE_FUNCTION
@@ -43,4 +43,4 @@ namespace kt::vkh::passes {
 
     return frustum;
   }
-} // namespace kt::vkh::passes
+} // namespace kt::rdr::passes

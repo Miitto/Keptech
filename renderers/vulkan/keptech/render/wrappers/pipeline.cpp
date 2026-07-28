@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <keptech/shaders/shader.h>
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   kt::Result<Shader, VkResult, VK_SUCCESS> Shader::create(const shaders::Shader& shader) {
     VK_ASSERT(!shader.code.empty(), "Shader code is empty.");
@@ -86,4 +86,4 @@ namespace kt::vkh {
       module = nullptr;
     }
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

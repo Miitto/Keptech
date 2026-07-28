@@ -10,8 +10,8 @@
 #include <set>
 #include <utility>
 
-namespace kt::vkh {
-  using namespace kt::vkh;
+namespace kt::rdr {
+  using namespace kt::rdr;
 
   constexpr std::array REQUIRED_DEVICE_EXTENSIONS = {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -29,7 +29,7 @@ namespace kt::vkh {
   // TODO: Actually respect the RendererCreateInfo::capabilities.
 
   std::expected<void, std::string> Renderer::initPhysicalDevice(const RendererCreateInfo& createInfo) {
-    VKH_MAKE(selector, kt::vkh::PhysicalDeviceSelector::create(m.vkcore.instance), "Failed to create physical device selector.");
+    VKH_MAKE(selector, kt::rdr::PhysicalDeviceSelector::create(m.vkcore.instance), "Failed to create physical device selector.");
 
     VK_DEBUG("Physical Devices in System:");
     for (const auto& device : selector.getDevices()) {
@@ -300,4 +300,4 @@ namespace kt::vkh {
 
     return {std::move(uniqueQueueFamilies)};
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   class PhysicalDeviceSelector {
   public:
@@ -28,7 +28,7 @@ namespace kt::vkh {
     void requireQueueFamily(VkQueueFlags queueFlags) noexcept;
     void requireMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties) noexcept;
     void requireVersion(uint32_t major, uint32_t minor, uint32_t patch) noexcept;
-    void scoreDevices(const std::function<uint32_t(const vkh::PhysicalDeviceSelector::DeviceSpecs&)>& scoreFn) noexcept;
+    void scoreDevices(const std::function<uint32_t(const rdr::PhysicalDeviceSelector::DeviceSpecs&)>& scoreFn) noexcept;
     auto select() -> VkPhysicalDevice;
     const std::vector<DeviceSpecs>& getDevices() const noexcept { return physicalDevices; }
 
@@ -37,4 +37,4 @@ namespace kt::vkh {
 
     PhysicalDeviceSelector(std::vector<DeviceSpecs>& specs) noexcept : physicalDevices(std::move(specs)) {}
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

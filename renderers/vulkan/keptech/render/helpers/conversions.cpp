@@ -1,7 +1,7 @@
 #include "conversions.hpp"
 #include "vk-logger.hpp"
 
-namespace kt::vkh {
+namespace kt::rdr {
   VkShaderStageFlagBits from(shaders::ShaderStages stage) {
     switch (stage) {
     case shaders::ShaderStages::Vertex:
@@ -229,4 +229,4 @@ namespace kt::vkh {
     }
   }
 
-} // namespace kt::vkh
+} // namespace kt::rdr

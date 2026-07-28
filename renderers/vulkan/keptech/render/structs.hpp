@@ -3,7 +3,7 @@
 #include <Volk/volk.h>
 #include <vk_mem_alloc.h>
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   struct RenderFormats {
     VkFormat albedo = VK_FORMAT_B8G8R8A8_SRGB;
@@ -34,4 +34,4 @@ namespace kt::vkh {
     std::array<VkDescriptorSet, N> sets;
   };
 
-} // namespace kt::vkh
+} // namespace kt::rdr

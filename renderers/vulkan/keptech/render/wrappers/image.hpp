@@ -6,8 +6,7 @@
 #include <Volk/volk.h>
 #include <vma/vk_mem_alloc.h>
 
-
-namespace kt::vkh {
+namespace kt::rdr {
   struct TransitionInfo;
   class Device;
 
@@ -96,4 +95,4 @@ namespace kt::vkh {
     VkFormat _format{};
     ImageHandle _handle = INVALID_HANDLE;
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

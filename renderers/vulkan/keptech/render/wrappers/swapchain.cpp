@@ -6,7 +6,7 @@
 #include <keptech/core/profile.hpp>
 #include <macros.hpp>
 
-namespace kt::vkh {
+namespace kt::rdr {
   namespace {
     constexpr std::array PREFERRED_FORMATS{
         VkSurfaceFormatKHR{VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR},
@@ -255,4 +255,4 @@ namespace kt::vkh {
       destroy();
     }
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

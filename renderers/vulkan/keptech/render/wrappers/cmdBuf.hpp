@@ -3,7 +3,7 @@
 #include <Volk/volk.h>
 #include <span>
 
-namespace kt::vkh {
+namespace kt::rdr {
   class CommandBuffer {
   public:
     CommandBuffer() = default;
@@ -40,4 +40,4 @@ namespace kt::vkh {
   private:
     VkCommandBuffer cmdBuf;
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

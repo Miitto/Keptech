@@ -6,7 +6,7 @@
 #include <array>
 #include <vector>
 
-namespace kt::vkh {
+namespace kt::rdr {
   struct Queue {
     uint32_t index = ~0u;
     VkQueue queue = nullptr;
@@ -58,4 +58,4 @@ namespace kt::vkh {
       return commandBuffers;
     }
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

@@ -4,13 +4,12 @@
 #include "keptech/render/wrappers/fwd.hpp"
 #include "keptech/rendering/mesh.hpp"
 
-
-namespace kt::vkh {
+namespace kt::rdr {
   struct Buffers;
   struct Members;
-} // namespace kt::vkh
+} // namespace kt::rdr
 
-namespace kt::vkh::passes::geometry {
+namespace kt::rdr::passes::geometry {
 
   struct Target {
     using T = Image;
@@ -31,4 +30,4 @@ namespace kt::vkh::passes::geometry {
   CLANG_IGNORE_WARNING_POP
 
   void draw(const Members& members, VkCommandBuffer cmdBuf, const Target& target, const Payload& payload);
-} // namespace kt::vkh::passes::geometry
+} // namespace kt::rdr::passes::geometry

@@ -414,7 +414,7 @@ fmt::format_context::iterator fmt::formatter<VkImageLayout>::format(VkImageLayou
   return fmt::format_to(ctx.out(), "{}", name);
 }
 
-fmt::format_context::iterator fmt::formatter<kt::vkh::VkAccessFlags2Formatter>::format(kt::vkh::VkAccessFlags2Formatter formatter,
+fmt::format_context::iterator fmt::formatter<kt::rdr::VkAccessFlags2Formatter>::format(kt::rdr::VkAccessFlags2Formatter formatter,
                                                                                        fmt::format_context& ctx) const {
   std::vector<std::string_view> accessFlags;
 
@@ -512,7 +512,7 @@ fmt::format_context::iterator fmt::formatter<kt::vkh::VkAccessFlags2Formatter>::
 }
 
 fmt::format_context::iterator
-fmt::formatter<kt::vkh::VkPipelineStageFlags2Formatter>::format(kt::vkh::VkPipelineStageFlags2Formatter formatter,
+fmt::formatter<kt::rdr::VkPipelineStageFlags2Formatter>::format(kt::rdr::VkPipelineStageFlags2Formatter formatter,
                                                                 fmt::format_context& ctx) const {
   std::vector<std::string_view> stageFlags;
 

@@ -4,7 +4,7 @@
 #include "vk-logger.hpp"
 #include <algorithm>
 
-namespace kt::vkh {
+namespace kt::rdr {
   auto PhysicalDeviceSelector::create(const VkInstance& instance) -> std::expected<PhysicalDeviceSelector, std::string> {
 
     uint32_t deviceCount = 0;
@@ -135,7 +135,7 @@ namespace kt::vkh {
   }
 
   void
-  PhysicalDeviceSelector::scoreDevices(const std::function<uint32_t(const vkh::PhysicalDeviceSelector::DeviceSpecs&)>& scoreFn) noexcept {
+  PhysicalDeviceSelector::scoreDevices(const std::function<uint32_t(const rdr::PhysicalDeviceSelector::DeviceSpecs&)>& scoreFn) noexcept {
     VK_DEBUG("Scoring devices");
     for (auto& device : physicalDevices) {
       device.score = scoreFn(device);
@@ -165,4 +165,4 @@ namespace kt::vkh {
     return physicalDevices[index].device;
   }
 
-} // namespace kt::vkh
+} // namespace kt::rdr

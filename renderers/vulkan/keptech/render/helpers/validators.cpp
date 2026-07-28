@@ -2,7 +2,7 @@
 
 #include "vk-logger.hpp"
 
-namespace kt::vkh {
+namespace kt::rdr {
   void printExtensions(spdlog::level::level_enum logLevel) {
     if (logLevel < RENDERER_LOG_LEVEL) {
       return;
@@ -53,4 +53,4 @@ namespace kt::vkh {
     return missingLayers;
   }
 
-} // namespace kt::vkh
+} // namespace kt::rdr

@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace kt::vkh {
+namespace kt::rdr {
   class Renderer;
   class RenderGraphBuilder;
   class RenderGraph;
@@ -214,4 +214,4 @@ namespace kt::vkh {
     void pipelineBarrier(const Barriers& barriers, const CommandBuffer& cmd) const;
     void beginRendering(const RenderPass& pass, const CommandBuffer& cmd) const;
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

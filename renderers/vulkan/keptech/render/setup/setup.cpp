@@ -12,8 +12,8 @@
 #include <keptech/components/camera.hpp>
 #include <keptech/maths/maths.hpp>
 
-namespace kt::vkh {
-  using namespace kt::vkh::setup;
+namespace kt::rdr {
+  using namespace kt::rdr::setup;
 
   std::expected<void, std::string> Renderer::init(const RendererCreateInfo& createInfo, const core::window::Window& window) {
     if (isInitialized) {
@@ -89,4 +89,4 @@ namespace kt::vkh {
 
     return {};
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

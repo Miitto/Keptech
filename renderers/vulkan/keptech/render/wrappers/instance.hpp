@@ -5,7 +5,7 @@
 #include <span>
 #include <string>
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   class Instance {
   public:
@@ -44,4 +44,4 @@ namespace kt::vkh {
     VkDebugUtilsMessengerEXT debugMessenger = nullptr;
 #endif
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

@@ -5,7 +5,7 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
-namespace kt::vkh {
+namespace kt::rdr {
   struct GpuMaterial {
     ImageHandle albedo;
     ImageHandle bump;
@@ -32,4 +32,4 @@ namespace kt::vkh {
     glm::vec3 color;
     ImageHandle shadowMap;
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

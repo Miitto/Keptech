@@ -7,7 +7,7 @@
 #include <SDL3/SDL_vulkan.h>
 #include <keptech/core/window.hpp>
 
-namespace kt::vkh {
+namespace kt::rdr {
   VKAPI_ATTR VkBool32 debug_utils_messenger_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
                                                      VkDebugUtilsMessageTypeFlagsEXT message_type,
                                                      const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* user_data) {
@@ -53,7 +53,7 @@ namespace kt::vkh {
       extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
-    auto missingExtensions = vkh::checkExtensions(extensions);
+    auto missingExtensions = rdr::checkExtensions(extensions);
     if (!missingExtensions.empty()) {
       VK_ERROR("Missing required extensions:");
       for (const auto& ext : missingExtensions) {
@@ -62,7 +62,7 @@ namespace kt::vkh {
       return std::unexpected("Missing required Vulkan extensions");
     }
 
-    auto missingLayers = vkh::checkLayers(layerNames);
+    auto missingLayers = rdr::checkLayers(layerNames);
     if (!missingLayers.empty()) {
       VK_ERROR("Missing required layers:");
       for (const auto& layer : missingLayers) {
@@ -119,4 +119,4 @@ namespace kt::vkh {
 #endif
     );
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

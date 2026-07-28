@@ -1,6 +1,6 @@
 #include "pipeline.hpp"
 
-namespace kt::vkh {
+namespace kt::rdr {
   PipelineLayoutBuilder::PipelineLayoutBuilder() : _info{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO} {}
 
   PipelineLayoutBuilder& PipelineLayoutBuilder::addDescriptorSetLayout(VkDescriptorSetLayout layout) {
@@ -422,4 +422,4 @@ namespace kt::vkh {
 
     return *this;
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

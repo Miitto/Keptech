@@ -6,7 +6,7 @@
 #include <Volk/volk.h>
 #include <keptech/shaders/shader.h>
 
-namespace kt::vkh {
+namespace kt::rdr {
   // Formats
   namespace {
     constexpr std::array GBUFFER_ALBEDO_FORMATS = {VK_FORMAT_B8G8R8A8_SRGB};
@@ -100,4 +100,4 @@ namespace kt::vkh {
 
     return {};
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

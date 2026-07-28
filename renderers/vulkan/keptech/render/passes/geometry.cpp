@@ -5,7 +5,7 @@
 #include "keptech/render/renderer.hpp"
 #include "profile.hpp"
 
-namespace kt::vkh::passes::geometry {
+namespace kt::rdr::passes::geometry {
   void draw(const Members& m, VkCommandBuffer cmdBuf, const Target& target, const Payload& payload) {
     KT_PROFILE_FUNCTION
     KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Draw Geometry");
@@ -41,4 +41,4 @@ namespace kt::vkh::passes::geometry {
       vkCmdDrawMeshTasksEXT(cmdBuf, taskShaderDispatches, 1, 1);
     }
   }
-} // namespace kt::vkh::passes::geometry
+} // namespace kt::rdr::passes::geometry

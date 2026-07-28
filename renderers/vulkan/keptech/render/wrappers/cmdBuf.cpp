@@ -2,7 +2,7 @@
 
 #include "keptech/render/macros.hpp"
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   const CommandBuffer& CommandBuffer::begin() const {
     VkCommandBufferBeginInfo beginInfo{
@@ -93,4 +93,4 @@ namespace kt::vkh {
     return *this;
   }
 
-} // namespace kt::vkh
+} // namespace kt::rdr

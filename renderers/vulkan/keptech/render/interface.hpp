@@ -4,7 +4,7 @@
 #include <Volk/volk.h>
 
 namespace kt {
-  namespace vkh {
+  namespace rdr {
     class Renderer;
     class Buffer;
     class Image;
@@ -13,18 +13,18 @@ namespace kt {
     class RenderPassInterface;
     class CommandBuffer;
     class RenderGraph;
-  } // namespace vkh
+  } // namespace rdr
 
-  using AttachmentSize = vkh::AttachmentSize;
-  using QueueType = vkh::QueueType;
-  using RenderGraphBuilder = vkh::RenderGraphBuilder;
-  using RenderPassBuilder = vkh::RenderPassBuilder;
-  using RenderPassInterface = vkh::RenderPassInterface;
-  using Renderer = vkh::Renderer;
+  using AttachmentSize = rdr::AttachmentSize;
+  using QueueType = rdr::QueueType;
+  using RenderGraphBuilder = rdr::RenderGraphBuilder;
+  using RenderPassBuilder = rdr::RenderPassBuilder;
+  using RenderPassInterface = rdr::RenderPassInterface;
+  using Renderer = rdr::Renderer;
   using ImageFormat = VkFormat;
-  using Buffer = vkh::Buffer;
-  using Image = vkh::Image;
+  using Buffer = rdr::Buffer;
+  using Image = rdr::Image;
   using ImageUsageFlags = VkImageUsageFlags;
-  using CommandBuffer = vkh::CommandBuffer;
-  using RenderGraph = vkh::RenderGraph;
+  using CommandBuffer = rdr::CommandBuffer;
+  using RenderGraph = rdr::RenderGraph;
 } // namespace kt

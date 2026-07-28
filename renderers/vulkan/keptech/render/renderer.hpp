@@ -33,7 +33,7 @@
 #include <tracy/TracyVulkan.hpp>
 #endif
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   class RenderGraph;
 
@@ -107,7 +107,7 @@ namespace kt::vkh {
     // Structs
   public:
     friend class RenderGraph;
-    using Members = kt::vkh::Members;
+    using Members = kt::rdr::Members;
     // Creation and destruction
   public:
     static Renderer& get();
@@ -240,4 +240,4 @@ namespace kt::vkh {
     static bool isInitialized;
   };
 
-} // namespace kt::vkh
+} // namespace kt::rdr

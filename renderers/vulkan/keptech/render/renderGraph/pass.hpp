@@ -5,7 +5,7 @@
 #include <functional>
 #include <glm/ext/vector_uint2.hpp>
 
-namespace kt::vkh {
+namespace kt::rdr {
   class RenderGraphBuilder;
   class RenderGraph;
   class RenderPass;
@@ -211,4 +211,4 @@ namespace kt::vkh {
     RenderBufferResource& addGenericBufferInput(const std::string& name, VkPipelineStageFlags2 stages, VkAccessFlags2 access,
                                                 VkBufferUsageFlags usage);
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

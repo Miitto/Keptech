@@ -11,7 +11,7 @@ namespace kt::gltf {
   struct MeshData;
 };
 
-namespace kt::vkh::loading {
+namespace kt::rdr::loading {
   template <typename T> struct MaybeReallocResult {
     T result;
     std::vector<Buffer> reallocatedBuffers;
@@ -34,4 +34,4 @@ namespace kt::vkh::loading {
                               SubdivBuffer<VertexAttribs>& attribBuffer, SubdivBuffer<uint32_t>& indexBuffer,
                               SubdivBuffer<Meshlet>& meshletBuffer, SubdivBuffer<uint32_t>& meshletVertexBuffer,
                               SubdivBuffer<uint32_t>& meshletTriangleBuffer);
-} // namespace kt::vkh::loading
+} // namespace kt::rdr::loading

@@ -1,6 +1,6 @@
 #include "renderer.hpp"
 
-namespace kt::vkh {
+namespace kt::rdr {
   Renderer& Renderer::get() { return singleton; }
   const Renderer::Members& Renderer::getMembers() const { return m; }
   Renderer::Members& Renderer::getMembers() { return m; }
@@ -34,4 +34,4 @@ namespace kt::vkh {
   [[nodiscard]] Result<Pipeline, VkResult, VK_SUCCESS> Renderer::createPipeline(const VkGraphicsPipelineCreateInfo& info) const {
     return m.vkcore.device.createPipeline(info);
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

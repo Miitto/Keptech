@@ -5,7 +5,7 @@
 
 #define MAX_FRAMES_IN_FLIGHT 2
 
-namespace kt::vkh {
+namespace kt::rdr {
   namespace constants {
     constexpr uint32_t SHADOW_MAP_SIZE = 4096;
     constexpr uint32_t SSAO_KERNEL_SIZE = 64;
@@ -24,4 +24,4 @@ namespace kt::vkh {
   extern VkDeviceSize samplerDescriptorSize; // NOLINT
   extern VkDeviceSize bufferDescriptorSize;  // NOLINT
   extern VkDeviceSize imageDescriptorSize;   // NOLINT
-} // namespace kt::vkh
+} // namespace kt::rdr

@@ -3,7 +3,7 @@
 #include "wrappers/image.hpp"
 #include "wrappers/pipeline.hpp"
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   kt::Result<VkPipelineLayout, VkResult, VK_SUCCESS> Device::createPipelineLayout(const VkPipelineLayoutCreateInfo& info) const {
     VkPipelineLayout layout = VK_NULL_HANDLE;
@@ -113,4 +113,4 @@ namespace kt::vkh {
     vmaDestroyAllocator(allocator);
     vkDestroyDevice(logical, nullptr);
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

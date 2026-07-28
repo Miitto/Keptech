@@ -20,7 +20,7 @@ template <> struct fmt::formatter<VkImageLayout> : fmt::formatter<std::string_vi
   fmt::format_context::iterator format(VkImageLayout layout, fmt::format_context& ctx) const;
 };
 
-namespace kt::vkh {
+namespace kt::rdr {
   struct VkPipelineStageFlags2Formatter {
     VkPipelineStageFlags2 flags;
   };
@@ -28,12 +28,12 @@ namespace kt::vkh {
   struct VkAccessFlags2Formatter {
     VkAccessFlags2 flags;
   };
-} // namespace kt::vkh
+} // namespace kt::rdr
 
-template <> struct fmt::formatter<kt::vkh::VkPipelineStageFlags2Formatter> : fmt::formatter<std::string_view> {
-  fmt::format_context::iterator format(kt::vkh::VkPipelineStageFlags2Formatter flags, fmt::format_context& ctx) const;
+template <> struct fmt::formatter<kt::rdr::VkPipelineStageFlags2Formatter> : fmt::formatter<std::string_view> {
+  fmt::format_context::iterator format(kt::rdr::VkPipelineStageFlags2Formatter flags, fmt::format_context& ctx) const;
 };
 
-template <> struct fmt::formatter<kt::vkh::VkAccessFlags2Formatter> : fmt::formatter<std::string_view> {
-  fmt::format_context::iterator format(kt::vkh::VkAccessFlags2Formatter flags, fmt::format_context& ctx) const;
+template <> struct fmt::formatter<kt::rdr::VkAccessFlags2Formatter> : fmt::formatter<std::string_view> {
+  fmt::format_context::iterator format(kt::rdr::VkAccessFlags2Formatter flags, fmt::format_context& ctx) const;
 };

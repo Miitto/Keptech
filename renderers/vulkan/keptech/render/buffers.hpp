@@ -12,7 +12,7 @@ namespace kt {
   struct VertexAttribs;
   struct Meshlet;
 
-  namespace vkh {
+  namespace rdr {
     struct GpuMaterial;
     struct GpuObject;
     struct GpuPointLight;
@@ -51,5 +51,5 @@ namespace kt {
       VkDeviceAddress meshletTriangles;
       VkDeviceAddress materials;
     };
-  } // namespace vkh
+  } // namespace rdr
 } // namespace kt

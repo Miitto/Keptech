@@ -7,7 +7,7 @@
 #include "wrappers/bufferCreateInfo.hpp"
 #include <glm/vec3.hpp>
 
-namespace kt::vkh::loading {
+namespace kt::rdr::loading {
   namespace {
     template <typename T>
     std::expected<std::optional<Buffer>, std::string> realloc(SubdivBuffer<T>& buf, size_t newSize, VkBufferUsageFlags usage,
@@ -246,4 +246,4 @@ namespace kt::vkh::loading {
 
     return std::move(reallocatedBuffers);
   }
-} // namespace kt::vkh::loading
+} // namespace kt::rdr::loading

@@ -1,7 +1,7 @@
 #include "keptech/render/constants.hpp"
 #include <Volk/volk.h>
 
-namespace kt::vkh {
+namespace kt::rdr {
   namespace limits {
     VkDeviceSize minUniformBufferOffsetAlignment = 0;
     VkDeviceSize minStorageBufferOffsetAlignment = 0;
@@ -12,4 +12,4 @@ namespace kt::vkh {
   VkDeviceSize samplerDescriptorSize = 0;
   VkDeviceSize bufferDescriptorSize = 0;
   VkDeviceSize imageDescriptorSize = 0;
-} // namespace kt::vkh
+} // namespace kt::rdr

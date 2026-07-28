@@ -1,6 +1,6 @@
 #pragma once
 
-namespace kt::vkh {
+namespace kt::rdr {
   class BufferCreateInfo;
   class ImageCreateInfo;
   class Image;
@@ -10,4 +10,4 @@ namespace kt::vkh {
   class Swapchain;
   struct Queue;
   struct CommandPool;
-} // namespace kt::vkh
+} // namespace kt::rdr

@@ -18,7 +18,7 @@
 #include <keptech/core/window.hpp>
 #include <keptech/rendering/structs.hpp>
 
-namespace kt::vkh {
+namespace kt::rdr {
   static_assert(CRenderer<Renderer>, "Renderer does not satisfy CRenderer concept");
 
   Renderer Renderer::singleton{};
@@ -73,7 +73,7 @@ namespace kt::vkh {
     }
     auto [imageIndex, swapchainState] = nextImageRes.value();
 
-    if (swapchainState == vkh::Swapchain::State::OutOfDate) {
+    if (swapchainState == rdr::Swapchain::State::OutOfDate) {
       auto res = recreateSwapchain();
       if (!res) {
         VK_CRITICAL("Failed to recreate swapchain: {}", res.error());
@@ -87,7 +87,7 @@ namespace kt::vkh {
     m.frameInfo.imageIndex = static_cast<uint8_t>(imageIndex);
     m.frameInfo.perFrame = &perFrame;
 
-    if (swapchainState == vkh::Swapchain::State::Suboptimal) {
+    if (swapchainState == rdr::Swapchain::State::Suboptimal) {
       m.frameInfo.suboptimalSwapchain = true;
     }
   }
@@ -272,4 +272,4 @@ namespace kt::vkh {
     return {};
   }
 
-} // namespace kt::vkh
+} // namespace kt::rdr

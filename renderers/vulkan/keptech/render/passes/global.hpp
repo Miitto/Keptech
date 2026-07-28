@@ -11,11 +11,11 @@ namespace kt {
   }
 } // namespace kt
 
-namespace kt::vkh {
+namespace kt::rdr {
   struct Buffers;
 
   namespace passes {
     kt::maths::Frustum writeCameraData(const Buffers& buffers, const ecs::Entity cameraEntity, const glm::vec2& framebufferSize,
                                        size_t index);
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

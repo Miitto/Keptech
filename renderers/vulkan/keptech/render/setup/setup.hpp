@@ -12,7 +12,7 @@ namespace kt::core::window {
 
 namespace kt {
   struct RendererCreateInfo;
-  namespace vkh {
+  namespace rdr {
     class Renderer;
     struct VulkanCore;
     struct Buffers;
@@ -34,5 +34,5 @@ namespace kt {
                                                             VkSwapchainKHR oldSwapchain);
 
     } // namespace setup
-  } // namespace vkh
+  } // namespace rdr
 } // namespace kt

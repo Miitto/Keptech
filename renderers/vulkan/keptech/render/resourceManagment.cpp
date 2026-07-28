@@ -22,7 +22,7 @@
 #include <ktxvulkan.h>
 #include <string_view>
 
-namespace kt::vkh {
+namespace kt::rdr {
   bool Renderer::canRenderToFormat(VkFormat format) const {
     VkFormatProperties formatProps;
     vkGetPhysicalDeviceFormatProperties(m.vkcore.device, format, &formatProps);
@@ -582,4 +582,4 @@ namespace kt::vkh {
 
     return std::move(resultStruct);
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

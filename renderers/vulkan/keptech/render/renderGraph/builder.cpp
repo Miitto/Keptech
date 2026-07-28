@@ -14,20 +14,20 @@
 #include <ranges>
 #include <spdlog/fmt/bundled/ranges.h>
 
-template <> struct fmt::formatter<kt::vkh::QueueHandoff> : fmt::formatter<std::string_view> {
-  template <typename FormatContext> auto format(const kt::vkh::QueueHandoff& handoff, FormatContext& ctx) const {
+template <> struct fmt::formatter<kt::rdr::QueueHandoff> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const kt::rdr::QueueHandoff& handoff, FormatContext& ctx) const {
     switch (handoff) {
-    case kt::vkh::QueueHandoff::No:
+    case kt::rdr::QueueHandoff::No:
       return fmt::formatter<std::string_view>::format("No", ctx);
-    case kt::vkh::QueueHandoff::ToCompute:
+    case kt::rdr::QueueHandoff::ToCompute:
       return fmt::formatter<std::string_view>::format("ToCompute", ctx);
-    case kt::vkh::QueueHandoff::FromCompute:
+    case kt::rdr::QueueHandoff::FromCompute:
       return fmt::formatter<std::string_view>::format("FromCompute", ctx);
     }
   }
 };
 
-namespace kt::vkh {
+namespace kt::rdr {
   static constexpr Bitflag<QueueType> COMPUTE_QUEUES = QueueType::Compute | QueueType::AsyncCompute;
 
   namespace {
@@ -1627,4 +1627,4 @@ namespace kt::vkh {
     resInfo.bufferInfo.usage |= resource.getBufferUsage();
     return resInfo;
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

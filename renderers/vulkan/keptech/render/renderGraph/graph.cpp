@@ -4,7 +4,7 @@
 #include "renderer.hpp"
 #include <vector>
 
-namespace kt::vkh {
+namespace kt::rdr {
   void RenderGraph::execute() {
     VK_ASSERT(renderer, "Renderer must be set before executing the render graph.");
 
@@ -408,4 +408,4 @@ namespace kt::vkh {
     }
     LOG("");
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

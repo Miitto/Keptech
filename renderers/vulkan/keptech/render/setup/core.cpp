@@ -14,8 +14,8 @@
 #include <set>
 #include <string>
 
-namespace kt::vkh {
-  using namespace kt::vkh;
+namespace kt::rdr {
+  using namespace kt::rdr;
 
   std::expected<void, std::string> Renderer::initVulkanCore(const RendererCreateInfo& createInfo, const core::window::Window& window) {
 
@@ -151,4 +151,4 @@ namespace kt::vkh {
 
     return {};
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

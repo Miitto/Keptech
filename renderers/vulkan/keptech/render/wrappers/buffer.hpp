@@ -7,7 +7,7 @@
 #include <utility>
 #include <vma/vk_mem_alloc.h>
 
-namespace kt::vkh {
+namespace kt::rdr {
   class BufferCreateInfo;
 
   /// @brief A RAII wrapper around a Vulkan buffer and its associated memory allocation. When the Buffer is destroyed, the underlying Vulkan
@@ -197,4 +197,4 @@ namespace kt::vkh {
     size_t _count = 0;
   };
 
-} // namespace kt::vkh
+} // namespace kt::rdr

@@ -6,7 +6,7 @@
 #include "bufferCreateInfo.hpp"
 #include "renderer.hpp"
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   kt::Result<Buffer, VkResult, VK_SUCCESS> Buffer::create(const BufferCreateInfo& info) {
     VK_ASSERT(info.getBufferInfo().size > 0, "Buffer size must be greater than 0");
@@ -63,4 +63,4 @@ namespace kt::vkh {
       alloc = nullptr;
     }
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

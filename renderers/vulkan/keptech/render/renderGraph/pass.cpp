@@ -5,7 +5,7 @@
 #include "vk-logger.hpp"
 #include <algorithm>
 
-namespace kt::vkh {
+namespace kt::rdr {
   static constexpr Bitflag<QueueType> COMPUTE_QUEUES = QueueType::Compute | QueueType::AsyncCompute;
 
 #define LOG(...) VK_TRACE(__VA_ARGS__) // NOLINT
@@ -197,4 +197,4 @@ namespace kt::vkh {
     depthStencilOutput = &res;
     return res;
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

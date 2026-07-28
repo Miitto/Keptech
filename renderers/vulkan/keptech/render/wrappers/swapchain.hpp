@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace kt::vkh {
+namespace kt::rdr {
   struct SwapchainConfig {
     VkSurfaceFormatKHR format = {.format = VK_FORMAT_B8G8R8A8_SRGB, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
     VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
@@ -86,4 +86,4 @@ namespace kt::vkh {
         : device(device), _config(config), swapchain(swapchain), imgs(std::move(images)), imageViews(std::move(imageViews)),
           presentSemaphores(std::move(sync)) {}
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

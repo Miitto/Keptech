@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_set>
 
-namespace kt::vkh {
+namespace kt::rdr {
   class RenderResource {
   public:
     enum class Type : uint8_t {
@@ -104,4 +104,4 @@ namespace kt::vkh {
     VkImageUsageFlags usage = 0;
     bool transient = false;
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

@@ -38,7 +38,7 @@ public:
     if (!shaderRes.isOk()) {
       KT_ABORT("Failed to create mesh shader: {}", shaderRes.error());
     }
-    kt::vkh::PipelineLayoutBuilder layoutBuilder{};
+    kt::rdr::PipelineLayoutBuilder layoutBuilder{};
     layoutBuilder.addDescriptorSetLayout(renderer.getGlobalDescriptorSetLayout())
         .addDescriptorSetLayout(descriptorSetLayout)
         .addPushConstantRange<glm::mat4, uint32_t>(
@@ -52,14 +52,14 @@ public:
 
     auto& formats = renderer.getFormats();
 
-    kt::vkh::GraphicsPipelineBuilder pipelineBuilder{};
+    kt::rdr::GraphicsPipelineBuilder pipelineBuilder{};
     pipelineBuilder.layout(layoutRes.value())
         .addShaderStages(shaderRes.value().stages)
         .addColorAttachment(formats.render.albedo)
         .depthAttachment(formats.render.depth)
-        .cullMode(kt::vkh::CullMode::Back)
+        .cullMode(kt::rdr::CullMode::Back)
         .depthWrite()
-        .depthTest(kt::vkh::DepthCompareOp::LessOrEqual);
+        .depthTest(kt::rdr::DepthCompareOp::LessOrEqual);
     auto pipelineRes = renderer.createPipeline(pipelineBuilder);
     if (!pipelineRes.isOk()) {
       shaderRes.value().destroy();
@@ -135,7 +135,7 @@ public:
 
 private:
   kt::Scene& scene; // NOLINT - This never moves. TODO: Make active scene a singleton or something so we don't have to pass it around
-  kt::vkh::Pipeline pipeline{};
+  kt::rdr::Pipeline pipeline{};
 };
 
 class BenchmarkLayer : public kt::core::layers::Layer {

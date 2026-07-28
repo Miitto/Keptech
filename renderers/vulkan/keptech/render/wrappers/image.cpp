@@ -7,7 +7,7 @@
 #include "wrappers/device.hpp"
 #include <glm/vec3.hpp>
 
-namespace kt::vkh {
+namespace kt::rdr {
   kt::Result<Image, VkResult, VK_SUCCESS> Image::create(const ImageCreateInfo& info) {
     auto& r = Renderer::get();
 
@@ -105,4 +105,4 @@ namespace kt::vkh {
         .layerCount = _layers,
     };
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

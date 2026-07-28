@@ -1,6 +1,6 @@
 #pragma once
 
-namespace kt::vkh {
+namespace kt::rdr {
   class ImageCreateInfo {
   public:
     constexpr ImageCreateInfo(VkImageType imageType, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, uint32_t mipLevels = 1,
@@ -128,4 +128,4 @@ namespace kt::vkh {
     VmaAllocationCreateInfo allocInfo;
     const char* name = nullptr;
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

@@ -2,7 +2,7 @@
 #include "renderer.hpp"
 #include "setup.hpp"
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   std::expected<void, std::string> Renderer::initSamplers() {
     constexpr VkSamplerCreateInfo linearRepeatInfo{
@@ -99,4 +99,4 @@ namespace kt::vkh {
 
     return {};
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

@@ -7,7 +7,7 @@
 #include <array>
 #include <keptech/components/camera.hpp>
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   enum ResourceBindingIndices : uint8_t {
     SAMPLER = 0,
@@ -189,4 +189,4 @@ namespace kt::vkh {
 
     m.indices.nextUniformBufferIndex = BUFFER_COUNT;
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

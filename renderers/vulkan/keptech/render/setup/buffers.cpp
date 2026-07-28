@@ -37,7 +37,7 @@ namespace {
   constexpr size_t INITIAL_MESHLET_PRIMITIVE_COUNT = INITIAL_MESHLET_COUNT * kt::constants::PRIMITIVES_PER_MESHLET;
 } // namespace
 
-namespace kt::vkh {
+namespace kt::rdr {
   namespace {
     template <typename T>
     kt::Result<Buffer, VkResult, VK_SUCCESS> createBufferT(const size_t elementCount, const std::string& name,
@@ -128,4 +128,4 @@ namespace kt::vkh {
 
     return {};
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

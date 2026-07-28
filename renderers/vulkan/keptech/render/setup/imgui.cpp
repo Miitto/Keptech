@@ -8,7 +8,7 @@
 #include <imgui/imgui.h>
 #include <keptech/core/window.hpp>
 
-namespace kt::vkh {
+namespace kt::rdr {
 
   std::expected<void, std::string> Renderer::initImGui() {
     rendering::initImGui();
@@ -118,4 +118,4 @@ namespace kt::vkh {
 
     return {};
   }
-} // namespace kt::vkh
+} // namespace kt::rdr

@@ -4,7 +4,7 @@
 #include <span>
 #include <vector>
 
-namespace kt::vkh {
+namespace kt::rdr {
   enum class CullMode : uint32_t { // NOLINT
     None = VK_CULL_MODE_NONE,
     Front = VK_CULL_MODE_FRONT_BIT,
@@ -291,4 +291,4 @@ namespace kt::vkh {
     VkPipelineDynamicStateCreateInfo _dynamicState{};
     VkGraphicsPipelineCreateInfo _info{};
   };
-} // namespace kt::vkh
+} // namespace kt::rdr

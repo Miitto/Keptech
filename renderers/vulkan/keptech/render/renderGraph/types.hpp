@@ -14,7 +14,7 @@
 #include <string>
 #include <vma/vk_mem_alloc.h>
 
-namespace kt::vkh {
+namespace kt::rdr {
   class CommandBuffer;
   using PassExecuteCb = std::function<void(const CommandBuffer&, VkDescriptorSet, glm::uvec3)>;
 
@@ -95,11 +95,11 @@ namespace kt::vkh {
     Compute = BIT(1),
     AsyncCompute = BIT(2),
   };
-} // namespace kt::vkh
+} // namespace kt::rdr
 
-DEFINE_BITFLAG_ENUM_OPERATORS(kt::vkh::QueueType)
+DEFINE_BITFLAG_ENUM_OPERATORS(kt::rdr::QueueType)
 
-namespace kt::vkh {
+namespace kt::rdr {
   enum class AttachmentSize : uint8_t {
     Absolute,
     SwapchainRelative,
@@ -219,31 +219,31 @@ namespace kt::vkh {
     VkDescriptorSetLayout layout = nullptr;
     std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> sets{};
   };
-} // namespace kt::vkh
+} // namespace kt::rdr
 
 namespace std {
-  template <> struct hash<kt::vkh::PassId> {
-    size_t operator()(const kt::vkh::PassId& id) const { return std::hash<size_t>()(*id); }
+  template <> struct hash<kt::rdr::PassId> {
+    size_t operator()(const kt::rdr::PassId& id) const { return std::hash<size_t>()(*id); }
   };
-  template <> struct hash<kt::vkh::ResourceId> {
-    size_t operator()(const kt::vkh::ResourceId& id) const { return std::hash<size_t>()(*id); }
+  template <> struct hash<kt::rdr::ResourceId> {
+    size_t operator()(const kt::rdr::ResourceId& id) const { return std::hash<size_t>()(*id); }
   };
-  template <> struct hash<kt::vkh::PhysResourceId> {
-    size_t operator()(const kt::vkh::PhysResourceId& id) const { return std::hash<size_t>()(*id); }
+  template <> struct hash<kt::rdr::PhysResourceId> {
+    size_t operator()(const kt::rdr::PhysResourceId& id) const { return std::hash<size_t>()(*id); }
   };
 } // namespace std
 
-template <> struct fmt::formatter<kt::vkh::AttachmentSize> : fmt::formatter<std::string_view> {
-  template <typename FormatContext> auto format(const kt::vkh::AttachmentSize& size, FormatContext& ctx) const {
+template <> struct fmt::formatter<kt::rdr::AttachmentSize> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const kt::rdr::AttachmentSize& size, FormatContext& ctx) const {
     std::string_view name;
     switch (size) {
-    case kt::vkh::AttachmentSize::Absolute:
+    case kt::rdr::AttachmentSize::Absolute:
       name = "Absolute";
       break;
-    case kt::vkh::AttachmentSize::SwapchainRelative:
+    case kt::rdr::AttachmentSize::SwapchainRelative:
       name = "SwapchainRelative";
       break;
-    case kt::vkh::AttachmentSize::ResolutionRelative:
+    case kt::rdr::AttachmentSize::ResolutionRelative:
       name = "ResolutionRelative";
       break;
     }
@@ -251,17 +251,17 @@ template <> struct fmt::formatter<kt::vkh::AttachmentSize> : fmt::formatter<std:
   }
 };
 
-template <> struct fmt::formatter<kt::vkh::QueueType> : fmt::formatter<std::string_view> {
-  template <typename FormatContext> auto format(const kt::vkh::QueueType& queue, FormatContext& ctx) const {
+template <> struct fmt::formatter<kt::rdr::QueueType> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const kt::rdr::QueueType& queue, FormatContext& ctx) const {
     std::string_view name;
     switch (queue) {
-    case kt::vkh::QueueType::Graphics:
+    case kt::rdr::QueueType::Graphics:
       name = "Graphics";
       break;
-    case kt::vkh::QueueType::Compute:
+    case kt::rdr::QueueType::Compute:
       name = "Compute";
       break;
-    case kt::vkh::QueueType::AsyncCompute:
+    case kt::rdr::QueueType::AsyncCompute:
       name = "AsyncCompute";
       break;
     }
@@ -269,20 +269,20 @@ template <> struct fmt::formatter<kt::vkh::QueueType> : fmt::formatter<std::stri
   }
 };
 
-template <> struct fmt::formatter<kt::vkh::PassId> : fmt::formatter<size_t> {
-  template <typename FormatContext> auto format(const kt::vkh::PassId& id, FormatContext& ctx) const {
+template <> struct fmt::formatter<kt::rdr::PassId> : fmt::formatter<size_t> {
+  template <typename FormatContext> auto format(const kt::rdr::PassId& id, FormatContext& ctx) const {
     return fmt::formatter<size_t>::format(*id, ctx);
   }
 };
 
-template <> struct fmt::formatter<kt::vkh::ResourceId> : fmt::formatter<size_t> {
-  template <typename FormatContext> auto format(const kt::vkh::ResourceId& id, FormatContext& ctx) const {
+template <> struct fmt::formatter<kt::rdr::ResourceId> : fmt::formatter<size_t> {
+  template <typename FormatContext> auto format(const kt::rdr::ResourceId& id, FormatContext& ctx) const {
     return fmt::formatter<size_t>::format(*id, ctx);
   }
 };
 
-template <> struct fmt::formatter<kt::vkh::PhysResourceId> : fmt::formatter<size_t> {
-  template <typename FormatContext> auto format(const kt::vkh::PhysResourceId& id, FormatContext& ctx) const {
+template <> struct fmt::formatter<kt::rdr::PhysResourceId> : fmt::formatter<size_t> {
+  template <typename FormatContext> auto format(const kt::rdr::PhysResourceId& id, FormatContext& ctx) const {
     return fmt::formatter<size_t>::format(*id, ctx);
   }
 };

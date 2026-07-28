@@ -5,7 +5,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 
-namespace kt::vkh::passes::shadows {
+namespace kt::rdr::passes::shadows {
   namespace {
     constexpr std::array<glm::mat4, 6> getCubemapViews(glm::vec3 center);
   } // namespace
@@ -27,4 +27,4 @@ namespace kt::vkh::passes::shadows {
       };
     }
   } // namespace
-} // namespace kt::vkh::passes::shadows
+} // namespace kt::rdr::passes::shadows
