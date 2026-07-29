@@ -23,6 +23,13 @@
             "cwd": "${workspaceFolder}"
         },
         {
+            "type": "lldb",
+            "name": "Launch Basic (VS Debug, Clang x64, Windows)",
+            "request": "launch",
+            "program": "${workspaceFolder}/__output/clang-x64/examples/basic/Debug/basic_example.exe",
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "type": "codelldb",
             "name": "Launch Materials example (Debug, Clang x64, Windows)",
             "request": "launch",

@@ -12,8 +12,34 @@ namespace kt {
     RendererCreateInfo renderer = {};
   };
 
-  // To be defined by the application
+  /// A user defined function that configures the application. This function gets called once during engine startup to provide the engine
+  /// with information about the application, such as the window title and size, and the renderer settings.
+  /// @example
+  /// ```cpp
+  /// kt::SetupInfo kt::configureApp() {
+  ///   return {
+  ///       .window = {.title = "My Application", .width = 1280, .height = 720},
+  ///       .renderer = {.applicationName = "My Application", .requiredCapabilities = kt::RendererCapabilities::MeshShader},
+  ///   };
+  /// }
+  /// ```
   [[nodiscard]] SetupInfo configureApp();
-  std::expected<void, std::string> setupAppLayers(LayerStack& layerStack, Window& window, rdr::RenderGraphBuilder& builder,
-                                                  rdr::Renderer& renderer);
+
+  /// A user defined function that sets up the application layers. This function gets called once during engine startup after the renderer
+  /// has been initialized. The user can add layers to the layer stack. Each layer is a self-contained unit of functionality that can handle
+  /// events and update. This function also provides access to the render graph builder and renderer, which can be used to set up the render
+  /// graph and load resources.
+  /// Layers are updated in the order they are added to the layer stack, but events are propagated through the layers in reverse order.
+  /// @example
+  /// ```cpp
+  /// std::expected<void, std::string> setupAppLayers(kt::LayerStack& layerStack, kt::Window& window, kt::rdr::RenderGraphBuilder& builder,
+  /// kt::rdr::Renderer& renderer) {
+  ///   // GameLayer will be updated first, but UiLayer will receive events first.
+  ///   layerStack.emplaceLayer<GameLayer>(window, builder, renderer);
+  ///   layerStack.emplaceLayer<UiLayer>();
+  ///   return {};
+  /// }
+  /// ```
+  [[nodiscard]] std::expected<void, std::string> setupAppLayers(LayerStack& layerStack, Window& window, rdr::RenderGraphBuilder& builder,
+                                                                rdr::Renderer& renderer);
 } // namespace kt

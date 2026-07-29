@@ -53,7 +53,7 @@ namespace kt::rdr {
         .position = findColorAttachmentFormat(GBUFFER_POSITION_FORMATS),
         .normal = findColorAttachmentFormat(GBUFFER_NORMAL_FORMATS),
         .emissive = findColorAttachmentFormat(GBUFFER_EMISSIVE_FORMATS),
-        .metRought = findColorAttachmentFormat(GBUFFER_METROUGH_FORMATS),
+        .metRough = findColorAttachmentFormat(GBUFFER_METROUGH_FORMATS),
         .depth = findDepthAttachmentFormat(GBUFFER_DEPTH_FORMATS),
         .hdr = findColorAttachmentFormat(HDR_FORMATS),
     };
@@ -72,7 +72,7 @@ namespace kt::rdr {
     CHECK_FORMAT(m.formats.render.albedo);
     CHECK_FORMAT(m.formats.render.normal);
     CHECK_FORMAT(m.formats.render.emissive);
-    CHECK_FORMAT(m.formats.render.metRought);
+    CHECK_FORMAT(m.formats.render.metRough);
     CHECK_FORMAT(m.formats.render.depth);
     CHECK_FORMAT(m.formats.render.hdr);
     CHECK_FORMAT(m.formats.texture.albedo);
@@ -83,13 +83,13 @@ namespace kt::rdr {
     CHECK_FORMAT(m.formats.render.albedo);
     CHECK_FORMAT(m.formats.render.normal);
     CHECK_FORMAT(m.formats.render.emissive);
-    CHECK_FORMAT(m.formats.render.metRought);
+    CHECK_FORMAT(m.formats.render.metRough);
 
     VK_DEBUG("Selected formats:");
     VK_DEBUG("  Albedo: {}", m.formats.render.albedo);
     VK_DEBUG("  Normal: {}", m.formats.render.normal);
     VK_DEBUG("  Emissive: {}", m.formats.render.emissive);
-    VK_DEBUG("  Metallic-Roughness: {}", m.formats.render.metRought);
+    VK_DEBUG("  Metallic-Roughness: {}", m.formats.render.metRough);
     VK_DEBUG("  Depth: {}", m.formats.render.depth);
     VK_DEBUG("  HDR: {}", m.formats.render.hdr);
     VK_DEBUG("  Texture Albedo: {}", m.formats.texture.albedo);

@@ -28,10 +28,6 @@ if(RENDERER STREQUAL "Vulkan")
       TYPE HEADERS
       BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/vulkan
   )
-  target_compile_definitions(${PROJECT_NAME}
-    PUBLIC
-      KEPTECH_RENDERER_VULKAN=1
-  )
   add_subdirectory(vulkan)
 endif()
 

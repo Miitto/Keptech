@@ -1,17 +1,17 @@
 #include "keptech/app.hpp"
 
+#include "keptech/components/transform.hpp"
 #include "keptech/core/gui.h"
 #include "keptech/input.hpp"
+#include "keptech/render/renderGraph/builder.hpp"
+#include "keptech/render/renderGraph/graph.hpp"
+#include "keptech/render/renderer.hpp"
 #include <expected>
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/imgui.h>
 #include <keptech/core/kt-logger.hpp>
 #include <keptech/core/profile.hpp>
 #include <string>
-
-#include "keptech/render/renderGraph/builder.hpp"
-#include "keptech/render/renderGraph/graph.hpp"
-#include "keptech/render/renderer.hpp"
 
 using namespace kt;
 
@@ -27,7 +27,7 @@ int main() {
   bool exitCleanly = false;
   {
     KT_DEBUG("Creating renderer");
-    std::expected<void, std::string> rendererRes = Renderer::init(info.renderer, window);
+    std::expected<void, std::string> rendererRes = rdr::Renderer::init(info.renderer, window);
     if (!rendererRes) {
       KT_CRITICAL("Failed to create renderer: {}", rendererRes.error());
       return -1;
@@ -47,6 +47,12 @@ int main() {
       KT_CRITICAL("Failed to set up application layers: {}", setupRes.error());
       return -1;
     }
+
+    auto& ecs = Scene::active().getEcs();
+
+    ecs.sort<kt::components::Transform>([](const auto& a, const auto& b) { return a.getDepth() < b.getDepth(); });
+    // Sorts meshes to minimize cache misses when iterating with transforms
+    ecs.sort<kt::components::Mesh, kt::components::Transform>();
 
     rgBuilder.bake(renderer);
 #ifndef NDEBUG

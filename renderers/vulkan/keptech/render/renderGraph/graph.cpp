@@ -1,6 +1,7 @@
 #include "graph.hpp"
 #include "helpers/transitions.hpp"
 #include "interface.hpp"
+#include "passInterface.hpp"
 #include "renderer.hpp"
 #include <vector>
 
@@ -11,13 +12,13 @@ namespace kt::rdr {
     renderer->startFrame();
     auto& m = renderer->getMembers();
 
-    auto& perFrame = *m.frameInfo.perFrame;
     auto& sem = m.vkcore.mainSemaphore;
     VK_ASSERT(sem.semaphore != VK_NULL_HANDLE, "Timeline semaphore must be valid before executing the render graph.");
 
-    auto graphicsCmds = m.frameInfo.perFrame->pools.graphics.allocate(m.vkcore.device,
-                                                                      graphicsQueuePassCount + 1); // +1 For the end of frame swapchain work
-    auto computeCmds = m.frameInfo.perFrame->pools.compute.allocate(m.vkcore.device, computeQueuePassCount);
+    auto graphicsCmds = m.frameInfo.perFrame->pools.graphics.allocate(
+        m.vkcore.device,
+        static_cast<uint32_t>(graphicsQueuePassCount + 1)); // +1 For the end of frame swapchain work
+    auto computeCmds = m.frameInfo.perFrame->pools.compute.allocate(m.vkcore.device, static_cast<uint32_t>(computeQueuePassCount));
 
     size_t passIndex = 0;
     size_t graphicsPassIndex = 0;
@@ -221,6 +222,28 @@ namespace kt::rdr {
       renderer->endFrame(cmdBuf);
     }
   }
+  void RenderGraph::setRenderer(Renderer& r) { renderer = &r; }
+
+  [[nodiscard]] const std::vector<RenderPass>& RenderGraph::getPasses() const { return passes; }
+  [[nodiscard]] const std::vector<bool>& RenderGraph::getPhysicalImageHasHistory() const { return resources.physicalImageHasHistory; }
+  [[nodiscard]] size_t RenderGraph::getImageIndex(const std::string& name) const {
+    auto it = resources.nameToImage.find(name);
+    VK_REQUIRE(it != resources.nameToImage.end(), "Image resource with name '{}' not found in render graph", name);
+    return it->second;
+  }
+  [[nodiscard]] size_t RenderGraph::getBufferIndex(const std::string& name) const {
+    auto it = resources.nameToBuffer.find(name);
+    VK_REQUIRE(it != resources.nameToBuffer.end(), "Buffer resource with name '{}' not found in render graph", name);
+    return it->second;
+  }
+  [[nodiscard]] const Image& RenderGraph::getImage(size_t index) const {
+    VK_REQUIRE(index < resources.images.size(), "Image index {} is out of bounds (size: {})", index, resources.images.size());
+    return resources.images[index];
+  }
+  [[nodiscard]] const Buffer& RenderGraph::getBuffer(size_t index) const {
+    VK_REQUIRE(index < resources.buffers.size(), "Buffer index {} is out of bounds (size: {})", index, resources.buffers.size());
+    return resources.buffers[index];
+  }
 
   void RenderGraph::executeGraphicsPass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd) {
     beginRendering(pass, cmd);
@@ -322,7 +345,7 @@ namespace kt::rdr {
     for (const auto& [idx, attachment] : pass.getColorAttachments() | std::views::enumerate) {
       auto& img = resources.images[attachment.resourceId];
       VkClearColorValue clearValue{};
-      pass.getClearColor(idx, &clearValue);
+      pass.getClearColor(static_cast<uint32_t>(idx), &clearValue);
       VkRenderingAttachmentInfo attachmentInfo{
           .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
           .imageView = img,
@@ -396,6 +419,17 @@ namespace kt::rdr {
     for (auto& buf : resources.buffers)
       buf.destroy();
   }
+  void RenderGraph::setBackbufferSource(const std::string& name) {
+    auto it = resources.nameToImage.find(name);
+    VK_REQUIRE(it != resources.nameToImage.end(), "Backbuffer source '{}' not found in render graph", name);
+    backbufferSourceIndex = it->second;
+    VK_DEBUG("Backbuffer source set to '{}' (index {})", name, backbufferSourceIndex);
+  }
+  [[nodiscard]] const Image& RenderGraph::getBackbufferImage() const {
+    VK_REQUIRE(backbufferSourceIndex < resources.images.size(), "Backbuffer source index {} is out of bounds (size: {})",
+               backbufferSourceIndex, resources.images.size());
+    return resources.images[backbufferSourceIndex];
+  }
 
   void RenderGraph::log() const {
 #define LOG(...) VK_DEBUG(__VA_ARGS__) // NOLINT
@@ -408,4 +442,73 @@ namespace kt::rdr {
     }
     LOG("");
   }
+  RenderGraph::RenderGraph(Renderer& renderer, std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
+                           VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors)
+      : renderer(&renderer), passGroups(std::move(passGroups)), passes(std::move(passes)), resources(std::move(resources)),
+        descriptorPool(descriptorPool), passDescriptors(std::move(descriptors)) {
+    for (const auto& group : this->passGroups) {
+      if (group.queue == QueueType::Graphics) {
+        graphicsQueuePassCount += group.count;
+      } else if (group.queue == QueueType::AsyncCompute) {
+        computeQueuePassCount += group.count;
+      } // Shouldn't be any normal compute queue groups as they have been compacted into the graphics queue groups.
+    }
+  }
+
+  VkImageLayout RenderPass::getDepthStencilLayout() const { return depthStencilLayout; }
+
+  void RenderPass::setDepthStencilLayout(VkImageLayout layout) { depthStencilLayout = layout; }
+
+  PhysResourceId RenderPass::getExtentSourceId() const { return extentSourceId; }
+
+  void RenderPass::setExtentSourceId(PhysResourceId id) { extentSourceId = id; }
+
+  const RenderAttachment& RenderPass::getDepthStencilAttachment() const { return depthStencilAttachment; }
+  void RenderPass::setGraph(RenderGraph& g) { graph = &g; }
+  void RenderPass::setInterface(RenderPassInterface* i) { interface = i; }
+  void RenderPass::setBuildCallback(PassExecuteCb&& cb) { buildCb = std::move(cb); }
+  void RenderPass::setGetClearDepthStencilCallback(std::function<bool(VkClearDepthStencilValue*)>&& cb) {
+    getClearDepthStencilCb = std::move(cb);
+  }
+  void RenderPass::setGetClearColorCallback(std::function<bool(uint32_t, VkClearColorValue*)>&& cb) { getClearColorCb = std::move(cb); }
+  void RenderPass::setup(Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) {
+    if (interface)
+      interface->setup(renderer, descriptorSetLayout);
+  }
+  void RenderPass::prepare(Renderer& renderer) {
+    if (interface)
+      interface->prepare(*graph, renderer);
+  }
+  void RenderPass::execute(const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec3 framebufferSize) {
+    if (interface) {
+      interface->execute(cmd, descriptorSet, framebufferSize);
+    } else if (buildCb) {
+      buildCb(cmd, descriptorSet, framebufferSize);
+    }
+  }
+  void RenderPass::shutdown(Renderer& renderer) {
+    if (interface)
+      interface->shutdown(renderer);
+  }
+  bool RenderPass::getClearColor(uint32_t attachmentIndex, VkClearColorValue* value) const {
+    if (interface)
+      return interface->getClearColor(attachmentIndex, value);
+    else if (getClearColorCb)
+      return getClearColorCb(attachmentIndex, value);
+
+    return false;
+  }
+  bool RenderPass::getClearDepthStencil(VkClearDepthStencilValue* value) const {
+    if (interface)
+      return interface->getClearDepthStencil(value);
+    else if (getClearDepthStencilCb)
+      return getClearDepthStencilCb(value);
+
+    return false;
+  }
+  [[nodiscard]] const PrePostBarriers& RenderPass::getBarriers() const { return barriers; }
+  [[nodiscard]] const std::string& RenderPass::getName() const { return name; }
+  [[nodiscard]] QueueType RenderPass::getQueue() const { return queue; }
+  [[nodiscard]] const std::vector<RenderAttachment>& RenderPass::getColorAttachments() const { return colorAttachments; }
+
 } // namespace kt::rdr

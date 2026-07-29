@@ -1,44 +1,117 @@
 #include "geometry.hpp"
 
-#include "helpers/transitions.hpp"
-#include "helpers/viewScissor.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "helpers/pipeline.hpp"
+#include "keptech/components/camera.hpp"
+#include "keptech/components/transform.hpp"
 #include "keptech/render/renderer.hpp"
-#include "profile.hpp"
+#include "renderGraph/pass.hpp"
+#include "shaders/keptech/geometry.h"
 
-namespace kt::rdr::passes::geometry {
-  void draw(const Members& m, VkCommandBuffer cmdBuf, const Target& target, const Payload& payload) {
-    KT_PROFILE_FUNCTION
-    KT_VK_ZONE(m.tracyGraphicsContext, cmdBuf, "Draw Geometry");
+namespace kt::rdr {
+  void GeometryPass::execute(const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize) {
+    auto& r = Renderer::get();
+    std::array<VkDescriptorSet, 2> descriptorSets = {r.getGlobalDescriptorSet(), descriptorSet};
+    cmd.bindPipeline(pipeline)
+        .bindDescriptorSets(pipeline, VK_PIPELINE_BIND_POINT_GRAPHICS, 0, descriptorSets)
+        .bindRendererVertexIndexBuffers()
+        .setViewportScissor(framebufferSize);
 
-    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.mesh_shader.pipeline);
-    vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m.pipelines.mesh_shader.layout, 0, 1,
-                            &m.globalDescriptorSets.sets[m.frameInfo.index], 0, nullptr);
+    auto meshView = Scene::active().view<components::Mesh, components::Transform>();
 
-    setFullscreenViewportAndScissor(cmdBuf, target.albedo);
+    for (const auto& [entity, mesh, transform] : meshView.each()) {
+      const glm::mat4 modelMatrix = transform.getGlobal();
+      cmd.pushConstants(pipeline, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4), &modelMatrix);
 
-    for (size_t i = 0; i < payload.submeshes.size(); ++i) {
-      const auto& submesh = payload.submeshes[i];
-      const auto& modelMatrix = payload.modelMatrices[i];
+      for (const auto& submesh : mesh.getSubmeshes()) {
+        uint32_t materialIndex = submesh.material.has_value() ? submesh.material.value() : 0;
+        cmd.pushConstants(pipeline, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(uint32_t),
+                          &materialIndex);
 
-      struct PC {
-        glm::mat4 modelMatrix;
-        uint32_t materialIndex;
-        uint32_t meshletCount;
-      } pc{
-          .modelMatrix = modelMatrix,
-          .materialIndex = submesh.material.value_or(0),
-          .meshletCount = submesh.meshletCount,
-      };
-
-      vkCmdPushConstants(cmdBuf, m.pipelines.mesh_shader.layout,
-                         VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PC), &pc);
-
-      std::array<VkBuffer, 2> vBufs = {m.buffers.vertexPositions, m.buffers.vertexAttribs};
-      std::array<VkDeviceSize, 2> offsets = {0, 0};
-      vkCmdBindVertexBuffers(cmdBuf, 0, static_cast<uint32_t>(vBufs.size()), vBufs.data(), offsets.data());
-
-      uint32_t taskShaderDispatches = (submesh.meshletCount + 63) / 64;
-      vkCmdDrawMeshTasksEXT(cmdBuf, taskShaderDispatches, 1, 1);
+        cmd.drawIndexed(submesh.indexCount, submesh.indexOffset, submesh.vertexOffset);
+      }
     }
   }
-} // namespace kt::rdr::passes::geometry
+
+  void GeometryPass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&, const Renderer& renderer) {
+    auto& f = renderer.getFormats();
+    self.addColorOutput("kt::albedo", {.format = f.render.albedo});
+    self.addColorOutput("kt::normal", {.format = f.render.normal});
+    self.addColorOutput("kt::material", {.format = f.render.metRough});
+    self.addColorOutput("kt::emissive", {.format = f.render.emissive});
+    self.setDepthStencilOutput("kt::depth", {.format = f.render.depth});
+  }
+
+  namespace {
+    enum class GeometryPassAttachment : uint8_t {
+      Albedo,
+      Normal,
+      Material,
+      Emissive,
+    };
+  }
+
+  void GeometryPass::setup(Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) {
+    auto& device = renderer.getMembers().vkcore.device;
+    auto shaderRes = renderer.createShader(::shaders::geometry);
+    if (!shaderRes.isOk()) {
+      KT_ABORT("Failed to create mesh shader: {}", shaderRes.error());
+    }
+    PipelineLayoutBuilder layoutBuilder{};
+    layoutBuilder.addDescriptorSetLayout(renderer.getGlobalDescriptorSetLayout())
+        .addDescriptorSetLayout(descriptorSetLayout)
+        .addPushConstantRange<glm::mat4, uint32_t>(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0);
+
+    auto layoutRes = renderer.createPipelineLayout(layoutBuilder);
+    if (!layoutRes.isOk()) {
+      shaderRes.value().destroy();
+      KT_ABORT("Failed to create pipeline layout: {}", layoutRes.error());
+    }
+
+    auto& formats = renderer.getFormats();
+
+    auto cameraEntity = Scene::active().getActiveCamera();
+    auto& camera = cameraEntity.getComponents<components::Camera>();
+
+    bool isReverseZ = camera.getProjectionType() == components::ProjectionType::PerspectiveInfinite;
+
+    DepthCompareOp depthCompareOp = isReverseZ ? DepthCompareOp::GreaterOrEqual : DepthCompareOp::LessOrEqual;
+    if (isReverseZ) {
+      depthClearValue = 0.0f;
+    }
+
+    auto vertexInput = kt::rdr::Shader::getVertexInput(::shaders::geometry);
+
+    GraphicsPipelineBuilder pipelineBuilder{};
+    pipelineBuilder.layout(layoutRes.value())
+        .addShaderStages(shaderRes.value().stages)
+        .addVertexInputAttributes(vertexInput.attributes)
+        .addVertexInputBindings(vertexInput.bindings)
+        .addColorAttachment(formats.render.albedo)
+        .addColorAttachment(formats.render.normal)
+        .addColorAttachment(formats.render.metRough)
+        .addColorAttachment(formats.render.emissive)
+        .depthAttachment(formats.render.depth)
+        .cullMode(CullMode::Back)
+        .depthWrite()
+        .depthTest(depthCompareOp);
+    auto pipelineRes = renderer.createPipeline(pipelineBuilder);
+    if (!pipelineRes.isOk()) {
+      shaderRes.value().destroy();
+      vkDestroyPipelineLayout(device, layoutRes.value(), nullptr);
+      KT_ABORT("Failed to create graphics pipeline: {}", pipelineRes.error());
+    }
+
+    pipeline = pipelineRes.value();
+
+    shaderRes.value().destroy();
+  }
+
+  [[nodiscard]] bool GeometryPass::getClearDepthStencil(VkClearDepthStencilValue* value) const {
+    if (value)
+      *value = {.depth = depthClearValue, .stencil = 0};
+    return true;
+  }
+
+  [[nodiscard]] bool GeometryPass::getClearColor(size_t, VkClearColorValue*) const { return false; }
+} // namespace kt::rdr

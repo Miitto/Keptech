@@ -4,4 +4,5 @@ project(Examples LANGUAGES CXX)
 
 set(EXAMPLE_ASSET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
 
-add_subdirectory(monkey)
+add_subdirectory(basic)
+add_subdirectory(mesh_shader)

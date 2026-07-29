@@ -21,17 +21,21 @@ namespace kt {
 
     template <typename... T> auto view() { return ecs.view<T...>(); }
 
-    /// @brief Sets the active scene.
-    /// @param scene The scene to set as active.
-    /// @return The previous active scene.
-    static Scene setActive(Scene&& scene);
+    void clear();
 
     static Scene& active();
 
+    Scene(const Scene&) = delete;
+    Scene& operator=(const Scene&) = delete;
+    Scene(Scene&&) = delete;
+    Scene& operator=(Scene&&) = delete;
+    ~Scene() = default;
+
   private:
+    Scene() = default;
     static Scene s_active;
 
     ecs::Ecs ecs{};
-    ecs::EntityHandle activeCamera;
+    ecs::EntityHandle activeCamera = ecs::INVALID_ENTITY_HANDLE;
   };
 } // namespace kt

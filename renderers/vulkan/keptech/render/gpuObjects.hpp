@@ -7,15 +7,15 @@
 
 namespace kt::rdr {
   struct GpuMaterial {
-    ImageHandle albedo;
-    ImageHandle bump;
-    ImageHandle emissive;
-    ImageHandle metRough;
-    glm::vec4 albedoFactor;
-    glm::vec3 emissiveFactor;
-    ImageHandle ao;
-    float metFactor;
-    float roughFactor;
+    ImageHandle albedo = ~0u;
+    ImageHandle bump = ~0u;
+    ImageHandle emissive = ~0u;
+    ImageHandle metRough = ~0u;
+    ImageHandle ao = ~0u;
+    glm::vec4 albedoFactor = glm::vec4(1.0f);
+    glm::vec3 emissiveFactor = glm::vec3(0.0f);
+    float metFactor = 1.0f;
+    float roughFactor = 1.0f;
     float specFactor = 1.f;
     float alphaCutoff = 0.f;
   };

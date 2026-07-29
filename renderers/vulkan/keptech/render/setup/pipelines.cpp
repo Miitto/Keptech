@@ -166,7 +166,7 @@ namespace kt::rdr::setup {
                        .noBlending(),
           .meshShader =
               GraphicsPipelineConfig{}
-                  .colorAttachments({formats.render.albedo, formats.render.normal, formats.render.emissive, formats.render.metRought})
+                  .colorAttachments({formats.render.albedo, formats.render.normal, formats.render.emissive, formats.render.metRough})
                   .depthAttachment(formats.render.depth)
                   .vertexInput(Shader::getVertexInput(::shaders::mesh_shader))
                   //.cullMode(VK_CULL_MODE_BACK_BIT)

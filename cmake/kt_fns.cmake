@@ -61,3 +61,12 @@ function(KT_ENABLE_SCCACHE)
     message(STATUS "sccache not found, using default compiler")
   endif()
 endfunction()
+
+function(KT_BINARY_TARGET target)
+  if (NOT SDL3_FOUND)
+    add_custom_command(TARGET ${target} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:${target}> $<TARGET_RUNTIME_DLLS:${target}>
+      COMMAND_EXPAND_LISTS
+    )
+  endif()
+endfunction()

@@ -26,11 +26,13 @@ set(LOADING_SOURCES
 )
 
 set(PASSES_HEADERS
+    passes/geometry.hpp
     passes/global.hpp
     passes/shadows.hpp
 )
 
 set(PASSES_SOURCES
+    passes/geometry.cpp
     passes/global.cpp
     passes/shadows.cpp
 )

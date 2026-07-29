@@ -1,6 +1,7 @@
 #pragma once
 
 #include "keptech/core/scene.hpp"
+#include "keptech/components/transform.hpp"
 
 namespace kt {
   Scene Scene::s_active{};
@@ -16,10 +17,9 @@ namespace kt {
   void Scene::useCamera(ecs::EntityHandle cameraEntity) { activeCamera = cameraEntity; }
   [[nodiscard]] ecs::Entity Scene::getActiveCamera() { return {activeCamera, ecs}; }
 
-  Scene Scene::setActive(Scene&& scene) {
-    Scene previousActive = std::move(s_active);
-    s_active = std::move(scene);
-    return previousActive;
+  void Scene::clear() {
+    ecs.clear();
+    activeCamera = ecs::INVALID_ENTITY_HANDLE;
   }
   Scene& Scene::active() { return s_active; }
 } // namespace kt

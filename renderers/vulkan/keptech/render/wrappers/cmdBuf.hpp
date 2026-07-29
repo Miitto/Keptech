@@ -23,9 +23,36 @@ namespace kt::rdr {
                                             std::span<const uint32_t> dynamicOffsets = {}) const;
     const CommandBuffer& bindVertexBuffers(std::span<const VkBuffer> buffers, std::span<const VkDeviceSize> offsets,
                                            uint32_t first = 0) const;
+    const CommandBuffer& bindRendererVertexBuffers() const;
+    const CommandBuffer& bindRendererVertexIndexBuffers() const;
+    const CommandBuffer& bindIndexBuffer(VkBuffer buffer, VkDeviceSize offset, VkIndexType indexType) const;
+    const CommandBuffer& pushConstants(VkPipelineLayout layout, VkShaderStageFlags stageFlags, uint32_t offset, uint32_t size,
+                                       const void* pValues) const;
+    template <typename T>
+    const CommandBuffer& pushConstants(VkPipelineLayout layout, VkShaderStageFlags stageFlags, uint32_t offset, const T& value) const {
+      return pushConstants(layout, stageFlags, offset, sizeof(T), &value);
+    }
 
     const CommandBuffer& beginRendering(const VkRenderingInfo& renderingInfo) const;
+
+    const CommandBuffer& draw(uint32_t vertexCount, uint32_t firstVertex = 0, uint32_t instanceCount = 1, uint32_t firstInstance = 0) const;
+    const CommandBuffer& drawIndexed(uint32_t indexCount, uint32_t firstIndex = 0, int32_t vertexOffset = 0, uint32_t instanceCount = 1,
+                                     uint32_t firstInstance = 0) const;
+    const CommandBuffer& drawIndirect(VkBuffer buffer, uint32_t drawCount, VkDeviceSize offset = 0,
+                                      uint32_t stride = sizeof(VkDrawIndirectCommand)) const;
+    const CommandBuffer& drawIndirectCount(VkBuffer buffer, VkBuffer countBuffer, uint32_t drawCount, VkDeviceSize offset = 0,
+                                           VkDeviceSize countBufferOffset = 0, uint32_t stride = sizeof(VkDrawIndirectCommand)) const;
+    const CommandBuffer& drawIndexedIndirect(VkBuffer buffer, uint32_t drawCount, VkDeviceSize offset = 0,
+                                             uint32_t stride = sizeof(VkDrawIndexedIndirectCommand)) const;
+    const CommandBuffer& drawIndexedIndirectCount(VkBuffer buffer, VkBuffer countBuffer, uint32_t drawCount, VkDeviceSize offset = 0,
+                                                  VkDeviceSize countBufferOffset = 0,
+                                                  uint32_t stride = sizeof(VkDrawIndexedIndirectCommand)) const;
+    const CommandBuffer& drawMeshTasks(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) const;
+
     const CommandBuffer& endRendering() const;
+
+    const CommandBuffer& dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) const;
+    const CommandBuffer& dispatchIndirect(VkBuffer buffer, VkDeviceSize offset = 0) const;
 
     const CommandBuffer& end() const;
 

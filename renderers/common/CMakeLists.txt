@@ -22,9 +22,5 @@ compile_shader(${PROJECT_NAME} SPIRV
   LINK PUBLIC
   SOURCES
     basic
-    pointLightShadows
-    pointLight
-    ssao
-    ssaoBlur
-    lightCombine
+    geometry
 )

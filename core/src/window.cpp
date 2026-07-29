@@ -15,7 +15,11 @@ namespace kt {
   void Window::shutdown() { SDL_Quit(); }
 
   Window::Window(const WindowCreateInfo& info)
-      : handle(SDL_CreateWindow(info.title, info.width, info.height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | info.flags)) {
+      : handle(SDL_CreateWindow(info.title, info.width, info.height,
+#ifdef KT_VULKAN
+                                SDL_WINDOW_VULKAN |
+#endif
+                                    SDL_WINDOW_RESIZABLE | info.flags)) {
     updateSize();
     updateRenderSize();
   }

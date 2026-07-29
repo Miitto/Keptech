@@ -1536,6 +1536,8 @@ namespace kt::rdr {
 
   RenderPassBuilder& RenderGraphBuilder::addPass(const std::string& name, Bitflag<QueueType> queueTypes) {
     VK_TRACE("Adding pass '{}'", name);
+    VK_ASSERT(!name.empty(), "Pass name cannot be empty");
+    VK_ASSERT(queueTypes.any(), "Pass queue types cannot be empty");
     auto it = passNameToId.find(name);
     if (it != passNameToId.end()) {
       return *passes[it->second];

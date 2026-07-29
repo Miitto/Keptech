@@ -10,7 +10,7 @@ namespace kt::rdr {
     VkFormat position = VK_FORMAT_UNDEFINED;
     VkFormat normal = VK_FORMAT_UNDEFINED;
     VkFormat emissive = VK_FORMAT_UNDEFINED;
-    VkFormat metRought = VK_FORMAT_UNDEFINED;
+    VkFormat metRough = VK_FORMAT_UNDEFINED;
     VkFormat depth = VK_FORMAT_UNDEFINED;
     VkFormat hdr = VK_FORMAT_UNDEFINED;
   };

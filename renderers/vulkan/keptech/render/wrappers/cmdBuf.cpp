@@ -1,6 +1,7 @@
 #include "cmdBuf.hpp"
 
 #include "keptech/render/macros.hpp"
+#include "keptech/render/renderer.hpp"
 
 namespace kt::rdr {
 
@@ -19,10 +20,12 @@ namespace kt::rdr {
   }
   const CommandBuffer& CommandBuffer::bindPipeline(VkPipeline pipeline) const {
     vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    Renderer::get().registerPipelineSwitch();
     return *this;
   }
   const CommandBuffer& CommandBuffer::bindComputePipeline(VkPipeline pipeline) const {
     vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+    Renderer::get().registerPipelineSwitch();
     return *this;
   }
 
@@ -59,16 +62,91 @@ namespace kt::rdr {
     return *this;
   }
 
-  const CommandBuffer& CommandBuffer::beginRendering(const VkRenderingInfo& renderingInfo) const {
-    vkCmdBeginRendering(cmdBuf, &renderingInfo);
+  const CommandBuffer& CommandBuffer::bindIndexBuffer(VkBuffer buffer, VkDeviceSize offset, VkIndexType indexType) const {
+    vkCmdBindIndexBuffer(cmdBuf, buffer, offset, indexType);
     return *this;
   }
+
+  const CommandBuffer& CommandBuffer::bindRendererVertexBuffers() const {
+    auto& r = Renderer::get();
+    constexpr std::array<VkDeviceSize, 2> offsets = {0, 0};
+    vkCmdBindVertexBuffers(cmdBuf, 0, 2, r.getVertexBuffers().data(), offsets.data());
+    return *this;
+  }
+
+  const CommandBuffer& CommandBuffer::bindRendererVertexIndexBuffers() const {
+    auto& r = Renderer::get();
+    constexpr std::array<VkDeviceSize, 2> offsets = {0, 0};
+    vkCmdBindVertexBuffers(cmdBuf, 0, 2, r.getVertexBuffers().data(), offsets.data());
+    vkCmdBindIndexBuffer(cmdBuf, r.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    return *this;
+  }
+
+  const CommandBuffer& CommandBuffer::pushConstants(VkPipelineLayout layout, VkShaderStageFlags stageFlags, uint32_t offset, uint32_t size,
+                                                    const void* pValues) const {
+    vkCmdPushConstants(cmdBuf, layout, stageFlags, offset, size, pValues);
+    return *this;
+  }
+
+  const CommandBuffer& CommandBuffer::beginRendering(const VkRenderingInfo& renderingInfo) const {
+    vkCmdBeginRendering(cmdBuf, &renderingInfo);
+    Renderer::get().registerRenderPass();
+    return *this;
+  }
+
+  const CommandBuffer& CommandBuffer::draw(uint32_t vertexCount, uint32_t firstVertex, uint32_t instanceCount,
+                                           uint32_t firstInstance) const {
+    vkCmdDraw(cmdBuf, vertexCount, instanceCount, firstVertex, firstInstance);
+    Renderer::get().registerDrawCall(static_cast<size_t>(vertexCount), static_cast<size_t>(vertexCount) / 3);
+    return *this;
+  }
+  const CommandBuffer& CommandBuffer::drawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t instanceCount,
+                                                  uint32_t firstInstance) const {
+    vkCmdDrawIndexed(cmdBuf, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    Renderer::get().registerDrawCall(indexCount, static_cast<size_t>(indexCount) / 3);
+    return *this;
+  }
+  const CommandBuffer& CommandBuffer::drawIndirect(VkBuffer buffer, uint32_t drawCount, VkDeviceSize offset, uint32_t stride) const {
+    vkCmdDrawIndirect(cmdBuf, buffer, offset, drawCount, stride);
+    return *this;
+  }
+  const CommandBuffer& CommandBuffer::drawIndirectCount(VkBuffer buffer, VkBuffer countBuffer, uint32_t drawCount, VkDeviceSize offset,
+                                                        VkDeviceSize countBufferOffset, uint32_t stride) const {
+    vkCmdDrawIndirectCount(cmdBuf, buffer, offset, countBuffer, countBufferOffset, drawCount, stride);
+    return *this;
+  }
+  const CommandBuffer& CommandBuffer::drawIndexedIndirect(VkBuffer buffer, uint32_t drawCount, VkDeviceSize offset, uint32_t stride) const {
+    vkCmdDrawIndexedIndirect(cmdBuf, buffer, offset, drawCount, stride);
+    return *this;
+  }
+  const CommandBuffer& CommandBuffer::drawIndexedIndirectCount(VkBuffer buffer, VkBuffer countBuffer, uint32_t drawCount,
+                                                               VkDeviceSize offset, VkDeviceSize countBufferOffset, uint32_t stride) const {
+    vkCmdDrawIndexedIndirectCount(cmdBuf, buffer, offset, countBuffer, countBufferOffset, drawCount, stride);
+    return *this;
+  }
+  const CommandBuffer& CommandBuffer::drawMeshTasks(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) const {
+    vkCmdDrawMeshTasksEXT(cmdBuf, groupCountX, groupCountY, groupCountZ);
+    return *this;
+  }
+
   const CommandBuffer& CommandBuffer::endRendering() const {
     vkCmdEndRendering(cmdBuf);
     return *this;
   }
   const CommandBuffer& CommandBuffer::end() const {
     VK_CHECK(vkEndCommandBuffer(cmdBuf), "Failed to end command buffer");
+    return *this;
+  }
+
+  const CommandBuffer& CommandBuffer::dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) const {
+    vkCmdDispatch(cmdBuf, groupCountX, groupCountY, groupCountZ);
+    Renderer::get().registerComputeDispatch();
+    return *this;
+  }
+
+  const CommandBuffer& CommandBuffer::dispatchIndirect(VkBuffer buffer, VkDeviceSize offset) const {
+    vkCmdDispatchIndirect(cmdBuf, buffer, offset);
+    Renderer::get().registerComputeDispatch();
     return *this;
   }
 

@@ -4,7 +4,6 @@ __include constants;
 __include camera;
 __include fullscreen;
 __include lighting;
-__include textures;
 __include maths;
 __include vertex;
 __include buffers;
@@ -27,11 +26,12 @@ public struct DeferredLightingOutput {
   public float4 specular : SV_Target1;
 };
 
-bool valid<T>(DescriptorHandle<T> handle)
+public bool valid<T>(DescriptorHandle<T> handle)
     where T : IOpaqueDescriptor {
   __target_switch {
   case spirv: {
-    return reinterpret<uint64_t>(handle) != ~0ull;
+    uint64_t handleValue = reinterpret<uint64_t>(handle);
+    return handleValue != ~0u;
   }
   default: {
     static_assert(false, "DescriptorHandle is only supported on SPIR-V targets.");

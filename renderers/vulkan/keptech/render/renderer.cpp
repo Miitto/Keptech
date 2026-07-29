@@ -21,6 +21,7 @@ namespace kt::rdr {
   bool Renderer::isInitialized = false;
 
   void Renderer::debugUi() {
+#ifndef NDEBUG
     ImGui::Begin("Debug View");
 
     auto camera = Scene::active().getActiveCamera();
@@ -30,9 +31,21 @@ namespace kt::rdr {
     ImGui::Text("Camera Position: %.2f, %.2f, %.2f", static_cast<double>(camPos.x), static_cast<double>(camPos.y),
                 static_cast<double>(camPos.z));
 
-    ImGui::Text("Objects Rendered: %zu", m.frameInfo.objectsRendered);
+    ImGui::SeparatorText("Drawing");
+    ImGui::Text("Draw Calls: %zu (%zu VertFrag, %zu Mesh)", m.stats.drawCalls, m.stats.vertFragDrawCalls, m.stats.meshDrawCalls);
+    ImGui::Text("Vertices: %zu", m.stats.indexCount);
+    ImGui::Text("Triangles: %zu", m.stats.triangleCount);
+    ImGui::Text("Meshlets: %zu", m.stats.meshletCount);
+
+    ImGui::SeparatorText("Compute");
+    ImGui::Text("Compute Dispatches: %zu", m.stats.computeDispatches);
+
+    ImGui::SeparatorText("Perf");
+    ImGui::Text("Render Passes: %zu", m.stats.renderPasses);
+    ImGui::Text("Pipeline Switches: %zu", m.stats.pipelineSwitches);
 
     ImGui::End();
+#endif
   }
 
   void Renderer::setRenderGraphProps(RenderGraphBuilder& builder) const {
@@ -44,16 +57,10 @@ namespace kt::rdr {
     builder.setRenderResolution({dm->w, dm->h});
   }
 
-  /*
-  void Renderer::render() {
-    KT_PROFILE_FUNCTION
-    VK_TRACE("Frame Start");
-    startFrame();
-
-    components::Transform::recalcAllTransforms(scene->getEcs());
-    auto frustum = passes::writeCameraData(m.buffers, scene->getActiveCamera(), m.renderTargets.framebufferSize, m.frameInfo.index);
+  void Renderer::addGeometryPass(RenderGraphBuilder& builder) {
+    auto& meshPass = builder.addPass("kt::geometry", QueueType::Graphics);
+    meshPass.setInterface(&m.passes.geometry);
   }
-    */
 
   void Renderer::newFrame() {
     KT_PROFILE_FUNCTION
@@ -90,11 +97,10 @@ namespace kt::rdr {
 
   void Renderer::startFrame() {
     KT_PROFILE_FUNCTION
-    VK_ASSERT(m.frameInfo.perFrame->pools.graphics.pool != VK_NULL_HANDLE, "Graphics command pool is null");
-    VK_ASSERT(m.frameInfo.perFrame->pools.compute.pool != VK_NULL_HANDLE, "Compute command pool is null");
+
     m.frameInfo.perFrame->pools.resetAll();
 
-    m.frameInfo.objectsRendered = 0;
+    m.stats.reset();
 
     updateTextureDescriptors();
     updateBufferPointers();
@@ -266,6 +272,56 @@ namespace kt::rdr {
 
     VK_DEBUG("Swapchain recreated.");
     return {};
+  }
+
+#ifndef NDEBUG
+  void RendererStats::reset() {
+    drawCalls = 0;
+    vertFragDrawCalls = 0;
+    meshDrawCalls = 0;
+    computeDispatches = 0;
+    indexCount = 0;
+    triangleCount = 0;
+    meshletCount = 0;
+    pipelineSwitches = 0;
+    renderPasses = 0;
+  }
+#endif
+
+  void Renderer::registerDrawCall(size_t indexCount, size_t triangleCount) {
+#ifndef NDEBUG
+    m.stats.drawCalls++;
+    m.stats.indexCount += indexCount;
+    m.stats.triangleCount += triangleCount;
+#endif
+  }
+
+  void Renderer::registerMeshletDrawCall(size_t meshletCount, size_t triangleCount, size_t indexCount) {
+#ifndef NDEBUG
+    m.stats.drawCalls++;
+    m.stats.meshDrawCalls++;
+    m.stats.meshletCount += meshletCount;
+    m.stats.triangleCount += triangleCount;
+    m.stats.indexCount += indexCount;
+#endif
+  }
+
+  void Renderer::registerComputeDispatch() {
+#ifndef NDEBUG
+    m.stats.computeDispatches++;
+#endif
+  }
+
+  void Renderer::registerPipelineSwitch() {
+#ifndef NDEBUG
+    m.stats.pipelineSwitches++;
+#endif
+  }
+
+  void Renderer::registerRenderPass() {
+#ifndef NDEBUG
+    m.stats.renderPasses++;
+#endif
   }
 
 } // namespace kt::rdr

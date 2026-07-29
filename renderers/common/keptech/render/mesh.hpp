@@ -35,16 +35,19 @@ namespace kt {
   };
 
   struct Submesh {
+    /// Number of indices in the submesh.
+    uint32_t indexCount;
+    /// Index of the first index in the submesh in the global index buffer.
     uint32_t indexOffset;
-    /// Offset of the first vertex in the submesh in the global vertex buffer
+    /// Index of the first vertex in the submesh in the global vertex buffer.
     int32_t vertexOffset;
-    /// Offset of the first meshlet in the submesh in the global meshlet buffer
+    /// Index of the first meshlet in the submesh in the global meshlet buffer.
     uint32_t meshletOffset;
     /// Number of meshlets in the submesh
     uint32_t meshletCount;
-    /// Offset of the first meshlet vertex in the submesh in the global meshlet vertex buffer
+    /// Index of the first meshlet vertex in the submesh in the global meshlet vertex buffer
     uint32_t meshletVertexOffset;
-    /// Offset of the first meshlet triangle in the submesh in the global meshlet triangle buffer
+    /// Index of the first meshlet triangle in the submesh in the global meshlet triangle buffer
     uint32_t meshletTriangleOffset;
 
     uint32_t vertexCount;

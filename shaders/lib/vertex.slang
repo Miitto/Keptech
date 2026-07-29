@@ -1,6 +1,9 @@
 implementing keptech;
 
 public namespace kt {
+public const static uint MAX_VERTICES_PER_MESHLET = 64;
+public const static uint MAX_TRIANGLES_PER_MESHLET = 64;
+
 public struct VertexAttribs {
   public float4 tangent;
   public float3 normal;

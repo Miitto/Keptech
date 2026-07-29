@@ -29,9 +29,13 @@ namespace kt {
   using WindowCreateFlags = Bitflag<WindowCreateFlagBits>;
 
   struct WindowCreateInfo {
+    /// Title of the window.
     const char* title = "Keptech App";
+    /// Width of the window in pixels.
     int width = -1;
+    /// Height of the window in pixels.
     int height = -1;
+    /// Flags for creating the window.
     WindowCreateFlags flags = WindowCreateFlags::none();
   };
 

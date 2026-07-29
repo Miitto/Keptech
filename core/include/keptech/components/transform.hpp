@@ -9,6 +9,10 @@ namespace kt::gui {
   class Frame;
 }
 
+namespace kt {
+  class Scene;
+}
+
 namespace kt::components {
   class Transform {
   public:
@@ -24,23 +28,21 @@ namespace kt::components {
 
     void setParent(const ecs::Entity self, const ecs::Entity newParent);
 
-    [[nodiscard]] uint32_t getDepth() const { return depth; }
-    [[nodiscard]] const maths::Transform& getLocal() const { return local; }
-    [[nodiscard]] const glm::mat4& getGlobal() const { return global; }
+    [[nodiscard]] uint32_t getDepth() const;
+    [[nodiscard]] const maths::Transform& getLocal() const;
+    [[nodiscard]] const glm::mat4& getGlobal() const;
 
-    maths::Transform& getLocalMut() {
-      flags.set(Flags::TransformDirty);
-      return local;
-    }
+    maths::Transform& getLocalMut();
 
-    [[nodiscard]] ecs::Entity getParent() const { return parent; }
+    [[nodiscard]] ecs::Entity getParent() const;
 
     void inspectorUi(kt::gui::Frame& frame, bool readOnly = false);
 
+    void markDirty();
+    void markDepthDirty();
+
   private:
-    inline void removeChild(const ecs::Entity child) {
-      children.erase(std::remove(children.begin(), children.end(), child), children.end());
-    }
+    void removeChild(const ecs::Entity child);
 
     maths::Transform local;
     glm::mat4 global;

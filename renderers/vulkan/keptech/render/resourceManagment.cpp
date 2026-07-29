@@ -450,6 +450,8 @@ namespace kt::rdr {
 
       for (const auto& primitive : mesh.submeshes) {
         Submesh submesh{
+            .indexCount = primitive.index.count,
+            .indexOffset = static_cast<uint32_t>(primitive.index.offset + indexOffset.result),
             .vertexOffset = static_cast<int32_t>(primitive.vertex.offset + vertexOffsets.result),
             .meshletOffset = static_cast<uint32_t>(primitive.meshlet.offset + meshletOffsets.result.meshlet),
             .meshletCount = primitive.meshlet.count,

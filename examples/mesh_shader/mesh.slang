@@ -12,10 +12,6 @@ struct VertexOutput {
 
 const static uint TASK_SHADER_DISPATCH_SIZE = 64;
 const static uint MESH_SHADER_DISPATCH_SIZE = 32;
-const static uint MAX_VERTICES_PER_MESHLET = 64;
-const static uint MAX_TRIANGLES_PER_MESHLET = 64;
-
-static const float4 positions[3] = { float4(0.0, -1.0, 0.0, 1.0), float4(-1.0, 1.0, 0.0, 1.0), float4(1.0, 1.0, 0.0, 1.0) };
 
 struct Payload {
   uint32_t groupMeshletOffset;
@@ -79,9 +75,9 @@ void task(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConst
 [shader("mesh")]
 [outputtopology("triangle")]
 [numthreads(MESH_SHADER_DISPATCH_SIZE, 1, 1)]
-void mesh(in payload Payload payload, out indices uint3 triangles[MAX_TRIANGLES_PER_MESHLET],
-          out vertices VertexOutput vertices[MAX_VERTICES_PER_MESHLET], uint3 dispatchId: SV_DispatchThreadID, uint3 groupId: SV_GroupID,
-          uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
+void mesh(in payload Payload payload, out indices uint3 triangles[kt::MAX_TRIANGLES_PER_MESHLET],
+          out vertices VertexOutput vertices[kt::MAX_VERTICES_PER_MESHLET], uint3 dispatchId: SV_DispatchThreadID,
+          uint3 groupId: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
   let buffers = *kt::buffers;
 
   uint meshletId = payload.groupMeshletOffset + payload.meshletIndices[groupId.x];
