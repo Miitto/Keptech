@@ -11,5 +11,6 @@ target_sources(${PROJECT_NAME}
     fastgltf_formatting.cpp
     gui.cpp
     kt-logger.cpp
+    scene.cpp
     window.cpp
 )

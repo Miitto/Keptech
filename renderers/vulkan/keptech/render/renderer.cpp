@@ -23,7 +23,7 @@ namespace kt::rdr {
   void Renderer::debugUi() {
     ImGui::Begin("Debug View");
 
-    auto camera = scene->getActiveCamera();
+    auto camera = Scene::active().getActiveCamera();
     auto& camT = camera.getComponents<components::Transform>();
     auto camPos = camT.getGlobal()[3];
 
@@ -99,8 +99,8 @@ namespace kt::rdr {
     updateTextureDescriptors();
     updateBufferPointers();
 
-    components::Transform::recalcAllTransforms(scene->getEcs());
-    passes::writeCameraData(m.buffers, scene->getActiveCamera(), m.window->getRenderSize(), m.frameInfo.index);
+    components::Transform::recalcAllTransforms(Scene::active().getEcs());
+    passes::writeCameraData(m.buffers, Scene::active().getActiveCamera(), m.window->getRenderSize(), m.frameInfo.index);
   }
 
   void Renderer::renderImGui(VkCommandBuffer cmdBuf) {

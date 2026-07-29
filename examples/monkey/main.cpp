@@ -23,7 +23,7 @@ kt::SetupInfo kt::configureApp() {
 
 class GeometryPass : public kt::RenderPassInterface {
 public:
-  GeometryPass(kt::Scene& scene) : scene(scene) {}
+  GeometryPass() = default;
 
   void setupDependencies(kt::RenderPassBuilder& self, kt::rdr::RenderGraphBuilder& graph, const kt::rdr::Renderer& renderer) override {
     auto& formats = renderer.getFormats();
@@ -84,7 +84,7 @@ public:
         .setViewportScissor(framebufferSize)
         .bindDescriptorSets(pipeline, VK_PIPELINE_BIND_POINT_GRAPHICS, 0, descriptorSets);
 
-    auto meshView = scene.view<kt::components::Mesh, kt::components::Transform>();
+    auto meshView = kt::Scene::active().view<kt::components::Mesh, kt::components::Transform>();
 
     for (const auto& [entity, mesh, transform] : meshView.each()) {
       const glm::mat4 modelMatrix = transform.getGlobal();
@@ -133,15 +133,14 @@ public:
   }
 
 private:
-  kt::Scene& scene; // NOLINT - This never moves. TODO: Make active scene a singleton or something so we don't have to pass it around
   kt::rdr::Pipeline pipeline{};
 };
 
 class BenchmarkLayer : public kt::Layer {
 public:
   BenchmarkLayer(kt::Window& window, kt::RenderGraphBuilder& builder, kt::Renderer& renderer)
-      : kt::Layer("Monkey"), window(window), scene({}), geometryPass(scene) {
-    renderer.setScene(scene);
+      : kt::Layer("Monkey"), window(window), geometryPass() {
+    auto& scene = kt::Scene::active();
 
     auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
     if (!monkeyMeshRes) {
@@ -219,7 +218,6 @@ public:
 
 private:
   kt::Window& window;
-  kt::Scene scene;
   kt::cameras::FreeCameraController freeController;
 
   GeometryPass geometryPass;

@@ -154,8 +154,6 @@ namespace kt::rdr {
     /// Assigns the image a slot in the global texture descriptor set and queues the descriptor update.
     void loadImage(Image& image);
 
-    void setScene(Scene& s) { scene = &s; }
-
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
     Renderer(Renderer&&) = delete;
@@ -227,7 +225,6 @@ namespace kt::rdr {
 
   private:
     Members m;
-    Scene* scene = nullptr;
 
     static Renderer singleton;
     static bool isInitialized;
