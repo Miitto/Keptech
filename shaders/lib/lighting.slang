@@ -8,17 +8,11 @@ public struct PointLight {
   public DescriptorHandle<SamplerCubeShadow> shadowMap;
 };
 
-public float calculatePointLightOcclusion(float3 worldToLight, float distToLight, PointLight light, SamplerCubeShadow.Handle shadowMap) {
+public float calculatePointLightOcclusion(float3 worldToLight, float distToLight, PointLight light) {
   if (!valid(light.shadowMap)) {
     return 1.f;
   }
-
-  return calculatePointLightOcclusion(worldToLight, distToLight, light, *shadowMap);
-}
-
-public float calculatePointLightOcclusion(float3 worldToLight, float distToLight, PointLight light, SamplerCubeShadow shadowMap) {
-
-  let shadowMapSample = shadowMap.Sample(worldToLight).r;
+  let shadowMapSample = light.shadowMap.Sample(worldToLight).r;
 
   float closestDepth = shadowMapSample * light.radius;
   float currentDepth = distToLight;

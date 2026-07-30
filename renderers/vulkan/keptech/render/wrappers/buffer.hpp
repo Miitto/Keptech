@@ -1,7 +1,6 @@
 #pragma once
 
 #include "keptech/core/result.hpp"
-#include "keptech/render/vk-logger.hpp"
 #include <Volk/volk.h>
 #include <span>
 #include <utility>
@@ -15,32 +14,24 @@ namespace kt::rdr {
   class Buffer {
   public:
     Buffer() = default;
-    [[nodiscard]] bool isMapped() const { return allocInfo.pMappedData != nullptr; }
-    [[nodiscard]] uint8_t* mapping(VkDeviceSize offset = 0) const { return static_cast<uint8_t*>(allocInfo.pMappedData) + offset; }
-    [[nodiscard]] size_t size() const { return allocInfo.size; }
-    [[nodiscard]] VkDeviceAddress address() const { return gpuAddress; }
+    [[nodiscard]] bool isMapped() const;
+    [[nodiscard]] uint8_t* mapping(VkDeviceSize offset = 0) const;
+    [[nodiscard]] size_t size() const;
+    [[nodiscard]] VkDeviceAddress address() const;
 
-    operator VkBuffer() const { return buffer; }
+    operator VkBuffer() const;
 
     /// @brief Writes data to the buffer at the specified offset. The buffer must be mapped before calling this method.
     /// @param data Pointer to the data to write.
     /// @param size Size of the data to write in bytes.
     /// @param offset Offset in the buffer where the data should be written. Defaults to 0.
-    void write(void* data, size_t size, VkDeviceSize offset = 0) const {
-      VK_ASSERT(isMapped(), "Buffer is not mapped");
-      VK_ASSERT(offset + size <= this->size(), "Write exceeds buffer size");
-      memcpy(mapping(offset), data, size);
-    }
+    void write(void* data, size_t size, VkDeviceSize offset = 0) const;
     /// @brief Copies data from this buffer to another buffer. Both buffers must be mapped before calling this method.
     /// @param other The destination buffer to copy data to.
     /// @param size Size of the data to copy in bytes.
     /// @param srcOffset Offset in this buffer from where the data should be copied. Defaults to 0.
     /// @param dstOffset Offset in the destination buffer where the data should be written. Defaults to 0.
-    void copyTo(const Buffer& other, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0) const {
-      VK_ASSERT(isMapped() && other.isMapped(), "Both buffers must be mapped to copy data");
-      VK_ASSERT(other.size() >= size, "Destination buffer is too small to copy data");
-      memcpy(other.mapping(dstOffset), mapping(srcOffset), size);
-    }
+    void copyTo(const Buffer& other, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0) const;
     /// @brief Records a command to copy data from this buffer to another buffer. This method does not require the buffers to be mapped.
     /// @param cmdBuf The command buffer to record the copy command into.
     /// @param other The destination buffer to copy data to.
@@ -48,15 +39,7 @@ namespace kt::rdr {
     /// @param srcOffset Offset in this buffer from where the data should be copied. Defaults to 0.
     /// @param dstOffset Offset in the destination buffer where the data should be written. Defaults to 0.
     void copyCmd(VkCommandBuffer cmdBuf, const Buffer& other, VkDeviceSize size, VkDeviceSize srcOffset = 0,
-                 VkDeviceSize dstOffset = 0) const {
-      VK_ASSERT(other.size() >= size, "Destination buffer is too small to copy data");
-      VkBufferCopy copyRegion{
-          .srcOffset = srcOffset,
-          .dstOffset = dstOffset,
-          .size = size,
-      };
-      vkCmdCopyBuffer(cmdBuf, static_cast<VkBuffer>(*this), static_cast<VkBuffer>(other), 1, &copyRegion);
-    }
+                 VkDeviceSize dstOffset = 0) const;
 
     static kt::Result<Buffer, VkResult, VK_SUCCESS> create(const BufferCreateInfo& info);
 
@@ -64,41 +47,24 @@ namespace kt::rdr {
 
     Buffer(const Buffer&) = delete;
     Buffer& operator=(const Buffer&) = delete;
-    Buffer(Buffer&& other) noexcept
-        : buffer(other.buffer), _size(other._size), alloc(other.alloc), allocInfo(other.allocInfo), gpuAddress(other.gpuAddress) {
-      other.buffer = VK_NULL_HANDLE;
-      other._size = 0;
-      other.alloc = nullptr;
-      other.allocInfo = {};
-      other.gpuAddress = 0;
-    }
-    Buffer& operator=(Buffer&& other) noexcept {
-      if (this != &other) {
-        buffer = other.buffer;
-        _size = other._size;
-        alloc = other.alloc;
-        allocInfo = other.allocInfo;
-        gpuAddress = other.gpuAddress;
-
-        other.buffer = VK_NULL_HANDLE;
-        other._size = 0;
-        other.alloc = nullptr;
-        other.allocInfo = {};
-        other.gpuAddress = 0;
-      }
-      return *this;
-    }
+    Buffer(Buffer&& other) noexcept;
+    Buffer& operator=(Buffer&& other) noexcept;
     ~Buffer() { destroy(); }
 
+    [[nodiscard]] VkBufferUsageFlags getUsage() const;
+    [[nodiscard]] VmaAllocationCreateFlags getAllocationFlags() const;
+
   private:
-    Buffer(VkBuffer buffer, VkDeviceSize size, VmaAllocation alloc, VmaAllocationInfo allocInfo, VkDeviceAddress gpuAddress)
-        : buffer(buffer), _size(size), alloc(alloc), allocInfo(allocInfo), gpuAddress(gpuAddress) {}
+    Buffer(VkBuffer buffer, VkDeviceSize size, VmaAllocation alloc, VmaAllocationInfo allocInfo, VkDeviceAddress gpuAddress,
+           VkBufferUsageFlags usage, VmaAllocationCreateFlags allocationFlags);
 
     VkBuffer buffer = VK_NULL_HANDLE;
     VkDeviceSize _size = 0;
     VmaAllocation alloc = nullptr;
     VmaAllocationInfo allocInfo = {};
     VkDeviceAddress gpuAddress = 0;
+    VkBufferUsageFlags usage = 0;
+    VmaAllocationCreateFlags allocationFlags = 0;
   };
 
   template <typename T> class SubdivBuffer {

@@ -21,7 +21,7 @@ namespace kt::rdr {
   public:
     RenderGraphBuilder() = default;
 
-    RenderPassBuilder& addPass(const std::string& name, Bitflag<QueueType> queueTypes = {});
+    RenderPassBuilder& addPass(const std::string& name, QueueType queueType = QueueType::Graphics);
     RenderPassBuilder* findPass(const std::string& name);
 
     /// Analyses the registered passes and resources, and populates the internal data structures. This function must be called before

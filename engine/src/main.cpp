@@ -142,6 +142,12 @@ int main() {
         }
         inputProcessEvent(event);
 
+        if (event.type == SDL_EVENT_WINDOW_RESIZED) {
+          KT_DEBUG("Window resized to {}x{}", event.window.data1, event.window.data2);
+          auto newSize = glm::uvec2{static_cast<uint32_t>(event.window.data1), static_cast<uint32_t>(event.window.data2)};
+          rg.onSwapchainSizeChanged(newSize);
+        }
+
         auto eventPtr = Event::fromSdl(event);
         if (eventPtr.get() == nullptr) {
           continue;

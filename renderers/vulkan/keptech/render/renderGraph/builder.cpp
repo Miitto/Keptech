@@ -1,6 +1,7 @@
 #include "builder.hpp"
 
 #include "graph.hpp"
+#include <vector>
 #if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_TRACE
 #include "helpers/formatting.hpp"
 #endif
@@ -167,11 +168,18 @@ namespace kt::rdr {
                "Failed to create descriptor pool for render graph.");
 
     std::vector<Descriptors> passDescriptors;
-    for (const auto& passId : passStack) {
+    passDescriptors.reserve(passStack.size());
+
+    builtResources.imageUsedInPass.resize(builtResources.images.size());
+    builtResources.bufferUsedInPass.resize(builtResources.buffers.size());
+
+    for (const auto& [idxL, passId] : passStack | std::views::enumerate) {
+      size_t idx = static_cast<size_t>(idxL);
       auto& pass = passes[passId];
       std::vector<VkDescriptorImageInfo> imageInfos;
       std::vector<VkDescriptorBufferInfo> bufferInfos;
       std::vector<VkWriteDescriptorSet> writes;
+
       imageInfos.reserve(pass->getGenericTextureInputs().size() + pass->getStorageImageOutputs().size());
       bufferInfos.reserve(pass->getGenericBufferInputs().size() + pass->getStorageOutputs().size());
       writes.reserve(pass->getGenericTextureInputs().size() + pass->getGenericBufferInputs().size() +
@@ -184,9 +192,10 @@ namespace kt::rdr {
       std::vector<VkDescriptorSetLayoutBinding> bindings;
       for (const auto& texture : pass->getGenericTextureInputs()) {
         if (texture.texture && texture.texture->getPhysicalId().used()) {
-          VK_DEBUG("Pass '{}' has texture input '{}' at binding {}", pass->getName(), texture.texture->getName(), bindings.size());
+          uint32_t binding = static_cast<uint32_t>(bindings.size());
+          VK_DEBUG("Pass '{}' has texture input '{}' at binding {}", pass->getName(), texture.texture->getName(), binding);
           bindings.push_back(VkDescriptorSetLayoutBinding{
-              .binding = static_cast<uint32_t>(bindings.size()),
+              .binding = static_cast<uint32_t>(binding),
               .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
               .descriptorCount = 1,
               .stageFlags = 0,
@@ -216,14 +225,21 @@ namespace kt::rdr {
               .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
               .pImageInfo = &imageInfos.back(),
           });
+          if (texture.texture->getPhysicalId().used())
+            builtResources.imageUsedInPass[texture.texture->getPhysicalId()].push_back(
+                UsedInPass{.passIndex = idx,
+                           .binding = binding,
+                           .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                           .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE});
         }
       }
       for (const auto& buffer : pass->getGenericBufferInputs()) {
         if (buffer.buffer && buffer.buffer->getPhysicalId().used()) {
+          uint32_t binding = static_cast<uint32_t>(bindings.size());
           VK_DEBUG("Pass '{}' has {} buffer input '{}' at binding {}", pass->getName(),
-                   (buffer.access & VK_ACCESS_UNIFORM_READ_BIT) ? "uniform" : "storage", buffer.buffer->getName(), bindings.size());
+                   (buffer.access & VK_ACCESS_UNIFORM_READ_BIT) ? "uniform" : "storage", buffer.buffer->getName(), binding);
           bindings.push_back(VkDescriptorSetLayoutBinding{
-              .binding = static_cast<uint32_t>(bindings.size()),
+              .binding = binding,
               .descriptorType =
                   (buffer.access & VK_ACCESS_UNIFORM_READ_BIT) ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .descriptorCount = 1,
@@ -255,14 +271,18 @@ namespace kt::rdr {
                   (buffer.access & VK_ACCESS_UNIFORM_READ_BIT) ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .pBufferInfo = &bufferInfos.back(),
           });
+          if (buffer.buffer->getPhysicalId().used())
+            builtResources.bufferUsedInPass[buffer.buffer->getPhysicalId()].push_back(
+                UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = writes.back().descriptorType});
         }
       }
 
       for (const auto& image : pass->getStorageImageOutputs()) {
         if (image && image->getPhysicalId().used()) {
-          VK_DEBUG("Pass '{}' has storage image output '{}' at binding {}", pass->getName(), image->getName(), bindings.size());
+          uint32_t binding = static_cast<uint32_t>(bindings.size());
+          VK_DEBUG("Pass '{}' has storage image output '{}' at binding {}", pass->getName(), image->getName(), binding);
           bindings.push_back(VkDescriptorSetLayoutBinding{
-              .binding = static_cast<uint32_t>(bindings.size()),
+              .binding = binding,
               .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
               .descriptorCount = 1,
               .stageFlags = 0,
@@ -292,14 +312,21 @@ namespace kt::rdr {
               .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
               .pImageInfo = &imageInfos.back(),
           });
+          if (image->getPhysicalId().used())
+            builtResources.imageUsedInPass[image->getPhysicalId()].push_back(
+                UsedInPass{.passIndex = idx,
+                           .binding = binding,
+                           .layout = VK_IMAGE_LAYOUT_GENERAL,
+                           .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
         }
       }
 
       for (const auto& buffer : pass->getStorageOutputs()) {
         if (buffer && buffer->getPhysicalId().used()) {
-          VK_DEBUG("Pass '{}' has storage buffer output '{}' at binding {}", pass->getName(), buffer->getName(), bindings.size());
+          uint32_t binding = static_cast<uint32_t>(bindings.size());
+          VK_DEBUG("Pass '{}' has storage buffer output '{}' at binding {}", pass->getName(), buffer->getName(), binding);
           bindings.push_back(VkDescriptorSetLayoutBinding{
-              .binding = static_cast<uint32_t>(bindings.size()),
+              .binding = binding,
               .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .descriptorCount = 1,
               .stageFlags = 0,
@@ -328,6 +355,9 @@ namespace kt::rdr {
               .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .pBufferInfo = &bufferInfos.back(),
           });
+          if (buffer->getPhysicalId().used())
+            builtResources.bufferUsedInPass[buffer->getPhysicalId()].push_back(
+                UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER});
         }
       }
 
@@ -371,7 +401,7 @@ namespace kt::rdr {
     auto passGroups = buildPassGroups(bakedPasses);
 
     RenderGraph res{
-        renderer, std::move(passGroups), std::move(bakedPasses), std::move(builtResources), descriptorPool, std::move(passDescriptors),
+        std::move(passGroups), std::move(bakedPasses), std::move(builtResources), descriptorPool, std::move(passDescriptors),
     };
 
     res.setBackbufferSource(backbufferSource);
@@ -1534,17 +1564,16 @@ namespace kt::rdr {
     return static_cast<RenderBufferResource&>(*resources.back()); // NOLINT
   }
 
-  RenderPassBuilder& RenderGraphBuilder::addPass(const std::string& name, Bitflag<QueueType> queueTypes) {
+  RenderPassBuilder& RenderGraphBuilder::addPass(const std::string& name, QueueType queueType) {
     VK_TRACE("Adding pass '{}'", name);
     VK_ASSERT(!name.empty(), "Pass name cannot be empty");
-    VK_ASSERT(queueTypes.any(), "Pass queue types cannot be empty");
     auto it = passNameToId.find(name);
     if (it != passNameToId.end()) {
       return *passes[it->second];
     }
 
     PassId id{passes.size()};
-    auto pass = std::make_unique<RenderPassBuilder>(*this, id, queueTypes);
+    auto pass = std::make_unique<RenderPassBuilder>(*this, id, queueType);
     pass->setName(name);
     passes.push_back(std::move(pass));
     passNameToId[name] = id;

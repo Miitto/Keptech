@@ -1,11 +1,19 @@
 #include "keptech/core/events/event.hpp"
 
 #include "keptech/core/events/input.hpp"
+#include "keptech/core/events/window.hpp"
 #include <memory>
 
 namespace kt {
   std::unique_ptr<Event> Event::fromSdl(const SDL_Event& sdlEvent) {
     switch (sdlEvent.type) {
+    case SDL_EVENT_WINDOW_RESIZED: {
+      glm::uvec2 size{
+          static_cast<uint32_t>(sdlEvent.window.data1),
+          static_cast<uint32_t>(sdlEvent.window.data2),
+      };
+      return std::make_unique<WindowResizeEvent>(size);
+    }
     case SDL_EVENT_MOUSE_MOTION: {
       glm::vec2 movement{
           static_cast<float>(sdlEvent.motion.xrel),

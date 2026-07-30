@@ -3,6 +3,7 @@
 #include "keptech/render/wrappers/buffer.hpp"
 #include "keptech/render/wrappers/image.hpp"
 #include "pass.hpp"
+#include <array>
 #include <glm/ext/vector_uint2.hpp>
 #include <string>
 #include <vector>
@@ -127,11 +128,12 @@ namespace kt::rdr {
 
     void log() const;
 
-  private:
-    RenderGraph(Renderer& renderer, std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
-                VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors);
+    void onResolutionChanged(const glm::uvec2& newResolution);
+    void onSwapchainSizeChanged(const glm::uvec2& newSize);
 
-    Renderer* renderer;
+  private:
+    RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
+                VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors);
 
     size_t graphicsQueuePassCount = 0;
     size_t computeQueuePassCount = 0;
@@ -145,10 +147,16 @@ namespace kt::rdr {
 
     size_t backbufferSourceIndex = 0;
 
+    std::array<std::vector<size_t>, MAX_FRAMES_IN_FLIGHT> imagesToUpdate;
+    std::array<std::vector<size_t>, MAX_FRAMES_IN_FLIGHT> buffersToUpdate;
+    std::array<std::vector<Image>, MAX_FRAMES_IN_FLIGHT> imagesToDrop;
+    std::array<std::vector<Buffer>, MAX_FRAMES_IN_FLIGHT> buffersToDrop;
+
     void executeGraphicsPass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd);
     void executeComputePass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd);
 
     void pipelineBarrier(const Barriers& barriers, const CommandBuffer& cmd) const;
     void beginRendering(const RenderPass& pass, const CommandBuffer& cmd) const;
+    void updateDescriptors();
   };
 } // namespace kt::rdr

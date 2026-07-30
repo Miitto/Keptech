@@ -4,8 +4,8 @@
 #include "keptech/render/interface/image.hpp"
 #include "keptech/render/types.hpp"
 #include <Volk/volk.h>
+#include <string>
 #include <vma/vk_mem_alloc.h>
-
 
 namespace kt::rdr {
   struct TransitionInfo;
@@ -27,65 +27,41 @@ namespace kt::rdr {
 
     void destroy();
 
-    constexpr operator VkImage() const { return image; }
-    constexpr operator VkImageView() const { return view; }
+    operator VkImage() const;
+    operator VkImageView() const;
 
     [[nodiscard]] const glm::uvec3 extent() const;
-    [[nodiscard]] constexpr VkFormat format() const { return _format; }
-    constexpr ImageType type() const { return _type; }
-    constexpr uint8_t mips() const { return _mips; }
-    constexpr uint8_t layers() const { return _layers; }
+    [[nodiscard]] VkFormat format() const;
+    ImageType type() const;
+    uint8_t mips() const;
+    uint8_t layers() const;
+    VkImageLayout getLayout() const;
+    VkImageUsageFlags getUsage() const;
+    const std::string& getName() const { return name; }
 
     [[nodiscard]] VkImageMemoryBarrier2 transition(const TransitionInfo& transition, uint32_t srcIndex = VK_QUEUE_FAMILY_IGNORED,
                                                    uint32_t dstIndex = VK_QUEUE_FAMILY_IGNORED) const;
 
-    [[nodiscard]] bool hasHandle() const { return _handle != INVALID_HANDLE; }
-    [[nodiscard]] ImageHandle handle() const { return _handle; }
+    [[nodiscard]] bool hasHandle() const;
+    [[nodiscard]] ImageHandle handle() const;
 
-    void setHandle(ImageHandle handle) { _handle = handle; }
+    void setHandle(ImageHandle handle);
 
     [[nodiscard]] VkImageSubresourceRange getSubresourceRange() const;
 
     Image(const Image&) = delete;
     Image& operator=(const Image&) = delete;
-    Image(Image&& other) noexcept
-        : _type(other._type), _mips(other._mips), _layers(other._layers), image(other.image), view(other.view), alloc(other.alloc),
-          _extent(other._extent), _format(other._format), _handle(other._handle) {
-      other.image = VK_NULL_HANDLE;
-      other.view = VK_NULL_HANDLE;
-      other.alloc = nullptr;
-      other._handle = INVALID_HANDLE;
-    }
-    Image& operator=(Image&& other) noexcept {
-      if (this != &other) {
-        _type = other._type;
-        _mips = other._mips;
-        _layers = other._layers;
-        image = other.image;
-        view = other.view;
-        alloc = other.alloc;
-        _extent = other._extent;
-        _format = other._format;
-        _handle = other._handle;
+    Image(Image&& other) noexcept;
+    Image& operator=(Image&& other) noexcept;
+    ~Image();
 
-        other.image = VK_NULL_HANDLE;
-        other.view = VK_NULL_HANDLE;
-        other.alloc = nullptr;
-        other._handle = INVALID_HANDLE;
-      }
-      return *this;
-    }
-    ~Image() { destroy(); }
-
-    [[nodiscard]]
-    VmaAllocation getAllocation() const {
-      return alloc;
-    }
+    VmaAllocation getAllocation() const;
 
   private:
-    constexpr Image(ImageType type, VkImage image, VkImageView view, VmaAllocation alloc, VkExtent3D extent, VkFormat format)
-        : _type(type), image(image), view(view), alloc(alloc), _extent(extent), _format(format) {}
+    Image(std::string name, ImageType type, VkImage image, VkImageView view, VmaAllocation alloc, VkExtent3D extent, VkFormat format,
+          VkImageUsageFlags usage);
 
+    std::string name;
     Type _type{};
     uint8_t _mips = 1;
     uint8_t _layers = 1;
@@ -95,5 +71,7 @@ namespace kt::rdr {
     VkExtent3D _extent{};
     VkFormat _format{};
     ImageHandle _handle = INVALID_HANDLE;
+    VkImageLayout currentLayout = UNDEFINED_LAYOUT;
+    VkImageUsageFlags usage = 0;
   };
 } // namespace kt::rdr

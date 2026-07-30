@@ -49,7 +49,7 @@ namespace kt::rdr {
       break;
     }
 
-    Image i(imgType, image, view, alloc, info.getImageInfo().extent, info.getImageInfo().format);
+    Image i(info.getName(), imgType, image, view, alloc, info.getImageInfo().extent, info.getImageInfo().format, info.getImageInfo().usage);
     if (info.getName()) {
       r->setAllocationName(i.alloc, info.getName());
       r->setDebugName(i, info.getName());
@@ -67,8 +67,17 @@ namespace kt::rdr {
       alloc = nullptr;
     }
   }
+  Image::operator VkImage() const { return image; }
 
+  Image::operator VkImageView() const { return view; }
   [[nodiscard]] const glm::uvec3 Image::extent() const { return glm::uvec3{_extent.width, _extent.height, _extent.depth}; }
+  [[nodiscard]] VkFormat Image::format() const { return _format; }
+
+  ImageType Image::type() const { return _type; }
+  uint8_t Image::mips() const { return _mips; }
+  uint8_t Image::layers() const { return _layers; }
+  VkImageLayout Image::getLayout() const { return currentLayout; }
+  VkImageUsageFlags Image::getUsage() const { return usage; }
 
   [[nodiscard]] VkImageMemoryBarrier2 Image::transition(const TransitionInfo& transition, uint32_t srcIndex, uint32_t dstIndex) const {
     auto b = transition.image(image);
@@ -76,7 +85,10 @@ namespace kt::rdr {
     b.dstQueueFamilyIndex = dstIndex;
     return b;
   }
+  [[nodiscard]] bool Image::hasHandle() const { return _handle != INVALID_HANDLE; }
 
+  [[nodiscard]] ImageHandle Image::handle() const { return _handle; }
+  void Image::setHandle(ImageHandle handle) { _handle = handle; }
   VkImageSubresourceRange Image::getSubresourceRange() const {
     VkImageAspectFlags aspectMask = 0;
     switch (_format) {
@@ -105,4 +117,38 @@ namespace kt::rdr {
         .layerCount = _layers,
     };
   }
+  Image::Image(Image&& other) noexcept
+      : _type(other._type), _mips(other._mips), _layers(other._layers), image(other.image), view(other.view), alloc(other.alloc),
+        _extent(other._extent), _format(other._format), _handle(other._handle) {
+    other.image = VK_NULL_HANDLE;
+    other.view = VK_NULL_HANDLE;
+    other.alloc = nullptr;
+    other._handle = INVALID_HANDLE;
+  }
+  Image& Image::operator=(Image&& other) noexcept {
+    if (this != &other) {
+      _type = other._type;
+      _mips = other._mips;
+      _layers = other._layers;
+      image = other.image;
+      view = other.view;
+      alloc = other.alloc;
+      _extent = other._extent;
+      _format = other._format;
+      _handle = other._handle;
+
+      other.image = VK_NULL_HANDLE;
+      other.view = VK_NULL_HANDLE;
+      other.alloc = nullptr;
+      other._handle = INVALID_HANDLE;
+    }
+    return *this;
+  }
+  Image::~Image() { destroy(); }
+  VmaAllocation Image::getAllocation() const { return alloc; }
+
+  Image::Image(std::string name, ImageType type, VkImage image, VkImageView view, VmaAllocation alloc, VkExtent3D extent, VkFormat format,
+               VkImageUsageFlags usage)
+      : name(std::move(name)), _type(type), image(image), view(view), alloc(alloc), _extent(extent), _format(format), usage(usage) {}
+
 } // namespace kt::rdr

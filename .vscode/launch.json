@@ -2,17 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "codelldb",
-            "name": "Launch Benchmark (Debug, Clang x64, Windows)",
-            "request": "launch",
-            "program": "${workspaceFolder}/__output/clang-x64/examples/benchmark/Debug/benchmark.exe",
-            "cwd": "${workspaceFolder}"
-        },
-        {
             "type": "lldb",
-            "name": "Launch Benchmark (VS Debug, Clang x64, Windows)",
+            "name": "Launch Basic (VS Debug, Clang x64, Windows)",
             "request": "launch",
-            "program": "${workspaceFolder}/__output/clang-x64/examples/benchmark/Debug/benchmark.exe",
+            "program": "${workspaceFolder}/__output/clang-x64/examples/basic/Debug/basic_example.exe",
             "cwd": "${workspaceFolder}"
         },
         {
@@ -22,40 +15,5 @@
             "program": "${workspaceFolder}/__output/clang-x64/examples/monkey/Debug/monkey.exe",
             "cwd": "${workspaceFolder}"
         },
-        {
-            "type": "lldb",
-            "name": "Launch Basic (VS Debug, Clang x64, Windows)",
-            "request": "launch",
-            "program": "${workspaceFolder}/__output/clang-x64/examples/basic/Debug/basic_example.exe",
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "codelldb",
-            "name": "Launch Materials example (Debug, Clang x64, Windows)",
-            "request": "launch",
-            "program": "${workspaceFolder}/__output/clang-x64/examples/materials/src/Debug/materials.exe",
-            "cwd": "${workspaceFolder}",
-            "preLaunchTask": "Build Materials example (Clang x64)"
-        },
-        {
-            "type": "codelldb",
-            "name": "Launch Materials example (Debug, Clang x64, Linux)",
-            "request": "launch",
-            "program": "${workspaceFolder}/__output/clang-x64/examples/materials/src/Debug/materials",
-            "cwd": "${workspaceFolder}",
-            "preLaunchTask": "Build Materials example (Clang x64)"
-        },
-        {
-            "type": "codelldb",
-            "name": "Launch Shader Embedder (Debug, Clang x64, Linux)",
-            "request": "launch",
-            "program": "${workspaceFolder}/__output/clang-x64/shader_embedder/Debug/Keptech_shader_embedder",
-            "args": [
-                "deferred",
-                "${workspaceFolder}/shaders/pointLightShadows.slang",
-                "${workspceFolder}/__output/clang-x64/shaders/gen/shaders/keptech/pointLightShadows.h"
-            ],
-            "cwd": "${workspaceFolder}"
-        }
     ]
 }

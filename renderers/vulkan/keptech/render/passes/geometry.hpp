@@ -17,9 +17,8 @@ namespace kt::rdr {
   /// - `kt::material`: Material (Metallic (R) + Roughness (G))
   /// - `kt::emissive`: Emissive (RGB)
   /// - `kt::depth`: Depth (D)
-  /// @note Only the depth buffer is cleared at the start of the pass. Whatever is in the color buffers will be written over without any
-  /// blending. Any modification of the color buffers will need to be done in subsequent passes - e.g. by taking the color outputs of this
-  /// pass as inputs to another pass.
+  /// @note Only the depth buffer is cleared at the start of the pass by default, and the color buffers are loaded as `DontCare`. If you
+  /// want to clear the color buffers, you can call `setClearColorBuffers(true)` before the render graph is baked.
   class GeometryPass : public RenderPassInterface {
   public:
     void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph, const Renderer& renderer) override;
@@ -32,8 +31,12 @@ namespace kt::rdr {
 
     void execute(const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize = {}) override;
 
+    void setClearColorBuffers(bool clear);
+    void setDepthClearValue(float value);
+
   private:
     Pipeline pipeline;
+    bool clearColorBuffers = false;
     float depthClearValue = 1.0f;
   };
 } // namespace kt::rdr

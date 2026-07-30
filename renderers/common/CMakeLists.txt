@@ -21,6 +21,5 @@ compile_shader(${PROJECT_NAME} SPIRV
     keptech
   LINK PUBLIC
   SOURCES
-    basic
     geometry
 )

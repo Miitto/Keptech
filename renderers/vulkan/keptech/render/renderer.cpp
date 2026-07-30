@@ -57,7 +57,8 @@ namespace kt::rdr {
     builder.setRenderResolution({dm->w, dm->h});
   }
 
-  void Renderer::addGeometryPass(RenderGraphBuilder& builder) {
+  void Renderer::addGeometryPass(RenderGraphBuilder& builder, bool clearColorBuffers) {
+    m.passes.geometry.setClearColorBuffers(clearColorBuffers);
     auto& meshPass = builder.addPass("kt::geometry", QueueType::Graphics);
     meshPass.setInterface(&m.passes.geometry);
   }
@@ -272,6 +273,12 @@ namespace kt::rdr {
 
     VK_DEBUG("Swapchain recreated.");
     return {};
+  }
+
+  uint8_t Renderer::getFrameIndex() const { return m.frameInfo.index; }
+  uint8_t Renderer::getLastFrameIndex() const {
+    static_assert(MAX_FRAMES_IN_FLIGHT == 2, "getLastFrameIndex() only works with MAX_FRAMES_IN_FLIGHT == 2");
+    return m.frameInfo.nextIndex;
   }
 
 #ifndef NDEBUG

@@ -2,12 +2,14 @@
 
 #include "keptech/cameraController.hpp"
 #include "keptech/core/events/input.hpp"
+#include "keptech/core/events/window.hpp"
 
 namespace kt::cameras {
   class OrbitCameraController : public CameraController {
   public:
     OrbitCameraController() = default;
-    OrbitCameraController(ecs::Entity entity, int panButton = 2) : CameraController(entity), panButton(panButton) {}
+    OrbitCameraController(ecs::Entity entity, int panButton = 2, bool sizeToWindow = false)
+        : CameraController(entity), panButton(panButton), sizeToWindow(sizeToWindow) {}
 
     float& getSensitivity() { return sens; }
     int& getPanButton() { return panButton; }
@@ -17,6 +19,12 @@ namespace kt::cameras {
         return false;
 
       EventDispatcher ed{event};
+
+      if (sizeToWindow)
+        ed.dispatch<WindowResizeEvent>([&, this](WindowResizeEvent& e) {
+          onViewportResize(e.size);
+          return true;
+        });
 
       if (ed.dispatch<MouseButtonPressEvent>([this](MouseButtonPressEvent& e) {
             if (e.button == panButton) {
@@ -78,5 +86,6 @@ namespace kt::cameras {
     float zoom = 5;
     float yaw = 180; // Start looking down -Z, so camera is +Z from target
     float pitch = 0;
+    bool sizeToWindow = false;
   };
 } // namespace kt::cameras

@@ -140,6 +140,9 @@ namespace kt::rdr {
     const Device& getDevice() const;
     const Device* operator->() const;
 
+    uint8_t getFrameIndex() const;
+    uint8_t getLastFrameIndex() const;
+
     [[nodiscard]] VkDescriptorSetLayout getGlobalDescriptorSetLayout() const;
     [[nodiscard]] VkDescriptorSet getGlobalDescriptorSet() const;
 
@@ -166,7 +169,7 @@ namespace kt::rdr {
 #pragma endregion
 
 #pragma region Render Passes
-    void addGeometryPass(RenderGraphBuilder& builder);
+    void addGeometryPass(RenderGraphBuilder& builder, bool clearColorBuffers = false);
 #pragma endregion
 
     [[nodiscard]] Result<Buffer, VkResult, VK_SUCCESS> createBuffer(const BufferCreateInfo& info) const;

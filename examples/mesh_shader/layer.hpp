@@ -37,7 +37,7 @@ public:
 
     scene.useCamera(camera);
 
-    orbitController = kt::cameras::OrbitCameraController(camera);
+    orbitController = kt::cameras::OrbitCameraController(camera, 3, true);
 
     auto& meshPass = builder.addPass("Mesh Shader");
     meshPass.setInterface(&geometryPass);

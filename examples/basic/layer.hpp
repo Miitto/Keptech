@@ -58,11 +58,12 @@ public:
     // There are two inbuilt camera controllers in Keptech: `OrbitCameraController` and `FreeCameraController`. They take user input (as
     // seen in the `onEvent` function below) and update the camera's transform accordingly. Here we use an orbit camera controller, which
     // orbits around a target point.
-    orbitController = kt::cameras::OrbitCameraController(camera);
+    orbitController = kt::cameras::OrbitCameraController(camera, 3, true);
 
     // The Renderer has built-in support for a number of render passes, however they have to be explicitly enabled. Here we add the geometry
-    // pass, which renders the scene geometry into G-buffers.
-    renderer.addGeometryPass(builder);
+    // pass, which renders the scene geometry into G-buffers. Since we do not render a skybox we also tell the renderer to clear the
+    // G-Buffers.
+    renderer.addGeometryPass(builder, true);
 
     // Here we set the backbuffer source for the render graph. This determines which render pass output will be used as the final image to
     // present to the screen. The geometry pass outputs to multiple G-buffers, and we can choose which one to use as the final output. Here

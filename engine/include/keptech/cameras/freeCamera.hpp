@@ -3,13 +3,15 @@
 
 #include "keptech/cameraController.hpp"
 #include "keptech/core/events/input.hpp"
+#include "keptech/core/events/window.hpp"
 #include "keptech/input.hpp"
 
 namespace kt::cameras {
   class FreeCameraController : public CameraController {
   public:
     FreeCameraController() = default;
-    FreeCameraController(ecs::Entity entity, u8 controlButton = 3) : CameraController(entity), controlButton(controlButton) {}
+    FreeCameraController(ecs::Entity entity, u8 controlButton = 3, bool sizeToWindow = false)
+        : CameraController(entity), controlButton(controlButton), sizeToWindow(sizeToWindow) {}
 
     float& getSensitivity() { return sens; }
     u8& getPanButton() { return controlButton; }
@@ -19,6 +21,12 @@ namespace kt::cameras {
         return false;
 
       EventDispatcher ed{event};
+
+      if (sizeToWindow)
+        ed.dispatch<WindowResizeEvent>([&, this](WindowResizeEvent& e) {
+          onViewportResize(e.size);
+          return true;
+        });
 
       auto& camTransform = cameraEntity.getComponents<kt::components::Transform>();
 
@@ -116,5 +124,6 @@ namespace kt::cameras {
   private:
     u8 controlButton = 3;
     float sens = 1.f;
+    bool sizeToWindow = false;
   };
 } // namespace kt::cameras

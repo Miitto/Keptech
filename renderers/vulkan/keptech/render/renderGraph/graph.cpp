@@ -2,15 +2,26 @@
 #include "helpers/transitions.hpp"
 #include "interface.hpp"
 #include "passInterface.hpp"
+#include "profile.hpp"
 #include "renderer.hpp"
+#include "wrappers/imageCreateInfo.hpp"
 #include <vector>
 
 namespace kt::rdr {
   void RenderGraph::execute() {
-    VK_ASSERT(renderer, "Renderer must be set before executing the render graph.");
+    KT_PROFILE_FUNCTION
 
-    renderer->startFrame();
-    auto& m = renderer->getMembers();
+    auto& renderer = Renderer::get();
+
+    uint8_t frameIndex = renderer.getFrameIndex();
+
+    imagesToDrop[frameIndex].clear();
+    buffersToDrop[frameIndex].clear();
+
+    updateDescriptors();
+
+    renderer.startFrame();
+    auto& m = renderer.getMembers();
 
     auto& sem = m.vkcore.mainSemaphore;
     VK_ASSERT(sem.semaphore != VK_NULL_HANDLE, "Timeline semaphore must be valid before executing the render graph.");
@@ -39,17 +50,20 @@ namespace kt::rdr {
         cmd.label(m.vkcore.device, fmt::format("RenderGraph::execute() - Pass Group {}: Graphics Queue", groupIdx));
 
         cmd.begin();
+        {
+          KT_VK_ZONE(m.tracyGraphicsContext, cmd, fmt::format("Graphics Pass Group {}", groupIdx));
 
-        for (; passIndex < passEnd; ++passIndex) {
-          auto& pass = passes[passIndex];
-          VK_TRACE("Executing graphics pass '{}'", pass.getName());
-          pass.prepare(*renderer);
+          for (; passIndex < passEnd; ++passIndex) {
+            auto& pass = passes[passIndex];
+            VK_TRACE("Executing graphics pass '{}'", pass.getName());
+            pass.prepare(renderer);
 
-          pipelineBarrier(pass.getBarriers().pre, cmd);
+            pipelineBarrier(pass.getBarriers().pre, cmd);
 
-          executeGraphicsPass(passIndex, pass, cmd);
+            executeGraphicsPass(passIndex, pass, cmd);
 
-          pipelineBarrier(pass.getBarriers().post, cmd);
+            pipelineBarrier(pass.getBarriers().post, cmd);
+          }
         }
 
         cmd.end();
@@ -65,16 +79,20 @@ namespace kt::rdr {
 
         cmd.begin();
 
-        for (; passIndex < passEnd; ++passIndex) {
-          auto& pass = passes[passIndex];
-          VK_TRACE("Executing compute pass '{}'", pass.getName());
-          pass.prepare(*renderer);
+        {
+          KT_VK_ZONE(m.tracyGraphicsContext, cmd, fmt::format("Compute Pass Group {}", groupIdx));
 
-          pipelineBarrier(pass.getBarriers().pre, cmd);
+          for (; passIndex < passEnd; ++passIndex) {
+            auto& pass = passes[passIndex];
+            VK_TRACE("Executing compute pass '{}'", pass.getName());
+            pass.prepare(renderer);
 
-          executeComputePass(passIndex, pass, cmd);
+            pipelineBarrier(pass.getBarriers().pre, cmd);
 
-          pipelineBarrier(pass.getBarriers().post, cmd);
+            executeComputePass(passIndex, pass, cmd);
+
+            pipelineBarrier(pass.getBarriers().post, cmd);
+          }
         }
 
         cmd.end();
@@ -88,14 +106,18 @@ namespace kt::rdr {
         cmd.label(m.vkcore.device, fmt::format("RenderGraph::execute() - Pass Group {}: Async Compute Queue", groupIdx));
         cmd.begin();
 
-        for (; passIndex < passEnd; ++passIndex) {
-          auto& pass = passes[passIndex];
-          VK_TRACE("Executing async compute pass '{}'", pass.getName());
-          pass.prepare(*renderer);
+        {
+          KT_VK_ZONE(m.tracyComputeContext, cmd, fmt::format("Async Compute Pass Group {}", groupIdx));
 
-          pipelineBarrier(pass.getBarriers().pre, cmd);
-          executeComputePass(passIndex, pass, cmd);
-          pipelineBarrier(pass.getBarriers().post, cmd);
+          for (; passIndex < passEnd; ++passIndex) {
+            auto& pass = passes[passIndex];
+            VK_TRACE("Executing async compute pass '{}'", pass.getName());
+            pass.prepare(renderer);
+
+            pipelineBarrier(pass.getBarriers().pre, cmd);
+            executeComputePass(passIndex, pass, cmd);
+            pipelineBarrier(pass.getBarriers().post, cmd);
+          }
         }
 
         cmd.end();
@@ -219,10 +241,9 @@ namespace kt::rdr {
 
       vkCmdBlitImage2(cmdBuf, &blitInfo);
 
-      renderer->endFrame(cmdBuf);
+      renderer.endFrame(cmdBuf);
     }
   }
-  void RenderGraph::setRenderer(Renderer& r) { renderer = &r; }
 
   [[nodiscard]] const std::vector<RenderPass>& RenderGraph::getPasses() const { return passes; }
   [[nodiscard]] const std::vector<bool>& RenderGraph::getPhysicalImageHasHistory() const { return resources.physicalImageHasHistory; }
@@ -246,10 +267,11 @@ namespace kt::rdr {
   }
 
   void RenderGraph::executeGraphicsPass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd) {
+    KT_PROFILE_FUNCTION
     beginRendering(pass, cmd);
 
     auto& img = resources.images[pass.getExtentSourceId()];
-    auto set = passDescriptors[passIdx].sets[renderer->getMembers().frameInfo.index];
+    auto set = passDescriptors[passIdx].sets[Renderer::get().getMembers().frameInfo.index];
 
     pass.execute(cmd, set, img.extent());
 
@@ -257,13 +279,17 @@ namespace kt::rdr {
   }
 
   void RenderGraph::executeComputePass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd) {
-    auto set = passDescriptors[passIdx].sets[renderer->getMembers().frameInfo.index];
+    KT_PROFILE_FUNCTION
+    auto set = passDescriptors[passIdx].sets[Renderer::get().getMembers().frameInfo.index];
     pass.execute(cmd, set);
   }
 
   void RenderGraph::pipelineBarrier(const Barriers& barriers, const CommandBuffer& cmd) const {
     if (barriers.image.empty() && barriers.buffer.empty())
       return;
+    KT_PROFILE_FUNCTION
+
+    auto& renderer = Renderer::get();
 
     std::vector<VkImageMemoryBarrier2> imageBarriers;
     imageBarriers.reserve(barriers.image.size());
@@ -287,12 +313,12 @@ namespace kt::rdr {
       case QueueHandoff::No:
         break;
       case QueueHandoff::ToCompute:
-        barrierInfo.srcQueueFamilyIndex = renderer->getMembers().vkcore.queues.graphics.index;
-        barrierInfo.dstQueueFamilyIndex = renderer->getMembers().vkcore.queues.compute.index;
+        barrierInfo.srcQueueFamilyIndex = renderer.getMembers().vkcore.queues.graphics.index;
+        barrierInfo.dstQueueFamilyIndex = renderer.getMembers().vkcore.queues.compute.index;
         break;
       case QueueHandoff::FromCompute:
-        barrierInfo.srcQueueFamilyIndex = renderer->getMembers().vkcore.queues.compute.index;
-        barrierInfo.dstQueueFamilyIndex = renderer->getMembers().vkcore.queues.graphics.index;
+        barrierInfo.srcQueueFamilyIndex = renderer.getMembers().vkcore.queues.compute.index;
+        barrierInfo.dstQueueFamilyIndex = renderer.getMembers().vkcore.queues.graphics.index;
         break;
       }
       imageBarriers.push_back(barrierInfo);
@@ -318,12 +344,12 @@ namespace kt::rdr {
       case QueueHandoff::No:
         break;
       case QueueHandoff::ToCompute:
-        barrierInfo.srcQueueFamilyIndex = renderer->getMembers().vkcore.queues.graphics.index;
-        barrierInfo.dstQueueFamilyIndex = renderer->getMembers().vkcore.queues.compute.index;
+        barrierInfo.srcQueueFamilyIndex = renderer.getMembers().vkcore.queues.graphics.index;
+        barrierInfo.dstQueueFamilyIndex = renderer.getMembers().vkcore.queues.compute.index;
         break;
       case QueueHandoff::FromCompute:
-        barrierInfo.srcQueueFamilyIndex = renderer->getMembers().vkcore.queues.compute.index;
-        barrierInfo.dstQueueFamilyIndex = renderer->getMembers().vkcore.queues.graphics.index;
+        barrierInfo.srcQueueFamilyIndex = renderer.getMembers().vkcore.queues.compute.index;
+        barrierInfo.dstQueueFamilyIndex = renderer.getMembers().vkcore.queues.graphics.index;
         break;
       }
       bufferBarriers.push_back(barrierInfo);
@@ -340,6 +366,7 @@ namespace kt::rdr {
   }
 
   void RenderGraph::beginRendering(const RenderPass& pass, const CommandBuffer& cmd) const {
+    KT_PROFILE_FUNCTION
     std::vector<VkRenderingAttachmentInfo> colorAttachments;
     colorAttachments.reserve(pass.getColorAttachments().size());
     for (const auto& [idx, attachment] : pass.getColorAttachments() | std::views::enumerate) {
@@ -397,13 +424,13 @@ namespace kt::rdr {
   }
 
   void RenderGraph::destroy() {
-    VK_ASSERT(renderer, "Renderer must be set before destroying the render graph.");
-    auto& m = renderer->getMembers();
+    auto& renderer = Renderer::get();
+    auto& m = renderer.getMembers();
 
     vkDeviceWaitIdle(m.vkcore.device);
 
     for (auto& pass : passes) {
-      pass.shutdown(*renderer);
+      pass.shutdown(renderer);
     }
 
     // Just incase the passes have enqueued work on the device that needs to be completed before destroying resources.
@@ -442,10 +469,10 @@ namespace kt::rdr {
     }
     LOG("");
   }
-  RenderGraph::RenderGraph(Renderer& renderer, std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
+  RenderGraph::RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
                            VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors)
-      : renderer(&renderer), passGroups(std::move(passGroups)), passes(std::move(passes)), resources(std::move(resources)),
-        descriptorPool(descriptorPool), passDescriptors(std::move(descriptors)) {
+      : passGroups(std::move(passGroups)), passes(std::move(passes)), resources(std::move(resources)), descriptorPool(descriptorPool),
+        passDescriptors(std::move(descriptors)) {
     for (const auto& group : this->passGroups) {
       if (group.queue == QueueType::Graphics) {
         graphicsQueuePassCount += group.count;
@@ -511,4 +538,147 @@ namespace kt::rdr {
   [[nodiscard]] QueueType RenderPass::getQueue() const { return queue; }
   [[nodiscard]] const std::vector<RenderAttachment>& RenderPass::getColorAttachments() const { return colorAttachments; }
 
+  void RenderGraph::onResolutionChanged(const glm::uvec2& newResolution) {
+    KT_PROFILE_FUNCTION
+
+    VK_TRACE("RenderGraph::onResolutionChanged() - New Resolution: {}x{}", newResolution.x, newResolution.y);
+
+    for (auto& resImage : resources.resolutionRelativeImages) {
+      auto& img = resources.images[resImage.index];
+
+      glm::uvec3 newExtent = {static_cast<float>(newResolution.x) * resImage.ratio.x,
+                              static_cast<float>(newResolution.y) * resImage.ratio.y, 1};
+
+      VkExtent3D extent3D{.width = newExtent.x, .height = newExtent.y, .depth = 1};
+
+      auto newImageRes =
+          Image::create({VK_IMAGE_TYPE_2D, img.format(), extent3D, img.getUsage(), img.mips(), img.layers(), img.getName().c_str()});
+      if (!newImageRes) {
+        VK_ABORT("Failed to create resolution relative image '{}': {}", img.getName(), newImageRes.error());
+      }
+
+      imagesToDrop[Renderer::get().getLastFrameIndex()].push_back(std::move(img));
+      resources.images[resImage.index] = std::move(newImageRes.value());
+
+      for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        imagesToUpdate[i].push_back(resImage.index);
+      }
+    }
+  }
+
+  void RenderGraph::onSwapchainSizeChanged(const glm::uvec2& newSize) {
+    KT_PROFILE_FUNCTION
+
+    VK_TRACE("RenderGraph::onSwapchainSizeChanged() - New Size: {}x{}", newSize.x, newSize.y);
+
+    for (auto& resImage : resources.swapchainRelativeImages) {
+      auto& img = resources.images[resImage.index];
+
+      glm::uvec3 newExtent = {static_cast<float>(newSize.x) * resImage.ratio.x, static_cast<float>(newSize.y) * resImage.ratio.y, 1};
+
+      VkExtent3D extent3D{.width = newExtent.x, .height = newExtent.y, .depth = 1};
+
+      auto newImageRes =
+          Image::create({VK_IMAGE_TYPE_2D, img.format(), extent3D, img.getUsage(), img.mips(), img.layers(), img.getName().c_str()});
+      if (!newImageRes) {
+        VK_ABORT("Failed to create swapchain relative image '{}': {}", img.getName(), newImageRes.error());
+      }
+
+      imagesToDrop[Renderer::get().getLastFrameIndex()].push_back(std::move(img));
+      resources.images[resImage.index] = std::move(newImageRes.value());
+
+      for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        imagesToUpdate[i].push_back(resImage.index);
+      }
+    }
+  }
+
+  void RenderGraph::updateDescriptors() {
+    KT_PROFILE_FUNCTION
+    auto& r = Renderer::get();
+    uint8_t frameIndex = r.getFrameIndex();
+
+    std::vector<VkDescriptorImageInfo> imageInfos;
+    std::vector<VkDescriptorBufferInfo> bufferInfos;
+    std::vector<VkWriteDescriptorSet> writes;
+
+    // Precalc so that the vector doesnt move and invalidate pointers
+    size_t imgCount = 0;
+    size_t bufCount = 0;
+    size_t writeCount = 0;
+
+    for (auto imgIdx : imagesToUpdate[frameIndex]) {
+      auto& used = resources.imageUsedInPass[imgIdx];
+
+      imgCount += used.size();
+      writeCount += used.size();
+    }
+
+    for (auto bufIdx : buffersToUpdate[frameIndex]) {
+      auto& used = resources.bufferUsedInPass[bufIdx];
+
+      bufCount += used.size();
+      writeCount += used.size();
+    }
+
+    if (writeCount == 0)
+      return;
+
+    imageInfos.reserve(imgCount);
+    bufferInfos.reserve(bufCount);
+    writes.reserve(writeCount);
+
+    for (auto imgIdx : imagesToUpdate[frameIndex]) {
+      auto& img = resources.images[imgIdx];
+      auto& used = resources.imageUsedInPass[imgIdx];
+
+      for (auto& u : used) {
+        VkDescriptorImageInfo imageInfo{
+            .sampler = VK_NULL_HANDLE,
+            .imageView = img,
+            .imageLayout = u.layout,
+        };
+        imageInfos.push_back(imageInfo);
+        VkWriteDescriptorSet write{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = passDescriptors[u.passIndex].sets[frameIndex],
+            .dstBinding = u.binding,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = u.descriptorType,
+            .pImageInfo = &imageInfos.back(),
+        };
+        writes.push_back(write);
+      }
+    }
+
+    for (auto bufIdx : buffersToUpdate[frameIndex]) {
+      auto& buf = resources.buffers[bufIdx];
+      auto& used = resources.bufferUsedInPass[bufIdx];
+
+      for (auto& u : used) {
+        VkDescriptorBufferInfo bufferInfo{
+            .buffer = buf,
+            .offset = 0,
+            .range = buf.size(),
+        };
+        bufferInfos.push_back(bufferInfo);
+        VkWriteDescriptorSet write{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = passDescriptors[u.passIndex].sets[frameIndex],
+            .dstBinding = u.binding,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = u.descriptorType,
+            .pBufferInfo = &bufferInfos.back(),
+        };
+        writes.push_back(write);
+      }
+    }
+
+    vkUpdateDescriptorSets(r.getDevice(), static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+
+    imagesToUpdate[frameIndex].clear();
+    buffersToUpdate[frameIndex].clear();
+  }
 } // namespace kt::rdr

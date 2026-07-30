@@ -38,6 +38,13 @@ namespace kt {
     virtual bool handleEvent(Event& event, Timestep ts) = 0;
     virtual void update(Timestep) {}
 
+    void onViewportResize(glm::uvec2 newSize) {
+      if (!isValid())
+        return;
+      auto& cam = cameraEntity.getComponents<components::Camera>();
+      cam.sizeToWindowSize(newSize);
+    }
+
   protected:
     ecs::Entity cameraEntity{};
   };

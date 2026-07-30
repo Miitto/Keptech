@@ -32,6 +32,8 @@ namespace kt::rdr {
       }
     }
   }
+  void GeometryPass::setClearColorBuffers(bool clear) { clearColorBuffers = clear; }
+  void GeometryPass::setDepthClearValue(float value) { depthClearValue = value; }
 
   void GeometryPass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&, const Renderer& renderer) {
     auto& f = renderer.getFormats();
@@ -113,5 +115,11 @@ namespace kt::rdr {
     return true;
   }
 
-  [[nodiscard]] bool GeometryPass::getClearColor(size_t, VkClearColorValue*) const { return false; }
+  [[nodiscard]] bool GeometryPass::getClearColor(size_t, VkClearColorValue* value) const {
+    if (!clearColorBuffers)
+      return false;
+    if (value)
+      *value = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}};
+    return true;
+  }
 } // namespace kt::rdr

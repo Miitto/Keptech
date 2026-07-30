@@ -1,6 +1,5 @@
 module keptech;
 
-__include constants;
 __include camera;
 __include fullscreen;
 __include lighting;

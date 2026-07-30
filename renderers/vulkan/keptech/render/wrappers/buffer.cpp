@@ -4,9 +4,37 @@
 #include <vector>
 #endif
 #include "bufferCreateInfo.hpp"
+#include "keptech/render/vk-logger.hpp"
 #include "renderer.hpp"
 
 namespace kt::rdr {
+
+  [[nodiscard]] bool Buffer::isMapped() const { return allocInfo.pMappedData != nullptr; }
+  [[nodiscard]] uint8_t* Buffer::mapping(VkDeviceSize offset) const { return static_cast<uint8_t*>(allocInfo.pMappedData) + offset; }
+  [[nodiscard]] size_t Buffer::size() const { return allocInfo.size; }
+  [[nodiscard]] VkDeviceAddress Buffer::address() const { return gpuAddress; }
+  Buffer::operator VkBuffer() const { return buffer; }
+
+  void Buffer::write(void* data, size_t size, VkDeviceSize offset) const {
+    VK_ASSERT(isMapped(), "Buffer is not mapped");
+    VK_ASSERT(offset + size <= this->size(), "Write exceeds buffer size");
+    memcpy(mapping(offset), data, size);
+  }
+  void Buffer::copyTo(const Buffer& other, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset) const {
+    VK_ASSERT(isMapped() && other.isMapped(), "Both buffers must be mapped to copy data");
+    VK_ASSERT(other.size() >= size, "Destination buffer is too small to copy data");
+    memcpy(other.mapping(dstOffset), mapping(srcOffset), size);
+  }
+  void Buffer::copyCmd(VkCommandBuffer cmdBuf, const Buffer& other, VkDeviceSize size, VkDeviceSize srcOffset,
+                       VkDeviceSize dstOffset) const {
+    VK_ASSERT(other.size() >= size, "Destination buffer is too small to copy data");
+    VkBufferCopy copyRegion{
+        .srcOffset = srcOffset,
+        .dstOffset = dstOffset,
+        .size = size,
+    };
+    vkCmdCopyBuffer(cmdBuf, static_cast<VkBuffer>(*this), static_cast<VkBuffer>(other), 1, &copyRegion);
+  }
 
   kt::Result<Buffer, VkResult, VK_SUCCESS> Buffer::create(const BufferCreateInfo& info) {
     VK_ASSERT(info.getBufferInfo().size > 0, "Buffer size must be greater than 0");
@@ -51,7 +79,7 @@ namespace kt::rdr {
       r->setDebugName(buffer, info.getName());
     }
 
-    return Buffer(buffer, bufInfo.size, alloc, aInfo, address);
+    return Buffer(buffer, bufInfo.size, alloc, aInfo, address, bufInfo.usage, info.getAllocInfo().flags);
   }
 
   void Buffer::destroy() {
@@ -63,4 +91,35 @@ namespace kt::rdr {
       alloc = nullptr;
     }
   }
+  Buffer::Buffer(Buffer&& other) noexcept
+      : buffer(other.buffer), _size(other._size), alloc(other.alloc), allocInfo(other.allocInfo), gpuAddress(other.gpuAddress) {
+    other.buffer = VK_NULL_HANDLE;
+    other._size = 0;
+    other.alloc = nullptr;
+    other.allocInfo = {};
+    other.gpuAddress = 0;
+  }
+  Buffer& Buffer::operator=(Buffer&& other) noexcept {
+    if (this != &other) {
+      buffer = other.buffer;
+      _size = other._size;
+      alloc = other.alloc;
+      allocInfo = other.allocInfo;
+      gpuAddress = other.gpuAddress;
+
+      other.buffer = VK_NULL_HANDLE;
+      other._size = 0;
+      other.alloc = nullptr;
+      other.allocInfo = {};
+      other.gpuAddress = 0;
+    }
+    return *this;
+  }
+  [[nodiscard]] VkBufferUsageFlags Buffer::getUsage() const { return usage; }
+  [[nodiscard]] VmaAllocationCreateFlags Buffer::getAllocationFlags() const { return allocationFlags; }
+  Buffer::Buffer(VkBuffer buffer, VkDeviceSize size, VmaAllocation alloc, VmaAllocationInfo allocInfo, VkDeviceAddress gpuAddress,
+                 VkBufferUsageFlags usage, VmaAllocationCreateFlags allocationFlags)
+      : buffer(buffer), _size(size), alloc(alloc), allocInfo(allocInfo), gpuAddress(gpuAddress), usage(usage),
+        allocationFlags(allocationFlags) {}
+
 } // namespace kt::rdr
