@@ -11,6 +11,10 @@ namespace kt::gltf {
   struct MeshData;
 };
 
+namespace kt::rdr {
+  struct GpuMesh;
+}
+
 namespace kt::rdr::loading {
   template <typename T> struct MaybeReallocResult {
     T result;
@@ -29,9 +33,13 @@ namespace kt::rdr::loading {
                                                                                       SubdivBuffer<uint32_t>& meshletVertexBuffer,
                                                                                       SubdivBuffer<uint32_t>& meshletTriangleBuffer);
 
+  std::expected<MaybeReallocResult<uint32_t>, std::string> uploadMeshes(const gltf::MeshData& data, SubdivBuffer<GpuMesh>& meshBuffer,
+                                                                        uint32_t indexOffset, uint32_t vertexOffset,
+                                                                        MeshletBufferOffsets meshletOffsets);
+
   std::expected<std::vector<Buffer>, std::string>
   ensureBuffersAreLargeEnough(const std::vector<gltf::MeshData>& meshes, SubdivBuffer<glm::vec3>& positionBuffer,
                               SubdivBuffer<VertexAttribs>& attribBuffer, SubdivBuffer<uint32_t>& indexBuffer,
                               SubdivBuffer<Meshlet>& meshletBuffer, SubdivBuffer<uint32_t>& meshletVertexBuffer,
-                              SubdivBuffer<uint32_t>& meshletTriangleBuffer);
+                              SubdivBuffer<uint32_t>& meshletTriangleBuffer, SubdivBuffer<GpuMesh>& meshBuffer);
 } // namespace kt::rdr::loading

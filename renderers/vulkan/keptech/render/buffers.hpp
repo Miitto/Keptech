@@ -16,6 +16,7 @@ namespace kt {
     struct GpuMaterial;
     struct GpuObject;
     struct GpuPointLight;
+    struct GpuMesh;
 
     struct PerFrameBuffers {
       template <typename T> using SB = SubdivBuffer<T>;
@@ -39,6 +40,7 @@ namespace kt {
       SB<uint32_t> meshletVertices;
       SB<uint32_t> meshletTriangles;
       SB<GpuMaterial> materials;
+      SB<GpuMesh> meshes;
       std::array<PerFrameBuffers, MAX_FRAMES_IN_FLIGHT> perFrame;
     };
 
@@ -50,6 +52,7 @@ namespace kt {
       VkDeviceAddress meshletVertices;
       VkDeviceAddress meshletTriangles;
       VkDeviceAddress materials;
+      VkDeviceAddress meshes;
     };
   } // namespace rdr
 } // namespace kt

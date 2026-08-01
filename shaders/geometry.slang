@@ -10,34 +10,40 @@ struct VertexOutput {
   nointerpolation uint materialIndex : MATERIAL_INDEX;
 };
 
-struct PushConstants {
+struct Object {
   float4x4 modelMatrix;
+  uint meshIndex;
   uint materialIndex;
 };
 
+[[vk::binding(0, 1)]]
+StructuredBuffer<Object> objects;
+
 [shader("vertex")]
-VertexOutput vert(float3 position, kt::VertexAttribs v, uniform PushConstants PC) {
+VertexOutput vert(float3 position, kt::VertexAttribs v, uint baseInstance: SV_StartInstanceLocation) {
   VertexOutput output;
 
-  float4 worldPosition = mul(float4(position, 1.0), PC.modelMatrix);
+  Object obj = objects[baseInstance];
+
+  float4 worldPosition = mul(float4(position, 1.0), obj.modelMatrix);
 
   output.position = (*kt::camera).worldToClip(worldPosition);
   output.uvX = v.uv.x;
   output.uvY = v.uv.y;
 
-  float3x3 modelRotMatrix = (float3x3)PC.modelMatrix;
+  float3x3 modelRotMatrix = (float3x3)obj.modelMatrix;
 
   output.normal = normalize(mul(v.normal, modelRotMatrix));
   output.tangent = normalize(mul(v.tangent.xyz, modelRotMatrix));
   output.bitangent = normalize(cross(output.normal, output.tangent) * v.tangent.w);
 
-  output.materialIndex = PC.materialIndex;
+  output.materialIndex = obj.materialIndex;
 
   return output;
 }
 
 [shader("pixel")]
-kt::DeferredOutput frag(VertexOutput input, uniform PushConstants PC) {
+kt::DeferredOutput frag(VertexOutput input) {
   kt::DeferredOutput output;
 
   if (input.materialIndex == ~0u) {

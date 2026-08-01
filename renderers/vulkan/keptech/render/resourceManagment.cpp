@@ -411,7 +411,8 @@ namespace kt::rdr {
 
     VKH_MAKE(bufs,
              loading::ensureBuffersAreLargeEnough(meshes, m.buffers.vertexPositions, m.buffers.vertexAttribs, m.buffers.indices,
-                                                  m.buffers.meshlets, m.buffers.meshletVertices, m.buffers.meshletTriangles),
+                                                  m.buffers.meshlets, m.buffers.meshletVertices, m.buffers.meshletTriangles,
+                                                  m.buffers.meshes),
              "Failed to ensure buffers are large enough for mesh upload");
 
     bool canWriteDirectly = m.buffers.vertexPositions->isMapped() && m.buffers.vertexAttribs->isMapped() &&
@@ -435,9 +436,11 @@ namespace kt::rdr {
       VKH_MAKE(indexOffset, loading::uploadIndices(mesh, m.buffers.indices), "Failed to upload indices for mesh");
       VKH_MAKE(meshletOffsets, loading::uploadMeshlets(mesh, m.buffers.meshlets, m.buffers.meshletVertices, m.buffers.meshletTriangles),
                "Failed to upload meshlets for mesh");
+      VKH_MAKE(meshOffset, loading::uploadMeshes(mesh, m.buffers.meshes, indexOffset.result, vertexOffsets.result, meshletOffsets.result),
+               "Failed to upload mesh data for mesh");
 
       bufs.reserve(bufs.size() + vertexOffsets.reallocatedBuffers.size() + indexOffset.reallocatedBuffers.size() +
-                   meshletOffsets.reallocatedBuffers.size());
+                   meshletOffsets.reallocatedBuffers.size() + meshOffset.reallocatedBuffers.size());
       for (auto& buf : vertexOffsets.reallocatedBuffers) {
         bufs.push_back(std::move(buf));
       }
@@ -447,8 +450,11 @@ namespace kt::rdr {
       for (auto& buf : meshletOffsets.reallocatedBuffers) {
         bufs.push_back(std::move(buf));
       }
+      for (auto& buf : meshOffset.reallocatedBuffers) {
+        bufs.push_back(std::move(buf));
+      }
 
-      for (const auto& primitive : mesh.submeshes) {
+      for (const auto& [idx, primitive] : mesh.submeshes | std::views::enumerate) {
         Submesh submesh{
             .indexCount = primitive.index.count,
             .indexOffset = static_cast<uint32_t>(primitive.index.offset + indexOffset.result),
@@ -461,7 +467,7 @@ namespace kt::rdr {
             .meshletVertexCount = primitive.meshlet.vertexCount,
             .meshletTriangleCount = primitive.meshlet.triangleCount,
             .boundingSphere = primitive.boundingSphere,
-            .id = m.nextMeshIndex++,
+            .id = meshOffset.result + static_cast<uint32_t>(idx),
         };
         if (primitive.materialIndex < materials.size()) {
           submesh.material = materials[primitive.materialIndex];

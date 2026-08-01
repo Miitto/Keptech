@@ -51,6 +51,7 @@ namespace kt::rdr {
         .meshletVertices = m.buffers.meshletVertices->address(),
         .meshletTriangles = m.buffers.meshletTriangles->address(),
         .materials = m.buffers.materials->address(),
+        .meshes = m.buffers.meshes->address(),
     };
 
     size_t offset = maths::roundToAlignment(m.frameInfo.index * sizeof(BufferPointers), limits::minUniformBufferOffsetAlignment);

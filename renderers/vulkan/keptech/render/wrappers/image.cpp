@@ -76,7 +76,6 @@ namespace kt::rdr {
   ImageType Image::type() const { return _type; }
   uint8_t Image::mips() const { return _mips; }
   uint8_t Image::layers() const { return _layers; }
-  VkImageLayout Image::getLayout() const { return currentLayout; }
   VkImageUsageFlags Image::getUsage() const { return usage; }
 
   [[nodiscard]] VkImageMemoryBarrier2 Image::transition(const TransitionInfo& transition, uint32_t srcIndex, uint32_t dstIndex) const {

@@ -27,12 +27,11 @@ include(sdl)
 link_sdl(ktimgui PUBLIC)
 
 if (RENDERER STREQUAL "Vulkan")
-  include(vulkan)
-  find_vulkan(23)
   link_vulkan(ktimgui PUBLIC)
   target_sources(ktimgui PRIVATE
     imgui/backends/imgui_impl_vulkan.cpp
   )
+  target_compile_definitions(ktimgui PUBLIC IMGUI_IMPL_VULKAN_USE_VOLK=1)
 endif()
 
 # Disable warnings

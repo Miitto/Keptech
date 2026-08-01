@@ -5,12 +5,12 @@ target_sources(${PROJECT_NAME}
   PRIVATE
     components/camera.cpp
     components/transform.cpp
-    layers/layerStack.cpp
+    core/layers/layerStack.cpp
     maths/transform.cpp
-    events.cpp
-    fastgltf_formatting.cpp
-    gui.cpp
-    kt-logger.cpp
-    scene.cpp
-    window.cpp
+    core/events/events.cpp
+    core/fastgltf_formatting.cpp
+    core/gui.cpp
+    core/kt-logger.cpp
+    core/scene.cpp
+    core/window.cpp
 )

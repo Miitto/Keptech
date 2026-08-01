@@ -40,7 +40,7 @@ namespace kt {
     KT_PROFILE_FUNCTION
     for (auto& layer : std::ranges::reverse_view(layers)) {
       layer->onEvent(event, ts);
-      if (event.isHandled())
+      if (!event.bubbles())
         return true;
     }
     return false;

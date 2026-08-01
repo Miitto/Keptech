@@ -18,8 +18,3 @@ target_sources(${PROJECT_NAME}
 )
 
 add_subdirectory(keptech/render)
-
-target_compile_definitions(${PROJECT_NAME}
-  PUBLIC
-    IMGUI_IMPL_VULKAN_USE_VOLK=1
-)

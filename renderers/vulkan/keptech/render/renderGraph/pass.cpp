@@ -10,14 +10,6 @@ namespace kt::rdr {
 
 #define LOG(...) VK_TRACE(__VA_ARGS__) // NOLINT
 
-  RenderTextureResource& RenderPassBuilder::addAttachmentInput(const std::string& n) {
-    LOG("Adding attachment input '{}' to pass '{}'", name, this->name);
-    auto& res = graph.getTextureResource(n);
-    res.addImageUsage(VK_IMAGE_USAGE_SAMPLED_BIT).addQueue(queue).readInPass(id);
-    attachmentInputs.push_back(&res);
-    return res;
-  }
-
   RenderTextureResource& RenderPassBuilder::addHistoryInput(const std::string& n) {
     LOG("Adding history input '{}' to pass '{}'", name, this->name);
     auto& res = graph.getTextureResource(n);
@@ -33,6 +25,13 @@ namespace kt::rdr {
 
     res.addBufferUsage(usage).addQueue(queue).readInPass(id);
 
+    // Check if we already use this buffer. The same buffer may be used as multiple types of inputs in the same pass.
+    auto it = std::ranges::find_if(genericBuffers, [&](const AccessedBufferResource& b) { return b.buffer->getId() == res.getId(); });
+    if (it != genericBuffers.end()) {
+      it->stages |= stages;
+      it->access |= access;
+      return res;
+    }
     AccessedBufferResource acc{.buffer = &res};
     acc.layout = VK_IMAGE_LAYOUT_GENERAL;
     acc.access = access;
@@ -66,6 +65,20 @@ namespace kt::rdr {
   RenderPassBuilder& RenderPassBuilder::setName(const std::string& n) {
     name = n;
     return *this;
+  }
+
+  RenderBufferResource& RenderPassBuilder::addMappedBuffer(const std::string& n, size_t size, VmaAllocationCreateFlags allocFlags,
+                                                           VmaMemoryUsage memUsage) {
+    LOG("Adding mapped buffer input '{}' to pass '{}'", name, this->name);
+    auto& res = graph.getBufferResource(n);
+
+    res.setBufferInfo({.size = size, .memoryUsage = memUsage, .allocationFlags = allocFlags})
+        .addBufferUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+        .writtenInPass(id);
+
+    mappedBuffers.push_back(&res);
+
+    return res;
   }
 
   [[nodiscard]] std::string& RenderPassBuilder::getName() { return name; }
@@ -112,19 +125,19 @@ namespace kt::rdr {
     return false;
   }
   [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getColorOutputs() const { return colorOutputs; }
-  [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getResolveOutputs() const { return resolveOutputs; }
   [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getColorInputs() const { return colorInputs; }
   [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getHistoryInputs() const { return historyInputs; }
-  [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getAttachmentInputs() const { return attachmentInputs; }
   [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getStorageImageOutputs() const { return storageImageOutputs; }
   [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getStorageImageInputs() const { return storageImageInputs; }
   [[nodiscard]] const std::vector<RenderBufferResource*>& RenderPassBuilder::getStorageOutputs() const { return storageOutputs; }
   [[nodiscard]] const std::vector<RenderBufferResource*>& RenderPassBuilder::getStorageInputs() const { return storageInputs; }
   [[nodiscard]] const std::vector<RenderBufferResource*>& RenderPassBuilder::getTransferOutputs() const { return transferOutputs; }
+  const std::vector<RenderBufferResource*>& RenderPassBuilder::getMappedBuffers() const { return mappedBuffers; }
   [[nodiscard]] RenderTextureResource* RenderPassBuilder::getDepthStencilInput() const { return depthStencilInput; }
   [[nodiscard]] RenderTextureResource* RenderPassBuilder::getDepthStencilOutput() const { return depthStencilOutput; }
   [[nodiscard]] const std::vector<AccessedTextureResource>& RenderPassBuilder::getGenericTextureInputs() const { return genericTexutre; }
   [[nodiscard]] const std::vector<AccessedBufferResource>& RenderPassBuilder::getGenericBufferInputs() const { return genericBuffers; }
+  const std::unordered_set<PassId>& RenderPassBuilder::getProxyPasses() const { return proxyPasses; }
 
   RenderPassBuilder& RenderPassBuilder::setIndex(size_t idx) {
     this->index = idx;
@@ -271,4 +284,19 @@ namespace kt::rdr {
     depthStencilOutput = &res;
     return res;
   }
+
+  RenderPassBuilder& RenderPassBuilder::addProxyPass(const std::string& n, QueueType q, bool abr) {
+    LOG("Adding proxy pass '{}' to pass '{}'", n, this->name);
+    auto* proxyPass = graph.findPass(n);
+
+    if (!proxyPass) {
+      VK_TRACE("Proxy pass '{}' not found, creating a new one", n);
+      proxyPass = &graph.addPass(n, q, abr);
+    }
+
+    proxyPasses.insert(proxyPass->getId());
+    return *proxyPass;
+  }
+
+  bool RenderPassBuilder::getAutoBeingRendering() const { return autoBeginRendering; }
 } // namespace kt::rdr

@@ -21,7 +21,12 @@ namespace kt::rdr {
   public:
     RenderGraphBuilder() = default;
 
-    RenderPassBuilder& addPass(const std::string& name, QueueType queueType = QueueType::Graphics);
+    /// @brief Adds a new render pass to the render graph.
+    /// @param name The name of the render pass. Must be unique.
+    /// @param queueType The queue type the render pass will be executed on.
+    /// @param autoBeginRendering If true as QueueType::Graphics, the render pass will automatically call vkCmdBeginRendering and
+    /// vkCmdEndRendering with the given color and depth attachments.
+    RenderPassBuilder& addPass(const std::string& name, QueueType queueType = QueueType::Graphics, bool autoBeginRendering = true);
     RenderPassBuilder* findPass(const std::string& name);
 
     /// Analyses the registered passes and resources, and populates the internal data structures. This function must be called before

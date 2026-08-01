@@ -13,17 +13,6 @@ namespace kt::rdr {
   std::expected<void, std::string> Renderer::initImGui() {
     rendering::initImGui();
 
-    auto funcLoader = [](const char* funcName, void* d) {
-      VulkanCore* vkcore = static_cast<VulkanCore*>(d);
-      PFN_vkVoidFunction instanceAddr = vkGetInstanceProcAddr(vkcore->instance, funcName);
-      PFN_vkVoidFunction deviceAddr = vkGetDeviceProcAddr(vkcore->device, funcName);
-      return deviceAddr ? deviceAddr : instanceAddr;
-    };
-    const bool funcsLoaded = ImGui_ImplVulkan_LoadFunctions(VK_API_VERSION_1_4, funcLoader, (void*)&m.vkcore);
-    if (!funcsLoaded) {
-      return std::unexpected("Failed to load ImGui Vulkan functions.");
-    }
-
     std::array<VkDescriptorPoolSize, 11> pool_sizes = {{
         {
             .type = VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,

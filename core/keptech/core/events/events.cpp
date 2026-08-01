@@ -54,4 +54,10 @@ namespace kt {
       return nullptr;
     }
   }
+  Propagation& operator|=(Propagation& lhs, Propagation rhs) {
+    lhs = static_cast<Propagation>(static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs));
+    return lhs;
+  }
+  bool operator!(Propagation p) { return p != Propagation::None; }
+
 } // namespace kt

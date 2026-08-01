@@ -176,17 +176,30 @@ namespace kt::rdr {
     for (const auto& [idxL, passId] : passStack | std::views::enumerate) {
       size_t idx = static_cast<size_t>(idxL);
       auto& pass = passes[passId];
+
+      struct PerFrameWrite {
+        size_t writeIndex;
+        size_t bufferIndex;
+      };
+
       std::vector<VkDescriptorImageInfo> imageInfos;
       std::vector<VkDescriptorBufferInfo> bufferInfos;
       std::vector<VkWriteDescriptorSet> writes;
+      std::vector<PerFrameWrite> perFrameWrites;
 
-      imageInfos.reserve(pass->getGenericTextureInputs().size() + pass->getStorageImageOutputs().size());
-      bufferInfos.reserve(pass->getGenericBufferInputs().size() + pass->getStorageOutputs().size());
-      writes.reserve(pass->getGenericTextureInputs().size() + pass->getGenericBufferInputs().size() +
-                     pass->getStorageImageOutputs().size() + pass->getStorageOutputs().size());
+      size_t imgMaxCount = pass->getGenericTextureInputs().size() + pass->getStorageImageOutputs().size();
+      size_t bufMaxCount = (pass->getGenericBufferInputs().size() + pass->getStorageOutputs().size()) *
+                           MAX_FRAMES_IN_FLIGHT; // Reserve max bound of every buffer being CPU mapped (and hence duplicated).
+      size_t writeMaxCount = imgMaxCount + bufMaxCount;
+
+      imageInfos.reserve(imgMaxCount);
+      bufferInfos.reserve(bufMaxCount); // Reserve max bound of every buffer being CPU mapped.
+      writes.reserve(writeMaxCount);
 
       auto getImage = [&](const std::string& name) -> Image& { return builtResources.images[builtResources.nameToImage[name]]; };
-      auto getBuffer = [&](const std::string& name) -> Buffer& { return builtResources.buffers[builtResources.nameToBuffer[name]]; };
+      auto getBuffer = [&](const std::string& name, size_t offset = 0) -> Buffer& {
+        return builtResources.buffers[builtResources.nameToBuffer[name] + offset];
+      };
 
       std::vector<VkDescriptorBindingFlags> bindingFlags;
       std::vector<VkDescriptorSetLayoutBinding> bindings;
@@ -271,6 +284,16 @@ namespace kt::rdr {
                   (buffer.access & VK_ACCESS_UNIFORM_READ_BIT) ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .pBufferInfo = &bufferInfos.back(),
           });
+          if (buffer.buffer->getBufferInfo().isHostAccessible()) {
+            perFrameWrites.push_back({.writeIndex = writes.size() - 1, .bufferIndex = bufferInfos.size() - 1});
+            for (size_t i = 1; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+              bufferInfos.push_back(VkDescriptorBufferInfo{
+                  .buffer = getBuffer(buffer.buffer->getName(), i),
+                  .offset = 0,
+                  .range = buffer.buffer->getBufferInfo().size,
+              });
+            }
+          }
           if (buffer.buffer->getPhysicalId().used())
             builtResources.bufferUsedInPass[buffer.buffer->getPhysicalId()].push_back(
                 UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = writes.back().descriptorType});
@@ -355,6 +378,16 @@ namespace kt::rdr {
               .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .pBufferInfo = &bufferInfos.back(),
           });
+          if (buffer->getBufferInfo().isHostAccessible()) {
+            perFrameWrites.push_back({.writeIndex = writes.size() - 1, .bufferIndex = bufferInfos.size() - 1});
+            for (size_t i = 1; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+              bufferInfos.push_back(VkDescriptorBufferInfo{
+                  .buffer = getBuffer(buffer->getName(), i),
+                  .offset = 0,
+                  .range = buffer->getBufferInfo().size,
+              });
+            }
+          }
           if (buffer->getPhysicalId().used())
             builtResources.bufferUsedInPass[buffer->getPhysicalId()].push_back(
                 UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER});
@@ -387,10 +420,15 @@ namespace kt::rdr {
       VK_REQUIRE(vkAllocateDescriptorSets(members.vkcore.device, &allocInfo, sets.data()) == VK_SUCCESS,
                  "Failed to allocate descriptor sets for pass '{}'", pass->getName());
 
-      for (auto& set : sets) {
+      for (const auto& [idx, set] : sets | std::views::enumerate) {
         for (auto& write : writes) {
           write.dstSet = set;
         }
+
+        for (auto pfw : perFrameWrites) {
+          writes[pfw.writeIndex].pBufferInfo = &bufferInfos[pfw.bufferIndex + idx];
+        }
+
         vkUpdateDescriptorSets(members.vkcore.device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
       }
 
@@ -528,9 +566,6 @@ namespace kt::rdr {
       VK_REQUIRE(pass.getStorageInputs().size() == pass.getStorageOutputs().size(),
                  "Pass '{}': Size of storage inputs and outputs must match", pass.getName());
 
-      VK_REQUIRE(pass.getResolveOutputs().empty() || pass.getResolveOutputs().size() == pass.getColorOutputs().size(),
-                 "Pass '{}': Must have a resolve output for each color output, if any", pass.getName());
-
       for (const auto& [idx, output] : pass.getColorOutputs() | std::views::enumerate) {
         auto* input = pass.getColorInputs()[static_cast<size_t>(idx)];
         if (!input)
@@ -630,15 +665,6 @@ namespace kt::rdr {
       dependPassesRecursive(pass, pass.getDepthStencilInput()->getWritePasses(), stackCount, false, true);
     }
 
-    for (auto* input : pass.getAttachmentInputs()) {
-      bool selfDep = pass.getDepthStencilOutput() == input;
-      if (std::ranges::find(pass.getColorOutputs(), input) != pass.getColorOutputs().end())
-        selfDep = true;
-
-      if (!selfDep)
-        dependPassesRecursive(pass, input->getWritePasses(), stackCount, false, false);
-    }
-
     for (auto* input : pass.getColorInputs()) {
       if (input)
         dependPassesRecursive(pass, input->getWritePasses(), stackCount, false, false);
@@ -663,8 +689,13 @@ namespace kt::rdr {
     }
 
     for (auto& input : pass.getGenericBufferInputs()) {
-      dependPassesRecursive(pass, input.buffer->getWritePasses(), stackCount, true, false);
+      auto mappedIt = std::find(pass.getMappedBuffers().begin(), pass.getMappedBuffers().end(), input.buffer);
+      dependPassesRecursive(
+          pass, input.buffer->getWritePasses(), stackCount, true,
+          mappedIt != pass.getMappedBuffers().end()); // Ignore self if this buffer is mapped, as it will be written to by the pass itself.
     }
+
+    dependPassesRecursive(pass, pass.getProxyPasses(), stackCount, true, false);
   }
 
   void RenderGraphBuilder::dependPassesRecursive(const RenderPassBuilder& self, const std::unordered_set<PassId>& writtenPasses,
@@ -763,6 +794,22 @@ namespace kt::rdr {
   void RenderGraphBuilder::buildPhysicalResources() {
     PhysResourceId physId{0};
 
+    auto postBufferId = [&](bool host) {
+      if (host) {
+        for (size_t i = 0; i < (MAX_FRAMES_IN_FLIGHT - 1); ++i) {
+          physicalResourceInfos.push_back(physicalResourceInfos.back());
+        }
+        physId += (MAX_FRAMES_IN_FLIGHT - 1);
+      }
+    };
+
+    auto updateBuffer = [&](PhysResourceId id, Bitflag<QueueType> queues, VkBufferUsageFlags usage, bool host) {
+      for (size_t i = 0; i < (host ? MAX_FRAMES_IN_FLIGHT : 1); ++i) {
+        physicalResourceInfos[id + i].queues |= queues;
+        physicalResourceInfos[id + i].bufferInfo.usage |= usage;
+      }
+    };
+
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       auto& pass = *passes[passId];
       for (auto& input : pass.getGenericTextureInputs()) {
@@ -776,12 +823,13 @@ namespace kt::rdr {
       }
 
       for (auto& input : pass.getGenericBufferInputs()) {
+        bool host = input.buffer->getBufferInfo().isHostAccessible();
         if (!input.buffer->getPhysicalId().used()) {
           physicalResourceInfos.push_back(getResourceInfo(*input.buffer));
           input.buffer->setPhysicalId(physId++);
+          postBufferId(host);
         } else {
-          physicalResourceInfos[input.buffer->getPhysicalId()].queues |= input.buffer->getUsedQueues();
-          physicalResourceInfos[input.buffer->getPhysicalId()].bufferInfo.usage |= input.buffer->getBufferUsage();
+          updateBuffer(input.buffer->getPhysicalId(), input.buffer->getUsedQueues(), input.buffer->getBufferUsage(), host);
         }
       }
 
@@ -835,12 +883,14 @@ namespace kt::rdr {
         auto& input = *inputPtr;
         size_t jdx = static_cast<size_t>(jdxL);
 
+        bool host = input.getBufferInfo().isHostAccessible();
+
         if (!input.getPhysicalId().used()) {
           physicalResourceInfos.push_back(getResourceInfo(input));
           input.setPhysicalId(physId++);
+          postBufferId(host);
         } else {
-          physicalResourceInfos[input.getPhysicalId()].queues |= input.getUsedQueues();
-          physicalResourceInfos[input.getPhysicalId()].bufferInfo.usage |= input.getBufferUsage();
+          updateBuffer(input.getPhysicalId(), input.getUsedQueues(), input.getBufferUsage(), host);
         }
 
         VK_REQUIRE(!pass.getStorageOutputs()[jdx]->getPhysicalId().used(),
@@ -872,32 +922,35 @@ namespace kt::rdr {
       }
 
       for (auto* output : pass.getStorageOutputs()) {
+        bool host = output->getBufferInfo().isHostAccessible();
         if (!output->getPhysicalId().used()) {
           physicalResourceInfos.push_back(getResourceInfo(*output));
           output->setPhysicalId(physId++);
+          postBufferId(host);
         } else {
-          physicalResourceInfos[output->getPhysicalId()].queues |= output->getUsedQueues();
-          physicalResourceInfos[output->getPhysicalId()].bufferInfo.usage |= output->getBufferUsage();
+          updateBuffer(output->getPhysicalId(), output->getUsedQueues(), output->getBufferUsage(), host);
         }
       }
 
-      for (auto* output : pass.getResolveOutputs()) {
-        if (!output->getPhysicalId().used()) {
-          physicalResourceInfos.push_back(getResourceInfo(*output));
-          output->setPhysicalId(physId++);
+      for (auto* mapped : pass.getMappedBuffers()) {
+        bool host = mapped->getBufferInfo().isHostAccessible();
+        if (!mapped->getPhysicalId().used()) {
+          physicalResourceInfos.push_back(getResourceInfo(*mapped));
+          mapped->setPhysicalId(physId++);
+          postBufferId(host);
         } else {
-          physicalResourceInfos[output->getPhysicalId()].queues |= output->getUsedQueues();
-          physicalResourceInfos[output->getPhysicalId()].imageUsage |= output->getImageUsage();
+          updateBuffer(mapped->getPhysicalId(), mapped->getUsedQueues(), mapped->getBufferUsage(), host);
         }
       }
 
       for (auto* output : pass.getTransferOutputs()) {
+        bool host = output->getBufferInfo().isHostAccessible();
         if (!output->getPhysicalId().used()) {
           physicalResourceInfos.push_back(getResourceInfo(*output));
           output->setPhysicalId(physId++);
+          postBufferId(host);
         } else {
-          physicalResourceInfos[output->getPhysicalId()].queues |= output->getUsedQueues();
-          physicalResourceInfos[output->getPhysicalId()].bufferInfo.usage |= output->getBufferUsage();
+          updateBuffer(output->getPhysicalId(), output->getUsedQueues(), output->getBufferUsage(), host);
         }
       }
 
@@ -928,16 +981,6 @@ namespace kt::rdr {
         } else {
           physicalResourceInfos[dsOutput->getPhysicalId()].queues |= dsOutput->getUsedQueues();
           physicalResourceInfos[dsOutput->getPhysicalId()].imageUsage |= dsOutput->getImageUsage();
-        }
-      }
-
-      for (auto* input : pass.getAttachmentInputs()) {
-        if (!input->getPhysicalId().used()) {
-          physicalResourceInfos.push_back(getResourceInfo(*input));
-          input->setPhysicalId(physId++);
-        } else {
-          physicalResourceInfos[input->getPhysicalId()].queues |= input->getUsedQueues();
-          physicalResourceInfos[input->getPhysicalId()].imageUsage |= input->getImageUsage();
         }
       }
     }
@@ -1027,38 +1070,6 @@ namespace kt::rdr {
         req.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       }
 
-      for (auto* input : pass.getAttachmentInputs()) {
-        VK_REQUIRE(!COMPUTE_QUEUES.intersects(pass.getQueue()), "Pass '{}': Attachment inputs cannot be used in a compute pass",
-                   pass.getName(), input->getName());
-
-        auto& req = getInvalidAccess(input->getPhysicalId(), false);
-        req.access |= VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
-        req.stages |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-
-        switch (input->getAttachmentInfo().format) {
-        case VK_FORMAT_D16_UNORM:
-        case VK_FORMAT_X8_D24_UNORM_PACK32:
-        case VK_FORMAT_D32_SFLOAT:
-        case VK_FORMAT_D16_UNORM_S8_UINT:
-        case VK_FORMAT_D24_UNORM_S8_UINT:
-        case VK_FORMAT_D32_SFLOAT_S8_UINT:
-        case VK_FORMAT_S8_UINT:
-          req.access |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-          req.stages |= VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-          break;
-        default:
-          req.access |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-          req.stages |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-          break;
-        }
-
-        VK_REQUIRE(req.layout == VK_IMAGE_LAYOUT_UNDEFINED,
-                   "Pass '{}': Attachment input '{}' expected to have undefined layout. Has {}. You have probably added this resource to "
-                   "this pass multiple times.",
-                   pass.getName(), input->getName(), req.layout);
-        req.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-      }
-
       for (auto* input : pass.getStorageImageInputs()) {
         if (!input)
           continue;
@@ -1140,21 +1151,6 @@ namespace kt::rdr {
               pass.getName(), output->getName(), req.layout);
           req.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         }
-      }
-
-      for (auto* output : pass.getResolveOutputs()) {
-        VK_REQUIRE(!COMPUTE_QUEUES.intersects(pass.getQueue()), "Pass '{}': Resolve outputs cannot be used in a compute pass",
-                   pass.getName(), output->getName());
-
-        auto& req = getFlushAccess(output->getPhysicalId());
-        req.access |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        req.stages |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VK_REQUIRE(
-            req.layout == VK_IMAGE_LAYOUT_UNDEFINED,
-            "Pass '{}': Resolve output '{}' expected to have undefined layout. Has {}. You have probably added this resource to this "
-            "pass multiple times.",
-            pass.getName(), output->getName(), req.layout);
-        req.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
       }
 
       for (auto* output : pass.getStorageImageOutputs()) {
@@ -1396,7 +1392,8 @@ namespace kt::rdr {
         VK_REQUIRE(result.isOk(), "Failed to create buffer for resource '{}': {}", res.name, result.error());
         auto& buf = result.value();
         buffers.push_back(std::move(buf));
-        nameToBuffer[res.name] = buffers.size() - 1;
+        if (!nameToBuffer.contains(res.name)) // Mapped buffers share a name, we want the index to point to the first one, not the last
+          nameToBuffer[res.name] = buffers.size() - 1;
         VK_DEBUG("Created buffer {} in slot {}", res.name, buffers.size() - 1);
       } else {
         auto result =
@@ -1420,7 +1417,7 @@ namespace kt::rdr {
       }
     }
 
-    return {
+    return Resources{
         .images = std::move(images),
         .buffers = std::move(buffers),
         .nameToImage = std::move(nameToImage),
@@ -1518,7 +1515,8 @@ namespace kt::rdr {
         }
       }
 
-      RenderPass bakedPass(std::move(pass.getName()), pass.getQueue(), std::move(barriers), std::move(colorAttachments), ds);
+      RenderPass bakedPass(std::move(pass.getName()), pass.getQueue(), std::move(barriers), std::move(colorAttachments), ds,
+                           pass.getAutoBeingRendering());
       bakedPass.setExtentSourceId(extentSourceId);
       bakedPass.interface = pass.getInterface();
       bakedPass.buildCb = std::move(pass.getBuildCallback());
@@ -1564,16 +1562,22 @@ namespace kt::rdr {
     return static_cast<RenderBufferResource&>(*resources.back()); // NOLINT
   }
 
-  RenderPassBuilder& RenderGraphBuilder::addPass(const std::string& name, QueueType queueType) {
+  RenderPassBuilder& RenderGraphBuilder::addPass(const std::string& name, QueueType queueType, bool autoBeginRendering) {
     VK_TRACE("Adding pass '{}'", name);
     VK_ASSERT(!name.empty(), "Pass name cannot be empty");
     auto it = passNameToId.find(name);
     if (it != passNameToId.end()) {
-      return *passes[it->second];
+      auto& pass = *passes[it->second];
+      VK_REQUIRE(pass.getQueue() == queueType, "Pass '{}' already exists with a different queue type. Existing: {}, New: {}", name,
+                 pass.getQueue(), queueType);
+      VK_REQUIRE(pass.getAutoBeingRendering() == autoBeginRendering,
+                 "Pass '{}' already exists with a different auto-begin rendering setting. Existing: {}, New: {}", name,
+                 pass.getAutoBeingRendering(), autoBeginRendering);
+      return pass;
     }
 
     PassId id{passes.size()};
-    auto pass = std::make_unique<RenderPassBuilder>(*this, id, queueType);
+    auto pass = std::make_unique<RenderPassBuilder>(*this, id, queueType, autoBeginRendering);
     pass->setName(name);
     passes.push_back(std::move(pass));
     passNameToId[name] = id;

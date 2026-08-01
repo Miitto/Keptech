@@ -10,6 +10,7 @@ __include material;
 __include sphere;
 __include frustum;
 __include struct;
+__include mesh;
 
 public namespace kt {
 

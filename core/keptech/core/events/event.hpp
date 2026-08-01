@@ -2,7 +2,6 @@
 
 // Taken from Hazel Engine's event system
 
-#include "keptech/core/base.hpp"
 #include <SDL3/SDL_events.h>
 #include <concepts>
 #include <cstdint>
@@ -14,6 +13,15 @@
   [[nodiscard]] static constexpr EventType getStaticType() { return EventType::EVENT_TYPE; }
 
 namespace kt {
+  enum class Propagation : uint8_t {
+    None = true, // Alias with true and false for handled / unhandled.
+    Bubble = false,
+  };
+
+  Propagation& operator|=(Propagation& lhs, Propagation rhs);
+
+  bool operator!(Propagation p);
+
   enum class EventType : uint8_t {
     WindowResize,
     KeyPressed,
@@ -36,14 +44,15 @@ namespace kt {
 
     [[nodiscard]] virtual EventType getType() const = 0;
 
-    void handle() { handled = true; }
-    void handleIf(bool condition) { handled |= condition; }
-    [[nodiscard]] bool isHandled() const { return handled; }
+    void stopPropagation() { propagation = Propagation::None; }
+    void handleIf(bool condition) { propagation |= static_cast<Propagation>(condition); }
+    void handleIf(Propagation condition) { propagation |= condition; }
+    [[nodiscard]] bool bubbles() const { return propagation == Propagation::Bubble; }
 
     static std::unique_ptr<Event> fromSdl(const SDL_Event& sdlEvent);
 
   private:
-    bool handled = false;
+    Propagation propagation{Propagation::Bubble};
   };
 
   template <typename T>
@@ -54,7 +63,7 @@ namespace kt {
 
   template <typename T, typename F>
   concept IsEventHandler = requires(F f, T& e) {
-    { f(e) } -> std::same_as<bool>;
+    { f(e) } -> std::same_as<Propagation>;
   };
 
   class EventDispatcher {

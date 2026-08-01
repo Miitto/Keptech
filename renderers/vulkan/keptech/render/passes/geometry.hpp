@@ -24,19 +24,25 @@ namespace kt::rdr {
     void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph, const Renderer& renderer) override;
 
     /// Called once after the render graph has been built.
-    void setup(Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override;
+    void setup(RenderGraph& graph, Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override;
 
     [[nodiscard]] bool getClearColor(size_t, VkClearColorValue* value) const override;
     [[nodiscard]] bool getClearDepthStencil(VkClearDepthStencilValue* value) const override;
 
-    void execute(const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize = {}) override;
+    void prepare(RenderGraph& graph, Renderer& renderer) override;
+    void execute(RenderGraph& graph, const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize = {}) override;
 
     void setClearColorBuffers(bool clear);
     void setDepthClearValue(float value);
 
   private:
+    constexpr static const char* KT_GEOMETRY_PER_FRAME_NAME = "kt::geometryPerFrame";
+
     Pipeline pipeline;
     bool clearColorBuffers = false;
     float depthClearValue = 1.0f;
+    size_t objectBufferIndex = ~0u;
+    size_t drawCommandStart = ~0u;
+    size_t drawCommandCount = 0;
   };
 } // namespace kt::rdr

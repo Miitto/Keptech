@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/maths/sphere.hpp"
 #include "types.hpp"
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
@@ -20,10 +21,25 @@ namespace kt::rdr {
     float alphaCutoff = 0.f;
   };
 
+  struct GpuMesh {
+    uint32_t indexOffset;
+    uint32_t indexCount;
+    int32_t vertexOffset;
+    uint32_t vertexCount;
+    uint32_t meshletOffset;
+    uint32_t meshletCount;
+    uint32_t meshletVertexOffset;
+    uint32_t meshletVertexCount;
+    uint32_t meshletTriangleOffset;
+    uint32_t meshletTriangleCount;
+    maths::Sphere boundingSphere;
+  };
+
   struct GpuObject {
     glm::mat4 model;
+    uint32_t meshIndex;
     uint32_t materialIndex;
-    float pad1, pad2, pad3;
+    float pad1, pad2;
   };
 
   struct GpuPointLight {

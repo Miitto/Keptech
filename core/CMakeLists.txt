@@ -17,10 +17,10 @@ target_link_libraries(${PROJECT_NAME}
 target_sources(${PROJECT_NAME}
    PUBLIC
     FILE_SET HEADERS
-    BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-add_subdirectory(src)
+add_subdirectory(keptech)
 
 set(KT_LOG_LEVEL "DEBUG" CACHE STRING "Core log level")
 

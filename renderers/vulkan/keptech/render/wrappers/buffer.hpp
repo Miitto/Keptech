@@ -51,13 +51,15 @@ namespace kt::rdr {
     Buffer& operator=(Buffer&& other) noexcept;
     ~Buffer() { destroy(); }
 
+    const std::string& getName() const;
     [[nodiscard]] VkBufferUsageFlags getUsage() const;
     [[nodiscard]] VmaAllocationCreateFlags getAllocationFlags() const;
 
   private:
-    Buffer(VkBuffer buffer, VkDeviceSize size, VmaAllocation alloc, VmaAllocationInfo allocInfo, VkDeviceAddress gpuAddress,
-           VkBufferUsageFlags usage, VmaAllocationCreateFlags allocationFlags);
+    Buffer(std::string name, VkBuffer buffer, VkDeviceSize size, VmaAllocation alloc, VmaAllocationInfo allocInfo,
+           VkDeviceAddress gpuAddress, VkBufferUsageFlags usage, VmaAllocationCreateFlags allocationFlags);
 
+    std::string name;
     VkBuffer buffer = VK_NULL_HANDLE;
     VkDeviceSize _size = 0;
     VmaAllocation alloc = nullptr;

@@ -83,6 +83,13 @@ namespace kt::rdr {
       return tmp;
     }
 
+    constexpr PhysResourceId operator+(size_t offset) const { return PhysResourceId(id + offset); }
+
+    constexpr PhysResourceId& operator+=(size_t offset) {
+      id += offset;
+      return *this;
+    }
+
     [[nodiscard]] constexpr bool used() const { return id != ~0u; }
     [[nodiscard]] constexpr bool unused() const { return id == ~0u; }
 
@@ -122,6 +129,8 @@ namespace kt::rdr {
     VmaMemoryUsage memoryUsage = VMA_MEMORY_USAGE_AUTO;
     VmaAllocationCreateFlags allocationFlags = 0;
     bool persistent = true;
+
+    bool isHostAccessible() const;
   };
 
   struct ResourceInfo {

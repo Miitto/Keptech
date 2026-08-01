@@ -10,4 +10,6 @@ target_sources(Keptech_Logging INTERFACE
   BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
-
+target_link_libraries(Keptech_Logging INTERFACE
+  spdlog::spdlog
+)

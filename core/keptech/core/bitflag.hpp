@@ -67,20 +67,14 @@ namespace kt {
     [[nodiscard]] constexpr inline bool any() const { return flags != 0; }
 
     constexpr explicit inline operator Underlying() const { return flags; }
-    constexpr explicit inline operator T() const {
-      return static_cast<T>(flags);
-    }
+    constexpr explicit inline operator T() const { return static_cast<T>(flags); }
 
     constexpr inline T as_enum() const { return static_cast<T>(flags); }
 
     constexpr inline Underlying as_underlying() const { return flags; }
 
-    constexpr bool inline operator==(Bitflag<T> other) const {
-      return flags == other.flags;
-    }
-    constexpr bool inline operator!=(Bitflag<T> other) const {
-      return flags != other.flags;
-    }
+    constexpr bool inline operator==(Bitflag<T> other) const { return flags == other.flags; }
+    constexpr bool inline operator!=(Bitflag<T> other) const { return flags != other.flags; }
 
     constexpr inline Bitflag<T> operator~() const { return Bitflag<T>(~flags); }
 
@@ -89,13 +83,9 @@ namespace kt {
       return *this;
     }
 
-    constexpr inline bool has(T flag) const {
-      return (flags & static_cast<Underlying>(flag)) != 0;
-    }
+    constexpr inline bool has(T flag) const { return (flags & static_cast<Underlying>(flag)) != 0; }
 
-    constexpr inline bool intersects(Bitflag<T> flag) const {
-      return (flags & flag.flags) != 0;
-    }
+    constexpr inline bool intersects(Bitflag<T> flag) const { return (flags & flag.flags) != 0; }
 
     constexpr inline Bitflag& clear(T flag) {
       flags &= ~static_cast<Underlying>(flag);
@@ -107,16 +97,13 @@ namespace kt {
       return *this;
     }
 
-    constexpr inline Bitflag intersect(Bitflag<T> flag) const {
-      return Bitflag(flags & flag.flags);
-    }
+    constexpr inline Bitflag intersect(Bitflag<T> flag) const { return Bitflag(flags & flag.flags); }
 
-    constexpr inline Bitflag intersect(T flag) const {
-      return Bitflag(flags & static_cast<Underlying>(flag));
-    }
+    constexpr inline Bitflag intersect(T flag) const { return Bitflag(flags & static_cast<Underlying>(flag)); }
 
     Underlying flags;
   };
+
 } // namespace kt
 
 template <typename T>
@@ -144,21 +131,12 @@ constexpr inline kt::Bitflag<T> operator^(kt::Bitflag<T> lhs, T rhs) {
 #pragma warning(push)
 #pragma warning(disable : 26812)
 #endif
-#define DEFINE_BITFLAG_ENUM_OPERATORS(EnumType)                                \
-  constexpr inline kt::Bitflag<EnumType> operator|(EnumType lhs,               \
-                                                   EnumType rhs) {             \
-    return kt::Bitflag<EnumType>(lhs) | rhs;                                   \
-  }                                                                            \
-                                                                               \
-  constexpr inline kt::Bitflag<EnumType> operator&(EnumType lhs,               \
-                                                   EnumType rhs) {             \
-    return kt::Bitflag<EnumType>(lhs) & rhs;                                   \
-  }                                                                            \
-                                                                               \
-  constexpr inline kt::Bitflag<EnumType> operator^(EnumType lhs,               \
-                                                   EnumType rhs) {             \
-    return kt::Bitflag<EnumType>(lhs) ^ rhs;                                   \
-  }
+#define DEFINE_BITFLAG_ENUM_OPERATORS(EnumType)                                                                                            \
+  constexpr inline kt::Bitflag<EnumType> operator|(EnumType lhs, EnumType rhs) { return kt::Bitflag<EnumType>(lhs) | rhs; }                \
+                                                                                                                                           \
+  constexpr inline kt::Bitflag<EnumType> operator&(EnumType lhs, EnumType rhs) { return kt::Bitflag<EnumType>(lhs) & rhs; }                \
+                                                                                                                                           \
+  constexpr inline kt::Bitflag<EnumType> operator^(EnumType lhs, EnumType rhs) { return kt::Bitflag<EnumType>(lhs) ^ rhs; }
 #ifdef MSVC
 #pragma warning(pop)
 #endif

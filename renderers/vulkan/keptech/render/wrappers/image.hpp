@@ -35,7 +35,6 @@ namespace kt::rdr {
     ImageType type() const;
     uint8_t mips() const;
     uint8_t layers() const;
-    VkImageLayout getLayout() const;
     VkImageUsageFlags getUsage() const;
     const std::string& getName() const { return name; }
 
@@ -71,7 +70,6 @@ namespace kt::rdr {
     VkExtent3D _extent{};
     VkFormat _format{};
     ImageHandle _handle = INVALID_HANDLE;
-    VkImageLayout currentLayout = UNDEFINED_LAYOUT;
     VkImageUsageFlags usage = 0;
   };
 } // namespace kt::rdr

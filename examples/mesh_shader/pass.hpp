@@ -18,7 +18,7 @@ public:
     self.setDepthStencilOutput("kt::depth", {.format = formats.render.depth});
   }
 
-  void setup(kt::rdr::Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override {
+  void setup(kt::rdr::RenderGraph&, kt::rdr::Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override {
     auto& device = renderer.getMembers().vkcore.device;
     auto shaderRes = renderer.createShader(::shaders::mesh);
     if (!shaderRes.isOk()) {
@@ -60,7 +60,8 @@ public:
 
   void prepare(kt::rdr::RenderGraph& graph, kt::rdr::Renderer& renderer) override { KT_TRACE("Preparing geometry pass"); }
 
-  void execute(const kt::rdr::CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize) override {
+  void execute(kt::rdr::RenderGraph&, const kt::rdr::CommandBuffer& cmd, VkDescriptorSet descriptorSet,
+               glm::uvec2 framebufferSize) override {
     KT_TRACE("Executing geometry pass");
     auto& r = kt::rdr::Renderer::get();
 
@@ -79,13 +80,12 @@ public:
                          0, sizeof(glm::mat4), &modelMatrix);
 
       for (const auto& submesh : mesh.getSubmeshes()) {
-        uint32_t meshletCount = submesh.meshletCount;
-        if (meshletCount == 0) {
+        if (submesh.meshletCount == 0) {
           continue;
         }
 
         vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                           sizeof(glm::mat4), sizeof(uint32_t), &meshletCount);
+                           sizeof(glm::mat4), sizeof(uint32_t), &submesh.id);
 
         uint32_t taskShaderDispatches = (submesh.meshletCount + 63) / 64;
         vkCmdDrawMeshTasksEXT(cmd, taskShaderDispatches, 1, 1);
@@ -115,7 +115,7 @@ public:
     return true;
   }
 
-  void shutdown(kt::rdr::Renderer& renderer) override {
+  void shutdown(kt::rdr::RenderGraph&, kt::rdr::Renderer& renderer) override {
     KT_TRACE("Shutting down geometry pass");
     auto device = renderer.getMembers().vkcore.device;
     vkDestroyPipeline(device, pipeline.pipeline, nullptr);

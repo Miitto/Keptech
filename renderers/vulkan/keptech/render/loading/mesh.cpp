@@ -1,5 +1,6 @@
 #include "mesh.hpp"
 
+#include "gpuObjects.hpp"
 #include "keptech/render/gltf/data.hpp"
 #include "macros.hpp"
 #include "profile.hpp"
@@ -12,20 +13,21 @@ namespace kt::rdr::loading {
     template <typename T>
     std::expected<std::optional<Buffer>, std::string> realloc(SubdivBuffer<T>& buf, size_t newSize, VkBufferUsageFlags usage,
                                                               const std::string& name) {
-      std::optional<Buffer> reallocatedBuffer;
-      if (newSize > buf.size()) {
-        VK_DEBUG("Current {} buffer size {} is too small for {}, creating new buffer", name, buf.size(), newSize);
-        auto res = Buffer::create({newSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
-                                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                       VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                                   VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, name.c_str()});
-        if (res.isError())
-          return std::unexpected("Failed to create buffer for mesh upload");
-        SubdivBuffer<T> newBuffer(std::move(res.value()));
-        buf.copyTo(newBuffer);
-        reallocatedBuffer = std::move(*buf);
-        buf = std::move(newBuffer);
+      if (newSize < buf.size()) {
+        return std::optional<Buffer>{};
       }
+      std::optional<Buffer> reallocatedBuffer;
+      VK_DEBUG("Current {} buffer size {} is too small for {}, creating new buffer", name, buf.size(), newSize);
+      auto res = Buffer::create({newSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
+                                 VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                     VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+                                 VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, name.c_str()});
+      if (res.isError())
+        return std::unexpected("Failed to create buffer for mesh upload");
+      SubdivBuffer<T> newBuffer(std::move(res.value()));
+      buf.copyTo(newBuffer);
+      reallocatedBuffer = std::move(*buf);
+      buf = std::move(newBuffer);
       return {std::move(reallocatedBuffer)};
     }
   } // namespace
@@ -100,13 +102,13 @@ namespace kt::rdr::loading {
     size_t totalMeshletVerticesSize = meshletVertexBuffer.occupied() + newMeshletVerticesSize;
     size_t totalMeshletTrianglesSize = meshletTriangleBuffer.occupied() + newMeshletTrianglesSize;
 
-    VKH_MAKE(oldMeshletBuf, realloc(meshletBuffer, totalMeshletsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Mesh meshlet buffer"),
+    VKH_MAKE(oldMeshletBuf, realloc(meshletBuffer, totalMeshletsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "KT meshlet buffer"),
              "Failed to reallocate meshlet buffer");
     VKH_MAKE(oldMeshletVertexBuf,
-             realloc(meshletVertexBuffer, totalMeshletVerticesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Mesh meshlet vertex buffer"),
+             realloc(meshletVertexBuffer, totalMeshletVerticesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "KT meshlet vertex buffer"),
              "Failed to reallocate meshlet vertex buffer");
     VKH_MAKE(oldMeshletTriangleBuf,
-             realloc(meshletTriangleBuffer, totalMeshletTrianglesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Mesh meshlet triangle buffer"),
+             realloc(meshletTriangleBuffer, totalMeshletTrianglesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "KT meshlet triangle buffer"),
              "Failed to reallocate meshlet triangle buffer");
 
     MeshletBufferOffsets offsets{
@@ -133,16 +135,58 @@ namespace kt::rdr::loading {
     return {{.result = offsets, .reallocatedBuffers = std::move(reallocatedBuffers)}};
   }
 
+  std::expected<MaybeReallocResult<uint32_t>, std::string> uploadMeshes(const gltf::MeshData& data, SubdivBuffer<GpuMesh>& meshBuffer,
+                                                                        uint32_t indexOffset, uint32_t vertexOffset,
+                                                                        MeshletBufferOffsets meshletOffsets) {
+    KT_PROFILE_FUNCTION
+
+    size_t newMeshesSize = data.submeshes.size() * sizeof(GpuMesh);
+    size_t totalMeshesSize = meshBuffer.occupied() + newMeshesSize;
+
+    VKH_MAKE(old, realloc(meshBuffer, totalMeshesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "KT Mesh buffer"),
+             "Failed to reallocate mesh buffer");
+
+    auto count = static_cast<uint32_t>(meshBuffer.count());
+
+    std::vector<GpuMesh> gpuMeshes;
+    gpuMeshes.reserve(data.submeshes.size());
+    for (const auto& mesh : data.submeshes) {
+      GpuMesh gpuMesh{
+          .indexOffset = mesh.index.offset + indexOffset,
+          .indexCount = mesh.index.count,
+          .vertexOffset = static_cast<int32_t>(mesh.vertex.offset + vertexOffset),
+          .vertexCount = mesh.vertex.count,
+          .meshletOffset = mesh.meshlet.offset + meshletOffsets.meshlet,
+          .meshletCount = mesh.meshlet.count,
+          .meshletVertexOffset = mesh.meshlet.vertexOffset + meshletOffsets.vertex,
+          .meshletVertexCount = mesh.meshlet.vertexCount,
+          .meshletTriangleOffset = mesh.meshlet.triangleOffset + meshletOffsets.triangle,
+          .meshletTriangleCount = mesh.meshlet.triangleCount,
+          .boundingSphere = mesh.boundingSphere,
+      };
+      gpuMeshes.push_back(gpuMesh);
+    }
+    meshBuffer.write(gpuMeshes);
+
+    std::vector<Buffer> reallocatedBuffers;
+    if (old) {
+      reallocatedBuffers.push_back(std::move(*old));
+    }
+
+    return {{.result = count, .reallocatedBuffers = std::move(reallocatedBuffers)}};
+  }
+
   std::expected<std::vector<Buffer>, std::string>
   ensureBuffersAreLargeEnough(const std::vector<gltf::MeshData>& meshes, SubdivBuffer<glm::vec3>& positionBuffer,
                               SubdivBuffer<VertexAttribs>& attribBuffer, SubdivBuffer<uint32_t>& indexBuffer,
                               SubdivBuffer<Meshlet>& meshletBuffer, SubdivBuffer<uint32_t>& meshletVertexBuffer,
-                              SubdivBuffer<uint32_t>& meshletTriangleBuffer) {
+                              SubdivBuffer<uint32_t>& meshletTriangleBuffer, SubdivBuffer<GpuMesh>& meshBuffer) {
     size_t newVertexCount = 0;
     size_t newIndexCount = 0;
     size_t newMeshletCount = 0;
     size_t newMeshletVertexCount = 0;
     size_t newMeshletTriangleCount = 0;
+    size_t newMeshCount = 0;
 
     for (const auto& mesh : meshes) {
       newVertexCount += mesh.positions.size();
@@ -150,6 +194,7 @@ namespace kt::rdr::loading {
       newMeshletCount += mesh.meshlets.size();
       newMeshletVertexCount += mesh.meshletVertices.size();
       newMeshletTriangleCount += mesh.meshletTriangles.size();
+      newMeshCount += mesh.submeshes.size();
     }
 
     size_t newPositionsSize = newVertexCount * sizeof(glm::vec3);
@@ -158,6 +203,7 @@ namespace kt::rdr::loading {
     size_t newMeshletsSize = newMeshletCount * sizeof(Meshlet);
     size_t newMeshletVerticesSize = newMeshletVertexCount * sizeof(uint32_t);
     size_t newMeshletTrianglesSize = newMeshletTriangleCount * sizeof(uint32_t);
+    size_t newMeshesSize = newMeshCount * sizeof(GpuMesh);
 
     size_t totalPositionsSize = positionBuffer.occupied() + newPositionsSize;
     size_t totalVertexAttribsSize = attribBuffer.occupied() + newVertexAttribsSize;
@@ -165,6 +211,7 @@ namespace kt::rdr::loading {
     size_t totalMeshletsSize = meshletBuffer.occupied() + newMeshletsSize;
     size_t totalMeshletVerticesSize = meshletVertexBuffer.occupied() + newMeshletVerticesSize;
     size_t totalMeshletTrianglesSize = meshletTriangleBuffer.occupied() + newMeshletTrianglesSize;
+    size_t totalMeshesSize = meshBuffer.occupied() + newMeshesSize;
 
 #if RENDERER_LOG_LEVEL <= SPDLOG_LEVEL_DEBUG
     VK_DEBUG("Ensuring buffers are large enough for mesh upload:");
@@ -203,45 +250,56 @@ namespace kt::rdr::loading {
     } else {
       VK_DEBUG("  Meshlet Triangle Buffer: {} bytes (sufficient)", meshletTriangleBuffer.size());
     }
+    if (totalMeshesSize > meshBuffer.size()) {
+      VK_DEBUG("  Mesh Buffer: {} bytes -> {} bytes (+{})", meshBuffer.size(), totalMeshesSize, totalMeshesSize - meshBuffer.size());
+    } else {
+      VK_DEBUG("  Mesh Buffer: {} bytes (sufficient)", meshBuffer.size());
+    }
 #endif
 
     std::vector<Buffer> reallocatedBuffers;
-    VKH_MAKE(oldPosBuf, realloc(positionBuffer, totalPositionsSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "Mesh vertex position buffer"),
+    VKH_MAKE(oldPosBuf, realloc(positionBuffer, totalPositionsSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "KT vertex position buffer"),
              "Failed to reallocate vertex position buffer");
     if (oldPosBuf) {
       reallocatedBuffers.push_back(std::move(*oldPosBuf));
     }
 
-    VKH_MAKE(oldAttribBuf, realloc(attribBuffer, totalVertexAttribsSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "Mesh vertex attrib buffer"),
+    VKH_MAKE(oldAttribBuf, realloc(attribBuffer, totalVertexAttribsSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "KT vertex attrib buffer"),
              "Failed to reallocate vertex attrib buffer");
     if (oldAttribBuf) {
       reallocatedBuffers.push_back(std::move(*oldAttribBuf));
     }
 
-    VKH_MAKE(oldIndexBuf, realloc(indexBuffer, totalIndicesSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, "Mesh index buffer"),
+    VKH_MAKE(oldIndexBuf, realloc(indexBuffer, totalIndicesSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, "KT index buffer"),
              "Failed to reallocate index buffer");
     if (oldIndexBuf) {
       reallocatedBuffers.push_back(std::move(*oldIndexBuf));
     }
 
-    VKH_MAKE(oldMeshletBuf, realloc(meshletBuffer, totalMeshletsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Mesh meshlet buffer"),
+    VKH_MAKE(oldMeshletBuf, realloc(meshletBuffer, totalMeshletsSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "KT meshlet buffer"),
              "Failed to reallocate meshlet buffer");
     if (oldMeshletBuf) {
       reallocatedBuffers.push_back(std::move(*oldMeshletBuf));
     }
 
     VKH_MAKE(oldMeshletVertexBuf,
-             realloc(meshletVertexBuffer, totalMeshletVerticesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Mesh meshlet vertex buffer"),
+             realloc(meshletVertexBuffer, totalMeshletVerticesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "KT meshlet vertex buffer"),
              "Failed to reallocate meshlet vertex buffer");
     if (oldMeshletVertexBuf) {
       reallocatedBuffers.push_back(std::move(*oldMeshletVertexBuf));
     }
 
     VKH_MAKE(oldMeshletTriangleBuf,
-             realloc(meshletTriangleBuffer, totalMeshletTrianglesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Mesh meshlet triangle buffer"),
+             realloc(meshletTriangleBuffer, totalMeshletTrianglesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "KT meshlet triangle buffer"),
              "Failed to reallocate meshlet triangle buffer");
     if (oldMeshletTriangleBuf) {
       reallocatedBuffers.push_back(std::move(*oldMeshletTriangleBuf));
+    }
+
+    VKH_MAKE(oldMeshBuf, realloc(meshBuffer, totalMeshesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "KT mesh buffer"),
+             "Failed to reallocate mesh buffer");
+    if (oldMeshBuf) {
+      reallocatedBuffers.push_back(std::move(*oldMeshBuf));
     }
 
     return std::move(reallocatedBuffers);

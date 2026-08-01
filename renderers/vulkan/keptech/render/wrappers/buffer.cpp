@@ -11,7 +11,7 @@ namespace kt::rdr {
 
   [[nodiscard]] bool Buffer::isMapped() const { return allocInfo.pMappedData != nullptr; }
   [[nodiscard]] uint8_t* Buffer::mapping(VkDeviceSize offset) const { return static_cast<uint8_t*>(allocInfo.pMappedData) + offset; }
-  [[nodiscard]] size_t Buffer::size() const { return allocInfo.size; }
+  [[nodiscard]] size_t Buffer::size() const { return _size; }
   [[nodiscard]] VkDeviceAddress Buffer::address() const { return gpuAddress; }
   Buffer::operator VkBuffer() const { return buffer; }
 
@@ -79,7 +79,7 @@ namespace kt::rdr {
       r->setDebugName(buffer, info.getName());
     }
 
-    return Buffer(buffer, bufInfo.size, alloc, aInfo, address, bufInfo.usage, info.getAllocInfo().flags);
+    return Buffer(info.getName(), buffer, bufInfo.size, alloc, aInfo, address, bufInfo.usage, info.getAllocInfo().flags);
   }
 
   void Buffer::destroy() {
@@ -92,7 +92,8 @@ namespace kt::rdr {
     }
   }
   Buffer::Buffer(Buffer&& other) noexcept
-      : buffer(other.buffer), _size(other._size), alloc(other.alloc), allocInfo(other.allocInfo), gpuAddress(other.gpuAddress) {
+      : name(std::move(other.name)), buffer(other.buffer), _size(other._size), alloc(other.alloc), allocInfo(other.allocInfo),
+        gpuAddress(other.gpuAddress) {
     other.buffer = VK_NULL_HANDLE;
     other._size = 0;
     other.alloc = nullptr;
@@ -101,6 +102,7 @@ namespace kt::rdr {
   }
   Buffer& Buffer::operator=(Buffer&& other) noexcept {
     if (this != &other) {
+      name = std::move(other.name);
       buffer = other.buffer;
       _size = other._size;
       alloc = other.alloc;
@@ -115,11 +117,14 @@ namespace kt::rdr {
     }
     return *this;
   }
+
+  const std::string& Buffer::getName() const { return name; }
   [[nodiscard]] VkBufferUsageFlags Buffer::getUsage() const { return usage; }
   [[nodiscard]] VmaAllocationCreateFlags Buffer::getAllocationFlags() const { return allocationFlags; }
-  Buffer::Buffer(VkBuffer buffer, VkDeviceSize size, VmaAllocation alloc, VmaAllocationInfo allocInfo, VkDeviceAddress gpuAddress,
-                 VkBufferUsageFlags usage, VmaAllocationCreateFlags allocationFlags)
-      : buffer(buffer), _size(size), alloc(alloc), allocInfo(allocInfo), gpuAddress(gpuAddress), usage(usage),
+
+  Buffer::Buffer(std::string name, VkBuffer buffer, VkDeviceSize size, VmaAllocation alloc, VmaAllocationInfo allocInfo,
+                 VkDeviceAddress gpuAddress, VkBufferUsageFlags usage, VmaAllocationCreateFlags allocationFlags)
+      : name(std::move(name)), buffer(buffer), _size(size), alloc(alloc), allocInfo(allocInfo), gpuAddress(gpuAddress), usage(usage),
         allocationFlags(allocationFlags) {}
 
 } // namespace kt::rdr

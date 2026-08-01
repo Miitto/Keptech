@@ -16,27 +16,31 @@ namespace kt::cameras {
     float& getSensitivity() { return sens; }
     u8& getPanButton() { return controlButton; }
 
+    /// Handle an event and update the camera's transform accordingly. Returns true if the event was handled, false otherwise.
     bool handleEvent(Event& event, Timestep) override {
       if (!isValid())
         return false;
 
       EventDispatcher ed{event};
 
-      if (sizeToWindow)
-        ed.dispatch<WindowResizeEvent>([&, this](WindowResizeEvent& e) {
-          onViewportResize(e.size);
-          return true;
-        });
+      if (sizeToWindow) {
+      }
+      if (ed.dispatch<WindowResizeEvent>([&, this](WindowResizeEvent& e) {
+            onViewportResize(e.size);
+            return Propagation::Bubble;
+          }))
+        return false; // Even though we did work, window resizing is kinda important so keep it going.
 
       auto& camTransform = cameraEntity.getComponents<kt::components::Transform>();
 
       auto& input = Input::get();
       bool moving = input.isMouseButtonDown(controlButton);
 
+      bool handled = false;
       if (moving) {
-        bool handled = ed.dispatch<MouseMovedEvent>([&, this](MouseMovedEvent& e) {
+        ed.dispatch<MouseMovedEvent>([&, this](MouseMovedEvent& e) {
           if (!moving)
-            return false;
+            return Propagation::Bubble;
 
           auto& rot = camTransform.getLocalMut().rot();
 
@@ -66,13 +70,11 @@ namespace kt::cameras {
 
           rot = glm::quat(glm::radians(euler));
 
-          return true;
+          handled = true;
+          return Propagation::None;
         });
-
-        return handled;
       }
-
-      return false;
+      return handled;
     }
 
     void update(Timestep dt) override {

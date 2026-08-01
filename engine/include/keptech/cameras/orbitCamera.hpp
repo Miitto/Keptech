@@ -14,6 +14,7 @@ namespace kt::cameras {
     float& getSensitivity() { return sens; }
     int& getPanButton() { return panButton; }
 
+    /// Handle an event and update the camera's transform accordingly. Returns true if the event was handled, false otherwise.
     bool handleEvent(Event& event, Timestep) override {
       if (!isValid())
         return false;
@@ -21,30 +22,31 @@ namespace kt::cameras {
       EventDispatcher ed{event};
 
       if (sizeToWindow)
-        ed.dispatch<WindowResizeEvent>([&, this](WindowResizeEvent& e) {
-          onViewportResize(e.size);
-          return true;
-        });
+        if (ed.dispatch<WindowResizeEvent>([&, this](WindowResizeEvent& e) {
+              onViewportResize(e.size);
+              return Propagation::Bubble;
+            }))
+          return false; // Even though we did work, window resizing is kinda important so keep it going.
 
       if (ed.dispatch<MouseButtonPressEvent>([this](MouseButtonPressEvent& e) {
             if (e.button == panButton) {
               panning = true;
-              return true;
+              return Propagation::None;
             }
-            return false;
+            return Propagation::Bubble;
           }) ||
 
           ed.dispatch<MouseButtonReleaseEvent>([this](MouseButtonReleaseEvent& e) {
             if (e.button == panButton) {
               panning = false;
-              return true;
+              return Propagation::None;
             }
-            return false;
+            return Propagation::Bubble;
           }) ||
 
           ed.dispatch<MouseMovedEvent>([this](MouseMovedEvent& e) {
             if (!panning)
-              return false;
+              return Propagation::Bubble;
 
             yaw += e.movement.x * sens;
             pitch += e.movement.y * sens;
@@ -55,13 +57,13 @@ namespace kt::cameras {
               yaw -= 360;
             pitch = std::clamp(pitch, -89.f, 89.f);
 
-            return true;
+            return Propagation::None;
           }) ||
 
           ed.dispatch<MouseScrolledEvent>([this](MouseScrolledEvent& e) {
             zoom -= e.offset.y;
             zoom = std::max(zoom, 1.f);
-            return true;
+            return Propagation::None;
           })) {
         auto& camTransform = cameraEntity.getComponents<kt::components::Transform>();
 

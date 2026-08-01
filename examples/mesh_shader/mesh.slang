@@ -2,7 +2,7 @@ import keptech;
 
 struct PushConstants {
   float4x4 modelMatrix;
-  uint meshletCount;
+  uint meshId;
 };
 
 struct VertexOutput {
@@ -23,8 +23,10 @@ groupshared Atomic<uint> visibleMeshlets;
 [shader("task")]
 [numthreads(TASK_SHADER_DISPATCH_SIZE, 1, 1)]
 void task(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
+  kt::Mesh mesh = (*kt::buffers).meshes[PC.meshId];
+
   uint groupMeshletOffset = gid.x * TASK_SHADER_DISPATCH_SIZE;
-  uint totalMeshlets = PC.meshletCount;
+  uint totalMeshlets = mesh.meshletCount;
 
   if (gtid.x == 0) {
     visibleMeshlets.store(0);
@@ -36,7 +38,7 @@ void task(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConst
   uint meshletCount = min(TASK_SHADER_DISPATCH_SIZE, totalMeshlets - groupMeshletOffset);
   if (gtid.x < meshletCount) {
     uint idx = groupMeshletOffset + gtid.x;
-    kt::Meshlet meshlet = (*kt::buffers).meshlets[idx];
+    kt::Meshlet meshlet = (*kt::buffers).meshlets[mesh.meshletOffset + idx];
 
     bool inFrustum = (*kt::camera).canSee(meshlet.bounds.apply(PC.modelMatrix));
     uint count = inFrustum; // Quick boolean to int conversion for WaveActiveSum.
@@ -79,15 +81,16 @@ void mesh(in payload Payload payload, out indices uint3 triangles[kt::MAX_TRIANG
           out vertices VertexOutput vertices[kt::MAX_VERTICES_PER_MESHLET], uint3 dispatchId: SV_DispatchThreadID,
           uint3 groupId: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
   let buffers = *kt::buffers;
+  let mesh = buffers.meshes[PC.meshId];
 
   uint meshletId = payload.groupMeshletOffset + payload.meshletIndices[groupId.x];
 
-  if (meshletId >= PC.meshletCount) {
+  if (meshletId >= mesh.meshletCount) {
     SetMeshOutputCounts(0, 0);
     return;
   }
 
-  kt::Meshlet meshlet = buffers.meshlets[meshletId];
+  kt::Meshlet meshlet = buffers.meshlets[mesh.meshletOffset + meshletId];
 
   let mvp = (*kt::camera).makeMvp(PC.modelMatrix);
 
@@ -101,14 +104,14 @@ void mesh(in payload Payload payload, out indices uint3 triangles[kt::MAX_TRIANG
 
   uint instanceId = gtid.x;
   for (uint i = instanceId; i < meshlet.vertexCount; i += MESH_SHADER_DISPATCH_SIZE) {
-    uint vIdx = buffers.meshletVertices[meshlet.vertexOffset + i];
+    uint vIdx = buffers.meshletVertices[mesh.meshletVertexOffset + meshlet.vertexOffset + i];
     float3 position = buffers.positions[vIdx];
     vertices[i].position = mul(float4(position, 1.0), mvp);
     vertices[i].color = float4(color, 1.f);
   }
 
   for (uint i = instanceId; i < meshlet.triangleCount; i += MESH_SHADER_DISPATCH_SIZE) {
-    uint tOffset = meshlet.triangleOffset + i * 3;
+    uint tOffset = mesh.meshletTriangleOffset + meshlet.triangleOffset + i * 3;
     uint idx0 = buffers.meshletTriangles[tOffset + 0];
     uint idx1 = buffers.meshletTriangles[tOffset + 1];
     uint idx2 = buffers.meshletTriangles[tOffset + 2];

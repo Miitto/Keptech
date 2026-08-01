@@ -1,6 +1,4 @@
-#pragma once
-
-#include "keptech/core/scene.hpp"
+#include "scene.hpp"
 #include "keptech/components/transform.hpp"
 
 namespace kt {

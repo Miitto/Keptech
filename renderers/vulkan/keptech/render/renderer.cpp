@@ -96,7 +96,7 @@ namespace kt::rdr {
     }
   }
 
-  void Renderer::startFrame() {
+  maths::Frustum Renderer::startFrame() {
     KT_PROFILE_FUNCTION
 
     m.frameInfo.perFrame->pools.resetAll();
@@ -107,7 +107,7 @@ namespace kt::rdr {
     updateBufferPointers();
 
     components::Transform::recalcAllTransforms(Scene::active().getEcs());
-    passes::writeCameraData(m.buffers, Scene::active().getActiveCamera(), m.window->getRenderSize(), m.frameInfo.index);
+    return passes::writeCameraData(m.buffers, Scene::active().getActiveCamera(), m.window->getRenderSize(), m.frameInfo.index);
   }
 
   void Renderer::renderImGui(VkCommandBuffer cmdBuf) {

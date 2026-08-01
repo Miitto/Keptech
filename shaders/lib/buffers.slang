@@ -12,6 +12,7 @@ public struct Buffers {
   public uint *meshletVertices;
   public uint *meshletTriangles;
   public Material *materials;
+  public Mesh *meshes;
 };
 
 public property ConstantBuffer<Camera>.Handle camera {

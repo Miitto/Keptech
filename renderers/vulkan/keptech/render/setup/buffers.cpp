@@ -36,6 +36,7 @@ namespace {
   constexpr size_t INITIAL_MESHLET_COUNT = 100;
   constexpr size_t INITIAL_MESHLET_VERTEX_COUNT = INITIAL_MESHLET_COUNT * kt::constants::VERTICES_PER_MESHLET;
   constexpr size_t INITIAL_MESHLET_PRIMITIVE_COUNT = INITIAL_MESHLET_COUNT * kt::constants::PRIMITIVES_PER_MESHLET;
+  constexpr size_t INITIAL_MESH_COUNT = 100;
 } // namespace
 
 namespace kt::rdr {
@@ -81,6 +82,7 @@ namespace kt::rdr {
              "Failed to create meshlet vertex buffer.");
     VKH_MAKE(meshletPrimitiveBuffer, createBufferT<uint8_t>(INITIAL_MESHLET_PRIMITIVE_COUNT, "Meshlet Primitive Buffer", 0, true),
              "Failed to create meshlet primitive buffer.");
+    VKH_MAKE(meshBuffer, createBufferT<GpuMesh>(INITIAL_MESH_COUNT, "Mesh Buffer", 0, true), "Failed to create mesh buffer.");
 
     std::array<PerFrameBuffers, MAX_FRAMES_IN_FLIGHT> perFrameBuffers;
 
@@ -125,6 +127,7 @@ namespace kt::rdr {
     m.buffers.meshletVertices = std::move(meshletVertexBuffer);
     m.buffers.meshletTriangles = std::move(meshletPrimitiveBuffer);
     m.buffers.materials = std::move(gpuMaterials);
+    m.buffers.meshes = std::move(meshBuffer);
     m.buffers.perFrame = std::move(perFrameBuffers);
 
     return {};

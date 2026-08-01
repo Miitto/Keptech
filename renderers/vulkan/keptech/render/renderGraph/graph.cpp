@@ -1,9 +1,11 @@
 #include "graph.hpp"
 #include "helpers/transitions.hpp"
 #include "interface.hpp"
+#include "keptech/maths/frustum.hpp"
 #include "passInterface.hpp"
 #include "profile.hpp"
 #include "renderer.hpp"
+#include "wrappers/bufferCreateInfo.hpp"
 #include "wrappers/imageCreateInfo.hpp"
 #include <vector>
 
@@ -20,7 +22,7 @@ namespace kt::rdr {
 
     updateDescriptors();
 
-    renderer.startFrame();
+    auto frustum = renderer.startFrame();
     auto& m = renderer.getMembers();
 
     auto& sem = m.vkcore.mainSemaphore;
@@ -245,37 +247,21 @@ namespace kt::rdr {
     }
   }
 
-  [[nodiscard]] const std::vector<RenderPass>& RenderGraph::getPasses() const { return passes; }
-  [[nodiscard]] const std::vector<bool>& RenderGraph::getPhysicalImageHasHistory() const { return resources.physicalImageHasHistory; }
-  [[nodiscard]] size_t RenderGraph::getImageIndex(const std::string& name) const {
-    auto it = resources.nameToImage.find(name);
-    VK_REQUIRE(it != resources.nameToImage.end(), "Image resource with name '{}' not found in render graph", name);
-    return it->second;
-  }
-  [[nodiscard]] size_t RenderGraph::getBufferIndex(const std::string& name) const {
-    auto it = resources.nameToBuffer.find(name);
-    VK_REQUIRE(it != resources.nameToBuffer.end(), "Buffer resource with name '{}' not found in render graph", name);
-    return it->second;
-  }
-  [[nodiscard]] const Image& RenderGraph::getImage(size_t index) const {
-    VK_REQUIRE(index < resources.images.size(), "Image index {} is out of bounds (size: {})", index, resources.images.size());
-    return resources.images[index];
-  }
-  [[nodiscard]] const Buffer& RenderGraph::getBuffer(size_t index) const {
-    VK_REQUIRE(index < resources.buffers.size(), "Buffer index {} is out of bounds (size: {})", index, resources.buffers.size());
-    return resources.buffers[index];
-  }
-
   void RenderGraph::executeGraphicsPass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd) {
     KT_PROFILE_FUNCTION
-    beginRendering(pass, cmd);
+    if (pass.getAutoBeginRendering())
+      beginRendering(pass, cmd);
 
-    auto& img = resources.images[pass.getExtentSourceId()];
+    glm::uvec3 extent{};
+    if (pass.getExtentSourceId().used())
+      extent = resources.images[pass.getExtentSourceId()].extent();
+
     auto set = passDescriptors[passIdx].sets[Renderer::get().getMembers().frameInfo.index];
 
-    pass.execute(cmd, set, img.extent());
+    pass.execute(cmd, set, extent);
 
-    cmd.endRendering();
+    if (pass.getAutoBeginRendering())
+      cmd.endRendering();
   }
 
   void RenderGraph::executeComputePass(size_t passIdx, RenderPass& pass, CommandBuffer& cmd) {
@@ -446,12 +432,14 @@ namespace kt::rdr {
     for (auto& buf : resources.buffers)
       buf.destroy();
   }
+
   void RenderGraph::setBackbufferSource(const std::string& name) {
     auto it = resources.nameToImage.find(name);
     VK_REQUIRE(it != resources.nameToImage.end(), "Backbuffer source '{}' not found in render graph", name);
     backbufferSourceIndex = it->second;
     VK_DEBUG("Backbuffer source set to '{}' (index {})", name, backbufferSourceIndex);
   }
+
   [[nodiscard]] const Image& RenderGraph::getBackbufferImage() const {
     VK_REQUIRE(backbufferSourceIndex < resources.images.size(), "Backbuffer source index {} is out of bounds (size: {})",
                backbufferSourceIndex, resources.images.size());
@@ -469,6 +457,7 @@ namespace kt::rdr {
     }
     LOG("");
   }
+
   RenderGraph::RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
                            VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors)
       : passGroups(std::move(passGroups)), passes(std::move(passes)), resources(std::move(resources)), descriptorPool(descriptorPool),
@@ -480,6 +469,100 @@ namespace kt::rdr {
         computeQueuePassCount += group.count;
       } // Shouldn't be any normal compute queue groups as they have been compacted into the graphics queue groups.
     }
+
+    for (auto& pass : this->passes) {
+      pass.setGraph(*this);
+    }
+  }
+
+  [[nodiscard]] const std::vector<RenderPass>& RenderGraph::getPasses() const { return passes; }
+  [[nodiscard]] const std::vector<bool>& RenderGraph::getPhysicalImageHasHistory() const { return resources.physicalImageHasHistory; }
+  [[nodiscard]] size_t RenderGraph::getImageIndex(const std::string& name) const {
+    auto it = resources.nameToImage.find(name);
+    VK_ASSERT(it != resources.nameToImage.end(), "Image resource with name '{}' not found in render graph", name);
+    return it->second;
+  }
+  [[nodiscard]] size_t RenderGraph::getBufferIndex(const std::string& name) const {
+    auto it = resources.nameToBuffer.find(name);
+    VK_ASSERT(it != resources.nameToBuffer.end(), "Buffer resource with name '{}' not found in render graph", name);
+    return it->second;
+  }
+  [[nodiscard]] const Image& RenderGraph::getImage(size_t index) const {
+    VK_ASSERT(index < resources.images.size(), "Image index {} is out of bounds (size: {})", index, resources.images.size());
+    return resources.images[index];
+  }
+  [[nodiscard]] const Buffer& RenderGraph::getBuffer(size_t index) const {
+    VK_ASSERT(index < resources.buffers.size(), "Buffer index {} is out of bounds (size: {})", index, resources.buffers.size());
+    return resources.buffers[index];
+  }
+  const Buffer& RenderGraph::getFrameBuffer(size_t index) const {
+    VK_ASSERT(index < resources.buffers.size(), "Buffer index {} is out of bounds (size: {})", index, resources.buffers.size());
+    VK_ASSERT(resources.buffers[index].isMapped(), "Called getFrameBuffer on a buffer that is not per-frame.");
+    auto& buf = resources.buffers[index + Renderer::get().getFrameIndex()];
+    return buf;
+  }
+
+  const Buffer& RenderGraph::reallocateBuffer(size_t index, size_t newSize, bool copyOldData) {
+    VK_ASSERT(index < resources.buffers.size(), "Buffer index {} is out of bounds (size: {})", index, resources.buffers.size());
+    auto& buf = resources.buffers[index];
+    auto newBufRes = Buffer::create({
+        newSize,
+        buf.getUsage(),
+        buf.getAllocationFlags(),
+        VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
+        buf.getName().c_str(),
+    });
+    if (!newBufRes) {
+      VK_ABORT("Failed to reallocate buffer '{}': {}", buf.getName(), newBufRes.error());
+    }
+
+    if (copyOldData) {
+      VK_ASSERT(buf.isMapped(),
+                "Cannot copy old data from buffer '{}' because it is not mapped. You will need to explicitly manage the data transfer.",
+                buf.getName());
+      std::memcpy(newBufRes.value().mapping(), buf.mapping(), std::min(buf.size(), newSize));
+    }
+
+    buffersToDrop[Renderer::get().getLastFrameIndex()].push_back(std::move(buf));
+    resources.buffers[index] = std::move(newBufRes.value());
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+      buffersToUpdate[i].push_back(index);
+    }
+    updateDescriptors();
+
+    return buffersToDrop[Renderer::get().getLastFrameIndex()].back();
+  }
+
+  const Buffer& RenderGraph::reallocatePerFrameBuffer(size_t gindex, size_t newSize, bool copyOldData) {
+    VK_ASSERT(gindex < resources.buffers.size(), "Buffer index {} is out of bounds (size: {})", gindex, resources.buffers.size());
+    VK_REQUIRE(resources.buffers[gindex].isMapped(), "Buffer at index {} is not a per-frame buffer.", gindex);
+
+    size_t index = gindex + Renderer::get().getFrameIndex();
+
+    auto& buf = resources.buffers[index];
+
+    auto newBufRes = Buffer::create({
+        newSize,
+        buf.getUsage(),
+        buf.getAllocationFlags(),
+        VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
+        buf.getName().c_str(),
+    });
+    if (!newBufRes) {
+      VK_ABORT("Failed to reallocate per-frame buffer '{}': {}", buf.getName(), newBufRes.error());
+    }
+
+    if (copyOldData) {
+      std::memcpy(newBufRes.value().mapping(), buf.mapping(), std::min(buf.size(), newSize));
+    }
+
+    buffersToDrop[Renderer::get().getLastFrameIndex()].push_back(std::move(buf));
+    resources.buffers[index] = std::move(newBufRes.value());
+    buffersToUpdate[Renderer::get().getFrameIndex()].push_back(index);
+
+    updateDescriptors();
+
+    return buffersToDrop[Renderer::get().getLastFrameIndex()].back();
   }
 
   VkImageLayout RenderPass::getDepthStencilLayout() const { return depthStencilLayout; }
@@ -500,7 +583,7 @@ namespace kt::rdr {
   void RenderPass::setGetClearColorCallback(std::function<bool(uint32_t, VkClearColorValue*)>&& cb) { getClearColorCb = std::move(cb); }
   void RenderPass::setup(Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) {
     if (interface)
-      interface->setup(renderer, descriptorSetLayout);
+      interface->setup(*graph, renderer, descriptorSetLayout);
   }
   void RenderPass::prepare(Renderer& renderer) {
     if (interface)
@@ -508,14 +591,14 @@ namespace kt::rdr {
   }
   void RenderPass::execute(const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec3 framebufferSize) {
     if (interface) {
-      interface->execute(cmd, descriptorSet, framebufferSize);
+      interface->execute(*graph, cmd, descriptorSet, framebufferSize);
     } else if (buildCb) {
       buildCb(cmd, descriptorSet, framebufferSize);
     }
   }
   void RenderPass::shutdown(Renderer& renderer) {
     if (interface)
-      interface->shutdown(renderer);
+      interface->shutdown(*graph, renderer);
   }
   bool RenderPass::getClearColor(uint32_t attachmentIndex, VkClearColorValue* value) const {
     if (interface)

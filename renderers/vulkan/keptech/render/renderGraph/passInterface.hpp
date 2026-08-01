@@ -38,7 +38,7 @@ namespace kt::rdr {
     virtual void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph, const Renderer& renderer) {}
 
     /// Called once after the render graph has been built.
-    virtual void setup(Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) {}
+    virtual void setup(RenderGraph& graph, Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) {}
 
     /// Called before the pass is executed. This is where you should update any resources that are used by the pass.
     virtual void prepare(RenderGraph& graph, Renderer& renderer) {}
@@ -46,10 +46,10 @@ namespace kt::rdr {
     /// @param cmd The command buffer to record commands to.
     /// @param descriptorSet The descriptor set for the pass. This is populated with the resources that were specified during setup.
     /// @param framebufferSize The size of the framebuffer for this pass. This is useful for setting the viewport and scissor.
-    virtual void execute(const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize = {}) {}
+    virtual void execute(RenderGraph& graph, const CommandBuffer& cmd, VkDescriptorSet descriptorSet, glm::uvec2 framebufferSize = {}) {}
 
     /// Called when the render graph is destroyed.
-    virtual void shutdown(Renderer& renderer) {}
+    virtual void shutdown(RenderGraph& graph, Renderer& renderer) {}
 
 #if __clang__
 #pragma clang diagnostic pop

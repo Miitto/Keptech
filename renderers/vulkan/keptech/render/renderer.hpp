@@ -24,6 +24,10 @@ namespace kt {
   namespace shaders {
     struct Shader;
   }
+
+  namespace maths {
+    class Frustum;
+  }
 } // namespace kt
 
 namespace kt::rdr {
@@ -106,7 +110,6 @@ namespace kt::rdr {
     Frame frameInfo{};
 
     Indices indices{};
-    uint32_t nextMeshIndex = 0;
 
     std::vector<LoadedImage> loadedTextures{};
     std::vector<Buffer> loadedBuffers{};
@@ -216,7 +219,7 @@ namespace kt::rdr {
 
     /// Called before rendering each frame. This function handles starting the ImGui frame, and any other per-frame setup that needs to be
     /// done before rendering. Is called internally by the engine during the render loop.
-    void startFrame();
+    maths::Frustum startFrame();
 
     /// @brief Registers a draw call for statistics tracking. Will be shown in the renderer debug UI.
     /// @note Is called by CommandBuffer::draw and CommandBuffer::drawIndexed internally.

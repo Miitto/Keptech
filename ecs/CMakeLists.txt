@@ -8,9 +8,8 @@ add_library(keptech::ecs ALIAS ${PROJECT_NAME})
 KT_SETUP_TARGET(${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME}
-  PRIVATE
-    keptech::logging
   PUBLIC
+    keptech::logging
     EnTT::EnTT
 )
 
@@ -18,9 +17,7 @@ target_link_libraries(${PROJECT_NAME}
 target_sources(${PROJECT_NAME}
    PUBLIC
     FILE_SET HEADERS
-    BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
+   PRIVATE
+    keptech/ecs/ecs-logger.cpp
 )
-
-add_subdirectory(src)
-
-target_link_libraries(${PROJECT_NAME} PUBLIC keptech::core)
