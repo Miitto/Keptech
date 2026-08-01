@@ -158,7 +158,7 @@ namespace kt::rdr {
     RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
                 VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors);
 
-    maths::Frustum engineCameraFrustum;
+    maths::Frustum engineCameraFrustum{};
 
     size_t graphicsQueuePassCount = 0;
     size_t computeQueuePassCount = 0;

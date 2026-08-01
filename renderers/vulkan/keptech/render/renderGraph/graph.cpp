@@ -1,7 +1,6 @@
 #include "graph.hpp"
 #include "helpers/transitions.hpp"
 #include "interface.hpp"
-#include "keptech/maths/frustum.hpp"
 #include "passInterface.hpp"
 #include "profile.hpp"
 #include "renderer.hpp"
@@ -22,7 +21,7 @@ namespace kt::rdr {
 
     updateDescriptors();
 
-    auto frustum = renderer.startFrame();
+    engineCameraFrustum = renderer.startFrame();
     auto& m = renderer.getMembers();
 
     auto& sem = m.vkcore.mainSemaphore;

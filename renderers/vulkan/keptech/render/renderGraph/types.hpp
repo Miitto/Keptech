@@ -210,8 +210,8 @@ namespace kt::rdr {
   };
 
   struct UsedInPass {
-    size_t passIndex;
-    uint32_t binding;
+    size_t passIndex = ~0u;
+    uint32_t binding = ~0u;
     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
   };

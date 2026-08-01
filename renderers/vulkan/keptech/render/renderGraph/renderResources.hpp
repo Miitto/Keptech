@@ -35,8 +35,8 @@ namespace kt::rdr {
     [[nodiscard]] Type getType() const { return _type; }
     [[nodiscard]] size_t getId() const { return _id; }
     [[nodiscard]] const std::string& getName() const { return name; }
-    RenderResource& setName(const std::string& name) {
-      this->name = name;
+    RenderResource& setName(const std::string& n) {
+      this->name = n;
       return *this;
     }
 
@@ -60,14 +60,14 @@ namespace kt::rdr {
   public:
     explicit RenderBufferResource(ResourceId id) : RenderResource(RenderResource::Type::Buffer, id) {}
 
-    RenderBufferResource& setBufferInfo(const BufferInfo& info) {
-      this->info = info;
+    RenderBufferResource& setBufferInfo(const BufferInfo& i) {
+      this->info = i;
       return *this;
     }
     [[nodiscard]] const BufferInfo& getBufferInfo() const { return info; }
 
-    RenderBufferResource& addBufferUsage(VkBufferUsageFlags usage) {
-      this->usage |= usage;
+    RenderBufferResource& addBufferUsage(VkBufferUsageFlags u) {
+      this->usage |= u;
       return *this;
     }
     [[nodiscard]] VkBufferUsageFlags getBufferUsage() const { return usage; }
@@ -81,20 +81,20 @@ namespace kt::rdr {
   public:
     explicit RenderTextureResource(ResourceId id) : RenderResource(RenderResource::Type::Texture, id) {}
 
-    RenderTextureResource& setAttachmentInfo(const AttachmentInfo& info) {
-      this->info = info;
+    RenderTextureResource& setAttachmentInfo(const AttachmentInfo& i) {
+      this->info = i;
       return *this;
     }
     [[nodiscard]] const AttachmentInfo& getAttachmentInfo() const { return info; }
 
-    RenderTextureResource& addImageUsage(VkImageUsageFlags usage) {
-      this->usage |= usage;
+    RenderTextureResource& addImageUsage(VkImageUsageFlags u) {
+      this->usage |= u;
       return *this;
     }
     [[nodiscard]] VkImageUsageFlags getImageUsage() const { return usage; }
 
-    RenderTextureResource& setTransient(bool transient) {
-      this->transient = transient;
+    RenderTextureResource& setTransient(bool t) {
+      this->transient = t;
       return *this;
     }
     [[nodiscard]] bool isTransient() const { return transient; }

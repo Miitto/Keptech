@@ -420,13 +420,13 @@ namespace kt::rdr {
       VK_REQUIRE(vkAllocateDescriptorSets(members.vkcore.device, &allocInfo, sets.data()) == VK_SUCCESS,
                  "Failed to allocate descriptor sets for pass '{}'", pass->getName());
 
-      for (const auto& [idx, set] : sets | std::views::enumerate) {
+      for (const auto& [setIdx, set] : sets | std::views::enumerate) {
         for (auto& write : writes) {
           write.dstSet = set;
         }
 
         for (auto pfw : perFrameWrites) {
-          writes[pfw.writeIndex].pBufferInfo = &bufferInfos[pfw.bufferIndex + idx];
+          writes[pfw.writeIndex].pBufferInfo = &bufferInfos[pfw.bufferIndex + static_cast<size_t>(setIdx)];
         }
 
         vkUpdateDescriptorSets(members.vkcore.device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
