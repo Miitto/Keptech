@@ -1,5 +1,13 @@
 #pragma once
 
+#ifdef near
+#undef near
+#endif
+
+#ifdef far
+#undef far
+#endif
+
 #include "keptech/maths/frustum.hpp"
 #include "keptech/maths/sizes.hpp"
 

@@ -1,12 +1,12 @@
 #pragma once
 
+#include "keptech/render/graph/builder.hpp"
 #include "keptech/render/helpers/pipeline.hpp"
-#include "keptech/render/renderGraph/builder.hpp"
 #include "keptech/render/renderer.hpp"
 #include "shaders/examples/monkey/mesh.h"
 #include <keptech/components.hpp>
 #include <keptech/core/kt-logger.hpp>
-#include <keptech/render/renderGraph/passInterface.hpp>
+#include <keptech/render/graph/passInterface.hpp>
 
 class GeometryPass : public kt::rdr::RenderPassInterface {
 public:

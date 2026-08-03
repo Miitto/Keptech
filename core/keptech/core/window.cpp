@@ -18,8 +18,9 @@ namespace kt {
       : handle(SDL_CreateWindow(info.title, info.width, info.height,
 #ifdef KT_VULKAN
                                 SDL_WINDOW_VULKAN |
+#elif defined(KT_DX12)
 #endif
-                                    SDL_WINDOW_RESIZABLE | info.flags)) {
+                                    info.flags)) {
     updateSize();
     updateRenderSize();
   }

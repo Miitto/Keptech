@@ -1,5 +1,5 @@
 set(RENDERER "Vulkan" CACHE STRING "The renderer to use")
-set_property(CACHE RENDERER PROPERTY STRINGS "Vulkan")
+set_property(CACHE RENDERER PROPERTY STRINGS "Vulkan;DX12")
 
 project(Keptech_Renderer_Common)
 
@@ -29,6 +29,14 @@ if(RENDERER STREQUAL "Vulkan")
       BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/vulkan
   )
   add_subdirectory(vulkan)
+elseif(RENDERER STREQUAL "DX12")
+  target_sources(${PROJECT_NAME}
+    PUBLIC
+      FILE_SET dx12Headers
+      TYPE HEADERS
+      BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/dx12
+  )
+  add_subdirectory(dx12)
 endif()
 
 target_compile_definitions(Keptech_Renderer

@@ -3,10 +3,11 @@
 #include "keptech/cameras/orbitCamera.hpp"
 #include "keptech/components/camera.hpp"
 #include "keptech/components/transform.hpp"
+#include "keptech/core/kt-logger.hpp"
 #include "keptech/core/layers/layer.hpp"
 #include "keptech/core/scene.hpp"
 #include "keptech/core/window.hpp"
-#include "keptech/render/renderGraph/builder.hpp"
+#include "keptech/render/graph/builder.hpp"
 #include "keptech/render/renderer.hpp"
 
 class ExampleLayer : public kt::Layer {

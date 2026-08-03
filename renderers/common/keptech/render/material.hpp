@@ -1,8 +1,11 @@
 #pragma once
 
-#include "keptech/render/interface.hpp"
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
+
+namespace kt::rdr {
+  class Image;
+} // namespace kt::rdr
 
 namespace kt {
   struct MaterialLayer {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/render/renderGraph/passInterface.hpp"
+#include "keptech/render/graph/passInterface.hpp"
 #include "keptech/render/wrappers/pipeline.hpp"
 
 namespace kt::rdr {

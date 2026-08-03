@@ -3,8 +3,8 @@
 #include "keptech/components/transform.hpp"
 #include "keptech/core/gui.h"
 #include "keptech/input.hpp"
-#include "keptech/render/renderGraph/builder.hpp"
-#include "keptech/render/renderGraph/graph.hpp"
+#include "keptech/render/graph/builder.hpp"
+#include "keptech/render/graph/graph.hpp"
 #include "keptech/render/renderer.hpp"
 #include <expected>
 #include <imgui/backends/imgui_impl_sdl3.h>
@@ -146,6 +146,7 @@ int main() {
           KT_DEBUG("Window resized to {}x{}", event.window.data1, event.window.data2);
           auto newSize = glm::uvec2{static_cast<uint32_t>(event.window.data1), static_cast<uint32_t>(event.window.data2)};
           rg.onSwapchainSizeChanged(newSize);
+          renderer.onResize();
         }
 
         auto eventPtr = Event::fromSdl(event);

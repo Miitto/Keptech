@@ -26,12 +26,18 @@ target_sources(ktimgui PRIVATE
 include(sdl)
 link_sdl(ktimgui PUBLIC)
 
+target_compile_definitions(ktimgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS=1)
+
 if (RENDERER STREQUAL "Vulkan")
   link_vulkan(ktimgui PUBLIC)
   target_sources(ktimgui PRIVATE
     imgui/backends/imgui_impl_vulkan.cpp
   )
   target_compile_definitions(ktimgui PUBLIC IMGUI_IMPL_VULKAN_USE_VOLK=1)
+elseif (RENDERER STREQUAL "DX12")
+  target_sources(ktimgui PRIVATE
+    imgui/backends/imgui_impl_dx12.cpp
+  )
 endif()
 
 # Disable warnings

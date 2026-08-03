@@ -7,7 +7,6 @@ include(mesh_optimizer)
 include(fastgltf)
 include(entt)
 
-
 add_library(Keptech_Deps INTERFACE)
 add_library(keptech::deps ALIAS Keptech_Deps)
 
@@ -22,6 +21,10 @@ if(RENDERER STREQUAL "Vulkan")
   find_vulkan(23)
   link_vulkan(Keptech_Deps INTERFACE)
   target_compile_definitions(Keptech_Deps INTERFACE KT_VULKAN=1)
+elseif(RENDERER STREQUAL "DX12")
+  include(d3d12memalloc)
+  target_link_libraries(Keptech_Deps INTERFACE D3D12MemoryAllocator d3d12.lib dxgi.lib d3dcompiler.lib)
+  target_compile_definitions(Keptech_Deps INTERFACE KT_DX12=1)
 endif()
 
 add_subdirectory(vendor/imgui imgui)

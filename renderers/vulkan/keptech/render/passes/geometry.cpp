@@ -2,13 +2,13 @@
 
 #include "glm/ext/matrix_float4x4.hpp"
 #include "gpuObjects.hpp"
+#include "graph/graph.hpp"
+#include "graph/pass.hpp"
 #include "helpers/pipeline.hpp"
 #include "keptech/components/camera.hpp"
 #include "keptech/components/transform.hpp"
 #include "keptech/maths/maths.hpp"
 #include "keptech/render/renderer.hpp"
-#include "renderGraph/graph.hpp"
-#include "renderGraph/pass.hpp"
 #include "shaders/keptech/geometry.h"
 
 namespace kt::rdr {

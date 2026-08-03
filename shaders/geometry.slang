@@ -20,7 +20,7 @@ struct Object {
 StructuredBuffer<Object> objects;
 
 [shader("vertex")]
-VertexOutput vert(float3 position, kt::VertexAttribs v, uint baseInstance: SV_StartInstanceLocation) {
+VertexOutput vert(float3 position: POSITION, kt::VertexAttribs v, uint baseInstance: SV_StartInstanceLocation) {
   VertexOutput output;
 
   Object obj = objects[baseInstance];
@@ -50,7 +50,7 @@ kt::DeferredOutput frag(VertexOutput input) {
     discard;
   }
 
-  kt::Material mat = (*kt::buffers).materials[input.materialIndex];
+  kt::Material mat = (*kt::materials)[input.materialIndex];
 
   float2 uv = float2(input.uvX, input.uvY);
 

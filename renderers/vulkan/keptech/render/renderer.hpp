@@ -1,13 +1,13 @@
 #pragma once
 
-#include "keptech/render/buffers.hpp"
-#include "keptech/render/core.hpp"
 #include "keptech/render/gltf/data.hpp"
 #include "keptech/render/gltf/scene.hpp"
 #include "keptech/render/material.hpp"
 #include "keptech/render/mesh.hpp"
 #include "keptech/render/passes/geometry.hpp"
-#include "keptech/render/structs.hpp"
+#include "keptech/render/renderer/buffers.hpp"
+#include "keptech/render/renderer/core.hpp"
+#include "keptech/render/renderer/structs.hpp"
 #include "keptech/render/wrappers/buffer.hpp"
 #include "keptech/render/wrappers/image.hpp"
 #include "keptech/render/wrappers/pipeline.hpp"

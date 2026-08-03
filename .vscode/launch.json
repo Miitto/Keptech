@@ -3,9 +3,16 @@
     "configurations": [
         {
             "type": "lldb",
-            "name": "Launch Basic (VS Debug, Clang x64, Windows)",
+            "name": "Launch Basic VK (VS Debug, Clang x64, Windows)",
             "request": "launch",
             "program": "${workspaceFolder}/__output/clang-x64/examples/basic/Debug/basic_example.exe",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "name": "Launch Basic DX12 (VS Debug, Clang x64, Windows)",
+            "request": "launch",
+            "program": "${workspaceFolder}/__output/clang-x64-dx12/examples/basic/Debug/basic_example.exe",
             "cwd": "${workspaceFolder}"
         },
         {
@@ -15,5 +22,33 @@
             "program": "${workspaceFolder}/__output/clang-x64/examples/monkey/Debug/monkey.exe",
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "name": "Launch Shader Embedder (VS Debug, Clang x64 DX12, Windows)",
+            "request": "launch",
+            "program": "${workspaceFolder}/__output/clang-x64-dx12/shader_embedder/Debug/Keptech_shader_embedder.exe",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "geometry",
+                "shaders",
+                "shaders/geometry.slang",
+                "__output/clang-x64-dx12/shaders/gen/shaders/keptech/geometry.h",
+                "__output/clang-x64-dx12/shaders/gen/shaders/keptech/geometry.cpp"
+            ]
+        },
+        {
+            "type": "lldb",
+            "name": "Launch Shader Embedder Mesh (VS Debug, Clang x64 DX12, Windows)",
+            "request": "launch",
+            "program": "${workspaceFolder}/__output/clang-x64-dx12/shader_embedder/Debug/Keptech_shader_embedder.exe",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "mesh",
+                "shaders",
+                "examples/mesh_shader/mesh.slang",
+                "__output/clang-x64-dx12/shaders/gen/shaders/mesh.h",
+                "__output/clang-x64-dx12/shaders/gen/shaders/mesh.cpp"
+            ]
+        }
     ]
 }

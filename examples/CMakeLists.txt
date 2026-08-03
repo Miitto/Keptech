@@ -5,4 +5,7 @@ project(Examples LANGUAGES CXX)
 set(EXAMPLE_ASSET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
 
 add_subdirectory(basic)
-add_subdirectory(mesh_shader)
+
+if (RENDERER STREQUAL "Vulkan")
+    add_subdirectory(mesh_shader)
+endif()

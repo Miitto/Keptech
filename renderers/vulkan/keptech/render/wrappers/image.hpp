@@ -2,7 +2,7 @@
 
 #include "keptech/core/fwd.hpp"
 #include "keptech/render/interface/image.hpp"
-#include "keptech/render/types.hpp"
+#include "keptech/render/renderer/types.hpp"
 #include <Volk/volk.h>
 #include <string>
 #include <vma/vk_mem_alloc.h>

@@ -1,5 +1,13 @@
 #pragma once
 
+#ifdef min
+#undef min
+#endif
+
+#ifdef max
+#undef max
+#endif
+
 #include <fastgltf/core.hpp>
 #include <spdlog/fmt/bundled/format.h>
 #include <string_view>

@@ -5,9 +5,9 @@ public const static uint MAX_VERTICES_PER_MESHLET = 64;
 public const static uint MAX_TRIANGLES_PER_MESHLET = 64;
 
 public struct VertexAttribs {
-  public float4 tangent;
-  public float3 normal;
-  half2 packedUv;
+  public float4 tangent : TANGENT;
+  public float3 normal : NORMAL;
+  half2 packedUv : TEXCOORD0;
 
   public property float2 uv {
     get { return packedUv; }

@@ -57,6 +57,12 @@ if (RENDERER STREQUAL "Vulkan")
     <volk.h>
     <vk_mem_alloc.h>
   )
+elseif(RENDERER STREQUAL "DX12")
+  list(APPEND KT_PCH_HEADERS
+    <d3d12.h>
+    # <dxgi1_6.h>
+    # <d3dcompiler.h>
+  )
 endif()
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE ${KT_PCH_HEADERS})

@@ -33,6 +33,10 @@ public bool valid<T>(DescriptorHandle<T> handle)
     uint64_t handleValue = reinterpret<uint64_t>(handle);
     return handleValue != ~0u;
   }
+  case hlsl: {
+    uint64_t handleValue = reinterpret<uint64_t>(handle);
+    return handleValue != ~0u;
+  }
   default: {
     static_assert(false, "DescriptorHandle is only supported on SPIR-V targets.");
     return false;

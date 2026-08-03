@@ -8,3 +8,5 @@ target_sources(${PROJECT_NAME}
 
     imgui.cpp
 )
+
+add_subdirectory(graph)

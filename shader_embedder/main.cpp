@@ -61,32 +61,37 @@ int main(int argc, char** argv) {
   std::string source(size, '\0');
   inputStream.read(source.data(), static_cast<std::streamsize>(size));
 
-  auto [inputModule, inputDiag] = session.loadModule(name, source);
-  if (inputDiag)
-    std::cerr << (char*)inputDiag->getBufferPointer() << '\n';
-  if (!inputModule) {
-    std::cerr << "Failed to load input module.\n";
+  try {
+    auto [inputModule, inputDiag] = session.loadModule(name, source);
+    if (inputDiag)
+      std::cerr << "\n" << (char*)inputDiag->getBufferPointer() << '\n';
+    if (!inputModule) {
+      std::cerr << "Failed to load input module.\n";
+      return -1;
+    }
+  } catch (const std::exception& e) {
+    std::cerr << "Exception while loading input module: " << e.what() << '\n';
     return -1;
   }
 
   auto [program, diag] = session.link();
   if (diag)
-    std::cerr << (char*)diag->getBufferPointer() << '\n';
+    std::cerr << "\n" << (char*)diag->getBufferPointer() << '\n';
   if (!program.valid()) {
-    std::cerr << "Failed to link program.\n";
+    std::cerr << "\nFailed to link program.\n";
     return -1;
   }
 
   auto res = program.toShader(name);
   if (!res) {
-    std::cerr << "Failed to convert program to shader: " << res.error() << '\n';
+    std::cerr << "\nFailed to convert program to shader: " << res.error() << '\n';
     return -1;
   }
 
   auto& [shader, shaderDiag] = res.value();
 
   if (shaderDiag) {
-    std::cerr << (char*)shaderDiag->getBufferPointer() << '\n';
+    std::cerr << "\n" << (char*)shaderDiag->getBufferPointer() << '\n';
   }
 
   shader.file = inputFile;
@@ -101,13 +106,26 @@ int main(int argc, char** argv) {
   outSource << "namespace " << ns << "{\n    const kt::shaders::Shader " << name << "{ .name = \"" << name << "\",\n .file = \""
             << inputFile << "\",\n .code = {\n";
   for (size_t i = 0; i < shader.code.size(); ++i) {
-    if (i % 96 == 0) {
-      outSource << "\n    ";
+#ifdef KT_VULKAN
+    auto& code = shader.code;
+#endif
+#ifdef KT_DX12
+    outSource << "    // Entry point " << i << "\n    {";
+    size_t j = i;
+    for (size_t i = 0; i < shader.code[j].size(); ++i) {
+      auto& code = shader.code[j];
+#endif
+      if (i % 96 == 0) {
+        outSource << "\n    ";
+      }
+      outSource << "0x" << std::hex << static_cast<uint32_t>(code[i]);
+      if (i + 1 < code.size()) {
+        outSource << ", ";
+      }
+#ifdef KT_DX12
     }
-    outSource << "0x" << std::hex << static_cast<uint32_t>(shader.code[i]);
-    if (i + 1 < shader.code.size()) {
-      outSource << ", ";
-    }
+    outSource << "\n    },\n";
+#endif
   }
   outSource << "\n},\n .mode = static_cast<kt::shaders::RenderingMode>(" << std::dec << static_cast<uint32_t>(shader.mode)
             << "),\n .stages = {\n";

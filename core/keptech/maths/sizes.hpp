@@ -1,5 +1,13 @@
 #pragma once
 
+#ifdef min
+#undef min
+#endif
+
+#ifdef max
+#undef max
+#endif
+
 #include <glm/glm.hpp>
 
 namespace kt::maths {
@@ -9,10 +17,7 @@ namespace kt::maths {
     S width;
     S height;
 
-    [[nodiscard]] glm::vec<D, O> max() const {
-      return glm::vec<D, O>{x, y} +
-             static_cast<O>(glm::vec<D, S>{width, height});
-    }
+    [[nodiscard]] glm::vec<D, O> max() const { return glm::vec<D, O>{x, y} + static_cast<O>(glm::vec<D, S>{width, height}); }
   };
 
   using Rect2D = Rect<2, int32_t, uint32_t>;

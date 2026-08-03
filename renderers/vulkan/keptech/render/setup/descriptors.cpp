@@ -157,11 +157,11 @@ namespace kt::rdr {
     size_t camSize = maths::roundToAlignment(sizeof(components::Camera::Uniforms), limits::minUniformBufferOffsetAlignment);
     size_t addressesSize = maths::roundToAlignment(sizeof(BufferPointers), limits::minUniformBufferOffsetAlignment);
 
-    constexpr size_t BUFFER_COUNT = 2;
+    constexpr size_t BUFFER_COUNT = 9;
     constexpr size_t TOTAL_BUFFER_WRITES = MAX_FRAMES_IN_FLIGHT * BUFFER_COUNT;
 
     std::array<VkDescriptorBufferInfo, TOTAL_BUFFER_WRITES> bufferInfos{};
-    std::array<VkWriteDescriptorSet, MAX_FRAMES_IN_FLIGHT> writes{};
+    std::array<VkWriteDescriptorSet, MAX_FRAMES_IN_FLIGHT * 2> writes{};
     for (size_t writeIdx = 0; writeIdx < MAX_FRAMES_IN_FLIGHT; ++writeIdx) {
       auto bufferIdx = writeIdx * BUFFER_COUNT;
       bufferInfos[bufferIdx] = VkDescriptorBufferInfo{
@@ -170,23 +170,67 @@ namespace kt::rdr {
           .range = sizeof(components::Camera::Uniforms),
       };
       bufferInfos[bufferIdx + 1] = VkDescriptorBufferInfo{
-          .buffer = buffers.addresses,
+          .buffer = buffers.positions,
           .offset = writeIdx * addressesSize,
-          .range = sizeof(BufferPointers),
+          .range = VK_WHOLE_SIZE,
       };
-      writes[writeIdx] = VkWriteDescriptorSet{
+      bufferInfos[bufferIdx + 2] = VkDescriptorBufferInfo{
+          .buffer = buffers.vertexAttribs,
+          .offset = 0,
+          .range = VK_WHOLE_SIZE,
+      };
+      bufferInfos[bufferIdx + 3] = VkDescriptorBufferInfo{
+          .buffer = buffers.indices,
+          .offset = 0,
+          .range = VK_WHOLE_SIZE,
+      };
+      bufferInfos[bufferIdx + 4] = VkDescriptorBufferInfo{
+          .buffer = buffers.meshlets,
+          .offset = 0,
+          .range = VK_WHOLE_SIZE,
+      };
+      bufferInfos[bufferIdx + 5] = VkDescriptorBufferInfo{
+          .buffer = buffers.meshletVertices,
+          .offset = 0,
+          .range = VK_WHOLE_SIZE,
+      };
+      bufferInfos[bufferIdx + 6] = VkDescriptorBufferInfo{
+          .buffer = buffers.meshletTriangles,
+          .offset = 0,
+          .range = VK_WHOLE_SIZE,
+      };
+      bufferInfos[bufferIdx + 7] = VkDescriptorBufferInfo{
+          .buffer = buffers.materials,
+          .offset = 0,
+          .range = VK_WHOLE_SIZE,
+      };
+      bufferInfos[bufferIdx + 8] = VkDescriptorBufferInfo{
+          .buffer = buffers.meshes,
+          .offset = 0,
+          .range = VK_WHOLE_SIZE,
+      };
+      writes[writeIdx * MAX_FRAMES_IN_FLIGHT] = VkWriteDescriptorSet{
           .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-          .dstSet = m.globalDescriptorSets.sets[writeIdx],
+          .dstSet = m.globalDescriptorSets.sets[writeIdx * MAX_FRAMES_IN_FLIGHT],
           .dstBinding = UNIFORM_BUFFER,
           .dstArrayElement = 0,
-          .descriptorCount = 2,
+          .descriptorCount = 1,
           .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
           .pBufferInfo = &bufferInfos[bufferIdx],
+      };
+      writes[writeIdx * MAX_FRAMES_IN_FLIGHT + 1] = VkWriteDescriptorSet{
+          .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+          .dstSet = m.globalDescriptorSets.sets[writeIdx * MAX_FRAMES_IN_FLIGHT],
+          .dstBinding = STORAGE_BUFFER,
+          .dstArrayElement = 0,
+          .descriptorCount = BUFFER_COUNT - 1,
+          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          .pBufferInfo = &bufferInfos[bufferIdx + 1],
       };
     }
 
     vkUpdateDescriptorSets(vkcore.device, writes.size(), writes.data(), 0, nullptr);
 
-    m.indices.nextUniformBufferIndex = BUFFER_COUNT;
+    m.indices.nextUniformBufferIndex = 1 m.indices.nextStorageBufferIndex = BUFFER_COUNT - 1;
   }
 } // namespace kt::rdr

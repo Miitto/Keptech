@@ -15,7 +15,7 @@ const static uint MESH_SHADER_DISPATCH_SIZE = 32;
 
 struct Payload {
   uint32_t groupMeshletOffset;
-  uint8_t meshletIndices[TASK_SHADER_DISPATCH_SIZE];
+  uint meshletIndices[TASK_SHADER_DISPATCH_SIZE];
 }
 groupshared Payload payload;
 groupshared Atomic<uint> visibleMeshlets;
@@ -23,7 +23,7 @@ groupshared Atomic<uint> visibleMeshlets;
 [shader("task")]
 [numthreads(TASK_SHADER_DISPATCH_SIZE, 1, 1)]
 void task(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
-  kt::Mesh mesh = (*kt::buffers).meshes[PC.meshId];
+  kt::Mesh mesh = (*kt::meshes)[PC.meshId];
 
   uint groupMeshletOffset = gid.x * TASK_SHADER_DISPATCH_SIZE;
   uint totalMeshlets = mesh.meshletCount;
@@ -38,7 +38,7 @@ void task(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConst
   uint meshletCount = min(TASK_SHADER_DISPATCH_SIZE, totalMeshlets - groupMeshletOffset);
   if (gtid.x < meshletCount) {
     uint idx = groupMeshletOffset + gtid.x;
-    kt::Meshlet meshlet = (*kt::buffers).meshlets[mesh.meshletOffset + idx];
+    kt::Meshlet meshlet = (*kt::meshlets)[mesh.meshletOffset + idx];
 
     bool inFrustum = (*kt::camera).canSee(meshlet.bounds.apply(PC.modelMatrix));
     uint count = inFrustum; // Quick boolean to int conversion for WaveActiveSum.
@@ -62,37 +62,45 @@ void task(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConst
       // Add the number of visible meshlets before this lane in the wave to the offset to get the final index for this lane.
       uint myIndex = WavePrefixCountBits(inFrustum) + offset;
 
-      payload.meshletIndices[myIndex] = (uint8_t)gtid.x;
+      payload.meshletIndices[myIndex] = gtid.x;
     }
   }
 
   GroupMemoryBarrierWithGroupSync();
 
-  if (gtid.x == 0) {
-    uint totalVisibleMeshlets = visibleMeshlets.load();
-    DispatchMesh(totalVisibleMeshlets, 1, 1, payload);
-  }
+  uint totalVisibleMeshlets = visibleMeshlets.load();
+  DispatchMesh(totalVisibleMeshlets, 1, 1, payload);
 }
 
 [shader("mesh")]
 [outputtopology("triangle")]
 [numthreads(MESH_SHADER_DISPATCH_SIZE, 1, 1)]
-void mesh(in payload Payload payload, out indices uint3 triangles[kt::MAX_TRIANGLES_PER_MESHLET],
-          out vertices VertexOutput vertices[kt::MAX_VERTICES_PER_MESHLET], uint3 dispatchId: SV_DispatchThreadID,
+void mesh(in payload Payload payload, OutputIndices<uint3, kt::MAX_TRIANGLES_PER_MESHLET> triangles,
+          OutputVertices<VertexOutput, kt::MAX_VERTICES_PER_MESHLET> vertices, uint3 dispatchId: SV_DispatchThreadID,
           uint3 groupId: SV_GroupID, uint3 gtid: SV_GroupThreadID, uniform PushConstants PC) {
-  let buffers = *kt::buffers;
-  let mesh = buffers.meshes[PC.meshId];
+  let mesh = (*kt::meshes)[PC.meshId];
 
   uint meshletId = payload.groupMeshletOffset + payload.meshletIndices[groupId.x];
 
-  if (meshletId >= mesh.meshletCount) {
-    SetMeshOutputCounts(0, 0);
-    return;
+  uint vCount = 0;
+  uint tCount = 0;
+
+  kt::Meshlet meshlet;
+  float4x4 mvp;
+
+  if (meshletId < mesh.meshletCount) {
+    meshlet = (*kt::meshlets)[mesh.meshletOffset + meshletId];
+
+    mvp = (*kt::camera).makeMvp(PC.modelMatrix);
+    vCount = meshlet.vertexCount;
+    tCount = meshlet.triangleCount;
   }
 
-  kt::Meshlet meshlet = buffers.meshlets[mesh.meshletOffset + meshletId];
+  SetMeshOutputCounts(vCount, tCount);
 
-  let mvp = (*kt::camera).makeMvp(PC.modelMatrix);
+  if (meshletId >= mesh.meshletCount) {
+    return;
+  }
 
   // Hash-based per-meshlet coloring for visualization
   uint hash = meshletId * 747796405u + 2891336453u;
@@ -100,24 +108,22 @@ void mesh(in payload Payload payload, out indices uint3 triangles[kt::MAX_TRIANG
 
   float4 offset = float4(0., 0., float(dispatchId.x), 0.0);
 
-  SetMeshOutputCounts(meshlet.vertexCount, meshlet.triangleCount);
-
   uint instanceId = gtid.x;
   for (uint i = instanceId; i < meshlet.vertexCount; i += MESH_SHADER_DISPATCH_SIZE) {
-    uint vIdx = buffers.meshletVertices[mesh.meshletVertexOffset + meshlet.vertexOffset + i];
-    float3 position = buffers.positions[vIdx];
+    uint vIdx = (*kt::meshletVertices)[mesh.meshletVertexOffset + meshlet.vertexOffset + i];
+    float3 position = (*kt::positions)[vIdx];
     vertices[i].position = mul(float4(position, 1.0), mvp);
     vertices[i].color = float4(color, 1.f);
   }
 
   for (uint i = instanceId; i < meshlet.triangleCount; i += MESH_SHADER_DISPATCH_SIZE) {
     uint tOffset = mesh.meshletTriangleOffset + meshlet.triangleOffset + i * 3;
-    uint idx0 = buffers.meshletTriangles[tOffset + 0];
-    uint idx1 = buffers.meshletTriangles[tOffset + 1];
-    uint idx2 = buffers.meshletTriangles[tOffset + 2];
+    uint idx0 = (*kt::meshletTriangles)[tOffset + 0];
+    uint idx1 = (*kt::meshletTriangles)[tOffset + 1];
+    uint idx2 = (*kt::meshletTriangles)[tOffset + 2];
     triangles[i] = uint3(idx0, idx1, idx2);
   }
 }
 
 [shader("pixel")]
-float4 frag(VertexOutput input) { return input.color; }
+float4 frag(VertexOutput input) : SV_Target { return input.color; }

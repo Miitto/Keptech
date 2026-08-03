@@ -1,0 +1,10 @@
+target_sources(${PROJECT_NAME}
+  PRIVATE
+    buffer.cpp
+    cmdBuf.cpp
+    device.cpp
+    image.cpp
+    instance.cpp
+    pipeline.cpp
+    swapchain.cpp
+)

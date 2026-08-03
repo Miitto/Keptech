@@ -7,7 +7,7 @@ constexpr int WINDOW_HEIGHT = 720;
 
 kt::SetupInfo kt::configureApp() {
   return {
-      .window = {.title = "Keptech Mesh Shader Example", .width = WINDOW_WIDTH, .height = WINDOW_HEIGHT},
+      .window = {.title = "Keptech Mesh Shader Example", .flags = WindowCreateFlagBits::Resizable},
       .renderer = {.applicationName = "Keptech Mesh Shader Example", .requiredCapabilities = kt::RendererCapabilities::MeshShader},
   };
 }

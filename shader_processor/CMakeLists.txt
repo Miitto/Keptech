@@ -9,9 +9,9 @@ KT_SETUP_TARGET(keptech_shaders INTERFACE)
 target_sources(keptech_shaders
   INTERFACE
   FILE_SET HEADERS
-  BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
+  BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
   FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/keptech/shaders/shader.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/keptech/shaders/shader.h
 )
 
 project(Keptech_shader_processor)
@@ -25,14 +25,15 @@ link_slang(keptech_shader_processor PUBLIC)
 target_sources(keptech_shader_processor
   PUBLIC
   FILE_SET HEADERS
-  BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
+  BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
   PRIVATE
-    src/shader_processor.cpp
+    keptech/shader_processor/shader_processor.cpp
 )
 
 target_link_libraries(keptech_shader_processor
   PUBLIC
     keptech::shaders
+    dxcompiler.lib
 )
 
 target_compile_definitions(keptech_shader_processor
@@ -42,4 +43,10 @@ target_compile_definitions(keptech_shader_processor
 
 if (NOT PIPED_BUILD)
   target_compile_definitions(keptech_shader_processor PRIVATE USE_COLOR_OUTPUT=1)
+endif()
+
+if (RENDERER STREQUAL "Vulkan")
+  target_compile_definitions(keptech_shaders INTERFACE KT_VULKAN=1)
+elseif(RENDERER STREQUAL "DX12")
+  target_compile_definitions(keptech_shaders INTERFACE KT_DX12=1)
 endif()

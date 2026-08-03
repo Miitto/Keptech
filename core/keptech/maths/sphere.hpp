@@ -2,6 +2,7 @@
 
 #include "intersection.hpp"
 #include "plane.hpp"
+#include <keptech/core/winfix.h>
 
 namespace kt::maths {
   struct Sphere;

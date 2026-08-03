@@ -7,8 +7,8 @@
 #include <SDL3/SDL_vulkan.h>
 
 #include "constants.hpp"
-#include "renderGraph/builder.hpp"
-#include "renderGraph/graph.hpp"
+#include "graph/builder.hpp"
+#include "graph/graph.hpp"
 #include <keptech/components/camera.hpp>
 #include <keptech/maths/maths.hpp>
 

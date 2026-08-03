@@ -6,7 +6,10 @@ constexpr int WINDOW_HEIGHT = 720;
 
 kt::SetupInfo kt::configureApp() {
   return {
-      .window = {.title = "Keptech Basic Example"},
+      .window = {.title = "Keptech Basic Example",
+                 .width = WINDOW_WIDTH,
+                 .height = WINDOW_HEIGHT,
+                 .flags = WindowCreateFlagBits::Resizable},
       .renderer = {.applicationName = "Keptech Basic Example"},
   };
 }

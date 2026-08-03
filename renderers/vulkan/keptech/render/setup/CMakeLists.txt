@@ -1,0 +1,13 @@
+target_sources(${PROJECT_NAME}
+  PRIVATE
+    buffers.cpp
+    core.cpp
+    descriptors.cpp
+    device.cpp
+    formats.cpp
+    imgui.cpp
+    pipelines.cpp
+    samplers.cpp
+    setup.cpp
+    swapchain.cpp
+)
