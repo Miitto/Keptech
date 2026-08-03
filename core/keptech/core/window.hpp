@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 
 namespace kt {
-  enum class WindowCreateFlagBits : uint32_t {
+  enum class WindowCreateFlagBits : uint64_t {
     Fullscreen = SDL_WINDOW_FULLSCREEN,
     Hidden = SDL_WINDOW_HIDDEN,
     Borderless = SDL_WINDOW_BORDERLESS,

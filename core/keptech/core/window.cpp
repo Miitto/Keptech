@@ -18,11 +18,13 @@ namespace kt {
       : handle(SDL_CreateWindow(info.title, info.width, info.height,
 #ifdef KT_VULKAN
                                 SDL_WINDOW_VULKAN |
-#elif defined(KT_DX12)
 #endif
-                                    info.flags)) {
+                                    static_cast<SDL_WindowFlags>(info.flags))) {
     updateSize();
     updateRenderSize();
+
+    KT_DEBUG("Window created with size {}x{} and render size {}x{} (Requested {}x{})", size.x, size.y, renderSize.x, renderSize.y,
+             info.width, info.height);
   }
 
   bool Window::shouldClose() const { return shouldExit; }
