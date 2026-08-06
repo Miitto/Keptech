@@ -3,7 +3,14 @@
 #include "wrappers/cmdBuf.hpp"
 
 namespace kt::rdr {
-  CommandBuffer RenderGraph::runPasses() { return Renderer::get().getMembers().graphicsCmdList; }
+  CommandBuffer RenderGraph::runPasses() {
+    auto& r = Renderer::get();
+    auto& m = r.getMembers();
+
+    m.commandLists.compute->Close();
+
+    return m.commandLists.graphics;
+  }
 
   void RenderGraph::updateDescriptors() {}
 } // namespace kt::rdr

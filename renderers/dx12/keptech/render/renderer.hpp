@@ -7,11 +7,13 @@
 #include "helpers/imGuiDescriptorAlloc.hpp"
 #include "keptech/render/constants.hpp"
 #include "keptech/render/formats.hpp"
-#include "keptech/render/gltf/scene.hpp"
+#include "keptech/render/renderer/buffers.hpp"
 #include "keptech/render/rendererCreateInfo.hpp"
+#include "keptech/render/wrappers/cmdBuf.hpp"
 #include "keptech/render/wrappers/fence.hpp"
 #include <D3D12MemAlloc.h>
 #include <expected>
+
 
 #ifdef min
 #undef min
@@ -22,43 +24,84 @@
 #endif
 
 namespace kt {
+
+  namespace gltf {
+    struct Data;
+    struct Scene;
+  } // namespace gltf
   namespace maths {
     struct Frustum;
   }
 } // namespace kt
 
 namespace kt::rdr {
+  template <typename T> using ComPtr = Microsoft::WRL::ComPtr<T>;
+
   class RenderGraphBuilder;
   class CommandBuffer;
 
+  struct DxImGui {
+    ComPtr<ID3D12DescriptorHeap> srvHeap;
+    ImGuiDescriptorHeapAllocator descriptorAlloc;
+  };
+
+  struct Swapchain {
+    ComPtr<IDXGISwapChain4> swapchain;
+    std::array<ComPtr<ID3D12Resource>, SWAPCHAIN_IMAGE_COUNT> backbuffers;
+    ComPtr<ID3D12DescriptorHeap> rtvHeap;
+    bool tearingSupport = false;
+    bool vSync = true;
+    glm::uvec2 size{0, 0};
+  };
+
+  struct CommandAllocators {
+    ComPtr<ID3D12CommandAllocator> graphics;
+    ComPtr<ID3D12CommandAllocator> compute;
+  };
+
+  struct Frame {
+    uint64_t fenceValue = 0;
+    CommandAllocators commandAllocators;
+    std::vector<D3D12MA::Allocation*> allocsToDrop;
+  };
+
+  struct Queues {
+    ComPtr<ID3D12CommandQueue> graphics;
+    ComPtr<ID3D12CommandQueue> compute;
+    ComPtr<ID3D12CommandQueue> copy;
+  };
+
+  struct CommandLists {
+    CommandBuffer graphics;
+    CommandBuffer compute;
+    CommandBuffer copy;
+  };
+
   struct Members {
     const Window* window = nullptr;
-    template <typename T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 
     ComPtr<ID3D12Device2> device;
     D3D12MA::Allocator* allocator = nullptr;
-    ComPtr<ID3D12CommandQueue> graphicsQueue;
-    ComPtr<IDXGISwapChain4> swapchain;
-    std::array<ComPtr<ID3D12Resource>, SWAPCHAIN_IMAGE_COUNT> backbuffers;
-    ComPtr<ID3D12GraphicsCommandList> graphicsCmdList;
-    std::array<ComPtr<ID3D12CommandAllocator>, MAX_FRAMES_IN_FLIGHT> graphicsCmdAlloc;
-    ComPtr<ID3D12DescriptorHeap> rtvHeap;
+
+    Queues queues;
+    CommandLists commandLists;
+
+    Swapchain swapchain;
+
+    std::array<Frame, MAX_FRAMES_IN_FLIGHT> frames;
+
     Fence fence;
 
-    ComPtr<ID3D12DescriptorHeap> imGuiSrvHeap;
-    ImGuiDescriptorHeapAllocator imGuiDescriptorAlloc;
+    ComPtr<ID3D12CommandAllocator> copyCommandAllocator;
+    Fence copyFence;
 
-    std::array<uint64_t, MAX_FRAMES_IN_FLIGHT> fenceValues{};
-    uint64_t fenceValue = 0;
-    HANDLE fenceEvent = nullptr;
+    DxImGui imGui;
 
     uint8_t frameIndex = 0;
     uint8_t imageIndex = 0;
 
     Formats formats{};
-
-    bool tearingSupport = false;
-    bool vSync = true;
+    Buffers buffers;
   };
 
   class Renderer {
@@ -73,12 +116,16 @@ namespace kt::rdr {
 
     void addGeometryPass(RenderGraphBuilder& graph, bool clearColor = false);
 
+    bool canRenderToFormat(ImageFormat format) const;
+    bool canSampleFromFormat(ImageFormat format) const;
     const Formats& getFormats() const { return m.formats; }
 
     /// Loads a glTF mesh from the specified path. Returns a gltf::Scene on success, or an error message on failure.
     std::expected<gltf::Scene, std::string> loadMesh(std::string_view path);
+    std::expected<std::vector<Mesh>, std::string> uploadMeshes(const gltf::Data& data);
 
-    void waitIdle() { m.fence.flush(m.graphicsQueue, m.fenceEvent); }
+    void waitIdle() { m.fence.flush(m.queues.graphics); }
+    void waitCopyIdle() { m.copyFence.flush(m.queues.copy); }
 
     // Called internally, don't use
     void newFrame();
@@ -114,6 +161,19 @@ namespace kt::rdr {
     std::expected<void, std::string> initCommandLists();
     std::expected<void, std::string> updateBackbufferDescriptors();
     std::expected<void, std::string> initImGui();
+    std::expected<void, std::string> initBuffers();
+    std::expected<void, std::string> queryFormats();
+
+    void resetCopyAllocator();
+
+    struct NewSizes {
+      size_t vertices = 0;
+      size_t indices = 0;
+    };
+
+    std::expected<NewSizes, std::string> ensureBuffersAreLargeEnough(const gltf::Data& data);
+
+    void submitForDrop(D3D12MA::Allocation* allocation);
 
     static Renderer singleton;
     static bool isInitialized;

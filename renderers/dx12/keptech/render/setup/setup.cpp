@@ -1,4 +1,5 @@
 #include "d3dx12.h"
+#include "helpers/formatting.hpp"
 #include "macros.hpp"
 #include "renderer.hpp"
 #include <expected>
@@ -7,6 +8,30 @@
 template <typename T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 
 namespace kt::rdr {
+  namespace {
+    void dx12DebugCallback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID id, LPCSTR description,
+                           void* context) {
+      (void)context;
+      switch (severity) {
+      case D3D12_MESSAGE_SEVERITY_CORRUPTION:
+        DX_CRITICAL("{} CORRUPTION: {} {}", category, id, description);
+        break;
+      case D3D12_MESSAGE_SEVERITY_ERROR:
+        DX_ERROR("{}: {} {}", category, id, description);
+        break;
+      case D3D12_MESSAGE_SEVERITY_WARNING:
+        DX_WARN("{}: {} {}", category, id, description);
+        break;
+      case D3D12_MESSAGE_SEVERITY_INFO:
+        DX_INFO("{}: {} {}", category, id, description);
+        break;
+      case D3D12_MESSAGE_SEVERITY_MESSAGE:
+        DX_DEBUG("{}: {} {}", category, id, description);
+        break;
+      }
+    }
+  } // namespace
+
   std::expected<void, std::string> Renderer::init(const RendererCreateInfo& createInfo, const Window& window) {
     if (isInitialized) {
       return std::unexpected("Renderer is already initialized");
@@ -55,7 +80,11 @@ namespace kt::rdr {
         .NodeMask = 0,
     };
 
-    DX_MAKE(m.device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m.graphicsQueue)), "Failed to create graphics command queue");
+    DX_MAKE(m.device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m.queues.graphics)), "Failed to create graphics command queue");
+    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+    DX_MAKE(m.device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m.queues.compute)), "Failed to create compute command queue");
+    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
+    DX_MAKE(m.device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m.queues.copy)), "Failed to create copy command queue");
 
     {
       auto res = initSwapchain(createInfo, window, dxgiFactory);
@@ -79,11 +108,22 @@ namespace kt::rdr {
     }
 
     DX_MAKE(m.device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&*m.fence)), "Failed to create fence");
+    m.fence.makeEvent();
+    DX_MAKE(m.device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&*m.copyFence)), "Failed to create copy fence");
+    m.copyFence.makeEvent();
 
-    m.fenceEvent = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    auto bufferRes = initBuffers();
 
-    // Initialize the renderer here (e.g., create device, swapchain, etc.)
-    // This is a placeholder for the actual initialization logic.
+    if (!bufferRes) {
+      return std::unexpected(bufferRes.error());
+    }
+
+    auto formatsRes = queryFormats();
+
+    if (!formatsRes) {
+      return std::unexpected(formatsRes.error());
+    }
+
     return {};
   }
 
@@ -118,7 +158,7 @@ namespace kt::rdr {
     DX_MAKE(D3D12CreateDevice(dxgiAdapter4.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&m.device)), "Failed to create D3D12 device");
 
 #ifndef NDEBUG
-    ComPtr<ID3D12InfoQueue> infoQueue;
+    ComPtr<ID3D12InfoQueue1> infoQueue;
     if (SUCCEEDED(m.device.As(&infoQueue))) {
       std::array severities = {D3D12_MESSAGE_SEVERITY_INFO};
 
@@ -137,6 +177,10 @@ namespace kt::rdr {
       newFilter.DenyList.pIDList = denyIds.data();
 
       DX_MAKE(infoQueue->PushStorageFilter(&newFilter), "Failed to push storage filter to info queue");
+
+      DWORD cookie = 0;
+      DX_MAKE(infoQueue->RegisterMessageCallback(&dx12DebugCallback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &cookie),
+              "Failed to register message callback");
     }
 #endif
 
@@ -153,7 +197,7 @@ namespace kt::rdr {
   }
 
   std::expected<void, std::string> Renderer::initSwapchain(const RendererCreateInfo&, const Window& window,
-                                                           const Members::ComPtr<IDXGIFactory4>& dxgiFactory) {
+                                                           const ComPtr<IDXGIFactory4>& dxgiFactory) {
 
     ComPtr<IDXGIFactory5> dxgiFactory5;
     BOOL tearingSupportB = FALSE;
@@ -162,12 +206,12 @@ namespace kt::rdr {
         tearingSupportB = FALSE;
       }
     }
-    m.tearingSupport = tearingSupportB == TRUE;
+    m.swapchain.tearingSupport = tearingSupportB == TRUE;
 
-    glm::uvec2 renderSize = window.getRenderSize();
+    m.swapchain.size = window.getRenderSize();
 
-    DXGI_SWAP_CHAIN_DESC1 swapchainDesc = {.Width = renderSize.x,
-                                           .Height = renderSize.y,
+    DXGI_SWAP_CHAIN_DESC1 swapchainDesc = {.Width = m.swapchain.size.x,
+                                           .Height = m.swapchain.size.y,
                                            .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
                                            .Stereo = FALSE,
                                            .SampleDesc = {.Count = 1, .Quality = 0},
@@ -176,7 +220,7 @@ namespace kt::rdr {
                                            .Scaling = DXGI_SCALING_STRETCH,
                                            .SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
                                            .AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED,
-                                           .Flags = m.tearingSupport ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u};
+                                           .Flags = m.swapchain.tearingSupport ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u};
 
     SDL_PropertiesID props = SDL_GetWindowProperties(window.getHandle());
     HWND hwnd = static_cast<HWND>(SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL));
@@ -186,12 +230,14 @@ namespace kt::rdr {
     }
 
     ComPtr<IDXGISwapChain1> swapchain1;
-    DX_MAKE(dxgiFactory->CreateSwapChainForHwnd(m.graphicsQueue.Get(), hwnd, &swapchainDesc, nullptr, nullptr, &swapchain1),
+    DX_MAKE(dxgiFactory->CreateSwapChainForHwnd(m.queues.graphics.Get(), hwnd, &swapchainDesc, nullptr, nullptr, &swapchain1),
             "Failed to create swapchain");
+
+    DX_DEBUG("Swapchain created with size {}x{} and format {}", m.swapchain.size.x, m.swapchain.size.y, swapchainDesc.Format);
 
     DX_MAKE(dxgiFactory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER), "Failed to make window association");
 
-    DX_MAKE(swapchain1.As(&m.swapchain), "Failed to query IDXGISwapChain4 interface");
+    DX_MAKE(swapchain1.As(&m.swapchain.swapchain), "Failed to query IDXGISwapChain4 interface");
 
     m.formats.swapchain = swapchainDesc.Format;
 
@@ -202,7 +248,7 @@ namespace kt::rdr {
         .NodeMask = 0,
     };
 
-    DX_MAKE(m.device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m.rtvHeap)), "Failed to create RTV descriptor heap");
+    DX_MAKE(m.device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m.swapchain.rtvHeap)), "Failed to create RTV descriptor heap");
 
     auto res = updateBackbufferDescriptors();
     if (!res) {
@@ -213,11 +259,11 @@ namespace kt::rdr {
   }
 
   std::expected<void, std::string> Renderer::updateBackbufferDescriptors() {
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m.rtvHeap->GetCPUDescriptorHandleForHeapStart());
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m.swapchain.rtvHeap->GetCPUDescriptorHandleForHeapStart());
 
     for (uint32_t i = 0; i < SWAPCHAIN_IMAGE_COUNT; ++i) {
-      DX_MAKE(m.swapchain->GetBuffer(i, IID_PPV_ARGS(&m.backbuffers[i])), "Failed to get swapchain buffer");
-      m.device->CreateRenderTargetView(m.backbuffers[i].Get(), nullptr, rtvHandle);
+      DX_MAKE(m.swapchain.swapchain->GetBuffer(i, IID_PPV_ARGS(&m.swapchain.backbuffers[i])), "Failed to get swapchain buffer");
+      m.device->CreateRenderTargetView(m.swapchain.backbuffers[i].Get(), nullptr, rtvHandle);
       rtvHandle.Offset(static_cast<INT>(RTV_DESCRIPTOR_SIZE));
     }
 
@@ -226,13 +272,27 @@ namespace kt::rdr {
 
   std::expected<void, std::string> Renderer::initCommandLists() {
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-      DX_MAKE(m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m.graphicsCmdAlloc[i])),
+      DX_MAKE(m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m.frames[i].commandAllocators.graphics)),
+              "Failed to create command allocator");
+      DX_MAKE(m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&m.frames[i].commandAllocators.compute)),
+              "Failed to create command allocator");
+      DX_MAKE(m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&m.copyCommandAllocator)),
               "Failed to create command allocator");
     }
 
-    DX_MAKE(m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m.graphicsCmdAlloc[0].Get(), nullptr,
-                                        IID_PPV_ARGS(&m.graphicsCmdList)),
+    DX_MAKE(m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m.frames[0].commandAllocators.graphics.Get(), nullptr,
+                                        IID_PPV_ARGS(&m.commandLists.graphics.ComPtr())),
             "Failed to create command list");
+    DX_MAKE(m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE, m.frames[0].commandAllocators.compute.Get(), nullptr,
+                                        IID_PPV_ARGS(&m.commandLists.compute.ComPtr())),
+            "Failed to create command list");
+    DX_MAKE(m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m.copyCommandAllocator.Get(), nullptr,
+                                        IID_PPV_ARGS(&m.commandLists.copy.ComPtr())),
+            "Failed to create command list");
+
+    m.commandLists.graphics->Close();
+    m.commandLists.compute->Close();
+    m.commandLists.copy->Close();
 
     return {};
   }

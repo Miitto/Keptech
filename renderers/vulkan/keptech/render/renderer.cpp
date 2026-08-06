@@ -106,7 +106,6 @@ namespace kt::rdr {
     updateTextureDescriptors();
     updateBufferPointers();
 
-    components::Transform::recalcAllTransforms(Scene::active().getEcs());
     return passes::writeCameraData(m.buffers, Scene::active().getActiveCamera(), m.window->getRenderSize(), m.frameInfo.index);
   }
 

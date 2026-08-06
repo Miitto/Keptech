@@ -2,7 +2,7 @@ add_subdirectory(setup)
 add_subdirectory(renderer)
 add_subdirectory(wrappers)
 
-target_sources(${PROJECT_NAME}
+target_sources(Keptech_Renderer
     PRIVATE FILE_SET internalHeaders TYPE HEADERS
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
   PRIVATE

@@ -1,4 +1,5 @@
 #include "graph.hpp"
+#include "keptech/components/transform.hpp"
 #include "keptech/render/interface.hpp"
 #include "keptech/render/profile.hpp"
 #include "keptech/render/renderer.hpp"
@@ -20,6 +21,9 @@ namespace kt::rdr {
 
     imagesToDrop[frameIndex].clear();
     buffersToDrop[frameIndex].clear();
+
+    components::Transform::recalcAllTransforms(Scene::active().getEcs());
+
     engineCameraFrustum = renderer.startFrame();
 
     auto cmdBuf = runPasses();

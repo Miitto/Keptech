@@ -1,28 +1,26 @@
 set(RENDERER "Vulkan" CACHE STRING "The renderer to use")
 set_property(CACHE RENDERER PROPERTY STRINGS "Vulkan;DX12")
 
-project(Keptech_Renderer_Common)
+add_library(Keptech_Renderer_Common STATIC)
+add_library(keptech::renderer_common ALIAS Keptech_Renderer_Common)
+KT_SETUP_TARGET(Keptech_Renderer_Common)
 
-add_library(${PROJECT_NAME} STATIC)
-add_library(keptech::renderer_common ALIAS ${PROJECT_NAME})
-KT_SETUP_TARGET(${PROJECT_NAME})
-
-target_compile_definitions(${PROJECT_NAME}
+target_compile_definitions(Keptech_Renderer_Common
   PRIVATE
   $<$<CONFIG:Debug>:RENDERER_LOG_LEVEL=SPDLOG_LEVEL_${RENDERER_DEBUG_LOG_LEVEL}>
   $<$<CONFIG:Release>:RENDERER_LOG_LEVEL=SPDLOG_LEVEL_${RENDERER_RELEASE_LOG_LEVEL}>
 )
 
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(Keptech_Renderer_Common
   PUBLIC
     keptech::core
 )
-target_precompile_headers(${PROJECT_NAME} REUSE_FROM keptech::core)
+target_precompile_headers(Keptech_Renderer_Common REUSE_FROM keptech::core)
 
 add_subdirectory(common)
 
 if(RENDERER STREQUAL "Vulkan")
-  target_sources(${PROJECT_NAME}
+  target_sources(Keptech_Renderer_Common
     PUBLIC
       FILE_SET vkHeaders
       TYPE HEADERS
@@ -30,7 +28,7 @@ if(RENDERER STREQUAL "Vulkan")
   )
   add_subdirectory(vulkan)
 elseif(RENDERER STREQUAL "DX12")
-  target_sources(${PROJECT_NAME}
+  target_sources(Keptech_Renderer_Common
     PUBLIC
       FILE_SET dx12Headers
       TYPE HEADERS

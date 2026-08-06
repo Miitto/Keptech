@@ -1,24 +1,22 @@
 cmake_minimum_required(VERSION 3.15..4.0)
 
-project(Keptech LANGUAGES CXX)
+add_library(Keptech)
+add_library(keptech::keptech ALIAS Keptech)
 
-add_library(${PROJECT_NAME})
-add_library(keptech::keptech ALIAS ${PROJECT_NAME})
-
-KT_SETUP_TARGET(${PROJECT_NAME})
+KT_SETUP_TARGET(Keptech)
 
 add_subdirectory(src)
 
-target_sources(${PROJECT_NAME}
+target_sources(Keptech
   PUBLIC
     FILE_SET HEADERS
     BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(Keptech
   PUBLIC
     keptech::core
     keptech::renderer
 )
 
-target_precompile_headers(${PROJECT_NAME} REUSE_FROM keptech::core)
+target_precompile_headers(Keptech REUSE_FROM keptech::core)

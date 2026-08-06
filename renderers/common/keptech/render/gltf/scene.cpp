@@ -1,8 +1,8 @@
 #include "keptech/render/gltf/scene.hpp"
 
 #include "keptech/components/transform.hpp"
-
 #include "keptech/core/kt-logger.hpp"
+#include "keptech/render/gltf/data.hpp"
 
 namespace kt::gltf {
   namespace {
@@ -23,7 +23,27 @@ namespace kt::gltf {
         addNodeToEcsScene(child, scene, entity.getHandle());
       }
     }
+
+    gltf::Scene::Node createNode(const Data::Node& node, const std::vector<Mesh>& meshes) {
+      gltf::Scene::Node result{
+          .name = std::string(node.node.name),
+          .transform = node.transform,
+          .mesh = node.meshIndex == ~0u ? Mesh() : meshes[node.meshIndex],
+      };
+      for (auto& child : node.children) {
+        result.children.push_back(createNode(child, meshes));
+      }
+
+      return result;
+    }
   } // namespace
+
+  Scene::Scene(const gltf::Data& data, const std::vector<Mesh>& meshes) {
+    roots.reserve(data.roots.size());
+    for (auto& node : data.roots) {
+      roots.push_back(createNode(node, meshes));
+    }
+  }
 
   void Scene::addToEcsScene(kt::Scene& scene, ecs::EntityHandle parent) const {
     KT_DEBUG("Adding glTF scene to ECS scene with {} roots", roots.size());

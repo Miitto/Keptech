@@ -9,6 +9,8 @@
 #include <string>
 
 namespace kt::gltf {
+  struct Data;
+
   struct Scene {
     struct Node {
       std::string name;
@@ -21,6 +23,8 @@ namespace kt::gltf {
     std::vector<Node> roots;
     std::vector<Mesh> meshes;
     std::vector<Material> materials;
+
+    Scene(const gltf::Data& data, const std::vector<Mesh>& meshes);
 
     void addToEcsScene(kt::Scene& scene, kt::ecs::EntityHandle parent) const;
   };

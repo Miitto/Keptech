@@ -11,6 +11,9 @@ namespace kt::rdr {
 
     ID3D12GraphicsCommandList* operator->() const { return cmdList.Get(); }
     operator ID3D12GraphicsCommandList*() const { return cmdList.Get(); }
+    operator ID3D12CommandList* const*() { return reinterpret_cast<ID3D12CommandList* const*>(cmdList.GetAddressOf()); }
+
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>& ComPtr() { return cmdList; }
 
   private:
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList;

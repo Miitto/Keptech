@@ -1,4 +1,4 @@
-target_sources(${PROJECT_NAME}
+target_sources(Keptech_Renderer_Common
   PRIVATE
     builder.cpp
     graph.cpp

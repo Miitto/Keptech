@@ -22,6 +22,8 @@ namespace kt::rdr {
 
     void destroy();
 
+    operator ID3D12Resource*() const;
+
     Buffer() = default;
     Buffer(const Buffer&) = delete;
     Buffer& operator=(const Buffer&) = delete;
@@ -29,12 +31,14 @@ namespace kt::rdr {
     Buffer& operator=(Buffer&& other) noexcept;
     ~Buffer();
 
+    D3D12MA::Allocation* takeAllocation();
+
   private:
     Buffer(std::string name, size_t size, MappingMode mappingMode, D3D12MA::Allocation* allocation);
 
     std::string name;
-    size_t _size;
-    MappingMode mappingMode;
+    size_t _size = 0;
+    MappingMode mappingMode = MappingMode::None;
     void* mapPtr = nullptr;
     D3D12MA::Allocation* allocation = nullptr;
   };

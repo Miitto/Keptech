@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.24..4.0)
 
+set(KT_VERSION_MAJOR 0)
+set(KT_VERSION_MINOR 1)
+set(KT_VERSION_PATCH 0)
+set(KT_VERSION ${KT_VERSION_MAJOR}.${KT_VERSION_MINOR}.${KT_VERSION_PATCH})
+set(KT_VERSION_STRING "${KT_VERSION_MAJOR}.${KT_VERSION_MINOR}.${KT_VERSION_PATCH}")
+
 set(KT_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -29,7 +35,7 @@ if(KT_BUILD_EXAMPLES)
   set(KT_ADD_RESOURCE_INFO ON)
 endif()
 
-project(Keptech VERSION 0.1 LANGUAGES C CXX)
+project(Keptech VERSION ${KT_VERSION} LANGUAGES C CXX)
 
 if (CMAKE_CXX_STANDARD LESS 23)
   message(FATAL_ERROR "C++23 or higher is required")
@@ -41,11 +47,6 @@ message(STATUS "Renderer: " ${RENDERER})
 include(kt_deps)
 include(shaders)
 
-if(KT_BUILD_EXAMPLES)
-  message(STATUS "Building examples")
-  add_subdirectory(examples)
-endif()
-
 add_subdirectory(logging)
 add_subdirectory(shader_processor)
 add_subdirectory(shader_embedder)
@@ -54,5 +55,10 @@ add_subdirectory(ecs)
 add_subdirectory(core)
 add_subdirectory(renderers)
 add_subdirectory(engine)
+
+if(KT_BUILD_EXAMPLES)
+  message(STATUS "Building examples")
+  add_subdirectory(examples)
+endif()
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)

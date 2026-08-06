@@ -1,4 +1,4 @@
-target_sources(${PROJECT_NAME}
+target_sources(Keptech
   PRIVATE
     FILE_SET internalHeaders
     TYPE HEADERS

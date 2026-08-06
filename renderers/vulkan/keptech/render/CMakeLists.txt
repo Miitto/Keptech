@@ -4,7 +4,7 @@ add_subdirectory(passes)
 add_subdirectory(setup)
 add_subdirectory(wrappers)
 
-target_sources(${PROJECT_NAME}
+target_sources(Keptech_Renderer
   PRIVATE
     constants.cpp
     renderer.cpp

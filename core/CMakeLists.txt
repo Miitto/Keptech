@@ -1,12 +1,10 @@
 cmake_minimum_required(VERSION 3.15..4.0)
 
-project(Keptech_Core LANGUAGES CXX)
+add_library(Keptech_Core STATIC)
+add_library(keptech::core ALIAS Keptech_Core)
+KT_SETUP_TARGET(Keptech_Core)
 
-add_library(${PROJECT_NAME} STATIC)
-add_library(keptech::core ALIAS ${PROJECT_NAME})
-KT_SETUP_TARGET(${PROJECT_NAME})
-
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(Keptech_Core
   PUBLIC
     keptech::deps
     keptech::logging
@@ -14,7 +12,7 @@ target_link_libraries(${PROJECT_NAME}
     keptech::shaders
 )
 
-target_sources(${PROJECT_NAME}
+target_sources(Keptech_Core
    PUBLIC
     FILE_SET HEADERS
     BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -24,7 +22,7 @@ add_subdirectory(keptech)
 
 set(KT_LOG_LEVEL "DEBUG" CACHE STRING "Core log level")
 
-target_compile_definitions(${PROJECT_NAME}
+target_compile_definitions(Keptech_Core
   PUBLIC
     KT_LOG_LEVEL=SPDLOG_LEVEL_${KT_LOG_LEVEL}
     $<$<CXX_COMPILER_ID:GNU,Clang>:_KT_GNU>
@@ -32,7 +30,7 @@ target_compile_definitions(${PROJECT_NAME}
 )
 
 if(KT_ADD_RESOURCE_INFO)
-  target_compile_definitions(${PROJECT_NAME}
+  target_compile_definitions(Keptech_Core
     PUBLIC
       KT_ADD_RESOURCE_INFO
   )
@@ -65,4 +63,4 @@ elseif(RENDERER STREQUAL "DX12")
   )
 endif()
 
-target_precompile_headers(${PROJECT_NAME} PRIVATE ${KT_PCH_HEADERS})
+target_precompile_headers(Keptech_Core PRIVATE ${KT_PCH_HEADERS})
