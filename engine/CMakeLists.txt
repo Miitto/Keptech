@@ -5,18 +5,18 @@ add_library(keptech::keptech ALIAS Keptech)
 
 KT_SETUP_TARGET(Keptech)
 
-add_subdirectory(src)
+add_subdirectory(keptech)
 
 target_sources(Keptech
   PUBLIC
     FILE_SET HEADERS
-    BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
 target_link_libraries(Keptech
   PUBLIC
     keptech::core
-    keptech::renderer
+    keptech::rhi
 )
 
 target_precompile_headers(Keptech REUSE_FROM keptech::core)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #ifndef BIT
@@ -15,12 +16,6 @@ namespace kt::shaders {
     Compute = BIT(3),
     Mesh = BIT(4),
     Task = BIT(5),
-  };
-  enum class RenderingMode : uint8_t {
-    Deferred,
-    Forward,
-    DeferredLighting,
-    Custom,
   };
 
   enum class DataType : uint8_t {
@@ -80,6 +75,49 @@ namespace kt::shaders {
     ShaderStages stage;
   };
 
+  enum class PrimitiveTopology : uint8_t { TriangleList, TriangleStrip };
+
+  enum class CullMode : uint8_t { None, Front, Back, FrontAndBack };
+
+  enum class InputRate : uint8_t { Vertex, Instance };
+
+  struct VertexLayoutEntry {
+    DataType type;
+    std::string semantic;
+    size_t semanticIndex = 0;
+  };
+
+  struct VertexBuffer {
+    std::vector<VertexLayoutEntry> layout;
+    InputRate inputRate = InputRate::Vertex;
+  };
+
+  struct Vertex {
+    PrimitiveTopology topology = PrimitiveTopology::TriangleList;
+    CullMode cullMode = CullMode::Back;
+    std::vector<VertexBuffer> layout;
+  };
+
+  enum class BlendFactor : uint8_t {
+    Zero,
+    One,
+    SrcColor,
+    OneMinusSrcColor,
+    DstColor,
+    OneMinusDstColor,
+    SrcAlpha,
+    OneMinusSrcAlpha,
+    DstAlpha,
+    OneMinusDstAlpha,
+  };
+
+  struct Fragment {
+    bool enableBlending = false;
+    BlendFactor srcColorBlendFactor = BlendFactor::One;
+    BlendFactor dstColorBlendFactor = BlendFactor::Zero;
+    bool depthWrite = true;
+  };
+
   struct Shader {
     const char* name;
     const char* file = nullptr;
@@ -88,8 +126,8 @@ namespace kt::shaders {
 #elif defined(KT_DX12)
     std::vector<std::vector<uint8_t>> code;
 #endif
-    RenderingMode mode;
     std::vector<ShaderStage> stages;
-    std::vector<std::vector<DataType>> vertexLayout;
+    Vertex vertex;
+    Fragment fragment;
   };
 } // namespace kt::shaders

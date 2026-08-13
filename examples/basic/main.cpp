@@ -14,8 +14,8 @@ kt::SetupInfo kt::configureApp() {
   };
 }
 
-std::expected<void, std::string> kt::setupAppLayers(kt::LayerStack& layerStack, kt::Window& window, kt::rdr::RenderGraphBuilder& builder,
-                                                    kt::rdr::Renderer& renderer) {
+std::expected<void, std::string> kt::setupAppLayers(kt::LayerStack& layerStack, kt::Window& window, kt::rhi::RenderGraphBuilder& builder,
+                                                    kt::rhi::Renderer& renderer) {
 
   layerStack.emplaceLayer<ExampleLayer>(window, builder, renderer);
 

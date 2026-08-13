@@ -1,4 +1,4 @@
-target_sources(Keptech_Renderer_Common
+target_sources(Keptech_RHI_Common
   PRIVATE
     FILE_SET internalHeaders
     TYPE HEADERS
@@ -7,6 +7,8 @@ target_sources(Keptech_Renderer_Common
     gltf/scene.cpp
 
     imgui.cpp
+
+    pipelineBuilder.cpp
 )
 
 add_subdirectory(graph)

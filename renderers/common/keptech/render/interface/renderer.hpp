@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/render/interface.hpp"
+#include "keptech/rhi/interface.hpp"
 
 #ifdef interface
 #undef interface
@@ -18,7 +18,7 @@ namespace kt {
   }
 } // namespace kt
 
-namespace kt::rdr {
+namespace kt::rhi {
   struct Formats;
   class RenderGraphBuilder;
   class CommandBuffer;
@@ -43,4 +43,4 @@ namespace kt::rdr {
           { t.addGeometryPass(builder, true) } -> std::same_as<void>;
         };
   } // namespace interface
-} // namespace kt::rdr
+} // namespace kt::rhi

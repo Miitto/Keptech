@@ -8,7 +8,7 @@
 #include <keptech/core/gui.h>
 #include <keptech/core/window.hpp>
 #include <keptech/keptech.hpp>
-#include <keptech/render.hpp>
+#include <keptech/rhi.hpp>
 #include <memory>
 #include <utility>
 

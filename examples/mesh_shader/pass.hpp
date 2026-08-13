@@ -1,30 +1,30 @@
 #pragma once
 
-#include "keptech/render/graph/builder.hpp"
-#include "keptech/render/helpers/pipeline.hpp"
-#include "keptech/render/renderer.hpp"
+#include "keptech/graph/builder.hpp"
+#include "keptech/rhi/helpers/pipeline.hpp"
+#include "keptech/rhi/rhi.hpp"
 #include "shaders/examples/monkey/mesh.h"
 #include <keptech/components.hpp>
 #include <keptech/core/kt-logger.hpp>
-#include <keptech/render/graph/passInterface.hpp>
+#include <keptech/graph/passInterface.hpp>
 
-class GeometryPass : public kt::rdr::RenderPassInterface {
+class TrianglePass : public kt::rhi::RenderPassInterface {
 public:
-  GeometryPass() = default;
+  TrianglePass() = default;
 
-  void setupDependencies(kt::rdr::RenderPassBuilder& self, kt::rdr::RenderGraphBuilder& graph, const kt::rdr::Renderer& renderer) override {
+  void setupDependencies(kt::rhi::RenderPassBuilder& self, kt::rhi::RenderGraphBuilder& graph, const kt::rhi::Renderer& renderer) override {
     auto& formats = renderer.getFormats();
     self.addColorOutput("kt::albedo", {.format = formats.render.albedo});
     self.setDepthStencilOutput("kt::depth", {.format = formats.render.depth});
   }
 
-  void setup(kt::rdr::RenderGraph&, kt::rdr::Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override {
+  void setup(kt::rhi::RenderGraph&, kt::rhi::Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override {
     auto& device = renderer.getMembers().vkcore.device;
     auto shaderRes = renderer.createShader(::shaders::mesh);
     if (!shaderRes.isOk()) {
       KT_ABORT("Failed to create mesh shader: {}", shaderRes.error());
     }
-    kt::rdr::PipelineLayoutBuilder layoutBuilder{};
+    kt::rhi::PipelineLayoutBuilder layoutBuilder{};
     layoutBuilder.addDescriptorSetLayout(renderer.getGlobalDescriptorSetLayout())
         .addDescriptorSetLayout(descriptorSetLayout)
         .addPushConstantRange<glm::mat4, uint32_t>(
@@ -38,14 +38,14 @@ public:
 
     auto& formats = renderer.getFormats();
 
-    kt::rdr::GraphicsPipelineBuilder pipelineBuilder{};
+    kt::rhi::GraphicsPipelineBuilder pipelineBuilder{};
     pipelineBuilder.layout(layoutRes.value())
         .addShaderStages(shaderRes.value().stages)
         .addColorAttachment(formats.render.albedo)
         .depthAttachment(formats.render.depth)
-        .cullMode(kt::rdr::CullMode::Back)
+        .cullMode(kt::rhi::CullMode::Back)
         .depthWrite()
-        .depthTest(kt::rdr::DepthCompareOp::LessOrEqual);
+        .depthTest(kt::rhi::DepthCompareOp::LessOrEqual);
     auto pipelineRes = renderer.createPipeline(pipelineBuilder);
     if (!pipelineRes.isOk()) {
       shaderRes.value().destroy();
@@ -58,12 +58,12 @@ public:
     shaderRes.value().destroy();
   }
 
-  void prepare(kt::rdr::RenderGraph& graph, kt::rdr::Renderer& renderer) override { KT_TRACE("Preparing geometry pass"); }
+  void prepare(kt::rhi::RenderGraph& graph, kt::rhi::Renderer& renderer) override { KT_TRACE("Preparing geometry pass"); }
 
-  void execute(kt::rdr::RenderGraph&, const kt::rdr::CommandBuffer& cmd, VkDescriptorSet descriptorSet,
+  void execute(kt::rhi::RenderGraph&, const kt::rhi::CommandBuffer& cmd, VkDescriptorSet descriptorSet,
                glm::uvec2 framebufferSize) override {
     KT_TRACE("Executing geometry pass");
-    auto& r = kt::rdr::Renderer::get();
+    auto& r = kt::rhi::RHI::get();
 
     std::array<VkDescriptorSet, 2> descriptorSets = {r.getGlobalDescriptorSet(), descriptorSet};
     constexpr std::array<VkDeviceSize, 2> vertexOffsets = {0, 0};
@@ -115,7 +115,7 @@ public:
     return true;
   }
 
-  void shutdown(kt::rdr::RenderGraph&, kt::rdr::Renderer& renderer) override {
+  void shutdown(kt::rhi::RenderGraph&, kt::rhi::Renderer& renderer) override {
     KT_TRACE("Shutting down geometry pass");
     auto device = renderer.getMembers().vkcore.device;
     vkDestroyPipeline(device, pipeline.pipeline, nullptr);
@@ -123,5 +123,5 @@ public:
   }
 
 private:
-  kt::rdr::Pipeline pipeline{};
+  kt::rhi::Pipeline pipeline{};
 };

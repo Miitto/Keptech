@@ -10,6 +10,7 @@ target_sources(Keptech_Core
     core/events/events.cpp
     core/fastgltf_formatting.cpp
     core/gui.cpp
+    core/imgui.cpp
     core/kt-logger.cpp
     core/scene.cpp
     core/window.cpp

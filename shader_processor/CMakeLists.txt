@@ -32,6 +32,7 @@ target_sources(keptech_shader_processor
 
 target_link_libraries(keptech_shader_processor
   PUBLIC
+    keptech::logging
     keptech::shaders
     dxcompiler.lib
 )

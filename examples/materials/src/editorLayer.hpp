@@ -6,12 +6,12 @@
 #include <keptech/app.hpp>
 
 #include "keptech/ecs/entity.hpp"
-#include "keptech/render/pipeline.hpp"
+#include "keptech/rhi/pipeline.hpp"
 #include <keptech/components.hpp>
 #include <keptech/core/gui.h>
 #include <keptech/core/window.hpp>
 #include <keptech/keptech.hpp>
-#include <keptech/render.hpp>
+#include <keptech/rhi.hpp>
 
 class MaterialEditorLayer;
 

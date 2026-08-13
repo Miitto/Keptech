@@ -41,7 +41,7 @@ if (CMAKE_CXX_STANDARD LESS 23)
   message(FATAL_ERROR "C++23 or higher is required")
 endif()
 
-message(STATUS "Renderer: " ${RENDERER})
+message(STATUS "RHI Backend: " ${RHI_BACKEND})
 
 # Deps
 include(kt_deps)
@@ -53,7 +53,7 @@ add_subdirectory(shader_embedder)
 
 add_subdirectory(ecs)
 add_subdirectory(core)
-add_subdirectory(renderers)
+add_subdirectory(rhi)
 add_subdirectory(engine)
 
 if(KT_BUILD_EXAMPLES)

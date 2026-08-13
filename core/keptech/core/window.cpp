@@ -68,6 +68,14 @@ namespace kt {
     return false;
   }
 
+  glm::uvec2 Window::getDisplaySize() const {
+    SDL_DisplayID displayIndex = SDL_GetDisplayForWindow(handle);
+
+    auto mode = SDL_GetCurrentDisplayMode(displayIndex);
+
+    return {mode->w, mode->h};
+  }
+
   void Window::updateSize() {
     int w = 0, h = 0;
     SDL_GetWindowSize(handle, &w, &h);

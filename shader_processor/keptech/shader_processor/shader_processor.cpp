@@ -1,9 +1,13 @@
 #include "shader_processor.hpp"
 
+#include "keptech/shaders/shader.h"
+#include "slangFormatting.hpp"
 #include <array>
 #include <expected>
+#include <iostream>
 #include <slang-com-ptr.h>
 #include <slang.h>
+#include <spdlog/fmt/bundled/format.h>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,8 +19,6 @@
 #include "conversions.hpp"
 
 namespace kt::shader_processor {
-  std::string toString(SlangResult res);
-
   Slang::ComPtr<slang::IGlobalSession> globalSession; // NOLINT
   SlangGlobalSessionDesc globalSessionDesc;           // NOLINT
 
@@ -133,7 +135,7 @@ namespace kt::shader_processor {
 
     auto res = globalSession->createSession(sessionDesc, session.writeRef());
     if (res != SLANG_OK) {
-      throw std::runtime_error("Failed to create session: " + toString(res));
+      throw std::runtime_error(fmt::format("Failed to create session: {}", res));
     }
   }
 
@@ -166,7 +168,7 @@ namespace kt::shader_processor {
         Slang::ComPtr<slang::IEntryPoint> entryPoint;
         auto res = mod->getDefinedEntryPoint(i, entryPoint.writeRef());
         if (res != SLANG_OK) {
-          throw std::runtime_error("Failed to get entry point from module: " + toString(res));
+          throw std::runtime_error(fmt::format("Failed to get entry point from module: {}", res));
         }
         entryPoints.push_back(entryPoint);
       }
@@ -185,7 +187,7 @@ namespace kt::shader_processor {
     {
       auto res = session->createCompositeComponentType(modules.data(), static_cast<uint32_t>(modules.size()), program.writeRef());
       if (res != SLANG_OK) {
-        throw std::runtime_error("Failed to create composite component type: " + toString(res));
+        throw std::runtime_error(fmt::format("Failed to create composite component type: {}", res));
       }
     }
 
@@ -193,7 +195,7 @@ namespace kt::shader_processor {
     Slang::ComPtr<slang::IComponentType> linkedProgram;
     auto res = program->link(linkedProgram.writeRef(), diagBlob.writeRef());
     if (res != SLANG_OK) {
-      throw std::runtime_error("Failed to link program: " + toString(res));
+      throw std::runtime_error(fmt::format("Failed to link program: {}", res));
     }
 
     return {.value = {linkedProgram, entryPoints.size()}, .diagnostics = diagBlob};
@@ -210,7 +212,7 @@ namespace kt::shader_processor {
     kernels.resize(1);
     auto res = program->getTargetCode(0, kernels[0].code.writeRef(), kernels[0].diagnostics.writeRef());
     if (res != SLANG_OK) {
-      throw std::runtime_error("Failed to get target code: " + toString(res));
+      throw std::runtime_error(fmt::format("Failed to get target code: {}", res));
     }
 #elif defined(KT_DX12)
     kernels.resize(entryPointCount);
@@ -220,7 +222,7 @@ namespace kt::shader_processor {
         std::string errorMsg = kernels[i].diagnostics ? std::string(static_cast<const char*>(kernels[i].diagnostics->getBufferPointer()),
                                                                     kernels[i].diagnostics->getBufferSize())
                                                       : "Unknown error";
-        throw std::runtime_error("Failed to get target code: " + toString(res) + "\n" + errorMsg);
+        throw std::runtime_error(fmt::format("Failed to get target code: {}\n{}", res, errorMsg));
       }
     }
 #endif
@@ -228,7 +230,94 @@ namespace kt::shader_processor {
     return kernels;
   }
 
-  std::expected<Return<kt::shaders::Shader>, std::string> Program::toShader(const char* name) const {
+  namespace {
+    std::expected<void, std::string> parseVertexAttribs(shaders::Vertex& v, slang::FunctionReflection& func) {
+      auto attribCount = func.getUserAttributeCount();
+      for (uint32_t idx = 0; idx < attribCount; ++idx) {
+        auto attribute = func.getUserAttributeByIndex(idx);
+
+        auto attributeName = attribute->getName();
+        if (strcmp(attributeName, "topology") == 0) {
+          auto argCount = attribute->getArgumentCount();
+          if (argCount != 1) {
+            return std::unexpected<std::string>("Invalid number of arguments for topology attribute");
+          }
+          auto argType = attribute->getArgumentType(0);
+          std::clog << fmt::format("Argument type: {}", argType->getKind());
+          int value = 0;
+          attribute->getArgumentValueInt(0, &value);
+          switch (value) {
+          case 0:
+            v.topology = kt::shaders::PrimitiveTopology::TriangleList;
+            break;
+          case 1:
+            v.topology = kt::shaders::PrimitiveTopology::TriangleStrip;
+            break;
+          default:
+            return std::unexpected<std::string>("Invalid value for topology attribute");
+          }
+        } else if (strcmp(attributeName, "cull") == 0) {
+          auto argCount = attribute->getArgumentCount();
+          if (argCount != 1) {
+            return std::unexpected<std::string>("Invalid number of arguments for cull attribute");
+          }
+          auto argType = attribute->getArgumentType(0);
+          std::clog << fmt::format("Argument type: {}", argType->getKind());
+          int value = 0;
+          attribute->getArgumentValueInt(0, &value);
+          switch (value) {
+          case 0:
+            v.cullMode = kt::shaders::CullMode::None;
+            break;
+          case 1:
+            v.cullMode = kt::shaders::CullMode::Front;
+            break;
+          case 2:
+            v.cullMode = kt::shaders::CullMode::Back;
+            break;
+          case 3:
+            v.cullMode = kt::shaders::CullMode::FrontAndBack;
+            break;
+          default:
+            return std::unexpected<std::string>("Invalid value for cull attribute");
+          }
+        }
+      }
+      return {};
+    }
+
+    std::expected<void, std::string> parseFragmentAttribs(shaders::Fragment& f, slang::FunctionReflection& func) {
+      auto attribCount = func.getUserAttributeCount();
+      for (uint32_t idx = 0; idx < attribCount; ++idx) {
+        auto attribute = func.getUserAttributeByIndex(idx);
+
+        auto attributeName = attribute->getName();
+        if (strcmp(attributeName, "blend") == 0) {
+          auto argCount = attribute->getArgumentCount();
+          if (argCount != 2) {
+            return std::unexpected<std::string>("Invalid number of arguments for blend attribute");
+          }
+          f.enableBlending = true;
+          int value = 0;
+          attribute->getArgumentValueInt(0, &value);
+          f.srcColorBlendFactor = static_cast<shaders::BlendFactor>(value);
+          attribute->getArgumentValueInt(1, &value);
+          f.dstColorBlendFactor = static_cast<shaders::BlendFactor>(value);
+        } else if (strcmp(attributeName, "depthWrite") == 0) {
+          auto argCount = attribute->getArgumentCount();
+          if (argCount != 1) {
+            return std::unexpected<std::string>("Invalid number of arguments for depthWrite attribute");
+          }
+          int value = 0;
+          attribute->getArgumentValueInt(0, &value);
+          f.depthWrite = value != 0;
+        }
+      }
+      return {};
+    }
+  } // namespace
+
+  std::expected<Return<kt::shaders::Shader>, std::string> Program::toShader(const char* name, const char* file) const {
     std::vector<std::vector<uint8_t>> code;
     auto diag = Slang::ComPtr<slang::IBlob>{};
     try {
@@ -252,25 +341,22 @@ namespace kt::shader_processor {
 
     kt::shaders::Shader shader = {
         .name = name,
+        .file = file,
         .code =
 #ifdef KT_VULKAN
             std::move(code[0]),
 #elif defined(KT_DX12)
             std::move(code),
 #endif
-        .mode = kt::shaders::RenderingMode::Custom,
         .stages = {},
-        .vertexLayout = {},
+        .vertex = {},
+        .fragment = {},
     };
     auto layout = program->getLayout();
 
-    auto entryPointCount = layout->getEntryPointCount();
-
     shader.stages.reserve(entryPointCount);
 
-    std::vector<std::vector<kt::shaders::DataType>> vertexLayout;
-
-    shader.mode = kt::shaders::RenderingMode::Custom;
+    std::vector<shaders::VertexBuffer> vertexLayout;
 
     for (uint32_t i = 0; i < entryPointCount; ++i) {
       auto entryPoint = layout->getEntryPointByIndex(i);
@@ -287,17 +373,53 @@ namespace kt::shader_processor {
           switch (param->getType()->getKind()) {
           case slang::TypeReflection::Kind::Scalar:
           case slang::TypeReflection::Kind::Vector: {
+            auto semantic = param->getSemanticName();
+            auto semanticIndex = param->getSemanticIndex();
             auto type = slangTypeToKeptechTypes(param->getType())[0];
-            vertexLayout.push_back({type});
+            vertexLayout.push_back(shaders::VertexBuffer{
+                .layout = {shaders::VertexLayoutEntry{.type = type, .semantic = semantic, .semanticIndex = semanticIndex}},
+                .inputRate = shaders::InputRate::Vertex});
           } break;
           case slang::TypeReflection::Kind::Struct: {
-            auto types = slangTypeToKeptechTypes(param->getType());
-            vertexLayout.emplace_back(std::move(types));
+            bool isInstanceData = false;
+            auto attribCount = param->getType()->getUserAttributeCount();
+            for (uint32_t idx = 0; idx < attribCount; ++idx) {
+              auto attribute = param->getType()->getUserAttributeByIndex(idx);
+              if (strcmp(attribute->getName(), "instance") == 0) {
+                isInstanceData = true;
+              }
+            }
+            auto fieldCount = param->getTypeLayout()->getFieldCount();
+            shaders::VertexBuffer buffer;
+            for (auto k = 0u; k < fieldCount; ++k) {
+              auto field = param->getTypeLayout()->getFieldByIndex(k);
+              auto types = slangTypeToKeptechTypes(field->getType());
+              if (types.size() != 1) {
+                return std::unexpected<std::string>("Reflection does not yet support nested structs for vertex input");
+              }
+              auto semantic = field->getSemanticName();
+              auto semanticIndex = field->getSemanticIndex();
+              buffer.layout.push_back(shaders::VertexLayoutEntry{.type = types[0], .semantic = semantic, .semanticIndex = semanticIndex});
+            }
+            buffer.inputRate = isInstanceData ? shaders::InputRate::Instance : shaders::InputRate::Vertex;
+            vertexLayout.push_back(std::move(buffer));
           } break;
           default:
           }
         }
+
+        auto res = parseVertexAttribs(shader.vertex, *entryPoint->getFunction());
+        if (!res) {
+          return std::unexpected<std::string>("Failed to parse vertex attributes: " + res.error());
+        }
+
         break;
+      }
+      case kt::shaders::ShaderStages::Mesh: {
+        auto res = parseVertexAttribs(shader.vertex, *entryPoint->getFunction());
+        if (!res) {
+          return std::unexpected<std::string>("Failed to parse mesh attributes: " + res.error());
+        }
       }
       case kt::shaders::ShaderStages::Fragment: {
         auto returnT = entryPoint->getFunction()->getReturnType();
@@ -306,15 +428,11 @@ namespace kt::shader_processor {
 
         std::string_view returnTypeName(static_cast<const char*>(typeNameBlob->getBufferPointer()), typeNameBlob->getBufferSize());
 
-        if (returnTypeName == "kt.DeferredOutput") {
-          shader.mode = kt::shaders::RenderingMode::Deferred;
-        } else if (returnTypeName == "kt.DeferredLightingOutput") {
-          shader.mode = kt::shaders::RenderingMode::DeferredLighting;
-        } else if (returnTypeName == "vector<float,4>") {
-          shader.mode = kt::shaders::RenderingMode::Forward;
-        } else {
-          shader.mode = kt::shaders::RenderingMode::Custom;
+        auto res = parseFragmentAttribs(shader.fragment, *entryPoint->getFunction());
+        if (!res) {
+          return std::unexpected<std::string>("Failed to parse fragment attributes: " + res.error());
         }
+
       } break;
       default:
         break;
@@ -322,28 +440,11 @@ namespace kt::shader_processor {
       shader.stages.push_back(kt::shaders::ShaderStage{.name = entryPoint->getName(), .stage = stage});
     }
 
-    shader.vertexLayout.reserve(vertexLayout.size());
+    shader.vertex.layout.reserve(vertexLayout.size());
     for (auto& layoutEntry : vertexLayout) {
-      shader.vertexLayout.emplace_back(std::move(layoutEntry));
+      shader.vertex.layout.emplace_back(std::move(layoutEntry));
     }
 
     return Return<kt::shaders::Shader>{.value = std::move(shader), .diagnostics = std::move(diag)};
-  }
-
-  std::string toString(SlangResult res) {
-    switch (res) {
-    case SLANG_OK:
-      return "SLANG_OK";
-    case SLANG_E_NOT_IMPLEMENTED:
-      return "SLANG_E_NOT_IMPLEMENTED";
-    case SLANG_E_OUT_OF_MEMORY:
-      return "SLANG_E_OUT_OF_MEMORY";
-    case SLANG_E_INVALID_ARG:
-      return "SLANG_E_INVALID_ARG";
-    case SLANG_E_NOT_FOUND:
-      return "SLANG_E_NOT_FOUND";
-    default:
-      return "Unknown SlangResult";
-    }
   }
 } // namespace kt::shader_processor

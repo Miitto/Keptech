@@ -1,0 +1,13 @@
+target_sources(Keptech_RHI
+  PRIVATE
+    FILE_SET internalCommonHeaders
+    TYPE HEADERS
+    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+  PRIVATE
+    bufferUsage.cpp
+    imageFormat.cpp
+    imageLayout.cpp
+    imageUsage.cpp
+    imgui.cpp
+    pipelineBuilder.cpp
+)

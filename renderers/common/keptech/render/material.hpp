@@ -3,9 +3,9 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
-namespace kt::rdr {
+namespace kt::rhi {
   class Image;
-} // namespace kt::rdr
+} // namespace kt::rhi
 
 namespace kt {
   struct MaterialLayer {

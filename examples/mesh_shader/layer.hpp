@@ -6,12 +6,12 @@
 #include "keptech/core/layers/layer.hpp"
 #include "keptech/core/scene.hpp"
 #include "keptech/core/window.hpp"
-#include "keptech/render/renderer.hpp"
+#include "keptech/rhi/rhi.hpp"
 #include "pass.hpp"
 
 class ExampleLayer : public kt::Layer {
 public:
-  ExampleLayer(kt::Window& window, kt::rdr::RenderGraphBuilder& builder, kt::rdr::Renderer& renderer) : kt::Layer("Example Mesh Shader") {
+  ExampleLayer(kt::Window& window, kt::rhi::RenderGraphBuilder& builder, kt::rhi::Renderer& renderer) : kt::Layer("Example Mesh Shader") {
     auto& scene = kt::Scene::active();
 
     auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");

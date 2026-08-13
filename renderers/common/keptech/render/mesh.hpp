@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/render/material.hpp"
+#include "keptech/rhi/material.hpp"
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <keptech/maths/sphere.hpp>

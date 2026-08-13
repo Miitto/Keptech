@@ -20,6 +20,8 @@ struct Object {
 StructuredBuffer<Object> objects;
 
 [shader("vertex")]
+[topology(kt::PrimitiveTopology::TriangleList)]
+[cull(kt::CullMode::Back)]
 VertexOutput vert(float3 position: POSITION, kt::VertexAttribs v, uint baseInstance: SV_StartInstanceLocation) {
   VertexOutput output;
 

@@ -18,6 +18,68 @@ enum CliPos : uint8_t {
   POS_DEBUG_INFO,
 };
 
+void writeCode(std::ofstream& file, const kt::shaders::Shader& shader) {
+  file << "    .code = {\n";
+  for (size_t i = 0; i < shader.code.size(); ++i) {
+#ifdef KT_VULKAN
+    auto& code = shader.code;
+#endif
+#ifdef KT_DX12
+    file << "    // Entry point " << i << "\n    {";
+    size_t j = i;
+    for (size_t i = 0; i < shader.code[j].size(); ++i) {
+      auto& code = shader.code[j];
+#endif
+      if (i % 96 == 0) {
+        file << "\n    ";
+      }
+      file << "0x" << std::hex << static_cast<uint32_t>(code[i]);
+      if (i + 1 < code.size()) {
+        file << ", ";
+      }
+#ifdef KT_DX12
+    }
+    file << "\n    },\n";
+#endif
+  }
+  file << "\n},\n";
+}
+
+void writeStages(std::ofstream& file, const std::vector<kt::shaders::ShaderStage>& stages) {
+  file << "    .stages = {\n";
+  for (auto& stage : stages) {
+    file << "        {.name = \"" << stage.name << "\", .stage = static_cast<kt::shaders::ShaderStages>(" << std::dec
+         << static_cast<uint32_t>(stage.stage) << ")},\n";
+  }
+  file << "    },\n";
+}
+
+void writeVertex(std::ofstream& file, const kt::shaders::Vertex& vertex) {
+  file << "    .vertex = {\n        .topology = static_cast<kt::shaders::PrimitiveTopology>(" << static_cast<uint32_t>(vertex.topology)
+       << "),\n        .layout = {\n";
+  for (auto& buffer : vertex.layout) {
+    file << "            {\n.layout = {\n";
+    for (auto& entry : buffer.layout) {
+      file << "                {.type = static_cast<kt::shaders::DataType>(" << std::dec << static_cast<uint32_t>(entry.type) << "),\n"
+           << "                 .semantic = \"" << entry.semantic << "\",\n"
+           << "                 .semanticIndex = " << entry.semanticIndex << "},\n";
+    }
+    file << "},\n            .inputRate = static_cast<kt::shaders::InputRate>(" << std::dec << static_cast<uint32_t>(buffer.inputRate)
+         << "),\n"
+         << "            },\n";
+  }
+  file << "        },\n    },\n";
+}
+
+void writeFragment(std::ofstream& file, const kt::shaders::Fragment& fragment) {
+  file << "    .fragment = {\n        .enableBlending = " << (fragment.enableBlending ? "true" : "false") << ",\n"
+       << "        .srcColorBlendFactor = static_cast<kt::shaders::BlendFactor>(" << std::dec
+       << static_cast<uint32_t>(fragment.srcColorBlendFactor) << "),\n"
+       << "        .dstColorBlendFactor = static_cast<kt::shaders::BlendFactor>(" << std::dec
+       << static_cast<uint32_t>(fragment.dstColorBlendFactor) << "),\n"
+       << "        .depthWrite = " << (fragment.depthWrite ? "true" : "false") << ",\n    },\n";
+}
+
 int main(int argc, char** argv) {
   if (argc < 6 || argc > 8) {
     std::cerr << "Usage: shader_embedder <var_name> <namespace> <input_file> <output_header> <output_source> "
@@ -104,48 +166,17 @@ int main(int argc, char** argv) {
 
   outSource << "#include \"" << std::filesystem::path(outputHeader).filename().string() << "\"\n\n";
   outSource << "namespace " << ns << "{\n    const kt::shaders::Shader " << name << "{ .name = \"" << name << "\",\n .file = \""
-            << inputFile << "\",\n .code = {\n";
-  for (size_t i = 0; i < shader.code.size(); ++i) {
-#ifdef KT_VULKAN
-    auto& code = shader.code;
-#endif
-#ifdef KT_DX12
-    outSource << "    // Entry point " << i << "\n    {";
-    size_t j = i;
-    for (size_t i = 0; i < shader.code[j].size(); ++i) {
-      auto& code = shader.code[j];
-#endif
-      if (i % 96 == 0) {
-        outSource << "\n    ";
-      }
-      outSource << "0x" << std::hex << static_cast<uint32_t>(code[i]);
-      if (i + 1 < code.size()) {
-        outSource << ", ";
-      }
-#ifdef KT_DX12
-    }
-    outSource << "\n    },\n";
-#endif
-  }
-  outSource << "\n},\n .mode = static_cast<kt::shaders::RenderingMode>(" << std::dec << static_cast<uint32_t>(shader.mode)
-            << "),\n .stages = {\n";
+            << inputFile << "\",\n";
 
-  for (auto& stage : shader.stages) {
-    outSource << "{.name = \"" << stage.name << "\", .stage = static_cast<kt::shaders::ShaderStages>(" << std::dec
-              << static_cast<uint32_t>(stage.stage) << ")},\n";
-  }
+  writeCode(outSource, shader);
 
-  outSource << "\n},\n .vertexLayout = {\n";
+  writeStages(outSource, shader.stages);
 
-  for (auto& layout : shader.vertexLayout) {
-    outSource << "{\n";
-    for (auto& type : layout) {
-      outSource << "    static_cast<kt::shaders::DataType>(" << std::dec << static_cast<uint32_t>(type) << "),\n";
-    }
-    outSource << "},\n";
-  }
+  writeVertex(outSource, shader.vertex);
 
-  outSource << "},\n};\n}";
+  writeFragment(outSource, shader.fragment);
+
+  outSource << "};\n}";
 
   return 0;
 }

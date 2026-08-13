@@ -56,7 +56,7 @@ namespace kt::shader_processor {
 
     [[nodiscard]] slang::ProgramLayout* getLayout() const { return program->getLayout(); }
 
-    [[nodiscard]] std::expected<Return<kt::shaders::Shader>, std::string> toShader(const char* name) const;
+    [[nodiscard]] std::expected<Return<kt::shaders::Shader>, std::string> toShader(const char* name, const char* file = nullptr) const;
 
   private:
     Slang::ComPtr<slang::IComponentType> program;

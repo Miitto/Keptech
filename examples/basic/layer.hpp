@@ -7,13 +7,13 @@
 #include "keptech/core/layers/layer.hpp"
 #include "keptech/core/scene.hpp"
 #include "keptech/core/window.hpp"
-#include "keptech/render/gltf/scene.hpp"
-#include "keptech/render/graph/builder.hpp"
-#include "keptech/render/renderer.hpp"
+#include "keptech/graph/builder.hpp"
+#include "keptech/rhi/gltf/scene.hpp"
+#include "keptech/rhi/rhi.hpp"
 
 class ExampleLayer : public kt::Layer {
 public:
-  ExampleLayer(kt::Window& window, kt::rdr::RenderGraphBuilder& builder, kt::rdr::Renderer& renderer) : kt::Layer("Example Mesh Shader") {
+  ExampleLayer(kt::Window& window, kt::rhi::RenderGraphBuilder& builder, kt::rhi::Renderer& renderer) : kt::Layer("Example Mesh Shader") {
     // Get a quick reference to the active scene.
     auto& scene = kt::Scene::active();
 

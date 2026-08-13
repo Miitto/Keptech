@@ -1,8 +1,8 @@
 #pragma once
 
-#include "keptech/render/interface.hpp"
+#include "keptech/rhi/interface.hpp"
 
-namespace kt::rdr {
+namespace kt::rhi {
   struct RenderFormats {
     ImageFormat albedo = KT_FORMAT_UNDEFINED;
     ImageFormat position = KT_FORMAT_UNDEFINED;
@@ -25,4 +25,4 @@ namespace kt::rdr {
     TextureFormats texture{};
     ImageFormat swapchain = KT_FORMAT_UNDEFINED;
   };
-} // namespace kt::rdr
+} // namespace kt::rhi

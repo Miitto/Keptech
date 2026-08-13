@@ -76,6 +76,7 @@ namespace kt {
 
     [[nodiscard]] glm::ivec2 getSize() const { return size; }
     [[nodiscard]] glm::ivec2 getRenderSize() const { return renderSize; }
+    glm::uvec2 getDisplaySize() const;
 
     [[nodiscard]] SDL_Window* getHandle() const { return handle; }
 

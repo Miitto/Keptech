@@ -1,0 +1,23 @@
+#pragma once
+
+#include <wrl/client.h>
+
+namespace kt::rhi {
+  class Image;
+
+  class ImageRef {
+  public:
+    ImageRef() = default;
+    ImageRef(const char* name, ID3D12Resource* resource, D3D12_CPU_DESCRIPTOR_HANDLE rtvDsvHandle = {})
+        : name(name), resource(resource), rtvDsvHandle(rtvDsvHandle) {}
+
+    const char* getName() const { return name; }
+    operator ID3D12Resource*() const { return resource; }
+    D3D12_CPU_DESCRIPTOR_HANDLE dxGetRtvDsvHandle() const { return rtvDsvHandle; }
+
+  private:
+    const char* name;
+    ID3D12Resource* resource;
+    D3D12_CPU_DESCRIPTOR_HANDLE rtvDsvHandle{};
+  };
+} // namespace kt::rhi

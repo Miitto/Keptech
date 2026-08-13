@@ -17,6 +17,20 @@
         },
         {
             "type": "lldb",
+            "name": "Launch Clear DX12 (VS Debug, Clang x64, Windows)",
+            "request": "launch",
+            "program": "${workspaceFolder}/__output/clang-x64-dx12/examples/clear_screen/Debug/clear_example.exe",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "name": "Launch Triangle DX12 (VS Debug, Clang x64, Windows)",
+            "request": "launch",
+            "program": "${workspaceFolder}/__output/clang-x64-dx12/examples/triangle/Debug/triangle_example.exe",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
             "name": "Launch Monkey (VS Debug, Clang x64, Windows)",
             "request": "launch",
             "program": "${workspaceFolder}/__output/clang-x64/examples/monkey/Debug/monkey.exe",
