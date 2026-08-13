@@ -2,7 +2,6 @@
 
 #include "keptech/graph/pass.hpp"
 #include "keptech/graph/renderResources.hpp"
-#include "keptech/rhi/wrappers/cmdBuf.hpp"
 #include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_uint2.hpp>
 #include <memory>

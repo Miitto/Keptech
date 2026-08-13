@@ -195,7 +195,7 @@ namespace kt::rhi {
   ImageRef RHI::getSwapchainImage() const {
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m.swapchain.rtvHeap->GetCPUDescriptorHandleForHeapStart(), m.imageIndex,
                                             static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
-    return {"Swapchain Image", m.swapchain.backbuffers[m.imageIndex].Get(), rtvHandle};
+    return {"Swapchain Image", m.swapchain.backbuffers[m.imageIndex].Get(), ImageFormat::R8G8B8A8_UNORM, rtvHandle};
   }
 
   CD3DX12_CPU_DESCRIPTOR_HANDLE RHI::dxGetRtvHandle(uint16_t index) const {
@@ -307,7 +307,9 @@ namespace kt::rhi {
       ComPtr<ID3D12GraphicsCommandList> cmdList;
       DX_REQUIRE(SUCCEEDED(m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&cmdList))),
                  "Failed to create graphics command list");
-      cmdBuffers.emplace_back(std::move(cmdAlloc), std::move(cmdList));
+      ComPtr<ID3D12GraphicsCommandList4> cmdList4;
+      DX_REQUIRE(SUCCEEDED(cmdList.As(&cmdList4)), "Failed to query ID3D12GraphicsCommandList4 interface");
+      cmdBuffers.emplace_back(std::move(cmdAlloc), std::move(cmdList4));
     }
     return cmdBuffers;
   }
@@ -325,7 +327,9 @@ namespace kt::rhi {
       DX_REQUIRE(
           SUCCEEDED(m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE, cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&cmdList))),
           "Failed to create compute command list");
-      cmdBuffers.emplace_back(std::move(cmdAlloc), std::move(cmdList));
+      ComPtr<ID3D12GraphicsCommandList4> cmdList4;
+      DX_REQUIRE(SUCCEEDED(cmdList.As(&cmdList4)), "Failed to query ID3D12GraphicsCommandList4 interface");
+      cmdBuffers.emplace_back(std::move(cmdAlloc), std::move(cmdList4));
     }
     return cmdBuffers;
   }

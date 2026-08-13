@@ -1,4 +1,5 @@
 #include "keptech/app.hpp"
+#include "keptech/core/layers/layerStack.hpp"
 #include "layer.hpp"
 
 constexpr int WINDOW_WIDTH = 1280;
@@ -14,10 +15,10 @@ kt::SetupInfo kt::configureApp() {
   };
 }
 
-std::expected<void, std::string> kt::setupAppLayers(kt::LayerStack& layerStack, kt::Window& window, kt::rhi::RenderGraphBuilder& builder,
-                                                    kt::rhi::Renderer& renderer) {
+std::expected<void, std::string> kt::setupAppLayers(kt::LayerStack& layerStack, kt::Window& window, kt::RenderGraphBuilder& builder,
+                                                    kt::rhi::RHI& rhi) {
 
-  layerStack.emplaceLayer<ExampleLayer>(window, builder, renderer);
+  layerStack.emplaceLayer<ExampleLayer>(window, builder, rhi);
 
   return {};
 }

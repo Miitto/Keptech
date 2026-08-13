@@ -11,7 +11,7 @@
 
 class ExampleLayer : public kt::Layer {
 public:
-  ExampleLayer(kt::Window& window, kt::rhi::RenderGraphBuilder& builder, kt::rhi::Renderer& renderer) : kt::Layer("Example Mesh Shader") {
+  ExampleLayer(kt::Window& window, kt::RenderGraphBuilder& builder, kt::rhi::RHI& rhi) : kt::Layer("Example Mesh Shader") {
     auto& scene = kt::Scene::active();
 
     auto& pass = builder.addPass("Triangle");

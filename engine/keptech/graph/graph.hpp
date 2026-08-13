@@ -3,6 +3,7 @@
 #include "keptech/maths/frustum.hpp"
 #include "keptech/rhi/constants.hpp"
 #include "keptech/rhi/graphInterface.hpp"
+#include "keptech/rhi/renderPass.hpp"
 #include "keptech/rhi/wrappers/buffer.hpp"
 #include "keptech/rhi/wrappers/image.hpp"
 #include "pass.hpp"
@@ -18,21 +19,10 @@ namespace kt {
   class RenderGraphBuilder;
   class RenderGraph;
 
-  enum class LoadOp : uint8_t {
-    Load,
-    Clear,
-    DontCare,
-  };
-
-  enum class StoreOp : uint8_t {
-    Store,
-    DontCare,
-  };
-
   struct RenderAttachment {
     PhysResourceId resourceId{};
-    LoadOp loadOp = LoadOp::DontCare;
-    StoreOp storeOp = StoreOp::DontCare;
+    rhi::LoadOp loadOp = rhi::LoadOp::DontCare;
+    rhi::StoreOp storeOp = rhi::StoreOp::DontCare;
 
     operator bool() const { return resourceId.used(); }
   };

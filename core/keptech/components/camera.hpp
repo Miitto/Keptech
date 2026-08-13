@@ -62,7 +62,7 @@ namespace kt::components {
     };
 
     Camera(PerspectiveType perspectiveType, Params::Common common, Params::Perspective perspective, maths::Viewport viewport = {},
-           maths::Rect2D scissor = {})
+           maths::Rect2D<uint32_t, uint32_t> scissor = {})
         : projectionType(static_cast<ProjectionType>(perspectiveType)), viewport(viewport), scissor(scissor),
           params({.common = common, .perspective = perspective}) {}
 
@@ -110,16 +110,16 @@ namespace kt::components {
     }
 
     maths::Viewport& getViewport() { return viewport; }
-    maths::Rect2D& getScissor() { return scissor; }
+    maths::Rect2D<uint32_t, uint32_t>& getScissor() { return scissor; }
     [[nodiscard]] const maths::Viewport& getViewport() const { return viewport; }
-    [[nodiscard]] const maths::Rect2D& getScissor() const { return scissor; }
+    [[nodiscard]] const maths::Rect2D<uint32_t, uint32_t>& getScissor() const { return scissor; }
 
   private:
     glm::mat4 projectionMatrix{1.0f};
     ProjectionType projectionType{ProjectionType::Perspective};
 
     maths::Viewport viewport{};
-    maths::Rect2D scissor{};
+    maths::Rect2D<uint32_t, uint32_t> scissor{};
 
     Params params{};
     bool dirty = true;

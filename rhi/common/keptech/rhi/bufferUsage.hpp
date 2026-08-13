@@ -2,6 +2,7 @@
 
 #include "keptech/core/bitflag.hpp"
 #include "keptech/core/macros.hpp"
+#include <spdlog/fmt/bundled/format.h>
 
 #ifdef KT_VULKAN
 #include <Volk/volh.h>

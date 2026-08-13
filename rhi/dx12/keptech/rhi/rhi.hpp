@@ -12,6 +12,7 @@
 #include "keptech/rhi/wrappers/cmdBuf.hpp"
 #include "keptech/rhi/wrappers/fence.hpp"
 #include <D3D12MemAlloc.h>
+#include <array>
 #include <expected>
 
 #ifdef min

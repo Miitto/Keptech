@@ -126,5 +126,5 @@ namespace kt::rhi {
     return *this;
   }
 
-  Image::operator ImageRef() const { return ImageRef(name.c_str(), dxresource().Get(), RHI::get().dxGetRtvHandle(rtvDsvIndex)); }
+  Image::operator ImageRef() const { return ImageRef(name.c_str(), dxresource().Get(), _format, RHI::get().dxGetRtvHandle(rtvDsvIndex)); }
 } // namespace kt::rhi
