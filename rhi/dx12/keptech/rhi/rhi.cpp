@@ -165,6 +165,8 @@ namespace kt::rhi {
                                                               swapchainDesc.BufferDesc.Format, swapchainDesc.Flags)),
                "Failed to resize swapchain buffers");
 
+    m.swapchain.size = renderSize;
+
     m.imageIndex = static_cast<uint8_t>(m.swapchain.swapchain->GetCurrentBackBufferIndex());
     auto res = updateBackbufferDescriptors();
     if (!res) {
