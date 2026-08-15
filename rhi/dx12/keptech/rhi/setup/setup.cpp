@@ -129,6 +129,24 @@ namespace kt::rhi {
     };
     DX_MAKE(m.device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m.dsvHeap.heap)), "Failed to create DSV descriptor heap");
 
+    D3D12_DESCRIPTOR_HEAP_DESC cbvSrvUavHeapDesc = {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+        .NumDescriptors = 1000, // TODO: Make this configurable
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+        .NodeMask = 0,
+    };
+    DX_MAKE(m.device->CreateDescriptorHeap(&cbvSrvUavHeapDesc, IID_PPV_ARGS(&m.cbvSrvUavHeap.heap)),
+            "Failed to create CBV_SRV_UAV descriptor heap");
+
+    D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc = {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+        .NumDescriptors = 100, // TODO: Make this configurable
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+        .NodeMask = 0,
+    };
+    DX_MAKE(m.device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&m.samplerHeap.heap)),
+            "Failed to create sampler descriptor heap");
+
     return {};
   }
 
@@ -281,12 +299,11 @@ namespace kt::rhi {
   }
 
   std::expected<void, std::string> RHI::initCommandLists() {
-    DX_MAKE(m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&m.copyCommandAllocator)),
-            "Failed to create command allocator");
+    ComPtr<ID3D12CommandAllocator> cmdAlloc;
+    DX_MAKE(m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&cmdAlloc)), "Failed to create command allocator");
 
-    DX_MAKE(
-        m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m.copyCommandAllocator.Get(), nullptr, IID_PPV_ARGS(&m.copyCmdList)),
-        "Failed to create command list");
+    DX_MAKE(m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&m.copyCmdList)),
+            "Failed to create command list");
 
     m.copyCmdList->Close();
 

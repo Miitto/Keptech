@@ -1,15 +1,28 @@
 #pragma once
 
-#include "keptech/rhi/mesh.hpp"
+#ifdef max
+#undef max
+#endif
+
+#ifdef min
+#undef min
+#endif
+
 #include <expected>
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
 #include <filesystem>
-#include <keptech/maths/transform.hpp>
 #include <string>
 
+#include "keptech/gltf/scene.hpp"
+#include "keptech/maths/sphere.hpp"
+#include "keptech/maths/transform.hpp"
+#include "keptech/mesh.hpp"
+#include "keptech/rhi/wrappers/buffer.hpp"
+
 namespace kt::gltf {
+  class Scene;
 
   struct Submesh {
     struct BaseInfo {
@@ -41,6 +54,28 @@ namespace kt::gltf {
     kt::maths::Sphere boundingSphere;
   };
 
+  struct MeshSize {
+    size_t positions;
+    size_t vertexAttribs;
+    size_t indices;
+    size_t submeshes;
+    size_t meshlets;
+    size_t meshletVertices;
+    size_t meshletTriangles;
+
+    MeshSize& operator+=(const MeshSize& other) {
+      positions += other.positions;
+      vertexAttribs += other.vertexAttribs;
+      indices += other.indices;
+      submeshes += other.submeshes;
+      meshlets += other.meshlets;
+      meshletVertices += other.meshletVertices;
+      meshletTriangles += other.meshletTriangles;
+
+      return *this;
+    }
+  };
+
   struct MeshData {
     std::string name;
     std::vector<uint32_t> indices;
@@ -50,6 +85,8 @@ namespace kt::gltf {
     std::vector<Meshlet> meshlets;
     std::vector<uint32_t> meshletVertices;
     std::vector<uint32_t> meshletTriangles;
+
+    MeshSize getSize() const;
   };
 
   struct Data {
@@ -72,6 +109,14 @@ namespace kt::gltf {
     std::vector<fastgltf::Buffer> buffers;
 
     std::vector<Node> roots;
+
+    struct UploadResult {
+      Scene scene;
+      uint64_t copyFenceValue;
+      rhi::Buffer stagingBuffer;
+    };
+
+    std::expected<UploadResult, std::string> upload() const;
 
     static std::expected<Data, std::string> fromFile(std::string_view path);
   };

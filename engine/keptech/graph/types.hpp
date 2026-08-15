@@ -107,9 +107,16 @@ namespace kt {
   };
 
   enum class QueueType : uint8_t {
+    /// Runs on the graphics queue to do graphics work. This is the default queue type for render passes.
     Graphics = BIT(0),
+    /// Runs on the graphics queue to do synchronous compute work.
     Compute = BIT(1),
+    /// Runs on the async compute queue to do asynchronous compute work. This is useful for compute passes that can run in parallel with
+    /// graphics work.
     AsyncCompute = BIT(2),
+    /// Only runs prepare, not execute. Useful for dedicated preparation passes that don't need to be executed on the GPU, such as uploading
+    /// resources.
+    Cpu = BIT(3),
   };
 } // namespace kt
 
@@ -135,8 +142,7 @@ namespace kt {
   struct BufferInfo {
     size_t size = 0;
     Bitflag<rhi::BufferUsage> usage = rhi::BufferUsage::None;
-    MemoryUsage memoryUsage = MemoryUsage::Auto;
-    MappingMode mappingMode = MappingMode::None;
+    rhi::BufferType type = rhi::BufferType::Default;
     bool persistent = true;
 
     bool isHostAccessible() const;
@@ -181,6 +187,11 @@ namespace kt {
     No,
     ToCompute,
     FromCompute,
+  };
+
+  struct ImageTransition {
+    PhysResourceId resourceId;
+    rhi::ImageLayout newLayout;
   };
 
   struct ImageBarrier {
@@ -298,6 +309,9 @@ template <> struct fmt::formatter<kt::QueueType> : fmt::formatter<std::string_vi
       break;
     case kt::QueueType::AsyncCompute:
       name = "AsyncCompute";
+      break;
+    case kt::QueueType::Cpu:
+      name = "Cpu";
       break;
     }
     return fmt::formatter<std::string_view>::format(name, ctx);

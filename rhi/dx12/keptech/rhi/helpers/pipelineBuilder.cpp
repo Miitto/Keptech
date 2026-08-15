@@ -1,3 +1,4 @@
+#include <d3d12.h>
 #include <d3dcompiler.h> // Requires macros that we undefine in headers below
 
 #include "keptech/rhi/pipelineBuilder.hpp"
@@ -41,14 +42,18 @@ namespace kt::rhi {
         return DXGI_FORMAT_R32G32B32_UINT;
       case shaders::DataType::U32_4:
         return DXGI_FORMAT_R32G32B32A32_UINT;
+      case shaders::DataType::F16_2:
+        return DXGI_FORMAT_R16G16_FLOAT;
       default:
-        throw std::runtime_error("Unsupported data type for vertex input");
+        DX_ABORT("Unsupported data type for DXGI format conversion: {}", static_cast<uint32_t>(type));
       }
     }
   } // namespace
 
   std::expected<Pipeline, std::string> PipelineBuilder::build() {
     DX_ASSERT(shader != nullptr, "Shader must be set before building pipeline");
+
+    Pipeline pipeline;
 
     std::vector<ComPtr<ID3DBlob>> code;
     code.reserve(shader->code.size());
@@ -68,29 +73,64 @@ namespace kt::rhi {
             .AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT,
             .InputSlotClass = buffer.inputRate == shaders::InputRate::Vertex ? D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA
                                                                              : D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA,
-            .InstanceDataStepRate = 1,
+            .InstanceDataStepRate = buffer.inputRate == shaders::InputRate::Vertex ? 0u : 1u,
         });
       }
     }
 
     D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
-        inputLayout.empty() ? D3D12_ROOT_SIGNATURE_FLAG_NONE : D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+        (inputLayout.empty() ? D3D12_ROOT_SIGNATURE_FLAG_NONE : D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT) |
+        D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED;
 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 
-    rootSignatureDesc.Init_1_1(0, nullptr, 0, nullptr, rootSignatureFlags);
+    size_t rootParameterCount = shader->resources.size();
+    if (shader->pushConstantSize > 0) {
+      DX_ASSERT(shader->pushConstantSize % sizeof(uint32_t) == 0, "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
+      rootParameterCount += 1;
+    }
+
+    std::vector<CD3DX12_ROOT_PARAMETER1> rootParameters(rootParameterCount);
+    uint32_t maxConstantBinding = 1;
+    for (size_t i = 0; i < shader->resources.size(); ++i) {
+      auto& resource = shader->resources[i];
+      switch (resource.type) {
+      case shaders::ShaderResourceType::UniformBuffer:
+        rootParameters[i].InitAsConstantBufferView(resource.binding, resource.set);
+        maxConstantBinding = std::max(maxConstantBinding, resource.binding + 2);
+        break;
+      case shaders::ShaderResourceType::StorageBuffer:
+        rootParameters[i].InitAsShaderResourceView(resource.binding, resource.set);
+        break;
+      default:
+        DX_ABORT("Unsupported resource type for root signature: {}", static_cast<uint32_t>(resource.type));
+      }
+    }
+
+    if (shader->pushConstantSize > 0) {
+      rootParameters.back().InitAsConstants(static_cast<UINT>(shader->pushConstantSize / sizeof(uint32_t)), maxConstantBinding - 1, 0);
+      pipeline.constantSlot = static_cast<uint32_t>(rootParameters.size() - 1);
+    }
+
+    rootSignatureDesc.Init_1_1(static_cast<UINT>(rootParameters.size()), rootParameters.data(), 0, nullptr, rootSignatureFlags);
 
     ComPtr<ID3DBlob> rootSignatureBlob;
     ComPtr<ID3DBlob> errorBlob;
 
-    DX_MAKE(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, ROOT_SIGNATURE_VERSION, rootSignatureBlob.GetAddressOf(),
-                                                  errorBlob.GetAddressOf()),
-            "Failed to serialize root signature");
+    auto res = D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, ROOT_SIGNATURE_VERSION, rootSignatureBlob.GetAddressOf(),
+                                                     errorBlob.GetAddressOf());
+    if (FAILED(res)) {
+      if (errorBlob) {
+        DX_ERROR("Failed to serialize root signature: {}", static_cast<const char*>(errorBlob->GetBufferPointer()));
+      } else {
+        _com_error e(res);
+        DX_ERROR("Failed to serialize root signature: {}", e.ErrorMessage());
+      }
+      return std::unexpected("Failed to serialize root signature");
+    }
 
-    Pipeline pipeline;
-
-    DX_MAKE(RHI::get().getDevice()->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(),
-                                                        IID_PPV_ARGS(&pipeline.rootSignature)),
+    DX_MAKE(RHI::get().dxGetDevice()->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(),
+                                                          IID_PPV_ARGS(&pipeline.rootSignature)),
             "Failed to create root signature");
 
     D3D12_RT_FORMAT_ARRAY rtvFormats{};
@@ -126,7 +166,7 @@ namespace kt::rhi {
         .pPipelineStateSubobjectStream = &pipelineStateStream,
     };
 
-    DX_MAKE(RHI::get().getDevice()->CreatePipelineState(&pipelineStateStreamDesc, IID_PPV_ARGS(&pipeline.pipelineState)),
+    DX_MAKE(RHI::get().dxGetDevice()->CreatePipelineState(&pipelineStateStreamDesc, IID_PPV_ARGS(&pipeline.pipelineState)),
             "Failed to create pipeline state");
 
     return pipeline;

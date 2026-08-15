@@ -2,15 +2,15 @@
 
 #include <cstdint>
 
-enum class MemoryUsage : uint8_t {
-  Auto = 0,
-  PreferDevice = 1,
-  PreferHost = 2,
-};
-
-enum class MappingMode : uint8_t {
-  None = 0,
-  SeqWrite = 1,
-  RandomWrite = 2,
-  Read = 3,
+namespace kt::rhi {
+  enum class BufferType : uint8_t {
+    /// Unmapped GPU resident buffer.
+    Default,
+    /// Mapped GPU resident buffer.
+    GpuMapped,
+    /// Mapped CPU resident buffer.
+    Staging,
+    /// Mapped CPU resident buffer that supports CPU readback.
+    Readback
+  };
 };

@@ -8,6 +8,7 @@
 #include "keptech/core/version.h"
 #include "keptech/core/window.hpp"
 #include "keptech/rhi/imgui.hpp"
+#include "wrappers/buffer.hpp"
 #include "wrappers/cmdBuf.hpp"
 #include "wrappers/image.hpp"
 #include "wrappers/imageRef.hpp"
@@ -36,7 +37,17 @@ namespace kt::rhi {
   ImageFormat RHI::getSwapchainFormat() const { return static_cast<ImageFormat>(ImageFormat::R8G8B8A8_UNORM); }
 
   void RHI::newFrame() {
+
+    ImGui_ImplDX12_NewFrame();
+    imgui::newFrame();
+  }
+
+  void RHI::startFrame() {
     auto& frame = m.frames[m.frameIndex];
+
+    // Work gets queued up at some pretty random points occasionally (looking at you window resize), so just quickly wait for pre frame
+    // submitted work before dropping things.
+    m.fence.wait(m.fence.getValue());
 
     for (auto* alloc : frame.allocsToDrop) {
       alloc->Release();
@@ -44,12 +55,7 @@ namespace kt::rhi {
     frame.allocsToDrop.clear();
 
     m.runningAllocs[m.frameIndex].clear();
-
-    ImGui_ImplDX12_NewFrame();
-    imgui::newFrame();
   }
-
-  void RHI::startFrame() {}
 
   void RHI::debugUi() const {
 
@@ -197,6 +203,7 @@ namespace kt::rhi {
                                             static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
     return {"Swapchain Image", m.swapchain.backbuffers[m.imageIndex].Get(), ImageFormat::R8G8B8A8_UNORM, rtvHandle};
   }
+  glm::uvec2 RHI::getSwapchainSize() const { return m.swapchain.size; }
 
   CD3DX12_CPU_DESCRIPTOR_HANDLE RHI::dxGetRtvHandle(uint16_t index) const {
     if (index >= m.rtvHeap.count) {
@@ -234,10 +241,8 @@ namespace kt::rhi {
   }
 
   void RHI::dxUpdateRenderTargetImage(rhi::Image& image) {
-    if (image.dxGetRtvDsvIndex() == 65535) {
-      DX_WARN("Image {} is not registered as a render target", image.getName());
-      return;
-    }
+    DX_ASSERT(image.dxGetRtvDsvIndex() != 65535, "Image {} is not registered as a render target", image.getName());
+    DX_ASSERT(image.getUsage().has(kt::rhi::ImageUsage::RenderTarget), "Image {} is not a render target", image.getName());
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m.rtvHeap.heap->GetCPUDescriptorHandleForHeapStart(),
                                             static_cast<INT>(image.dxGetRtvDsvIndex()), static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
@@ -252,10 +257,8 @@ namespace kt::rhi {
   }
 
   void RHI::dxUpdateDepthStencilImage(rhi::Image& image) {
-    if (image.dxGetRtvDsvIndex() == 65535) {
-      DX_WARN("Image {} is not registered as a depth stencil", image.getName());
-      return;
-    }
+    DX_ASSERT(image.getUsage().has(kt::rhi::ImageUsage::DepthStencil), "Image {} is not a depth stencil", image.getName());
+    DX_ASSERT(image.dxGetRtvDsvIndex() != 65535, "Image {} is not registered as a depth stencil", image.getName());
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m.dsvHeap.heap->GetCPUDescriptorHandleForHeapStart(),
                                             static_cast<INT>(image.dxGetRtvDsvIndex()), static_cast<UINT>(DSV_DESCRIPTOR_SIZE));
@@ -269,8 +272,13 @@ namespace kt::rhi {
     m.device->CreateDepthStencilView(image.dxresource().Get(), &dsvDesc, dsvHandle);
   }
 
-  void RHI::submitGraphicsCmd(CommandBuffer& cmd, uint64_t waitFor, uint64_t signalTo) {
-    m.queues.graphics->Wait(m.fence, waitFor);
+  void RHI::submitGraphicsCmd(CommandBuffer& cmd, uint64_t waitFor, uint64_t signalTo, uint64_t waitForCopy) {
+    if (waitForCopy > 0) {
+      m.queues.graphics->Wait(m.copyFence, waitForCopy);
+    }
+    if (waitFor > 0) {
+      m.queues.graphics->Wait(m.fence, waitFor);
+    }
 
     std::array<ID3D12CommandList* const, 1> cmdLists = {cmd};
     m.queues.graphics->ExecuteCommandLists(cmdLists.size(), cmdLists.data());
@@ -282,8 +290,13 @@ namespace kt::rhi {
     m.runningAllocs[m.frameIndex].push_back(std::move(cmd.dxGetAlloc()));
   }
 
-  void RHI::submitComputeCmd(CommandBuffer& cmd, uint64_t waitFor, uint64_t signalTo) {
-    m.queues.compute->Wait(m.fence, waitFor);
+  void RHI::submitComputeCmd(CommandBuffer& cmd, uint64_t waitFor, uint64_t signalTo, uint64_t waitForCopy) {
+    if (waitForCopy > 0) {
+      m.queues.compute->Wait(m.copyFence, waitForCopy);
+    }
+    if (waitFor > 0) {
+      m.queues.compute->Wait(m.fence, waitFor);
+    }
 
     std::array<ID3D12CommandList* const, 1> cmdLists = {cmd};
     m.queues.compute->ExecuteCommandLists(cmdLists.size(), cmdLists.data());
@@ -332,5 +345,19 @@ namespace kt::rhi {
       cmdBuffers.emplace_back(std::move(cmdAlloc), std::move(cmdList4));
     }
     return cmdBuffers;
+  }
+
+  void RHI::submitBufferToDrop(Buffer& buffer) {
+    auto alloc = buffer.dxTakeAllocation();
+    if (alloc) {
+      m.frames[m.frameIndex].allocsToDrop.emplace_back(alloc);
+    }
+  }
+
+  void RHI::submitImageToDrop(Image& image) {
+    auto alloc = image.dxTakeAllocation();
+    if (alloc) {
+      m.frames[m.frameIndex].allocsToDrop.emplace_back(alloc);
+    }
   }
 } // namespace kt::rhi

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <spdlog/fmt/bundled/format.h>
 #include <string>
 #include <vector>
 
@@ -118,6 +119,13 @@ namespace kt::shaders {
     bool depthWrite = true;
   };
 
+  enum class ShaderResourceType : uint8_t { Texture2D, Sampler, UniformBuffer, StorageBuffer, RWStorageBuffer };
+  struct ResourceBinding {
+    ShaderResourceType type;
+    uint32_t set;
+    uint32_t binding;
+  };
+
   struct Shader {
     const char* name;
     const char* file = nullptr;
@@ -129,5 +137,28 @@ namespace kt::shaders {
     std::vector<ShaderStage> stages;
     Vertex vertex;
     Fragment fragment;
+    uint32_t bindlessIndex;
+    std::vector<ResourceBinding> resources;
+    size_t pushConstantSize;
   };
 } // namespace kt::shaders
+
+template <> struct fmt::formatter<kt::shaders::ShaderStages> : fmt::formatter<std::string_view> {
+  fmt::format_context::iterator format(const kt::shaders::ShaderStages& stage, fmt::format_context& ctx) const;
+};
+
+template <> struct fmt::formatter<kt::shaders::DataType> : fmt::formatter<std::string_view> {
+  fmt::format_context::iterator format(const kt::shaders::DataType& dt, fmt::format_context& ctx) const;
+};
+
+template <> struct fmt::formatter<kt::shaders::PrimitiveTopology> : fmt::formatter<std::string_view> {
+  fmt::format_context::iterator format(const kt::shaders::PrimitiveTopology& pt, fmt::format_context& ctx) const;
+};
+
+template <> struct fmt::formatter<kt::shaders::CullMode> : fmt::formatter<std::string_view> {
+  fmt::format_context::iterator format(const kt::shaders::CullMode& cm, fmt::format_context& ctx) const;
+};
+
+template <> struct fmt::formatter<kt::shaders::InputRate> : fmt::formatter<std::string_view> {
+  fmt::format_context::iterator format(const kt::shaders::InputRate& ir, fmt::format_context& ctx) const;
+};

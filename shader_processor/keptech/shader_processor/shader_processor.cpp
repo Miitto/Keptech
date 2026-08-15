@@ -1,6 +1,7 @@
 #include "shader_processor.hpp"
 
 #include "keptech/shaders/shader.h"
+#include "shader-logger.hpp"
 #include "slangFormatting.hpp"
 #include <array>
 #include <expected>
@@ -18,6 +19,10 @@
 
 #include "conversions.hpp"
 
+#ifdef max
+#undef max
+#endif
+
 namespace kt::shader_processor {
   Slang::ComPtr<slang::IGlobalSession> globalSession; // NOLINT
   SlangGlobalSessionDesc globalSessionDesc;           // NOLINT
@@ -27,14 +32,7 @@ namespace kt::shader_processor {
   CompilerSession::CompilerSession(SessionConfig config) {
     slang::SessionDesc sessionDesc = {};
 
-    std::vector<slang::CompilerOptionEntry> compilerOptionEntries{
-#ifndef KT_USE_DESCRIPTOR_HEAP
-        slang::CompilerOptionEntry{
-            .name = slang::CompilerOptionName::BindlessSpaceIndex,
-            .value{.intValue0 = 0},
-        },
-#endif
-    };
+    std::vector<slang::CompilerOptionEntry> compilerOptionEntries{};
 
     {
       auto name = slang::CompilerOptionName::Optimization;
@@ -318,6 +316,7 @@ namespace kt::shader_processor {
   } // namespace
 
   std::expected<Return<kt::shaders::Shader>, std::string> Program::toShader(const char* name, const char* file) const {
+    SHDR_DEBUG("Creating shader from program: {}", name);
     std::vector<std::vector<uint8_t>> code;
     auto diag = Slang::ComPtr<slang::IBlob>{};
     try {
@@ -354,6 +353,41 @@ namespace kt::shader_processor {
     };
     auto layout = program->getLayout();
 
+    Slang::ComPtr<slang::IBlob> jsonBlob;
+    layout->toJson(jsonBlob.writeRef());
+
+    {
+      uint32_t paramCount = layout->getParameterCount();
+      for (uint32_t i = 0; i < paramCount; ++i) {
+        auto param = layout->getParameterByIndex(i);
+        auto category = param->getCategory();
+        switch (category) {
+        case slang::ParameterCategory::ShaderResource: {
+          auto type = param->getTypeLayout();
+          auto shape = type->getResourceShape();
+          switch (shape & SLANG_RESOURCE_BASE_SHAPE_MASK) {
+          case SLANG_STRUCTURED_BUFFER: {
+            shader.resources.push_back(kt::shaders::ResourceBinding{.type = kt::shaders::ShaderResourceType::StorageBuffer,
+                                                                    .set = param->getBindingSpace(),
+                                                                    .binding = param->getBindingIndex()});
+          } break;
+          default:
+            SHDR_ABORT("Unsupported resource shape: {}", static_cast<int>(shape & SLANG_RESOURCE_BASE_SHAPE_MASK));
+          }
+        } break;
+        case slang::ParameterCategory::ConstantBuffer: {
+          shader.resources.push_back(kt::shaders::ResourceBinding{.type = kt::shaders::ShaderResourceType::UniformBuffer,
+                                                                  .set = param->getBindingSpace(),
+                                                                  .binding = param->getBindingIndex()});
+        } break;
+        default:
+          SHDR_ABORT("Unsupported parameter category: {}", static_cast<int>(category));
+        }
+      }
+    }
+
+    SHDR_DEBUG("Shader layout JSON: {}", std::string(static_cast<const char*>(jsonBlob->getBufferPointer()), jsonBlob->getBufferSize()));
+
     shader.stages.reserve(entryPointCount);
 
     std::vector<shaders::VertexBuffer> vertexLayout;
@@ -363,10 +397,17 @@ namespace kt::shader_processor {
       kt::shaders::ShaderStages stage = slangStagetoKeptechStage(entryPoint->getStage());
       switch (stage) {
       case kt::shaders::ShaderStages::Vertex: {
+        size_t pushConstantSize = 0;
         auto paramCount = entryPoint->getParameterCount();
         for (auto j = 0u; j < paramCount; ++j) {
           auto param = entryPoint->getParameterByIndex(j);
           auto category = param->getCategory();
+
+          if (category == slang::ParameterCategory::Uniform) {
+            pushConstantSize += param->getTypeLayout()->getSize();
+            continue;
+          }
+
           if (category != slang::ParameterCategory::VaryingInput && category != slang::ParameterCategory::Mixed)
             continue; // Some sort of builtin, such as vertex ID
 
@@ -413,6 +454,8 @@ namespace kt::shader_processor {
           return std::unexpected<std::string>("Failed to parse vertex attributes: " + res.error());
         }
 
+        shader.pushConstantSize = std::max(shader.pushConstantSize, pushConstantSize);
+
         break;
       }
       case kt::shaders::ShaderStages::Mesh: {
@@ -420,6 +463,20 @@ namespace kt::shader_processor {
         if (!res) {
           return std::unexpected<std::string>("Failed to parse mesh attributes: " + res.error());
         }
+
+        size_t pushConstantSize = 0;
+
+        auto paramCount = entryPoint->getParameterCount();
+        for (auto j = 0u; j < paramCount; ++j) {
+          auto param = entryPoint->getParameterByIndex(j);
+          auto category = param->getCategory();
+          if (category == slang::ParameterCategory::Uniform) {
+            pushConstantSize += param->getTypeLayout()->getSize();
+          }
+        }
+
+        shader.pushConstantSize = std::max(shader.pushConstantSize, pushConstantSize);
+        break;
       }
       case kt::shaders::ShaderStages::Fragment: {
         auto returnT = entryPoint->getFunction()->getReturnType();
@@ -432,6 +489,18 @@ namespace kt::shader_processor {
         if (!res) {
           return std::unexpected<std::string>("Failed to parse fragment attributes: " + res.error());
         }
+
+        size_t pushConstantSize = 0;
+        auto paramCount = entryPoint->getParameterCount();
+        for (auto j = 0u; j < paramCount; ++j) {
+          auto param = entryPoint->getParameterByIndex(j);
+          auto category = param->getCategory();
+          if (category == slang::ParameterCategory::Uniform) {
+            pushConstantSize += param->getTypeLayout()->getSize();
+          }
+        }
+
+        shader.pushConstantSize = std::max(shader.pushConstantSize, pushConstantSize);
 
       } break;
       default:

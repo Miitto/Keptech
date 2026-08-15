@@ -95,13 +95,22 @@ namespace kt {
     return *this;
   }
 
-  RenderBufferResource& RenderPassBuilder::addMappedBuffer(const std::string& n, size_t size, MappingMode mapMode, MemoryUsage memUsage) {
+  RenderBufferResource& RenderPassBuilder::addMappedBuffer(const std::string& n, size_t size) {
     LOG("Adding mapped buffer input '{}' to pass '{}'", name, this->name);
     auto& res = graph.getBufferResource(n);
 
-    res.setBufferInfo({.size = size, .memoryUsage = memUsage, .mappingMode = mapMode})
-        .addBufferUsage(rhi::BufferUsage::TransferDst)
-        .writtenInPass(id);
+    res.setBufferInfo({.size = size, .type = BufferType::GpuMapped}).writtenInPass(id);
+
+    mappedBuffers.push_back(&res);
+
+    return res;
+  }
+
+  RenderBufferResource& RenderPassBuilder::addStagingBuffer(const std::string& n, size_t size) {
+    LOG("Adding staging buffer input '{}' to pass '{}'", name, this->name);
+    auto& res = graph.getBufferResource(n);
+
+    res.setBufferInfo({.size = size, .type = BufferType::Staging}).addBufferUsage(rhi::BufferUsage::TransferSrc).writtenInPass(id);
 
     mappedBuffers.push_back(&res);
 
@@ -180,6 +189,7 @@ namespace kt {
                                                            VkPipelineStageFlags2 stages
 #endif
   ) {
+    KT_ASSERT(queue != QueueType::Cpu, "Uniform buffer inputs can only be used in graphics or compute passes");
     LOG("Adding uniform buffer input '{}' to pass '{}'", name, this->name);
 #ifdef KT_VULKAN
     if (stages == 0) {
@@ -201,6 +211,7 @@ namespace kt {
                                                                    VkPipelineStageFlags2 stages
 #endif
   ) {
+    KT_ASSERT(queue != QueueType::Cpu, "Storage buffer inputs can only be used in graphics or compute passes");
     LOG("Adding storage buffer input '{}' to pass '{}'", name, this->name);
 #ifdef KT_VULKAN
     if (stages == 0) {
@@ -247,6 +258,7 @@ namespace kt {
                                                             VkPipelineStageFlags2 stages
 #endif
   ) {
+    KT_ASSERT(queue != QueueType::Cpu, "Texture inputs can only be used in graphics or compute passes");
     LOG("Adding texture input '{}' to pass '{}'", name, this->name);
     auto& res = graph.getTextureResource(n);
     res.addImageUsage(rhi::ImageUsage::Sampled).addQueue(queue).readInPass(id);
@@ -279,6 +291,7 @@ namespace kt {
   }
 
   RenderTextureResource& RenderPassBuilder::addColorOutput(const std::string& n, const AttachmentInfo& info, const std::string& input) {
+    KT_ASSERT(queue == QueueType::Graphics, "Color outputs can only be used in graphics passes");
     LOG("Adding color output '{}' to pass '{}' from '{}'", name, this->name, input.empty() ? "nothing" : input.c_str());
     auto& res = graph.getTextureResource(n);
     res.setAttachmentInfo(info).addImageUsage(rhi::ImageUsage::RenderTarget).addQueue(queue).writtenInPass(id);
@@ -322,6 +335,7 @@ namespace kt {
   }
 
   RenderTextureResource& RenderPassBuilder::setDepthStencilInput(const std::string& n) {
+    KT_ASSERT(queue == QueueType::Graphics, "Depth-stencil inputs can only be used in graphics passes");
     LOG("Setting depth-stencil input '{}' for pass '{}'", name, this->name);
     auto& res = graph.getTextureResource(n);
     res.addImageUsage(rhi::ImageUsage::DepthStencil).addImageUsage(rhi::ImageUsage::Sampled).addQueue(queue).readInPass(id);
@@ -330,6 +344,7 @@ namespace kt {
   }
 
   RenderTextureResource& RenderPassBuilder::setDepthStencilOutput(const std::string& n, const AttachmentInfo& info) {
+    KT_ASSERT(queue == QueueType::Graphics, "Depth-stencil outputs can only be used in graphics passes");
     LOG("Setting depth-stencil output '{}' for pass '{}'", name, this->name);
     auto& res = graph.getTextureResource(n);
     res.setAttachmentInfo(info).addImageUsage(rhi::ImageUsage::DepthStencil).addQueue(queue).writtenInPass(id);

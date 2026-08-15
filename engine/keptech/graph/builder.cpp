@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <ranges>
 #include <spdlog/fmt/bundled/ranges.h>
-#include <type_traits>
 #include <vector>
 
 template <> struct fmt::formatter<kt::QueueHandoff> : fmt::formatter<std::string_view> {
@@ -143,13 +142,15 @@ namespace kt {
     cmd.end();
 
     renderer.submitGraphicsCmd(cmd);
+    renderer.waitGraphicsIdle();
 
     RenderGraph res{
         std::move(passGroups),
         std::move(bakedPasses),
-        std::move(builtResources)
+        std::move(builtResources),
+        std::move(this->initialTransitions),
 #ifdef KT_VULKAN
-            ,
+        ,
         descriptorPool,
         std::move(passDescriptors),
 #endif
@@ -542,6 +543,15 @@ namespace kt {
       VERBOSE("");
     }
     VERBOSE("  Barriers:");
+
+    VERBOSE("    Startup Barriers: {}", initialTransitions.size());
+    for (const auto& transition : initialTransitions) {
+      const auto& res = physicalResourceInfos[transition.resourceId];
+      VERBOSE("      Resource: {}", res.name);
+      VERBOSE("        New Layout: {}", transition.newLayout);
+    }
+    VERBOSE("");
+
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       const auto& pass = *passes[passId];
       const auto& barriers = passBarriers[idx];
@@ -1563,8 +1573,7 @@ namespace kt {
     std::vector<RelativeImage> resolutionRelativeImages;
     for (const auto& [idx, res] : physicalResourceInfos | std::views::enumerate) {
       if (res.isBufferLike()) {
-        auto result = Buffer::create(
-            {res.bufferInfo.size, res.bufferInfo.usage, res.bufferInfo.mappingMode, res.bufferInfo.memoryUsage, res.name.c_str()});
+        auto result = Buffer::create({res.bufferInfo.size, res.bufferInfo.usage, res.bufferInfo.type, res.name.c_str()});
         KT_REQUIRE(result.isOk(), "Failed to create buffer for resource '{}': {}", res.name, result.error());
         auto& buf = result.value();
         buffers.push_back(std::move(buf));

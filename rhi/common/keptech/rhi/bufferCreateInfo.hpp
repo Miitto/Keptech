@@ -10,9 +10,9 @@ namespace kt::rhi {
     friend class Buffer;
 
   public:
-    constexpr BufferCreateInfo(size_t size, Bitflag<BufferUsage> usage, MappingMode allocFlags, MemoryUsage memUsage,
+    constexpr BufferCreateInfo(size_t size, Bitflag<BufferUsage> usage, BufferType type = BufferType::Default,
                                const char* name = nullptr) noexcept
-        : size(size), usage(usage), mappingMode(allocFlags), memoryUsage(memUsage), name(name) {}
+        : size(size), usage(usage), type(type), name(name) {}
 
     [[nodiscard]]
     const char* getName() const noexcept {
@@ -20,13 +20,8 @@ namespace kt::rhi {
     }
 
     [[nodiscard]]
-    MappingMode getMappingMode() const noexcept {
-      return mappingMode;
-    }
-
-    [[nodiscard]]
-    MemoryUsage getMemoryUsage() const noexcept {
-      return memoryUsage;
+    BufferType getType() const noexcept {
+      return type;
     }
 
     [[nodiscard]]
@@ -39,8 +34,7 @@ namespace kt::rhi {
   private:
     size_t size{};
     Bitflag<BufferUsage> usage = BufferUsage::None;
-    MappingMode mappingMode{};
-    MemoryUsage memoryUsage{};
+    BufferType type = BufferType::Default;
     const char* name = nullptr;
   };
 } // namespace kt::rhi

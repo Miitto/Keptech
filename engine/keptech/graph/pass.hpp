@@ -93,8 +93,8 @@ namespace kt {
     /// Adds an indirect buffer input for this pass.
     RenderBufferResource& addIndirectBufferInput(const std::string& name);
 
-    RenderBufferResource& addMappedBuffer(const std::string& name, size_t size, MappingMode allocFlags = MappingMode::SeqWrite,
-                                          MemoryUsage memUsage = MemoryUsage::Auto);
+    RenderBufferResource& addMappedBuffer(const std::string& name, size_t size);
+    RenderBufferResource& addStagingBuffer(const std::string& name, size_t size);
 
     /// Makes an explicit dependency on another pass without any resource usage. This is useful for synchronizing passes that sahre
     /// resources not tracked by the render graph.

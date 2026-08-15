@@ -1,6 +1,7 @@
 #include "image.hpp"
 #include "d3dx12.h"
 #include "dx-logger.hpp"
+#include "imageLayout.hpp"
 #include "imageRef.hpp"
 #include "keptech/rhi/imageCreateInfo.hpp"
 #include "rhi.hpp"
@@ -32,9 +33,12 @@ namespace kt::rhi {
   }
 
   kt::Result<Image, HRESULT, 0> Image::create(const ImageCreateInfo& info) {
-    CD3DX12_RESOURCE_DESC desc;
+    DX_ASSERT(info.getExtent().x > 0 && info.getExtent().y > 0 && info.getExtent().z > 0, "Image extent must be greater than 0");
+    DX_ASSERT(info.getUsage().intersect(kt::rhi::ImageUsage::RenderTarget | kt::rhi::ImageUsage::DepthStencil) !=
+                  (kt::rhi::ImageUsage::RenderTarget | kt::rhi::ImageUsage::DepthStencil),
+              "Image cannot be both a render target and a depth stencil");
 
-    DX_DEBUG("Image Usage: {}", info.getUsage());
+    CD3DX12_RESOURCE_DESC desc;
 
     switch (info.getImageDim()) {
     case ImageDim::e1D:
@@ -56,8 +60,8 @@ namespace kt::rhi {
     };
 
     D3D12MA::Allocation* allocation = nullptr;
-    DX_REQUIRE(SUCCEEDED(RHI::get().getMembers().allocator->CreateResource(&allocDesc, &desc, D3D12_RESOURCE_STATE_COMMON, nullptr,
-                                                                           &allocation, IID_NULL, NULL)),
+    DX_REQUIRE(SUCCEEDED(RHI::get().dxGetAllocator()->CreateResource(&allocDesc, &desc, D3D12_RESOURCE_STATE_COMMON, nullptr, &allocation,
+                                                                     IID_NULL, NULL)),
                "Failed to create image resource");
 
 #ifndef NDEBUG
@@ -126,5 +130,17 @@ namespace kt::rhi {
     return *this;
   }
 
-  Image::operator ImageRef() const { return ImageRef(name.c_str(), dxresource().Get(), _format, RHI::get().dxGetRtvHandle(rtvDsvIndex)); }
+  Image::operator ImageRef() const {
+
+    return ImageRef(name.c_str(), dxresource().Get(), _format,
+                    usage.has(kt::rhi::ImageUsage::RenderTarget) ? RHI::get().dxGetRtvHandle(rtvDsvIndex)
+                    : usage.has(ImageUsage::DepthStencil)        ? RHI::get().dxGetDsvHandle(rtvDsvIndex)
+                                                                 : CD3DX12_CPU_DESCRIPTOR_HANDLE());
+  }
+
+  D3D12MA::Allocation* Image::dxTakeAllocation() {
+    auto* alloc = allocation;
+    allocation = nullptr;
+    return alloc;
+  }
 } // namespace kt::rhi

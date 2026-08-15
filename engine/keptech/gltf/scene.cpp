@@ -1,12 +1,12 @@
-#include "keptech/rhi/gltf/scene.hpp"
+#include "scene.hpp"
 
+#include "data.hpp"
 #include "keptech/components/transform.hpp"
 #include "keptech/core/kt-logger.hpp"
-#include "keptech/rhi/gltf/data.hpp"
 
 namespace kt::gltf {
   namespace {
-    void addNodeToEcsScene(const Scene::Node& node, kt::Scene& scene, ecs::EntityHandle parent) {
+    void addNodeToEcsScene(const Scene::Node& node, kt::Scene& scene, const std::vector<Mesh>& meshes, ecs::EntityHandle parent) {
       auto entity = scene.createEntity(node.name);
       auto& transformComp = entity.addComponent<components::Transform>();
       transformComp.getLocalMut().setPosition(node.transform.pos()).setRotation(node.transform.rot()).setScale(node.transform.scale());
@@ -15,12 +15,12 @@ namespace kt::gltf {
         transformComp.setParent(entity, {parent, scene.getEcs()});
       }
 
-      if (node.mesh.isValid()) {
-        entity.addComponent<components::Mesh>(node.mesh);
+      if (node.meshIndex != ~0u) {
+        entity.addComponent<Mesh>(meshes[node.meshIndex]);
       }
 
       for (auto& child : node.children) {
-        addNodeToEcsScene(child, scene, entity.getHandle());
+        addNodeToEcsScene(child, scene, meshes, entity.getHandle());
       }
     }
 
@@ -28,7 +28,7 @@ namespace kt::gltf {
       gltf::Scene::Node result{
           .name = std::string(node.node.name),
           .transform = node.transform,
-          .mesh = node.meshIndex == ~0u ? Mesh() : meshes[node.meshIndex],
+          .meshIndex = node.meshIndex,
       };
       for (auto& child : node.children) {
         result.children.push_back(createNode(child, meshes));
@@ -38,7 +38,8 @@ namespace kt::gltf {
     }
   } // namespace
 
-  Scene::Scene(const gltf::Data& data, const std::vector<Mesh>& meshes) {
+  Scene::Scene(const gltf::Data& data, const std::vector<Mesh>& meshes, uint64_t copyFenceValue)
+      : meshes(meshes), copyFenceValue(copyFenceValue) {
     roots.reserve(data.roots.size());
     for (auto& node : data.roots) {
       roots.push_back(createNode(node, meshes));
@@ -56,7 +57,7 @@ namespace kt::gltf {
     }
 
     for (auto& root : roots) {
-      addNodeToEcsScene(root, scene, parent);
+      addNodeToEcsScene(root, scene, meshes, parent);
     }
   }
 } // namespace kt::gltf

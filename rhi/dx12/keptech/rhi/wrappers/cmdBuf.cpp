@@ -1,21 +1,31 @@
 #include "cmdBuf.hpp"
+#include "bufferRef.hpp"
 #include "d3dx12.h"
 #include "dx-logger.hpp"
 #include "imageRef.hpp"
+#include "rhi.hpp"
 #include "wrappers/image.hpp"
 #include "wrappers/pipeline.hpp"
 
 namespace kt::rhi {
   CommandBuffer& CommandBuffer::bindGraphicsPipeline(const Pipeline& pipeline) {
     cmdList->SetPipelineState(pipeline.pipelineState.Get());
+    std::array<ID3D12DescriptorHeap*, 2> heaps = {rhi::RHI::get().dxGetMembers().cbvSrvUavHeap.heap.Get(),
+                                                  rhi::RHI::get().dxGetMembers().samplerHeap.heap.Get()};
+    cmdList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
     cmdList->SetGraphicsRootSignature(pipeline.rootSignature.Get());
     cmdList->IASetPrimitiveTopology(pipeline.primitiveTopology);
+    gConstantSlot = pipeline.constantSlot;
     return *this;
   }
 
   CommandBuffer& CommandBuffer::bindComputePipeline(const Pipeline& pipeline) {
     cmdList->SetPipelineState(pipeline.pipelineState.Get());
+    std::array<ID3D12DescriptorHeap*, 2> heaps = {rhi::RHI::get().dxGetMembers().cbvSrvUavHeap.heap.Get(),
+                                                  rhi::RHI::get().dxGetMembers().samplerHeap.heap.Get()};
+    cmdList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
     cmdList->SetComputeRootSignature(pipeline.rootSignature.Get());
+    cConstantSlot = pipeline.constantSlot;
     return *this;
   }
 
@@ -95,11 +105,72 @@ namespace kt::rhi {
         depthStencilDesc.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
         break;
       }
+
+      bool hasStencil = false; // TODO: Add stencil formats
+
+      if (!hasStencil) {
+        depthStencilDesc.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
+        depthStencilDesc.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
+      }
     }
 
     cmdList->BeginRenderPass(static_cast<UINT>(renderTargetDescs.size()), renderTargetDescs.data(),
                              depthStencilAttachment.has_value() ? &depthStencilDesc : nullptr, D3D12_RENDER_PASS_FLAG_NONE);
 
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::bindVertexBuffer(size_t slot, const BufferRef& buffer, size_t stride, size_t offset) {
+    D3D12_VERTEX_BUFFER_VIEW view{
+        .BufferLocation = buffer.dxGetResource()->GetGPUVirtualAddress() + offset,
+        .SizeInBytes = static_cast<UINT>(buffer.size() - offset),
+        .StrideInBytes = static_cast<UINT>(stride),
+    };
+    cmdList->IASetVertexBuffers(static_cast<UINT>(slot), 1, &view);
+    return *this;
+  }
+  CommandBuffer& CommandBuffer::bindVertexBuffers(size_t firstSlot, const std::span<const VertexBufferBinding> bindings) {
+    std::vector<D3D12_VERTEX_BUFFER_VIEW> views;
+    views.reserve(bindings.size());
+    for (const auto& binding : bindings) {
+      D3D12_VERTEX_BUFFER_VIEW view{
+          .BufferLocation = binding.buffer.dxGetResource()->GetGPUVirtualAddress() + binding.offset,
+          .SizeInBytes = static_cast<UINT>(binding.buffer.size() - binding.offset),
+          .StrideInBytes = static_cast<UINT>(binding.stride),
+      };
+      views.push_back(view);
+    }
+    cmdList->IASetVertexBuffers(static_cast<UINT>(firstSlot), static_cast<UINT>(views.size()), views.data());
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::bindIndexBuffer(const BufferRef& buffer, IndexType indexType, size_t offset) {
+    D3D12_INDEX_BUFFER_VIEW view{
+        .BufferLocation = buffer.dxGetResource()->GetGPUVirtualAddress() + offset,
+        .SizeInBytes = static_cast<UINT>(buffer.size() - offset),
+        .Format = indexType == IndexType::UInt16 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT,
+    };
+    cmdList->IASetIndexBuffer(&view);
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::writePushConstants(const void* data, size_t size, size_t offset) {
+    DX_ASSERT(size > 0, "Size must be greater than 0");
+    DX_ASSERT(offset + size <= 128, "Push constant size must be less than or equal to 128 bytes");
+    DX_ASSERT(size % sizeof(uint32_t) == 0, "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
+    DX_ASSERT(offset % sizeof(uint32_t) == 0, "Push constant offset must be a multiple of 4 bytes (32 bits) for DX12");
+    cmdList->SetGraphicsRoot32BitConstants(gConstantSlot, static_cast<UINT>(size / sizeof(uint32_t)), data,
+                                           static_cast<UINT>(offset / sizeof(uint32_t)));
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::writeComputePushConstants(const void* data, size_t size, size_t offset) {
+    DX_ASSERT(size > 0, "Size must be greater than 0");
+    DX_ASSERT(offset + size <= 128, "Push constant size must be less than or equal to 128 bytes");
+    DX_ASSERT(size % sizeof(uint32_t) == 0, "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
+    DX_ASSERT(offset % sizeof(uint32_t) == 0, "Push constant offset must be a multiple of 4 bytes (32 bits) for DX12");
+    cmdList->SetComputeRoot32BitConstants(cConstantSlot, static_cast<UINT>(size / sizeof(uint32_t)), data,
+                                          static_cast<UINT>(offset / sizeof(uint32_t)));
     return *this;
   }
 
@@ -164,7 +235,20 @@ namespace kt::rhi {
     return *this;
   }
 
+  CommandBuffer& CommandBuffer::copyBufferRegion(const rhi::BufferRef& dst, const rhi::BufferRef& src, size_t dstOffset, size_t srcOffset,
+                                                 size_t size) {
+    DX_ASSERT(size > 0, "Size must be greater than 0");
+    DX_ASSERT(dstOffset + size <= dst.size(), "Destination buffer overflow");
+    DX_ASSERT(srcOffset + size <= src.size(), "Source buffer overflow");
+    DX_ASSERT(dst.dxGetResource() != nullptr, "Destination buffer resource is null");
+    DX_ASSERT(src.dxGetResource() != nullptr, "Source buffer resource is null");
+    cmdList->CopyBufferRegion(dst, dstOffset, src, srcOffset, size);
+    return *this;
+  }
+
   CommandBuffer& CommandBuffer::blitImage(const rhi::ImageRef& src, const rhi::ImageRef& dst) {
+    DX_ASSERT(src.dxGetResource() != nullptr, "Source image resource is null");
+    DX_ASSERT(dst.dxGetResource() != nullptr, "Destination image resource is null");
     cmdList->CopyResource(dst, src);
     return *this;
   }

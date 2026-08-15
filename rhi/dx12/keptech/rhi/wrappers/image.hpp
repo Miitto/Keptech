@@ -44,6 +44,8 @@ namespace kt::rhi {
 
     kt::Result<Image, HRESULT, S_OK> resize(const glm::uvec3& newExtent) const;
 
+    D3D12MA::Allocation* dxTakeAllocation();
+
   private:
     Image(std::string name, ImageDim dim, ImageFormat format, glm::uvec3 extent, Bitflag<ImageUsage> usage, uint32_t mips, uint32_t layers,
           D3D12MA::Allocation* allocation)

@@ -3,26 +3,41 @@
 #include "keptech/cameras/orbitCamera.hpp"
 #include "keptech/components/camera.hpp"
 #include "keptech/components/transform.hpp"
+#include "keptech/core/events/event.hpp"
+#include "keptech/core/events/window.hpp"
 #include "keptech/core/kt-logger.hpp"
 #include "keptech/core/layers/layer.hpp"
 #include "keptech/core/scene.hpp"
 #include "keptech/core/window.hpp"
+#include "keptech/gltf/data.hpp"
+#include "keptech/gltf/scene.hpp"
 #include "keptech/graph/builder.hpp"
-#include "keptech/rhi/gltf/scene.hpp"
+#include "keptech/graph/graph.hpp"
+#include "keptech/passes/geometry.hpp"
 #include "keptech/rhi/rhi.hpp"
 
 class ExampleLayer : public kt::Layer {
 public:
-  ExampleLayer(kt::Window& window, kt::rhi::RenderGraphBuilder& builder, kt::rhi::Renderer& renderer) : kt::Layer("Example Mesh Shader") {
+  ExampleLayer(kt::Window& window, kt::RenderGraphBuilder& builder, kt::rhi::RHI& rhi) : kt::Layer("Example Mesh Shader") {
     // Get a quick reference to the active scene.
     auto& scene = kt::Scene::active();
 
     // Load the monkey mesh onto the GPU.
-    auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
-    if (!monkeyMeshRes) {
-      KT_ABORT("Failed to load monkey mesh: {}", monkeyMeshRes.error());
+    auto monkeyDataRes = kt::gltf::Data::fromFile(ASSET_DIR "meshes/monkey.glb");
+    if (!monkeyDataRes) {
+      KT_ABORT("Failed to load monkey mesh: {}", monkeyDataRes.error());
     }
-    auto& monkeyMesh = monkeyMeshRes.value();
+    auto& monkeyData = monkeyDataRes.value();
+
+    auto monkeyUploadRes = monkeyData.upload();
+    if (!monkeyUploadRes) {
+      KT_ABORT("Failed to upload monkey mesh: {}", monkeyUploadRes.error());
+    }
+    auto& monkeyUpload = monkeyUploadRes.value();
+    KT_DEBUG("Uploading monkey mesh to GPU with fence value {}", monkeyUpload.copyFenceValue);
+    rhi.waitCopyIdle();
+    monkeyUpload.stagingBuffer.destroy();
+    KT_DEBUG("Upload done");
 
     // Create an entity for the monkey mesh and add it to the ECS scene.
     auto monkey = scene.createEntity("Monkey");
@@ -32,7 +47,7 @@ public:
     // In this case, we simply end up with "Monkey -> Suzanne" in the ECS, where "Monkey" is the entity we created above, and "Suzanne" came
     // from the glTF scene. "Suzanne" was created with a `Transform` and `Mesh` component since that is what the corresponding glTF node
     // had.
-    monkeyMesh.addToEcsScene(scene, monkey.getHandle());
+    monkeyUpload.scene.addToEcsScene(scene, monkey.getHandle());
 
     // Create an entity for a camera.
     auto camera = scene.createEntity("Camera");
@@ -62,10 +77,7 @@ public:
     // orbits around a target point.
     orbitController = kt::cameras::OrbitCameraController(camera, 3, true);
 
-    // The Renderer has built-in support for a number of render passes, however they have to be explicitly enabled. Here we add the geometry
-    // pass, which renders the scene geometry into G-buffers. Since we do not render a skybox we also tell the renderer to clear the
-    // G-Buffers.
-    renderer.addGeometryPass(builder, true);
+    geomPass.addToGraph(builder);
 
     // Here we set the backbuffer source for the render graph. This determines which render pass output will be used as the final image to
     // present to the screen. The geometry pass outputs to multiple G-buffers, and we can choose which one to use as the final output. Here
@@ -79,6 +91,12 @@ public:
     const char* backBufferSourceEnv = std::getenv("KT_SURFACE");
 
     builder.setBackbufferSource(backBufferSourceEnv ? backBufferSourceEnv : "kt::albedo");
+
+    /// Set the render resolution to the swapchain size. Less efficient but means we can directly copy the backbuffer source to the
+    /// swapchain without adding a resize pass. In a more complete example, there would be more than one pass, and the last pass would
+    /// output to a swapchain relative image. In normal usage, having a seperate variable for the render resolution means that every render
+    /// target does not need to be recreated when the window is resized.
+    builder.setRenderResolution(rhi.getSwapchainSize());
   }
 
   // The `onUpdate` function is called every frame, and is where we update the camera controller. The camera controller will update the
@@ -92,8 +110,17 @@ public:
   void onEvent(kt::Event& event, kt::Timestep ts) final {
     if (orbitController.handleEvent(event, ts))
       return;
+
+    kt::EventDispatcher dispatcher(event);
+    dispatcher.dispatch<kt::WindowResizeEvent>([&](kt::WindowResizeEvent& e) {
+      kt::RenderGraph::getActiveGraph().onResolutionChanged(e.size);
+
+      return kt::Propagation::Bubble;
+    });
   }
 
 private:
   kt::cameras::OrbitCameraController orbitController{};
+  kt::GeometryPass geomPass{};
+  kt::RenderGraph* graph;
 };

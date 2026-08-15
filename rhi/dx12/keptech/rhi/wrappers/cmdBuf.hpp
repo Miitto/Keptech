@@ -12,6 +12,7 @@
 namespace kt::rhi {
   class ImageRef;
   struct Pipeline;
+  class BufferRef;
 
   class CommandBuffer {
   public:
@@ -39,6 +40,30 @@ namespace kt::rhi {
     CommandBuffer& beginRendering(const std::span<ColorAttachmentDesc> colorAttachments,
                                   std::optional<DepthStencilAttachmentDesc> depthStencilAttachment = std::nullopt);
 
+    CommandBuffer& bindVertexBuffer(size_t slot, const BufferRef& buffer, size_t stride, size_t offset = 0);
+    template <typename T> CommandBuffer& bindVertexBuffer(size_t slot, const BufferRef& buffer, size_t offset = 0) {
+      return bindVertexBuffer(slot, buffer, sizeof(T), offset);
+    }
+
+    struct VertexBufferBinding {
+      const BufferRef& buffer;
+      size_t stride;
+      size_t offset = 0;
+    };
+    CommandBuffer& bindVertexBuffers(size_t firstSlot, const std::span<const VertexBufferBinding> bindings);
+
+    enum class IndexType : uint8_t { UInt16, UInt32 };
+    CommandBuffer& bindIndexBuffer(const BufferRef& buffer, IndexType indexType = IndexType::UInt32, size_t offset = 0);
+
+    CommandBuffer& writePushConstants(const void* data, size_t size, size_t offset = 0);
+    template <typename T> CommandBuffer& writePushConstants(const T& data, size_t offset = 0) {
+      return writePushConstants(&data, sizeof(T), offset);
+    }
+    CommandBuffer& writeComputePushConstants(const void* data, size_t size, size_t offset = 0);
+    template <typename T> CommandBuffer& writeComputePushConstants(const T& data, size_t offset = 0) {
+      return writeComputePushConstants(&data, sizeof(T), offset);
+    }
+
     CommandBuffer& draw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0);
     CommandBuffer& drawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0,
                                uint32_t firstInstance = 0);
@@ -61,6 +86,8 @@ namespace kt::rhi {
     /// @note DX12: Requires that the source and destination images have the same dimensions and format.
     CommandBuffer& blitImage(const rhi::ImageRef& src, const rhi::ImageRef& dst);
 
+    CommandBuffer& copyBufferRegion(const rhi::BufferRef& dst, const rhi::BufferRef& src, size_t dstOffset, size_t srcOffset, size_t size);
+
     void end();
 
     void label(std::string_view name);
@@ -79,5 +106,7 @@ namespace kt::rhi {
   private:
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator> allocator;
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> cmdList;
+    uint32_t gConstantSlot;
+    uint32_t cConstantSlot;
   };
 } // namespace kt::rhi

@@ -1,0 +1,28 @@
+#pragma once
+
+#include "keptech/graph/passInterface.hpp"
+#include "keptech/rhi/wrappers/pipeline.hpp"
+
+namespace kt {
+  class GeometryPass : public RenderPassInterface {
+  public:
+    GeometryPass() = default;
+
+    void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
+    void setup(RenderGraph& graph) final;
+
+    void prepare(RenderGraph& graph) final;
+    void execute(RenderGraph& graph, rhi::CommandBuffer& cmdBuf, glm::uvec2 framebufferSize) final;
+
+    void addToGraph(RenderGraphBuilder& graph);
+
+  private:
+    size_t albedoIndex = 0;
+    size_t normalIndex = 0;
+    size_t materialIndex = 0;
+    size_t emissiveIndex = 0;
+    size_t depthIndex = 0;
+
+    rhi::Pipeline pipeline;
+  };
+} // namespace kt

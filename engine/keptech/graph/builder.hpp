@@ -114,10 +114,6 @@ namespace kt {
     std::vector<ResourceInfo> physicalResourceInfos;
     std::vector<bool> physicalImageHasHistory;
 
-    struct ImageTransition {
-      PhysResourceId resourceId;
-      rhi::ImageLayout newLayout;
-    };
     std::vector<ImageTransition> initialTransitions;
 
     /// Validate the registered passes. Aborts if any pass has invalid inputs or outputs.

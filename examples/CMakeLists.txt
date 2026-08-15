@@ -19,9 +19,9 @@ macro(KT_MAKE_EXAMPLE example_name)
     target_compile_definitions(${example_name} PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG ASSET_DIR="${EXAMPLE_ASSET_DIR}")
 endmacro()
 
-# add_subdirectory(basic)
 add_subdirectory(clear_screen)
 add_subdirectory(triangle)
+add_subdirectory(basic)
 
 if (RENDERER STREQUAL "Vulkan")
     add_subdirectory(mesh_shader)

@@ -9,6 +9,7 @@ target_precompile_headers(Keptech_RHI REUSE_FROM keptech::core)
 target_link_libraries(Keptech_RHI
   PUBLIC
     keptech::core
+    keptech::shaders
 )
 
 target_sources(Keptech_RHI

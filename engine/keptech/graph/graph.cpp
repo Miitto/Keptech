@@ -12,6 +12,8 @@
 namespace kt {
   using namespace rhi;
 
+  RenderGraph* RenderGraph::activeGraph = nullptr;
+
   void RenderGraph::execute() {
     KT_PROFILE_FUNCTION
 
@@ -21,12 +23,15 @@ namespace kt {
 
     uint8_t frameIndex = rhi.getFrameIndex();
 
-    imagesToDrop[frameIndex].clear();
     buffersToDrop[frameIndex].clear();
 
     components::Transform::recalcAllTransforms(Scene::active().getEcs());
 
     rhi.startFrame();
+
+    for (auto& pass : passes) {
+      pass.prepare();
+    }
 
     auto graphicsCmds = rhi.allocateGraphicsCommandBuffers(static_cast<uint32_t>(graphicsQueuePassCount) + 1);
     auto computeCmds = rhi.allocateComputeCommandBuffers(static_cast<uint32_t>(computeQueuePassCount));
@@ -83,6 +88,8 @@ namespace kt {
         rhi.submitComputeCmd(cmd, startWaitFor + group.waitFor + 1, startWaitFor + idx + 1);
         computeCmdIndex++;
 
+      } break;
+      case QueueType::Cpu: {
       } break;
       }
     }
@@ -166,13 +173,15 @@ namespace kt {
 
   void RenderGraph::updateDescriptors() {}
 
-  RenderGraph::RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources
+  RenderGraph::RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
+                           std::vector<ImageTransition>&& initialTransitions
 #ifdef KT_VULKAN
                            ,
                            VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors
 #endif
                            )
-      : passGroups(std::move(passGroups)), passes(std::move(passes)), resources(std::move(resources))
+      : passGroups(std::move(passGroups)), passes(std::move(passes)), resources(std::move(resources)),
+        initialTransitions(std::move(initialTransitions))
 #ifdef KT_VULKAN
         ,
         descriptorPool(descriptorPool), passDescriptors(std::move(descriptors))
@@ -224,8 +233,7 @@ namespace kt {
     auto newBufRes = Buffer::create({
         newSize,
         buf.getUsage(),
-        buf.getMappingMode(),
-        MemoryUsage::Auto,
+        buf.getType(),
         buf.getName().c_str(),
     });
     if (!newBufRes) {
@@ -260,8 +268,7 @@ namespace kt {
     auto newBufRes = Buffer::create({
         newSize,
         buf.getUsage(),
-        buf.getMappingMode(),
-        MemoryUsage::Auto,
+        buf.getType(),
         buf.getName().c_str(),
     });
     if (!newBufRes) {
@@ -361,6 +368,8 @@ namespace kt {
 
     KT_TRACE("RenderGraph::onResolutionChanged() - New Resolution: {}x{}", newResolution.x, newResolution.y);
 
+    std::vector<rhi::CommandBuffer::ImageLayoutTransition> transitions;
+
     for (auto& resImage : resources.resolutionRelativeImages) {
       auto& img = resources.images[resImage.index];
 
@@ -372,12 +381,27 @@ namespace kt {
         KT_ABORT("Failed to create resolution relative image '{}': {}", img.getName(), newImageRes.error());
       }
 
-      imagesToDrop[RHI::get().getLastFrameIndex()].push_back(std::move(img));
+      RHI::get().submitImageToDrop(img);
       resources.images[resImage.index] = std::move(newImageRes.value());
+
+      for (auto& transition : initialTransitions) {
+        if (static_cast<size_t>(transition.resourceId) == resImage.index) {
+          transitions.push_back(CommandBuffer::ImageLayoutTransition{
+              .imageRef = resources.images[resImage.index], .oldLayout = rhi::ImageLayout::Undefined, .newLayout = transition.newLayout});
+        }
+      }
 
       for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         imagesToUpdate[i].push_back(resImage.index);
       }
+    }
+
+    if (!transitions.empty()) {
+      auto cmds = RHI::get().allocateGraphicsCommandBuffers(1);
+      auto& cmd = cmds.front();
+      cmd.transitionImages(transitions);
+      cmd.end();
+      RHI::get().submitGraphicsCmd(cmd, 0, RHI::get().getTimelineValue() + 1);
     }
   }
 
@@ -385,6 +409,8 @@ namespace kt {
     KT_PROFILE_FUNCTION
 
     KT_TRACE("RenderGraph::onSwapchainSizeChanged() - New Size: {}x{}", newSize.x, newSize.y);
+
+    std::vector<rhi::CommandBuffer::ImageLayoutTransition> transitions;
 
     for (auto& resImage : resources.swapchainRelativeImages) {
       auto& img = resources.images[resImage.index];
@@ -396,13 +422,33 @@ namespace kt {
         KT_ABORT("Failed to create swapchain relative image '{}': {}", img.getName(), newImageRes.error());
       }
 
-      imagesToDrop[RHI::get().getLastFrameIndex()].push_back(std::move(img));
+      RHI::get().submitImageToDrop(img);
       resources.images[resImage.index] = std::move(newImageRes.value());
+
+      for (auto& transition : initialTransitions) {
+        if (static_cast<size_t>(transition.resourceId) == resImage.index) {
+          transitions.push_back(CommandBuffer::ImageLayoutTransition{
+              .imageRef = resources.images[resImage.index], .oldLayout = rhi::ImageLayout::Undefined, .newLayout = transition.newLayout});
+        }
+      }
 
       for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         imagesToUpdate[i].push_back(resImage.index);
       }
     }
+
+    if (!transitions.empty()) {
+      auto cmds = RHI::get().allocateGraphicsCommandBuffers(1);
+      auto& cmd = cmds.front();
+      cmd.transitionImages(transitions);
+      cmd.end();
+      RHI::get().submitGraphicsCmd(cmd, 0, RHI::get().getTimelineValue() + 1);
+    }
+  }
+
+  RenderGraph& RenderGraph::getActiveGraph() {
+    KT_ASSERT(activeGraph, "No active render graph");
+    return *activeGraph;
   }
 
 } // namespace kt

@@ -136,11 +136,15 @@ namespace kt {
     /// per-frame, use reallocatePerFrameBuffer() for those. If copyOldData is true, the old data will be copied to the new buffer.
     /// @warning This should only be called for the first pass to use this buffer in the frame, otherwise it will likely write to an in-use
     /// descriptor set.
+    /// @returns A reference to the old buffer that was replaced. This buffer will be dropped at the end of the frame and should not be used
+    /// after that.
     const rhi::Buffer& reallocateBuffer(size_t index, size_t newSize, bool copyOldData);
 
     /// Reallocates the per-frame buffer at the given index. This should only be used for CPU Mapped buffers that are allocated per-frame.
     /// @warning This should only be called for the first pass to use this buffer in the frame, otherwise it will likely write to an in-use
     /// descriptor set.
+    /// @returns A reference to the old buffer that was replaced. This buffer will be dropped at the end of the frame and should not be used
+    /// after that.
     const rhi::Buffer& reallocatePerFrameBuffer(size_t index, size_t newSize, bool copyOldData);
 
     void destroy();
@@ -154,8 +158,16 @@ namespace kt {
     void onResolutionChanged(const glm::uvec2& newResolution);
     void onSwapchainSizeChanged(const glm::uvec2& newSize);
 
+    static RenderGraph& getActiveGraph();
+
+    [[nodiscard]] static RenderGraph* getActiveGraphPtr() { return activeGraph; }
+
+    /// For internal use only.
+    static void setActiveGraph(RenderGraph* graph) { activeGraph = graph; }
+
   private:
-    RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources
+    RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
+                std::vector<ImageTransition>&& initialTransitions
 #ifdef KT_VULKAN
                 ,
                 VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors
@@ -178,14 +190,15 @@ namespace kt {
 
     size_t backbufferSourceIndex = 0;
 
+    std::vector<ImageTransition> initialTransitions;
+
+    std::array<std::vector<rhi::Buffer>, MAX_FRAMES_IN_FLIGHT> buffersToDrop;
     std::array<std::vector<size_t>, MAX_FRAMES_IN_FLIGHT> imagesToUpdate;
     std::array<std::vector<size_t>, MAX_FRAMES_IN_FLIGHT> buffersToUpdate;
-    std::array<std::vector<rhi::Image>, MAX_FRAMES_IN_FLIGHT> imagesToDrop;
-    std::array<std::vector<rhi::Buffer>, MAX_FRAMES_IN_FLIGHT> buffersToDrop;
 
     void updateDescriptors();
     void passBarriers(rhi::CommandBuffer& cmd, const Barriers& barriers);
 
-    KT_EXTRA_GRAPH_FNS
+    static RenderGraph* activeGraph;
   };
 } // namespace kt

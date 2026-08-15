@@ -41,10 +41,8 @@ int main() {
     auto& rhi = rhi::RHI::get();
 
     rgBuilder.setRenderResolution(window.getDisplaySize());
-    rgBuilder.setSwapchainSize(window.getRenderSize());
+    rgBuilder.setSwapchainSize(rhi.getSwapchainSize());
     rgBuilder.setSwapchainFormat(rhi.getSwapchainFormat());
-
-    // TODO: Set render graph resolution, swapchain size and swapchain format.
 
     LayerStack layerStack{};
 
@@ -63,6 +61,8 @@ int main() {
     rgBuilder.log();
 #endif
     auto rg = rgBuilder.build();
+
+    rg.setActiveGraph(&rg);
 
 #ifndef NDEBUG
     rg.log();
@@ -149,8 +149,8 @@ int main() {
         if (event.type == SDL_EVENT_WINDOW_RESIZED) {
           KT_DEBUG("Window resized to {}x{}", event.window.data1, event.window.data2);
           auto newSize = glm::uvec2{static_cast<uint32_t>(event.window.data1), static_cast<uint32_t>(event.window.data2)};
-          rg.onSwapchainSizeChanged(newSize);
           rhi.onResize();
+          rg.onSwapchainSizeChanged(rhi.getSwapchainSize());
         }
 
         auto eventPtr = Event::fromSdl(event);

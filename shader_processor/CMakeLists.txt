@@ -2,16 +2,23 @@ cmake_minimum_required(VERSION 3.15..4.0)
 
 project(Keptech_shader_processor)
 
-add_library(keptech_shaders INTERFACE)
+add_library(keptech_shaders)
 add_library(keptech::shaders ALIAS keptech_shaders)
-KT_SETUP_TARGET(keptech_shaders INTERFACE)
+KT_SETUP_TARGET(keptech_shaders)
+
+target_link_libraries(keptech_shaders
+  PUBLIC
+    keptech::logging
+)
 
 target_sources(keptech_shaders
-  INTERFACE
+  PUBLIC
   FILE_SET HEADERS
   BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
   FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/keptech/shaders/shader.h
+  PRIVATE
+    keptech/shaders/formatting.cpp
 )
 
 project(Keptech_shader_processor)
@@ -28,6 +35,7 @@ target_sources(keptech_shader_processor
   BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
   PRIVATE
     keptech/shader_processor/shader_processor.cpp
+    keptech/shader_processor/shader-logger.cpp
 )
 
 target_link_libraries(keptech_shader_processor
@@ -40,6 +48,8 @@ target_link_libraries(keptech_shader_processor
 target_compile_definitions(keptech_shader_processor
   PRIVATE
   KEPTECH_SHADER_DIR="${KT_SHADER_DIR}"
+  $<$<CONFIG:Debug>:SHADER_LOG_LEVEL=SPDLOG_LEVEL_${SHADER_DEBUG_LOG_LEVEL}>
+  $<$<CONFIG:Release>:SHADER_LOG_LEVEL=SPDLOG_LEVEL_${SHADER_RELEASE_LOG_LEVEL}>
 )
 
 if (NOT PIPED_BUILD)

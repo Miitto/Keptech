@@ -38,7 +38,9 @@ namespace kt::components {
     }
     }
 
+#ifdef KT_VULKAN
     projectionMatrix[1][1] *= -1; // Flip Y to get +Y as up in world coords
+#endif
 
     dirty = false;
   }

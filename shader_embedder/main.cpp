@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 
+#include "keptech/shader_processor/shader-logger.hpp"
 #include <keptech/shader_processor/shader_processor.hpp>
 
 using namespace kt::shader_processor;
@@ -48,23 +49,23 @@ void writeCode(std::ofstream& file, const kt::shaders::Shader& shader) {
 void writeStages(std::ofstream& file, const std::vector<kt::shaders::ShaderStage>& stages) {
   file << "    .stages = {\n";
   for (auto& stage : stages) {
-    file << "        {.name = \"" << stage.name << "\", .stage = static_cast<kt::shaders::ShaderStages>(" << std::dec
+    file << "        {.name = \"" << stage.name << "\", .stage = static_cast<::kt::shaders::ShaderStages>(" << std::dec
          << static_cast<uint32_t>(stage.stage) << ")},\n";
   }
   file << "    },\n";
 }
 
 void writeVertex(std::ofstream& file, const kt::shaders::Vertex& vertex) {
-  file << "    .vertex = {\n        .topology = static_cast<kt::shaders::PrimitiveTopology>(" << static_cast<uint32_t>(vertex.topology)
+  file << "    .vertex = {\n        .topology = static_cast<::kt::shaders::PrimitiveTopology>(" << static_cast<uint32_t>(vertex.topology)
        << "),\n        .layout = {\n";
   for (auto& buffer : vertex.layout) {
     file << "            {\n.layout = {\n";
     for (auto& entry : buffer.layout) {
-      file << "                {.type = static_cast<kt::shaders::DataType>(" << std::dec << static_cast<uint32_t>(entry.type) << "),\n"
+      file << "                {.type = static_cast<::kt::shaders::DataType>(" << std::dec << static_cast<uint32_t>(entry.type) << "),\n"
            << "                 .semantic = \"" << entry.semantic << "\",\n"
            << "                 .semanticIndex = " << entry.semanticIndex << "},\n";
     }
-    file << "},\n            .inputRate = static_cast<kt::shaders::InputRate>(" << std::dec << static_cast<uint32_t>(buffer.inputRate)
+    file << "},\n            .inputRate = static_cast<::kt::shaders::InputRate>(" << std::dec << static_cast<uint32_t>(buffer.inputRate)
          << "),\n"
          << "            },\n";
   }
@@ -73,17 +74,27 @@ void writeVertex(std::ofstream& file, const kt::shaders::Vertex& vertex) {
 
 void writeFragment(std::ofstream& file, const kt::shaders::Fragment& fragment) {
   file << "    .fragment = {\n        .enableBlending = " << (fragment.enableBlending ? "true" : "false") << ",\n"
-       << "        .srcColorBlendFactor = static_cast<kt::shaders::BlendFactor>(" << std::dec
+       << "        .srcColorBlendFactor = static_cast<::kt::shaders::BlendFactor>(" << std::dec
        << static_cast<uint32_t>(fragment.srcColorBlendFactor) << "),\n"
-       << "        .dstColorBlendFactor = static_cast<kt::shaders::BlendFactor>(" << std::dec
+       << "        .dstColorBlendFactor = static_cast<::kt::shaders::BlendFactor>(" << std::dec
        << static_cast<uint32_t>(fragment.dstColorBlendFactor) << "),\n"
        << "        .depthWrite = " << (fragment.depthWrite ? "true" : "false") << ",\n    },\n";
 }
 
+void writeResources(std::ofstream& file, const std::vector<kt::shaders::ResourceBinding>& resources, size_t pushConstantSize) {
+  file << "    .resources = {\n";
+  for (auto& resource : resources) {
+    file << "        {.type = static_cast<::kt::shaders::ShaderResourceType>(" << std::dec << static_cast<uint32_t>(resource.type) << "),\n"
+         << "         .set = " << resource.set << ",\n"
+         << "         .binding = " << resource.binding << "},\n";
+  }
+  file << "    },\n    .pushConstantSize = " << std::dec << pushConstantSize << ",\n";
+}
+
 int main(int argc, char** argv) {
   if (argc < 6 || argc > 8) {
-    std::cerr << "Usage: shader_embedder <var_name> <namespace> <input_file> <output_header> <output_source> "
-                 "[optimization_level (0|1|3)] [debug_info d]\n";
+    SHDR_ERROR("Usage: shader_embedder <var_name> <namespace> <input_file> <output_header> <output_source> "
+               "[optimization_level (0|1|3)] [debug_info d]");
     return -1;
   }
 
@@ -118,7 +129,13 @@ int main(int argc, char** argv) {
 
   CompilerSession session(config);
 
+  if (!std::filesystem::exists(inputFile)) {
+    SHDR_ERROR("Input file does not exist: {}", inputFile);
+    return -1;
+  }
+
   std::ifstream inputStream(inputFile);
+
   auto size = std::filesystem::file_size(inputFile);
   std::string source(size, '\0');
   inputStream.read(source.data(), static_cast<std::streamsize>(size));
@@ -126,34 +143,49 @@ int main(int argc, char** argv) {
   try {
     auto [inputModule, inputDiag] = session.loadModule(name, source);
     if (inputDiag)
-      std::cerr << "\n" << (char*)inputDiag->getBufferPointer() << '\n';
+      SHDR_WARN("Input diagnostic: {}", (char*)inputDiag->getBufferPointer());
     if (!inputModule) {
-      std::cerr << "Failed to load input module.\n";
+      SHDR_ERROR("Failed to load input module.");
       return -1;
     }
   } catch (const std::exception& e) {
-    std::cerr << "Exception while loading input module: " << e.what() << '\n';
+    SHDR_ERROR("Shader load error: {}", e.what());
     return -1;
   }
 
-  auto [program, diag] = session.link();
-  if (diag)
-    std::cerr << "\n" << (char*)diag->getBufferPointer() << '\n';
-  if (!program.valid()) {
-    std::cerr << "\nFailed to link program.\n";
-    return -1;
+  auto link = [&]() -> std::expected<Program, int> {
+    try {
+      auto [program, diag] = session.link();
+      if (diag)
+        SHDR_WARN("Link diagnostic: {}", (char*)diag->getBufferPointer());
+      if (!program.valid()) {
+        SHDR_ERROR("Failed to link program.");
+        return std::unexpected(-1);
+      }
+
+      return program;
+    } catch (const std::exception& e) {
+      SHDR_ERROR("Shader link error: {}", e.what());
+      return std::unexpected(-1);
+    };
+  };
+
+  auto programRes = link();
+  if (!programRes) {
+    return programRes.error();
   }
+  auto& program = programRes.value();
 
   auto res = program.toShader(name);
   if (!res) {
-    std::cerr << "\nFailed to convert program to shader: " << res.error() << '\n';
+    SHDR_ERROR("Failed to convert program to shader: {}", res.error());
     return -1;
   }
 
   auto& [shader, shaderDiag] = res.value();
 
   if (shaderDiag) {
-    std::cerr << "\n" << (char*)shaderDiag->getBufferPointer() << '\n';
+    SHDR_WARN("Shader diagnostic: {}", (char*)shaderDiag->getBufferPointer());
   }
 
   shader.file = inputFile;
@@ -162,10 +194,10 @@ int main(int argc, char** argv) {
   std::ofstream outSource(outputSource);
 
   outHeader << "#pragma once\n\n#include <keptech/shaders/shader.h>\n";
-  outHeader << "namespace " << ns << " {\n    extern const kt::shaders::Shader " << name << ";\n}\n";
+  outHeader << "namespace " << ns << " {\n    extern const ::kt::shaders::Shader " << name << ";\n}\n";
 
   outSource << "#include \"" << std::filesystem::path(outputHeader).filename().string() << "\"\n\n";
-  outSource << "namespace " << ns << "{\n    const kt::shaders::Shader " << name << "{ .name = \"" << name << "\",\n .file = \""
+  outSource << "namespace " << ns << "{\n    const ::kt::shaders::Shader " << name << "{ .name = \"" << name << "\",\n .file = \""
             << inputFile << "\",\n";
 
   writeCode(outSource, shader);
@@ -175,6 +207,8 @@ int main(int argc, char** argv) {
   writeVertex(outSource, shader.vertex);
 
   writeFragment(outSource, shader.fragment);
+
+  writeResources(outSource, shader.resources, shader.pushConstantSize);
 
   outSource << "};\n}";
 

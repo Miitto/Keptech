@@ -2,7 +2,14 @@
 
 #include "intersection.hpp"
 #include "plane.hpp"
-#include <keptech/core/winfix.h>
+
+#ifdef max
+#undef max
+#endif
+
+#ifdef min
+#undef min
+#endif
 
 namespace kt::maths {
   struct Sphere;

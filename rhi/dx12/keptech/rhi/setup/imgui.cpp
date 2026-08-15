@@ -7,7 +7,6 @@
 #include <imgui/backends/imgui_impl_sdl3.h>
 #include <imgui/imgui.h>
 
-
 namespace kt::rhi {
   std::expected<void, std::string> RHI::initImGui() {
     rendering::initImGui();
@@ -34,11 +33,11 @@ namespace kt::rhi {
 
     initInfo.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* out_cpu_handle,
                                        D3D12_GPU_DESCRIPTOR_HANDLE* out_gpu_handle) {
-      return RHI::get().getMembers().imGui.descriptorAlloc.Alloc(out_cpu_handle, out_gpu_handle);
+      return RHI::get().dxGetMembers().imGui.descriptorAlloc.Alloc(out_cpu_handle, out_gpu_handle);
     };
     initInfo.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle,
                                       D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle) {
-      return RHI::get().getMembers().imGui.descriptorAlloc.Free(cpu_handle, gpu_handle);
+      return RHI::get().dxGetMembers().imGui.descriptorAlloc.Free(cpu_handle, gpu_handle);
     };
 
     ImGui_ImplDX12_Init(&initInfo);

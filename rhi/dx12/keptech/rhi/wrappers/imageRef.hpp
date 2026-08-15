@@ -17,6 +17,8 @@ namespace kt::rhi {
     ImageFormat format() const { return _format; }
     D3D12_CPU_DESCRIPTOR_HANDLE dxGetRtvDsvHandle() const { return rtvDsvHandle; }
 
+    ID3D12Resource* dxGetResource() const { return resource; }
+
   private:
     const char* name;
     ID3D12Resource* resource;

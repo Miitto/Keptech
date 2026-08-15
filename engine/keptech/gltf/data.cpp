@@ -1,7 +1,14 @@
-#include "keptech/rhi/gltf/data.hpp"
+#include "data.hpp"
 
+#include "keptech/rhi/bufferUsage.hpp"
+#include "keptech/rhi/rhi.hpp"
+
+#include "buffers.hpp"
 #include "keptech/core/kt-logger.hpp"
-#include "keptech/rhi/meshConstants.hpp"
+#include "keptech/rhi/bufferCreateInfo.hpp"
+#include "mesh.hpp"
+#include "scene.hpp"
+#include <__msvc_ostream.hpp>
 #include <algorithm>
 #include <execution>
 #include <fastgltf/core.hpp>
@@ -272,11 +279,7 @@ namespace kt::gltf {
           data.vertexAttribs.reserve(data.vertexAttribs.size() + prim.mesh.vertices.size());
           for (const auto& vertex : prim.mesh.vertices) {
             data.positions.push_back(vertex.position);
-            data.vertexAttribs.push_back(VertexAttribs{
-                .tangent = vertex.tangent,
-                .normal = vertex.normal,
-                .encodedUv = VertexAttribs::encodeUv(vertex.uv),
-            });
+            data.vertexAttribs.emplace_back(vertex.normal, vertex.uv, vertex.tangent);
           }
 
           std::vector<uint32_t> meshletTriangles32(prim.meshlet.triangles.size());
@@ -389,5 +392,255 @@ namespace kt::gltf {
     KT_DEBUG("Loaded {} nodes", asset.nodes.size());
 
     return loadedGltf;
+  }
+
+  std::expected<Data::UploadResult, std::string> Data::upload() const {
+    auto& buffers = kt::Buffers::get();
+    MeshSize totalSize{};
+    MeshSize counts{};
+    for (const auto& mesh : meshes) {
+      totalSize += mesh.getSize();
+      counts.positions += mesh.positions.size();
+      counts.vertexAttribs += mesh.vertexAttribs.size();
+      counts.indices += mesh.indices.size();
+      counts.submeshes += mesh.submeshes.size();
+      counts.meshlets += mesh.meshlets.size();
+      counts.meshletVertices += mesh.meshletVertices.size();
+      counts.meshletTriangles += mesh.meshletTriangles.size();
+    }
+
+    std::optional<rhi::Buffer> oldPosBuf;
+    std::optional<rhi::Buffer> oldVertexAttribsBuf;
+    std::optional<rhi::Buffer> oldIndicesBuf;
+    std::optional<rhi::Buffer> oldSubmeshesBuf;
+    std::optional<rhi::Buffer> oldMeshletsBuf;
+    std::optional<rhi::Buffer> oldMeshletVerticesBuf;
+    std::optional<rhi::Buffer> oldMeshletTrianglesBuf;
+
+    if (!buffers.positions.hasSpaceFor(counts.positions)) {
+      auto newPosBufRes =
+          rhi::Buffer::create({buffers.positions.occupied() + totalSize.positions, rhi::BufferUsage::Vertex | rhi::BufferUsage::TransferDst,
+                               rhi::BufferType::Default, "GLTF Positions Buffer"});
+      KT_ASSERT(newPosBufRes.isOk(), "Failed to reallocate positions buffer: {}", newPosBufRes.error());
+      if (buffers.positions->isValid())
+        oldPosBuf = std::move(buffers.positions.getBuffer());
+      buffers.positions.getBuffer() = std::move(newPosBufRes.value());
+    }
+
+    if (!buffers.vertexAttribs.hasSpaceFor(counts.vertexAttribs)) {
+      auto newVertexAttribsBufRes = rhi::Buffer::create({buffers.vertexAttribs.occupied() + totalSize.vertexAttribs,
+                                                         rhi::BufferUsage::Vertex | rhi::BufferUsage::TransferDst, rhi::BufferType::Default,
+                                                         "GLTF Vertex Attributes Buffer"});
+      KT_ASSERT(newVertexAttribsBufRes.isOk(), "Failed to reallocate vertex attributes buffer: {}", newVertexAttribsBufRes.error());
+      if (buffers.vertexAttribs->isValid())
+        oldVertexAttribsBuf = std::move(buffers.vertexAttribs.getBuffer());
+      buffers.vertexAttribs.getBuffer() = std::move(newVertexAttribsBufRes.value());
+    }
+
+    if (!buffers.indices.hasSpaceFor(counts.indices)) {
+      auto newIndicesBufRes =
+          rhi::Buffer::create({buffers.indices.occupied() + totalSize.indices, rhi::BufferUsage::Index | rhi::BufferUsage::TransferDst,
+                               rhi::BufferType::Default, "GLTF Indices Buffer"});
+      KT_ASSERT(newIndicesBufRes.isOk(), "Failed to reallocate indices buffer: {}", newIndicesBufRes.error());
+      if (buffers.indices->isValid())
+        oldIndicesBuf = std::move(buffers.indices.getBuffer());
+      buffers.indices.getBuffer() = std::move(newIndicesBufRes.value());
+    }
+
+    if (!buffers.submeshes.hasSpaceFor(counts.submeshes)) {
+      auto newSubmeshesBufRes = rhi::Buffer::create({buffers.submeshes.occupied() + totalSize.submeshes,
+                                                     rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst, rhi::BufferType::Default,
+                                                     "GLTF Submeshes Buffer"});
+      KT_ASSERT(newSubmeshesBufRes.isOk(), "Failed to reallocate submeshes buffer: {}", newSubmeshesBufRes.error());
+      if (buffers.submeshes->isValid())
+        oldSubmeshesBuf = std::move(buffers.submeshes.getBuffer());
+      buffers.submeshes.getBuffer() = std::move(newSubmeshesBufRes.value());
+    }
+
+    if (!buffers.meshlets.hasSpaceFor(counts.meshlets)) {
+      auto newMeshletsBufRes =
+          rhi::Buffer::create({buffers.meshlets.occupied() + totalSize.meshlets, rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
+                               rhi::BufferType::Default, "GLTF Meshlets Buffer"});
+      KT_ASSERT(newMeshletsBufRes.isOk(), "Failed to reallocate meshlets buffer: {}", newMeshletsBufRes.error());
+      if (buffers.meshlets->isValid())
+        oldMeshletsBuf = std::move(buffers.meshlets.getBuffer());
+      buffers.meshlets.getBuffer() = std::move(newMeshletsBufRes.value());
+    }
+
+    if (!buffers.meshletVertices.hasSpaceFor(counts.meshletVertices)) {
+      auto newMeshletVerticesBufRes = rhi::Buffer::create({buffers.meshletVertices.occupied() + totalSize.meshletVertices,
+                                                           rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
+                                                           rhi::BufferType::Default, "GLTF Meshlet Vertices Buffer"});
+      KT_ASSERT(newMeshletVerticesBufRes.isOk(), "Failed to reallocate meshlet vertices buffer: {}", newMeshletVerticesBufRes.error());
+      if (buffers.meshletVertices->isValid())
+        oldMeshletVerticesBuf = std::move(buffers.meshletVertices.getBuffer());
+      buffers.meshletVertices.getBuffer() = std::move(newMeshletVerticesBufRes.value());
+    }
+
+    if (!buffers.meshletTriangles.hasSpaceFor(counts.meshletTriangles)) {
+      auto newMeshletTrianglesBufRes = rhi::Buffer::create({buffers.meshletTriangles.occupied() + totalSize.meshletTriangles,
+                                                            rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
+                                                            rhi::BufferType::Default, "GLTF Meshlet Triangles Buffer"});
+      KT_ASSERT(newMeshletTrianglesBufRes.isOk(), "Failed to reallocate meshlet triangles buffer: {}", newMeshletTrianglesBufRes.error());
+      if (buffers.meshletTriangles->isValid())
+        oldMeshletTrianglesBuf = std::move(buffers.meshletTriangles.getBuffer());
+      buffers.meshletTriangles.getBuffer() = std::move(newMeshletTrianglesBufRes.value());
+    }
+
+    size_t stagingSize = totalSize.positions + totalSize.vertexAttribs + totalSize.indices + totalSize.submeshes + totalSize.meshlets +
+                         totalSize.meshletVertices + totalSize.meshletTriangles;
+
+    constexpr size_t positionsOffset = 0;
+    size_t vertexAttribsOffset = positionsOffset + totalSize.positions;
+    size_t indicesOffset = vertexAttribsOffset + totalSize.vertexAttribs;
+    size_t submeshesOffset = indicesOffset + totalSize.indices;
+    size_t meshletsOffset = submeshesOffset + totalSize.submeshes;
+    size_t meshletVerticesOffset = meshletsOffset + totalSize.meshlets;
+    size_t meshletTrianglesOffset = meshletVerticesOffset + totalSize.meshletVertices;
+
+    auto stagingRes = rhi::Buffer::create({stagingSize, rhi::BufferUsage::TransferSrc, rhi::BufferType::Staging, "GLTF Staging Buffer"});
+    if (!stagingRes) {
+      return std::unexpected(fmt::format("Failed to create staging buffer: {}", stagingRes.error()));
+    }
+    auto& staging = stagingRes.value();
+    KT_ASSERT(staging.isMapped(), "Staging buffer should be mapped");
+
+    glm::vec3* positionsPtr = staging.mapping<glm::vec3>(positionsOffset);
+    VertexAttribs* vertexAttribsPtr = staging.mapping<VertexAttribs>(vertexAttribsOffset);
+    uint32_t* indicesPtr = staging.mapping<uint32_t>(indicesOffset);
+    GpuSubmesh* submeshesPtr = staging.mapping<GpuSubmesh>(submeshesOffset);
+    Meshlet* meshletsPtr = staging.mapping<Meshlet>(meshletsOffset);
+    uint32_t* meshletVerticesPtr = staging.mapping<uint32_t>(meshletVerticesOffset);
+    uint32_t* meshletTrianglesPtr = staging.mapping<uint32_t>(meshletTrianglesOffset);
+
+    std::vector<Mesh> resultMeshes;
+    resultMeshes.reserve(meshes.size());
+
+    for (const auto& mesh : meshes) {
+      std::copy(mesh.positions.begin(), mesh.positions.end(), positionsPtr);
+      positionsPtr += mesh.positions.size();
+
+      std::copy(mesh.vertexAttribs.begin(), mesh.vertexAttribs.end(), vertexAttribsPtr);
+      vertexAttribsPtr += mesh.vertexAttribs.size();
+
+      std::copy(mesh.indices.begin(), mesh.indices.end(), indicesPtr);
+      indicesPtr += mesh.indices.size();
+
+      std::copy(mesh.meshlets.begin(), mesh.meshlets.end(), meshletsPtr);
+      meshletsPtr += mesh.meshlets.size();
+
+      std::copy(mesh.meshletVertices.begin(), mesh.meshletVertices.end(), meshletVerticesPtr);
+      meshletVerticesPtr += mesh.meshletVertices.size();
+
+      std::copy(mesh.meshletTriangles.begin(), mesh.meshletTriangles.end(), meshletTrianglesPtr);
+      meshletTrianglesPtr += mesh.meshletTriangles.size();
+
+      std::vector<GpuSubmesh> submeshes(mesh.submeshes.size());
+      std::ranges::transform(mesh.submeshes, submeshes.begin(), [&](const Submesh& submesh) {
+        GpuSubmesh gpuSubmesh{};
+        gpuSubmesh.vertexOffset = submesh.vertex.offset;
+        gpuSubmesh.vertexCount = submesh.vertex.count;
+        gpuSubmesh.indexOffset = submesh.index.offset;
+        gpuSubmesh.indexCount = submesh.index.count;
+        gpuSubmesh.meshletOffset = submesh.meshlet.offset;
+        gpuSubmesh.meshletCount = submesh.meshlet.count;
+        gpuSubmesh.meshletVertexOffset = submesh.meshlet.vertexOffset;
+        gpuSubmesh.meshletVertexCount = submesh.meshlet.vertexCount;
+        gpuSubmesh.meshletTriangleOffset = submesh.meshlet.triangleOffset;
+        gpuSubmesh.meshletTriangleCount = submesh.meshlet.triangleCount;
+        gpuSubmesh.materialIndex = submesh.materialIndex;
+        gpuSubmesh.boundingSphere = submesh.boundingSphere;
+        return gpuSubmesh;
+      });
+      std::copy(submeshes.begin(), submeshes.end(), submeshesPtr);
+      submeshesPtr += submeshes.size();
+
+      std::vector<kt::Submesh> meshSubmeshes(mesh.submeshes.size());
+      uint32_t meshId = static_cast<uint32_t>(buffers.submeshes.count());
+      std::ranges::transform(mesh.submeshes, meshSubmeshes.begin(), [&](const Submesh& in) {
+        kt::Submesh submesh{
+            .indexCount = in.index.count,
+            .indexOffset = static_cast<uint32_t>(in.index.offset + buffers.vertexAttribs.count()),
+            .vertexOffset = static_cast<int32_t>(in.vertex.offset + buffers.positions.count()),
+            .meshletOffset = static_cast<uint32_t>(in.meshlet.offset + buffers.meshlets.count()),
+            .meshletCount = in.meshlet.count,
+            .meshletVertexOffset = static_cast<uint32_t>(in.meshlet.vertexOffset + buffers.meshletVertices.count()),
+            .meshletTriangleOffset = static_cast<uint32_t>(in.meshlet.triangleOffset + buffers.meshletTriangles.count()),
+            .vertexCount = in.vertex.count,
+            .materialIndex = in.materialIndex,
+            .boundingSphere = in.boundingSphere,
+            .id = meshId++,
+        };
+        return submesh;
+      });
+
+      resultMeshes.emplace_back(mesh.name, std::move(meshSubmeshes));
+    }
+
+    auto copyValue = rhi::RHI::get().oneshotCopy([&](rhi::CommandBuffer& cmd) {
+      cmd.copyBufferRegion(buffers.positions, staging, buffers.positions.occupied(), positionsOffset, totalSize.positions);
+      buffers.positions.registerWrites(counts.positions);
+      cmd.copyBufferRegion(buffers.vertexAttribs, staging, buffers.vertexAttribs.occupied(), vertexAttribsOffset, totalSize.vertexAttribs);
+      buffers.vertexAttribs.registerWrites(counts.vertexAttribs);
+      cmd.copyBufferRegion(buffers.indices, staging, buffers.indices.occupied(), indicesOffset, totalSize.indices);
+      buffers.indices.registerWrites(counts.indices);
+      cmd.copyBufferRegion(buffers.submeshes, staging, buffers.submeshes.occupied(), submeshesOffset, totalSize.submeshes);
+      buffers.submeshes.registerWrites(counts.submeshes);
+      cmd.copyBufferRegion(buffers.meshlets, staging, buffers.meshlets.occupied(), meshletsOffset, totalSize.meshlets);
+      buffers.meshlets.registerWrites(counts.meshlets);
+      cmd.copyBufferRegion(buffers.meshletVertices, staging, buffers.meshletVertices.occupied(), meshletVerticesOffset,
+                           totalSize.meshletVertices);
+      buffers.meshletVertices.registerWrites(counts.meshletVertices);
+      cmd.copyBufferRegion(buffers.meshletTriangles, staging, buffers.meshletTriangles.occupied(), meshletTrianglesOffset,
+                           totalSize.meshletTriangles);
+      buffers.meshletTriangles.registerWrites(counts.meshletTriangles);
+
+      if (oldPosBuf.has_value()) {
+        cmd.copyBufferRegion(buffers.positions, *oldPosBuf, 0, 0, oldPosBuf->size());
+        rhi::RHI::get().submitBufferToDrop(*oldPosBuf);
+      }
+      if (oldVertexAttribsBuf.has_value()) {
+        cmd.copyBufferRegion(buffers.vertexAttribs, *oldVertexAttribsBuf, 0, 0, oldVertexAttribsBuf->size());
+        rhi::RHI::get().submitBufferToDrop(*oldVertexAttribsBuf);
+      }
+      if (oldIndicesBuf.has_value()) {
+        cmd.copyBufferRegion(buffers.indices, *oldIndicesBuf, 0, 0, oldIndicesBuf->size());
+        rhi::RHI::get().submitBufferToDrop(*oldIndicesBuf);
+      }
+      if (oldSubmeshesBuf.has_value()) {
+        cmd.copyBufferRegion(buffers.submeshes, *oldSubmeshesBuf, 0, 0, oldSubmeshesBuf->size());
+        rhi::RHI::get().submitBufferToDrop(*oldSubmeshesBuf);
+      }
+      if (oldMeshletsBuf.has_value()) {
+        cmd.copyBufferRegion(buffers.meshlets, *oldMeshletsBuf, 0, 0, oldMeshletsBuf->size());
+        rhi::RHI::get().submitBufferToDrop(*oldMeshletsBuf);
+      }
+      if (oldMeshletVerticesBuf.has_value()) {
+        cmd.copyBufferRegion(buffers.meshletVertices, *oldMeshletVerticesBuf, 0, 0, oldMeshletVerticesBuf->size());
+        rhi::RHI::get().submitBufferToDrop(*oldMeshletVerticesBuf);
+      }
+      if (oldMeshletTrianglesBuf.has_value()) {
+        cmd.copyBufferRegion(buffers.meshletTriangles, *oldMeshletTrianglesBuf, 0, 0, oldMeshletTrianglesBuf->size());
+        rhi::RHI::get().submitBufferToDrop(*oldMeshletTrianglesBuf);
+      }
+    });
+
+    KT_DEBUG("Uploaded {} meshes to GPU", meshes.size());
+
+    return Data::UploadResult{
+        .scene = Scene(*this, resultMeshes, copyValue),
+        .copyFenceValue = copyValue,
+        .stagingBuffer = std::move(staging),
+    };
+  }
+
+  MeshSize MeshData::getSize() const {
+    return MeshSize{.positions = sizeof(glm::vec3) * positions.size(),
+                    .vertexAttribs = sizeof(VertexAttribs) * vertexAttribs.size(),
+                    .indices = sizeof(uint32_t) * indices.size(),
+                    .submeshes = sizeof(GpuSubmesh) * submeshes.size(),
+                    .meshlets = sizeof(Meshlet) * meshlets.size(),
+                    .meshletVertices = sizeof(uint32_t) * meshletVertices.size(),
+                    .meshletTriangles = sizeof(uint32_t) * meshletTriangles.size()};
   }
 } // namespace kt::gltf

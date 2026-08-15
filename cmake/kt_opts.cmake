@@ -12,13 +12,13 @@ set(RHI_BACKEND "Vulkan" CACHE STRING "Select the renderer backend to use")
 set(RHI_DEBUG_LOG_LEVEL DEBUG CACHE STRING "Set the log level for the rendererer")
 set(RHI_RELEASE_LOG_LEVEL ERROR CACHE STRING "Set the log level for the rendererer in release mode")
 
-set(RENDERER_DEBUG_LOG_LEVEL DEBUG CACHE STRING "Set the log level for the rendererer")
-set(RENDERER_RELEASE_LOG_LEVEL ERROR CACHE STRING "Set the log level for the rendererer in release mode")
+set(SHADER_DEBUG_LOG_LEVEL DEBUG CACHE STRING "Set the log level for the shader processor")
+set(SHADER_RELEASE_LOG_LEVEL ERROR CACHE STRING "Set the log level for the shader processor in release mode")
 
 # Properties for options
 set_property(CACHE RHI_BACKEND PROPERTY STRINGS ${RHI_BACKEND_OPTIONS})
 set_property(CACHE RHI_DEBUG_LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
 set_property(CACHE RHI_RELEASE_LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
 
-set_property(CACHE RENDERER_DEBUG_LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
-set_property(CACHE RENDERER_RELEASE_LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
+set_property(CACHE SHADER_DEBUG_LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
+set_property(CACHE SHADER_RELEASE_LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
