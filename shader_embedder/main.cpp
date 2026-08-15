@@ -197,20 +197,21 @@ int main(int argc, char** argv) {
   outHeader << "namespace " << ns << " {\n    extern const ::kt::shaders::Shader " << name << ";\n}\n";
 
   outSource << "#include \"" << std::filesystem::path(outputHeader).filename().string() << "\"\n\n";
-  outSource << "namespace " << ns << "{\n    const ::kt::shaders::Shader " << name << "{ .name = \"" << name << "\",\n .file = \""
-            << inputFile << "\",\n";
+  outSource << "namespace " << ns << "{\n    const ::kt::shaders::Shader " << name << "{ .file = \"" << inputFile << "\",\n";
 
   writeCode(outSource, shader);
 
   writeStages(outSource, shader.stages);
 
-  writeVertex(outSource, shader.vertex);
+  outSource << "    .info = {\n        .name = \"" << shader.info.name << "\",\n";
 
-  writeFragment(outSource, shader.fragment);
+  writeVertex(outSource, shader.info.vertex);
 
-  writeResources(outSource, shader.resources, shader.pushConstantSize);
+  writeFragment(outSource, shader.info.fragment);
 
-  outSource << "};\n}";
+  writeResources(outSource, shader.info.resources, shader.info.pushConstantSize);
+
+  outSource << "}\n};\n}";
 
   return 0;
 }

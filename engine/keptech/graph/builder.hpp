@@ -40,6 +40,8 @@ namespace kt {
     /// Graph should be built before calling this function. Uses log level DEBUG.
     void log() const;
 
+    bool hasBufferResource(const std::string& name) const;
+    bool hasTextureResource(const std::string& name) const;
     RenderTextureResource& getTextureResource(const std::string& name);
     RenderBufferResource& getBufferResource(const std::string& name);
 

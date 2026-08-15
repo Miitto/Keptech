@@ -101,6 +101,7 @@ namespace kt {
     RenderPassBuilder& addProxyPass(const std::string& name, QueueType queue = QueueType::Graphics, bool autoBeginRendering = true);
 
     void setupDependencies();
+    bool validate();
 
     RenderPassBuilder& setName(const std::string& n);
     [[nodiscard]] std::string& getName();

@@ -1,5 +1,6 @@
 target_sources(Keptech
   PRIVATE
+    data.cpp
     geometry.cpp
 )
 

@@ -37,6 +37,11 @@ namespace kt {
     /// query information about the device and queues. Create resources in `setup()` instead.
     virtual void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph) {}
 
+    /// Called once after every pass has run `setupDependencies()`. This is where you should validate that the pass has all the resources it
+    /// needs to run. Return false to abort the render graph build. This is useful for passes that require certain resources to be present
+    /// outside the graph, or just to provide a better error message.
+    virtual bool validate(RenderPassBuilder& self, RenderGraphBuilder& graph) { return true; }
+
     /// Called once after the render graph has been built.
     virtual void setup(RenderGraph& graph
 #ifdef KT_VULKAN

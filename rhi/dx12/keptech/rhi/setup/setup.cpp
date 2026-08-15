@@ -147,6 +147,26 @@ namespace kt::rhi {
     DX_MAKE(m.device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&m.samplerHeap.heap)),
             "Failed to create sampler descriptor heap");
 
+    D3D12_INDIRECT_ARGUMENT_DESC indirectArgumentDesc = {
+        .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW,
+    };
+    D3D12_COMMAND_SIGNATURE_DESC drawIndirectSignatureDesc = {
+        .ByteStride = sizeof(D3D12_DRAW_ARGUMENTS),
+        .NumArgumentDescs = 1,
+        .pArgumentDescs = &indirectArgumentDesc,
+    };
+    DX_MAKE(m.device->CreateCommandSignature(&drawIndirectSignatureDesc, nullptr, IID_PPV_ARGS(&m.drawIndirectSignature)),
+            "Failed to create draw indirect command signature");
+    D3D12_INDIRECT_ARGUMENT_DESC indexedIndirectArgumentDesc = {
+        .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED,
+    };
+    D3D12_COMMAND_SIGNATURE_DESC drawIndexedIndirectSignatureDesc = {
+        .ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS),
+        .NumArgumentDescs = 1,
+        .pArgumentDescs = &indexedIndirectArgumentDesc,
+    };
+    DX_MAKE(m.device->CreateCommandSignature(&drawIndexedIndirectSignatureDesc, nullptr, IID_PPV_ARGS(&m.drawIndexedIndirectSignature)),
+            "Failed to create draw indexed indirect command signature");
     return {};
   }
 

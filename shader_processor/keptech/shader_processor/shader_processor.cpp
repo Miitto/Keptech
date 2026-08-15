@@ -339,7 +339,6 @@ namespace kt::shader_processor {
     }
 
     kt::shaders::Shader shader = {
-        .name = name,
         .file = file,
         .code =
 #ifdef KT_VULKAN
@@ -348,8 +347,10 @@ namespace kt::shader_processor {
             std::move(code),
 #endif
         .stages = {},
-        .vertex = {},
-        .fragment = {},
+        .info =
+            {
+                .name = name,
+            },
     };
     auto layout = program->getLayout();
 
@@ -367,18 +368,18 @@ namespace kt::shader_processor {
           auto shape = type->getResourceShape();
           switch (shape & SLANG_RESOURCE_BASE_SHAPE_MASK) {
           case SLANG_STRUCTURED_BUFFER: {
-            shader.resources.push_back(kt::shaders::ResourceBinding{.type = kt::shaders::ShaderResourceType::StorageBuffer,
-                                                                    .set = param->getBindingSpace(),
-                                                                    .binding = param->getBindingIndex()});
+            shader.info.resources.push_back(kt::shaders::ResourceBinding{.type = kt::shaders::ShaderResourceType::StorageBuffer,
+                                                                         .set = param->getBindingSpace(),
+                                                                         .binding = param->getBindingIndex()});
           } break;
           default:
             SHDR_ABORT("Unsupported resource shape: {}", static_cast<int>(shape & SLANG_RESOURCE_BASE_SHAPE_MASK));
           }
         } break;
         case slang::ParameterCategory::ConstantBuffer: {
-          shader.resources.push_back(kt::shaders::ResourceBinding{.type = kt::shaders::ShaderResourceType::UniformBuffer,
-                                                                  .set = param->getBindingSpace(),
-                                                                  .binding = param->getBindingIndex()});
+          shader.info.resources.push_back(kt::shaders::ResourceBinding{.type = kt::shaders::ShaderResourceType::UniformBuffer,
+                                                                       .set = param->getBindingSpace(),
+                                                                       .binding = param->getBindingIndex()});
         } break;
         default:
           SHDR_ABORT("Unsupported parameter category: {}", static_cast<int>(category));
@@ -449,17 +450,17 @@ namespace kt::shader_processor {
           }
         }
 
-        auto res = parseVertexAttribs(shader.vertex, *entryPoint->getFunction());
+        auto res = parseVertexAttribs(shader.info.vertex, *entryPoint->getFunction());
         if (!res) {
           return std::unexpected<std::string>("Failed to parse vertex attributes: " + res.error());
         }
 
-        shader.pushConstantSize = std::max(shader.pushConstantSize, pushConstantSize);
+        shader.info.pushConstantSize = std::max(shader.info.pushConstantSize, pushConstantSize);
 
         break;
       }
       case kt::shaders::ShaderStages::Mesh: {
-        auto res = parseVertexAttribs(shader.vertex, *entryPoint->getFunction());
+        auto res = parseVertexAttribs(shader.info.vertex, *entryPoint->getFunction());
         if (!res) {
           return std::unexpected<std::string>("Failed to parse mesh attributes: " + res.error());
         }
@@ -475,7 +476,7 @@ namespace kt::shader_processor {
           }
         }
 
-        shader.pushConstantSize = std::max(shader.pushConstantSize, pushConstantSize);
+        shader.info.pushConstantSize = std::max(shader.info.pushConstantSize, pushConstantSize);
         break;
       }
       case kt::shaders::ShaderStages::Fragment: {
@@ -485,7 +486,7 @@ namespace kt::shader_processor {
 
         std::string_view returnTypeName(static_cast<const char*>(typeNameBlob->getBufferPointer()), typeNameBlob->getBufferSize());
 
-        auto res = parseFragmentAttribs(shader.fragment, *entryPoint->getFunction());
+        auto res = parseFragmentAttribs(shader.info.fragment, *entryPoint->getFunction());
         if (!res) {
           return std::unexpected<std::string>("Failed to parse fragment attributes: " + res.error());
         }
@@ -500,7 +501,7 @@ namespace kt::shader_processor {
           }
         }
 
-        shader.pushConstantSize = std::max(shader.pushConstantSize, pushConstantSize);
+        shader.info.pushConstantSize = std::max(shader.info.pushConstantSize, pushConstantSize);
 
       } break;
       default:
@@ -509,9 +510,9 @@ namespace kt::shader_processor {
       shader.stages.push_back(kt::shaders::ShaderStage{.name = entryPoint->getName(), .stage = stage});
     }
 
-    shader.vertex.layout.reserve(vertexLayout.size());
+    shader.info.vertex.layout.reserve(vertexLayout.size());
     for (auto& layoutEntry : vertexLayout) {
-      shader.vertex.layout.emplace_back(std::move(layoutEntry));
+      shader.info.vertex.layout.emplace_back(std::move(layoutEntry));
     }
 
     return Return<kt::shaders::Shader>{.value = std::move(shader), .diagnostics = std::move(diag)};

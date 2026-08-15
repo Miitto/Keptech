@@ -126,8 +126,16 @@ namespace kt::shaders {
     uint32_t binding;
   };
 
-  struct Shader {
+  struct ShaderInfo {
     const char* name;
+    Vertex vertex;
+    Fragment fragment;
+    uint32_t bindlessIndex;
+    std::vector<ResourceBinding> resources;
+    size_t pushConstantSize;
+  };
+
+  struct Shader {
     const char* file = nullptr;
 #ifdef KT_VULKAN
     std::vector<uint8_t> code;
@@ -135,11 +143,7 @@ namespace kt::shaders {
     std::vector<std::vector<uint8_t>> code;
 #endif
     std::vector<ShaderStage> stages;
-    Vertex vertex;
-    Fragment fragment;
-    uint32_t bindlessIndex;
-    std::vector<ResourceBinding> resources;
-    size_t pushConstantSize;
+    ShaderInfo info;
   };
 } // namespace kt::shaders
 

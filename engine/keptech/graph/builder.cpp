@@ -36,7 +36,7 @@ namespace kt {
   namespace {
     QueueType getRawQueue(QueueType queue) {
       if (queue == QueueType::Compute)
-        return QueueType::Compute;
+        return QueueType::Graphics; // Normal compute queue is merged into graphics queue.
       return queue;
     }
   } // namespace
@@ -49,6 +49,10 @@ namespace kt {
 
     for (auto& pass : passes) {
       pass->setupDependencies();
+    }
+
+    for (auto& pass : passes) {
+      KT_REQUIRE(pass->validate(), "Pass '{}' failed validation. Check that all required resources are present.", pass->getName());
     }
 
     validatePasses();
@@ -131,13 +135,14 @@ namespace kt {
     auto cmds = renderer.allocateGraphicsCommandBuffers(1);
     auto& cmd = cmds.front();
 
-    std::vector<rhi::CommandBuffer::ImageLayoutTransition> initialTransitions;
-    for (const auto& transition : this->initialTransitions) {
+    std::vector<rhi::CommandBuffer::ImageLayoutTransition> its;
+    for (auto& transition : initialTransitions) {
+      transition.resourceId = builtResources.nameToImage[physicalResourceInfos[transition.resourceId].name];
       auto& img = builtResources.images[transition.resourceId];
-      initialTransitions.push_back(
+      its.push_back(
           CommandBuffer::ImageLayoutTransition{.imageRef = img, .oldLayout = ImageLayout::Undefined, .newLayout = transition.newLayout});
     }
-    cmd.transitionImages(initialTransitions);
+    cmd.transitionImages(its);
 
     cmd.end();
 
@@ -148,7 +153,7 @@ namespace kt {
         std::move(passGroups),
         std::move(bakedPasses),
         std::move(builtResources),
-        std::move(this->initialTransitions),
+        std::move(initialTransitions),
 #ifdef KT_VULKAN
         ,
         descriptorPool,
@@ -633,6 +638,11 @@ namespace kt {
 
       KT_REQUIRE(pass.getStorageInputs().size() == pass.getStorageOutputs().size(),
                  "Pass '{}': Size of storage inputs and outputs must match", pass.getName());
+
+      if (pass.getQueue() == QueueType::Graphics) {
+        KT_REQUIRE(!pass.getColorOutputs().empty() || pass.getDepthStencilOutput() != nullptr,
+                   "Graphics Pass {} does not output any color or depth/stencil attachments.", pass.getName());
+      }
 
       for (const auto& [idx, output] : pass.getColorOutputs() | std::views::enumerate) {
         auto* input = pass.getColorInputs()[static_cast<size_t>(idx)];
@@ -1426,7 +1436,7 @@ namespace kt {
     // Find the last layout/access/stage for each resource.
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       auto& pass = *passes[passId];
-      auto& reqs = passRequirements[static_cast<size_t>(passId)];
+      auto& reqs = passRequirements[static_cast<size_t>(idx)];
 
       for (auto& req : reqs.invalidate) {
         auto& res = physicalResourceInfos[req.resourceId];
@@ -1469,7 +1479,7 @@ namespace kt {
 
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       auto& pass = *passes[passId];
-      auto& reqs = passRequirements[static_cast<size_t>(passId)];
+      auto& reqs = passRequirements[static_cast<size_t>(idx)];
 
       PrePostBarriers barriers;
 
@@ -1711,6 +1721,14 @@ namespace kt {
     }
 
     return bakedPasses;
+  }
+
+  bool RenderGraphBuilder::hasBufferResource(const std::string& name) const {
+    return resourceNameToId.contains(name) && resources[resourceNameToId.at(name)]->getType() == RenderResource::Type::Buffer;
+  }
+
+  bool RenderGraphBuilder::hasTextureResource(const std::string& name) const {
+    return resourceNameToId.contains(name) && resources[resourceNameToId.at(name)]->getType() == RenderResource::Type::Texture;
   }
 
   RenderTextureResource& RenderGraphBuilder::getTextureResource(const std::string& name) {

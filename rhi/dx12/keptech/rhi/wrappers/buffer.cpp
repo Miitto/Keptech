@@ -101,5 +101,7 @@ namespace kt::rhi {
     }
   }
 
+  ID3D12Resource* Buffer::operator->() const { return allocation->GetResource(); }
+
   Buffer::operator BufferRef() const { return BufferRef(name.c_str(), *this, _size, mapPtr); }
 } // namespace kt::rhi

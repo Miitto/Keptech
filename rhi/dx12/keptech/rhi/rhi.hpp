@@ -89,6 +89,9 @@ namespace kt::rhi {
     DescriptorHeap cbvSrvUavHeap;
     DescriptorHeap samplerHeap;
 
+    ComPtr<ID3D12CommandSignature> drawIndirectSignature;
+    ComPtr<ID3D12CommandSignature> drawIndexedIndirectSignature;
+
     uint8_t frameIndex = 0;
     uint8_t imageIndex = 0;
 

@@ -64,9 +64,20 @@ namespace kt::rhi {
       return writeComputePushConstants(&data, sizeof(T), offset);
     }
 
+    CommandBuffer& pushUniformBuffer(const BufferRef& buffer, uint32_t binding, size_t offset = 0);
+    CommandBuffer& pushStorageBuffer(const BufferRef& buffer, uint32_t binding, size_t offset = 0);
+
     CommandBuffer& draw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0);
     CommandBuffer& drawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0,
                                uint32_t firstInstance = 0);
+
+    CommandBuffer& drawIndirect(const BufferRef& buffer, uint32_t drawCount, uint32_t offset = 0);
+    CommandBuffer& drawIndexedIndirect(const BufferRef& buffer, uint32_t drawCount, uint32_t offset = 0);
+
+    CommandBuffer& drawIndirectCount(const BufferRef& buffer, const BufferRef& countBuffer, uint32_t maxDrawCount, uint32_t drawOffset = 0,
+                                     uint32_t countBufferOffset = 0);
+    CommandBuffer& drawIndexedIndirectCount(const BufferRef& buffer, const BufferRef& countBuffer, uint32_t maxDrawCount,
+                                            uint32_t drawOffset = 0, uint32_t countBufferOffset = 0);
 
     CommandBuffer& endRendering();
 
@@ -106,7 +117,7 @@ namespace kt::rhi {
   private:
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator> allocator;
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> cmdList;
-    uint32_t gConstantSlot;
-    uint32_t cConstantSlot;
+    const rhi::Pipeline* gPipeline = nullptr;
+    const rhi::Pipeline* cPipeline = nullptr;
   };
 } // namespace kt::rhi

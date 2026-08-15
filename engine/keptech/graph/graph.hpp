@@ -147,6 +147,11 @@ namespace kt {
     /// after that.
     const rhi::Buffer& reallocatePerFrameBuffer(size_t index, size_t newSize, bool copyOldData);
 
+    void setUserData(const std::string& key, void* data);
+    [[nodiscard]] void* getUserData(const std::string& key) const;
+    template <typename T> void setUserData(const std::string& key, T* data) { setUserData(key, static_cast<void*>(data)); }
+    template <typename T> [[nodiscard]] T* getUserData(const std::string& key) const { return static_cast<T*>(getUserData(key)); }
+
     void destroy();
 
     void setBackbufferSource(const std::string& name);
@@ -173,6 +178,8 @@ namespace kt {
                 VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors
 #endif
     );
+
+    std::unordered_map<std::string, void*> userData;
 
     maths::Frustum engineCameraFrustum{};
 

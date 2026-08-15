@@ -77,6 +77,7 @@ public:
     // orbits around a target point.
     orbitController = kt::cameras::OrbitCameraController(camera, 3, true);
 
+    dataPass.addToGraph(builder);
     geomPass.addToGraph(builder);
 
     // Here we set the backbuffer source for the render graph. This determines which render pass output will be used as the final image to
@@ -121,6 +122,7 @@ public:
 
 private:
   kt::cameras::OrbitCameraController orbitController{};
+  kt::DataPass dataPass{};
   kt::GeometryPass geomPass{};
   kt::RenderGraph* graph;
 };

@@ -90,6 +90,13 @@ namespace kt {
     if (passInterface)
       passInterface->setupDependencies(*this, graph);
   }
+
+  bool RenderPassBuilder::validate() {
+    if (passInterface)
+      return passInterface->validate(*this, graph);
+    return true;
+  }
+
   RenderPassBuilder& RenderPassBuilder::setName(const std::string& n) {
     name = n;
     return *this;

@@ -40,6 +40,7 @@ namespace kt::rhi {
     kt::Result<Buffer, HRESULT, S_OK> reallocate(size_t newSize);
 
     operator ID3D12Resource*() const;
+    ID3D12Resource* operator->() const;
 
     operator BufferRef() const;
 

@@ -15,7 +15,7 @@ namespace kt::rhi {
     cmdList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
     cmdList->SetGraphicsRootSignature(pipeline.rootSignature.Get());
     cmdList->IASetPrimitiveTopology(pipeline.primitiveTopology);
-    gConstantSlot = pipeline.constantSlot;
+    gPipeline = &pipeline;
     return *this;
   }
 
@@ -25,7 +25,7 @@ namespace kt::rhi {
                                                   rhi::RHI::get().dxGetMembers().samplerHeap.heap.Get()};
     cmdList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
     cmdList->SetComputeRootSignature(pipeline.rootSignature.Get());
-    cConstantSlot = pipeline.constantSlot;
+    cPipeline = &pipeline;
     return *this;
   }
 
@@ -159,7 +159,7 @@ namespace kt::rhi {
     DX_ASSERT(offset + size <= 128, "Push constant size must be less than or equal to 128 bytes");
     DX_ASSERT(size % sizeof(uint32_t) == 0, "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
     DX_ASSERT(offset % sizeof(uint32_t) == 0, "Push constant offset must be a multiple of 4 bytes (32 bits) for DX12");
-    cmdList->SetGraphicsRoot32BitConstants(gConstantSlot, static_cast<UINT>(size / sizeof(uint32_t)), data,
+    cmdList->SetGraphicsRoot32BitConstants(gPipeline->constantSlot, static_cast<UINT>(size / sizeof(uint32_t)), data,
                                            static_cast<UINT>(offset / sizeof(uint32_t)));
     return *this;
   }
@@ -169,8 +169,22 @@ namespace kt::rhi {
     DX_ASSERT(offset + size <= 128, "Push constant size must be less than or equal to 128 bytes");
     DX_ASSERT(size % sizeof(uint32_t) == 0, "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
     DX_ASSERT(offset % sizeof(uint32_t) == 0, "Push constant offset must be a multiple of 4 bytes (32 bits) for DX12");
-    cmdList->SetComputeRoot32BitConstants(cConstantSlot, static_cast<UINT>(size / sizeof(uint32_t)), data,
+    cmdList->SetComputeRoot32BitConstants(cPipeline->constantSlot, static_cast<UINT>(size / sizeof(uint32_t)), data,
                                           static_cast<UINT>(offset / sizeof(uint32_t)));
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::pushUniformBuffer(const BufferRef& buffer, uint32_t binding, size_t offset) {
+    DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
+    DX_ASSERT(offset < buffer.size(), "Offset is out of bounds of the buffer");
+    cmdList->SetGraphicsRootConstantBufferView(binding, buffer.dxGetResource()->GetGPUVirtualAddress() + offset);
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::pushStorageBuffer(const BufferRef& buffer, uint32_t binding, size_t offset) {
+    DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
+    DX_ASSERT(offset < buffer.size(), "Offset is out of bounds of the buffer");
+    cmdList->SetGraphicsRootShaderResourceView(binding, buffer.dxGetResource()->GetGPUVirtualAddress() + offset);
     return *this;
   }
 
@@ -182,6 +196,52 @@ namespace kt::rhi {
   CommandBuffer& CommandBuffer::drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset,
                                             uint32_t firstInstance) {
     cmdList->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::drawIndirect(const BufferRef& buffer, uint32_t drawCount, uint32_t offset) {
+    DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
+    DX_ASSERT(drawCount > 0, "Draw count must be greater than 0");
+    DX_ASSERT(offset + drawCount * sizeof(D3D12_DRAW_ARGUMENTS) <= buffer.size(), "Buffer overflow");
+
+    cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndirectSignature.Get(), drawCount, buffer.dxGetResource(), offset, nullptr,
+                             0);
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::drawIndexedIndirect(const BufferRef& buffer, uint32_t drawCount, uint32_t offset) {
+    DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
+    DX_ASSERT(drawCount > 0, "Draw count must be greater than 0");
+    DX_ASSERT(offset + drawCount * sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) <= buffer.size(), "Buffer overflow");
+
+    cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndexedIndirectSignature.Get(), drawCount, buffer.dxGetResource(), offset,
+                             nullptr, 0);
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::drawIndirectCount(const BufferRef& buffer, const BufferRef& countBuffer, uint32_t maxDrawCount,
+                                                  uint32_t drawOffset, uint32_t countBufferOffset) {
+    DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
+    DX_ASSERT(countBuffer.dxGetResource() != nullptr, "Count buffer resource is null");
+    DX_ASSERT(maxDrawCount > 0, "Max draw count must be greater than 0");
+    DX_ASSERT(drawOffset + maxDrawCount * sizeof(D3D12_DRAW_ARGUMENTS) <= buffer.size(), "Buffer overflow");
+    DX_ASSERT(countBufferOffset + sizeof(uint32_t) <= countBuffer.size(), "Count buffer overflow");
+
+    cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndirectSignature.Get(), maxDrawCount, buffer.dxGetResource(), drawOffset,
+                             countBuffer.dxGetResource(), countBufferOffset);
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::drawIndexedIndirectCount(const BufferRef& buffer, const BufferRef& countBuffer, uint32_t maxDrawCount,
+                                                         uint32_t drawOffset, uint32_t countBufferOffset) {
+    DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
+    DX_ASSERT(countBuffer.dxGetResource() != nullptr, "Count buffer resource is null");
+    DX_ASSERT(maxDrawCount > 0, "Max draw count must be greater than 0");
+    DX_ASSERT(drawOffset + maxDrawCount * sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) <= buffer.size(), "Buffer overflow");
+    DX_ASSERT(countBufferOffset + sizeof(uint32_t) <= countBuffer.size(), "Count buffer overflow");
+
+    cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndexedIndirectSignature.Get(), maxDrawCount, buffer.dxGetResource(),
+                             drawOffset, countBuffer.dxGetResource(), countBufferOffset);
     return *this;
   }
 

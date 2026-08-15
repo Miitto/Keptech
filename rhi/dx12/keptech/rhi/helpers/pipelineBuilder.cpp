@@ -54,6 +54,7 @@ namespace kt::rhi {
     DX_ASSERT(shader != nullptr, "Shader must be set before building pipeline");
 
     Pipeline pipeline;
+    pipeline.info = shader->info;
 
     std::vector<ComPtr<ID3DBlob>> code;
     code.reserve(shader->code.size());
@@ -63,7 +64,7 @@ namespace kt::rhi {
     }
 
     std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout;
-    for (const auto& [bufIdx, buffer] : shader->vertex.layout | std::views::enumerate) {
+    for (const auto& [bufIdx, buffer] : shader->info.vertex.layout | std::views::enumerate) {
       for (const auto& entry : buffer.layout) {
         inputLayout.push_back({
             .SemanticName = entry.semantic.c_str(),
@@ -84,16 +85,17 @@ namespace kt::rhi {
 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 
-    size_t rootParameterCount = shader->resources.size();
-    if (shader->pushConstantSize > 0) {
-      DX_ASSERT(shader->pushConstantSize % sizeof(uint32_t) == 0, "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
+    size_t rootParameterCount = shader->info.resources.size();
+    if (shader->info.pushConstantSize > 0) {
+      DX_ASSERT(shader->info.pushConstantSize % sizeof(uint32_t) == 0,
+                "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
       rootParameterCount += 1;
     }
 
     std::vector<CD3DX12_ROOT_PARAMETER1> rootParameters(rootParameterCount);
     uint32_t maxConstantBinding = 1;
-    for (size_t i = 0; i < shader->resources.size(); ++i) {
-      auto& resource = shader->resources[i];
+    for (size_t i = 0; i < shader->info.resources.size(); ++i) {
+      auto& resource = shader->info.resources[i];
       switch (resource.type) {
       case shaders::ShaderResourceType::UniformBuffer:
         rootParameters[i].InitAsConstantBufferView(resource.binding, resource.set);
@@ -107,8 +109,8 @@ namespace kt::rhi {
       }
     }
 
-    if (shader->pushConstantSize > 0) {
-      rootParameters.back().InitAsConstants(static_cast<UINT>(shader->pushConstantSize / sizeof(uint32_t)), maxConstantBinding - 1, 0);
+    if (shader->info.pushConstantSize > 0) {
+      rootParameters.back().InitAsConstants(static_cast<UINT>(shader->info.pushConstantSize / sizeof(uint32_t)), maxConstantBinding - 1, 0);
       pipeline.constantSlot = static_cast<uint32_t>(rootParameters.size() - 1);
     }
 
@@ -152,7 +154,7 @@ namespace kt::rhi {
 
     pipelineStateStream.pRootSignature = pipeline.rootSignature.Get();
     pipelineStateStream.InputLayout = {.pInputElementDescs = inputLayout.data(), .NumElements = static_cast<UINT>(inputLayout.size())};
-    pipelineStateStream.PrimitiveTopologyType = shader->vertex.topology == shaders::PrimitiveTopology::TriangleList
+    pipelineStateStream.PrimitiveTopologyType = shader->info.vertex.topology == shaders::PrimitiveTopology::TriangleList
                                                     ? D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE
                                                     : D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
     // FIXME: Shader order is not guaranteed to be vertex first, fragment second. We should sort by stage instead of relying on order.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "keptech/graph/passInterface.hpp"
+#include "keptech/passes/data.hpp"
 #include "keptech/rhi/wrappers/pipeline.hpp"
 
 namespace kt {
@@ -9,6 +10,7 @@ namespace kt {
     GeometryPass() = default;
 
     void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
+    bool validate(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
     void setup(RenderGraph& graph) final;
 
     void prepare(RenderGraph& graph) final;
@@ -22,6 +24,14 @@ namespace kt {
     size_t materialIndex = 0;
     size_t emissiveIndex = 0;
     size_t depthIndex = 0;
+    size_t drawCommandsIndex = 0;
+
+    size_t objectsIndex = 0;
+    size_t cameraIndex = 0;
+
+    const std::vector<Object>* writtenObjects = nullptr;
+    const maths::Frustum* cameraFrustum = nullptr;
+    uint32_t drawCommandCount = 0;
 
     rhi::Pipeline pipeline;
   };

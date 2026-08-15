@@ -45,35 +45,22 @@ namespace kt {
     for (const auto& [idxT, group] : passGroups | std::views::enumerate) {
       uint64_t idx = static_cast<uint64_t>(idxT);
       switch (group.queue) {
+      case QueueType::Compute: // Compute has been compacted into the graphics queue, so this should never happen, but just to be safe.
       case QueueType::Graphics: {
         auto& cmd = graphicsCmds[graphicsCmdIndex];
         cmd.label(fmt::format("RenderGraph Graphics Pass Group {}", idx));
         for (uint32_t i = 0; i < group.count; ++i) {
           auto& pass = passes[passIdx++];
           passBarriers(cmd, pass.getBarriers().pre);
-          auto source = pass.getExtentSourceId();
-          auto& img = resources.images[source];
-          pass.execute(cmd, img.getExtent());
+          glm::uvec2 framebufferSize =
+              pass.getQueue() == QueueType::Graphics ? resources.images[pass.getExtentSourceId()].getExtent() : glm::uvec2{0, 0};
+          pass.execute(cmd, framebufferSize);
           passBarriers(cmd, pass.getBarriers().post);
         }
 
         cmd.end();
         rhi.submitGraphicsCmd(cmd, startWaitFor + group.waitFor + 1, startWaitFor + idx + 1);
         graphicsCmdIndex++;
-      } break;
-      case QueueType::Compute: {
-        auto& cmd = graphicsCmds[graphicsCmdIndex];
-        cmd.label(fmt::format("RenderGraph Compute Pass Group {}", idx));
-        for (uint32_t i = 0; i < group.count; ++i) {
-          auto& pass = passes[passIdx++];
-          passBarriers(cmd, pass.getBarriers().pre);
-          pass.execute(cmd, {});
-          passBarriers(cmd, pass.getBarriers().post);
-        }
-        cmd.end();
-        rhi.submitGraphicsCmd(cmd, startWaitFor + group.waitFor + 1, startWaitFor + idx + 1);
-        graphicsCmdIndex++;
-
       } break;
       case QueueType::AsyncCompute: {
         auto& cmd = computeCmds[computeCmdIndex];
@@ -90,6 +77,7 @@ namespace kt {
 
       } break;
       case QueueType::Cpu: {
+        passIdx += group.count; // CPU passes don't have any execute work, so just skip them.
       } break;
       }
     }
@@ -362,6 +350,16 @@ namespace kt {
   [[nodiscard]] const std::string& RenderPass::getName() const { return name; }
   [[nodiscard]] QueueType RenderPass::getQueue() const { return queue; }
   [[nodiscard]] const std::vector<RenderAttachment>& RenderPass::getColorAttachments() const { return colorAttachments; }
+
+  void RenderGraph::setUserData(const std::string& key, void* data) { userData[key] = data; }
+
+  void* RenderGraph::getUserData(const std::string& key) const {
+    auto it = userData.find(key);
+    if (it != userData.end()) {
+      return it->second;
+    }
+    return nullptr;
+  }
 
   void RenderGraph::onResolutionChanged(const glm::uvec2& newResolution) {
     KT_PROFILE_FUNCTION
