@@ -98,6 +98,11 @@ namespace kt::rhi {
     CommandBuffer& blitImage(const rhi::ImageRef& src, const rhi::ImageRef& dst);
 
     CommandBuffer& copyBufferRegion(const rhi::BufferRef& dst, const rhi::BufferRef& src, size_t dstOffset, size_t srcOffset, size_t size);
+    CommandBuffer& copyImageRegion(const rhi::ImageRef& dst, const rhi::ImageRef& src, size_t dstOffsetX, size_t dstOffsetY,
+                                   size_t srcOffsetX, size_t srcOffsetY, size_t width, size_t height, size_t dstMipLevel = 0,
+                                   size_t srcMipLevel = 0);
+    CommandBuffer& copyBufferToImage(const rhi::BufferRef& buffer, const rhi::ImageRef& image, size_t width, size_t height,
+                                     size_t mipLevel = 0, size_t bufferOffset = 0, size_t offsetX = 0, size_t offsetY = 0);
 
     void end();
 

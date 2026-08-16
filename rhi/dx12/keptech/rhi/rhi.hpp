@@ -92,6 +92,15 @@ namespace kt::rhi {
     ComPtr<ID3D12CommandSignature> drawIndirectSignature;
     ComPtr<ID3D12CommandSignature> drawIndexedIndirectSignature;
 
+    std::vector<rhi::Image> loadedTextures;
+
+    struct OngoingCopy {
+      ComPtr<ID3D12CommandAllocator> cmdAlloc;
+      uint64_t fenceValue = 0;
+      std::vector<D3D12MA::Allocation*> allocsToDrop;
+    };
+    std::vector<OngoingCopy> ongoingCopies;
+
     uint8_t frameIndex = 0;
     uint8_t imageIndex = 0;
 
@@ -99,6 +108,7 @@ namespace kt::rhi {
   };
 
   using VertexBufferView = D3D12_VERTEX_BUFFER_VIEW;
+  class ImageCreateInfo;
 
   class RHI {
     template <typename T> using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -128,6 +138,8 @@ namespace kt::rhi {
     void submitBufferToDrop(Buffer& buffer);
     void submitImageToDrop(Image& image);
 
+    kt::Result<ImageRef, HRESULT, S_OK> createTexture(const ImageCreateInfo& createInfo);
+
     void waitGraphicsIdle() { m.fence.flush(m.queues.graphics); }
     void waitComputeIdle() { m.fence.flush(m.queues.compute); }
     void waitCopyIdle() { m.copyFence.flush(m.queues.copy); }
@@ -138,7 +150,7 @@ namespace kt::rhi {
     }
 
     template <typename F>
-      requires(std::is_invocable_v<F, CommandBuffer&>)
+      requires(std::is_invocable_v<F, CommandBuffer&> && std::is_same_v<std::invoke_result_t<F, CommandBuffer&>, std::vector<Buffer>>)
     uint64_t oneshotCopy(const F& copyFunc) {
       ComPtr<ID3D12CommandAllocator> cmdAlloc;
       DX_REQUIRE(SUCCEEDED(m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&cmdAlloc))),
@@ -148,13 +160,21 @@ namespace kt::rhi {
 
       CommandBuffer cmdBuf(std::move(cmdAlloc), m.copyCmdList);
 
-      copyFunc(cmdBuf);
+      auto buffers = copyFunc(cmdBuf);
 
       cmdBuf.end();
 
       m.queues.copy->ExecuteCommandLists(1, cmdBuf);
 
       uint64_t fenceValue = m.copyFence.signal(m.queues.copy);
+
+      std::vector<D3D12MA::Allocation*> allocsToDrop;
+      allocsToDrop.reserve(buffers.size());
+      for (auto& buffer : buffers) {
+        allocsToDrop.push_back(buffer.dxTakeAllocation());
+      }
+
+      m.ongoingCopies.push_back({.cmdAlloc = cmdBuf.dxGetAlloc(), .fenceValue = fenceValue, .allocsToDrop = std::move(allocsToDrop)});
 
       return fenceValue;
     }

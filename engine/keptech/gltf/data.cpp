@@ -6,6 +6,7 @@
 #include "buffers.hpp"
 #include "keptech/core/kt-logger.hpp"
 #include "keptech/rhi/bufferCreateInfo.hpp"
+#include "keptech/rhi/wrappers/image.hpp"
 #include "mesh.hpp"
 #include "scene.hpp"
 #include <__msvc_ostream.hpp>
@@ -16,8 +17,11 @@
 #include <fastgltf/util.hpp>
 #include <keptech/core/fastgltf_formatting.hpp>
 #include <keptech/core/profile.hpp>
+#include <ktx.h>
 #include <meshoptimizer.h>
+#include <optional>
 #include <ranges>
+#include <stb/image.h>
 #include <vector>
 
 namespace kt::gltf {
@@ -233,7 +237,7 @@ namespace kt::gltf {
                   .vertexOffset = meshletVertexOffset,
                   .triangleOffset = meshletTriangleOffset,
               },
-          .materialIndex = static_cast<uint32_t>(primitive.materialIndex.value_or(0)),
+          .materialIndex = static_cast<uint32_t>(primitive.materialIndex.value_or(~0u)),
       };
 
       size_t baseColorTexIndex = findBaseColorTexIndex(asset, primitive);
@@ -395,7 +399,34 @@ namespace kt::gltf {
   }
 
   std::expected<Data::UploadResult, std::string> Data::upload() const {
-    auto& buffers = kt::Buffers::get();
+    auto imagesRes = uploadTextureData();
+    if (!imagesRes) {
+      return std::unexpected(imagesRes.error());
+    }
+
+    auto materialsRes = uploadMaterialData(imagesRes.value().result);
+    if (!materialsRes) {
+      return std::unexpected(materialsRes.error());
+    }
+
+    auto meshUploadRes = uploadMeshData(materialsRes.value().result);
+    if (!meshUploadRes) {
+      return std::unexpected(meshUploadRes.error());
+    }
+
+    auto& meshUpload = meshUploadRes.value();
+
+    Scene scene(*this, meshUpload.result, meshUpload.copyFenceValue);
+
+    return UploadResult{
+        .scene = std::move(scene),
+        .copyFenceValue = meshUpload.copyFenceValue,
+    };
+  }
+
+  std::expected<Data::PartialUploadResult<std::vector<Mesh>>, std::string>
+  Data::uploadMeshData(const std::vector<Material>& materials) const {
+    auto& bufs = kt::Buffers::get();
     MeshSize totalSize{};
     MeshSize counts{};
     for (const auto& mesh : meshes) {
@@ -409,6 +440,16 @@ namespace kt::gltf {
       counts.meshletTriangles += mesh.meshletTriangles.size();
     }
 
+    size_t stagingSize = totalSize.positions + totalSize.vertexAttribs + totalSize.indices + totalSize.submeshes + totalSize.meshlets +
+                         totalSize.meshletVertices + totalSize.meshletTriangles;
+
+    if (stagingSize == 0) {
+      return Data::PartialUploadResult<std::vector<Mesh>>{
+          .copyFenceValue = 0,
+          .result = {},
+      };
+    }
+
     std::optional<rhi::Buffer> oldPosBuf;
     std::optional<rhi::Buffer> oldVertexAttribsBuf;
     std::optional<rhi::Buffer> oldIndicesBuf;
@@ -417,78 +458,75 @@ namespace kt::gltf {
     std::optional<rhi::Buffer> oldMeshletVerticesBuf;
     std::optional<rhi::Buffer> oldMeshletTrianglesBuf;
 
-    if (!buffers.positions.hasSpaceFor(counts.positions)) {
+    if (!bufs.positions.hasSpaceFor(counts.positions)) {
       auto newPosBufRes =
-          rhi::Buffer::create({buffers.positions.occupied() + totalSize.positions, rhi::BufferUsage::Vertex | rhi::BufferUsage::TransferDst,
+          rhi::Buffer::create({bufs.positions.occupied() + totalSize.positions, rhi::BufferUsage::Vertex | rhi::BufferUsage::TransferDst,
                                rhi::BufferType::Default, "GLTF Positions Buffer"});
       KT_ASSERT(newPosBufRes.isOk(), "Failed to reallocate positions buffer: {}", newPosBufRes.error());
-      if (buffers.positions->isValid())
-        oldPosBuf = std::move(buffers.positions.getBuffer());
-      buffers.positions.getBuffer() = std::move(newPosBufRes.value());
+      if (bufs.positions->isValid())
+        oldPosBuf = std::move(bufs.positions.getBuffer());
+      bufs.positions.getBuffer() = std::move(newPosBufRes.value());
     }
 
-    if (!buffers.vertexAttribs.hasSpaceFor(counts.vertexAttribs)) {
-      auto newVertexAttribsBufRes = rhi::Buffer::create({buffers.vertexAttribs.occupied() + totalSize.vertexAttribs,
+    if (!bufs.vertexAttribs.hasSpaceFor(counts.vertexAttribs)) {
+      auto newVertexAttribsBufRes = rhi::Buffer::create({bufs.vertexAttribs.occupied() + totalSize.vertexAttribs,
                                                          rhi::BufferUsage::Vertex | rhi::BufferUsage::TransferDst, rhi::BufferType::Default,
                                                          "GLTF Vertex Attributes Buffer"});
       KT_ASSERT(newVertexAttribsBufRes.isOk(), "Failed to reallocate vertex attributes buffer: {}", newVertexAttribsBufRes.error());
-      if (buffers.vertexAttribs->isValid())
-        oldVertexAttribsBuf = std::move(buffers.vertexAttribs.getBuffer());
-      buffers.vertexAttribs.getBuffer() = std::move(newVertexAttribsBufRes.value());
+      if (bufs.vertexAttribs->isValid())
+        oldVertexAttribsBuf = std::move(bufs.vertexAttribs.getBuffer());
+      bufs.vertexAttribs.getBuffer() = std::move(newVertexAttribsBufRes.value());
     }
 
-    if (!buffers.indices.hasSpaceFor(counts.indices)) {
+    if (!bufs.indices.hasSpaceFor(counts.indices)) {
       auto newIndicesBufRes =
-          rhi::Buffer::create({buffers.indices.occupied() + totalSize.indices, rhi::BufferUsage::Index | rhi::BufferUsage::TransferDst,
+          rhi::Buffer::create({bufs.indices.occupied() + totalSize.indices, rhi::BufferUsage::Index | rhi::BufferUsage::TransferDst,
                                rhi::BufferType::Default, "GLTF Indices Buffer"});
       KT_ASSERT(newIndicesBufRes.isOk(), "Failed to reallocate indices buffer: {}", newIndicesBufRes.error());
-      if (buffers.indices->isValid())
-        oldIndicesBuf = std::move(buffers.indices.getBuffer());
-      buffers.indices.getBuffer() = std::move(newIndicesBufRes.value());
+      if (bufs.indices->isValid())
+        oldIndicesBuf = std::move(bufs.indices.getBuffer());
+      bufs.indices.getBuffer() = std::move(newIndicesBufRes.value());
     }
 
-    if (!buffers.submeshes.hasSpaceFor(counts.submeshes)) {
-      auto newSubmeshesBufRes = rhi::Buffer::create({buffers.submeshes.occupied() + totalSize.submeshes,
-                                                     rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst, rhi::BufferType::Default,
-                                                     "GLTF Submeshes Buffer"});
+    if (!bufs.submeshes.hasSpaceFor(counts.submeshes)) {
+      auto newSubmeshesBufRes =
+          rhi::Buffer::create({bufs.submeshes.occupied() + totalSize.submeshes, rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
+                               rhi::BufferType::Default, "GLTF Submeshes Buffer"});
       KT_ASSERT(newSubmeshesBufRes.isOk(), "Failed to reallocate submeshes buffer: {}", newSubmeshesBufRes.error());
-      if (buffers.submeshes->isValid())
-        oldSubmeshesBuf = std::move(buffers.submeshes.getBuffer());
-      buffers.submeshes.getBuffer() = std::move(newSubmeshesBufRes.value());
+      if (bufs.submeshes->isValid())
+        oldSubmeshesBuf = std::move(bufs.submeshes.getBuffer());
+      bufs.submeshes.getBuffer() = std::move(newSubmeshesBufRes.value());
     }
 
-    if (!buffers.meshlets.hasSpaceFor(counts.meshlets)) {
+    if (!bufs.meshlets.hasSpaceFor(counts.meshlets)) {
       auto newMeshletsBufRes =
-          rhi::Buffer::create({buffers.meshlets.occupied() + totalSize.meshlets, rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
+          rhi::Buffer::create({bufs.meshlets.occupied() + totalSize.meshlets, rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
                                rhi::BufferType::Default, "GLTF Meshlets Buffer"});
       KT_ASSERT(newMeshletsBufRes.isOk(), "Failed to reallocate meshlets buffer: {}", newMeshletsBufRes.error());
-      if (buffers.meshlets->isValid())
-        oldMeshletsBuf = std::move(buffers.meshlets.getBuffer());
-      buffers.meshlets.getBuffer() = std::move(newMeshletsBufRes.value());
+      if (bufs.meshlets->isValid())
+        oldMeshletsBuf = std::move(bufs.meshlets.getBuffer());
+      bufs.meshlets.getBuffer() = std::move(newMeshletsBufRes.value());
     }
 
-    if (!buffers.meshletVertices.hasSpaceFor(counts.meshletVertices)) {
-      auto newMeshletVerticesBufRes = rhi::Buffer::create({buffers.meshletVertices.occupied() + totalSize.meshletVertices,
+    if (!bufs.meshletVertices.hasSpaceFor(counts.meshletVertices)) {
+      auto newMeshletVerticesBufRes = rhi::Buffer::create({bufs.meshletVertices.occupied() + totalSize.meshletVertices,
                                                            rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
                                                            rhi::BufferType::Default, "GLTF Meshlet Vertices Buffer"});
       KT_ASSERT(newMeshletVerticesBufRes.isOk(), "Failed to reallocate meshlet vertices buffer: {}", newMeshletVerticesBufRes.error());
-      if (buffers.meshletVertices->isValid())
-        oldMeshletVerticesBuf = std::move(buffers.meshletVertices.getBuffer());
-      buffers.meshletVertices.getBuffer() = std::move(newMeshletVerticesBufRes.value());
+      if (bufs.meshletVertices->isValid())
+        oldMeshletVerticesBuf = std::move(bufs.meshletVertices.getBuffer());
+      bufs.meshletVertices.getBuffer() = std::move(newMeshletVerticesBufRes.value());
     }
 
-    if (!buffers.meshletTriangles.hasSpaceFor(counts.meshletTriangles)) {
-      auto newMeshletTrianglesBufRes = rhi::Buffer::create({buffers.meshletTriangles.occupied() + totalSize.meshletTriangles,
+    if (!bufs.meshletTriangles.hasSpaceFor(counts.meshletTriangles)) {
+      auto newMeshletTrianglesBufRes = rhi::Buffer::create({bufs.meshletTriangles.occupied() + totalSize.meshletTriangles,
                                                             rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
                                                             rhi::BufferType::Default, "GLTF Meshlet Triangles Buffer"});
       KT_ASSERT(newMeshletTrianglesBufRes.isOk(), "Failed to reallocate meshlet triangles buffer: {}", newMeshletTrianglesBufRes.error());
-      if (buffers.meshletTriangles->isValid())
-        oldMeshletTrianglesBuf = std::move(buffers.meshletTriangles.getBuffer());
-      buffers.meshletTriangles.getBuffer() = std::move(newMeshletTrianglesBufRes.value());
+      if (bufs.meshletTriangles->isValid())
+        oldMeshletTrianglesBuf = std::move(bufs.meshletTriangles.getBuffer());
+      bufs.meshletTriangles.getBuffer() = std::move(newMeshletTrianglesBufRes.value());
     }
-
-    size_t stagingSize = totalSize.positions + totalSize.vertexAttribs + totalSize.indices + totalSize.submeshes + totalSize.meshlets +
-                         totalSize.meshletVertices + totalSize.meshletTriangles;
 
     constexpr size_t positionsOffset = 0;
     size_t vertexAttribsOffset = positionsOffset + totalSize.positions;
@@ -550,24 +588,25 @@ namespace kt::gltf {
         gpuSubmesh.meshletTriangleCount = submesh.meshlet.triangleCount;
         gpuSubmesh.materialIndex = submesh.materialIndex;
         gpuSubmesh.boundingSphere = submesh.boundingSphere;
+        gpuSubmesh.materialIndex = submesh.materialIndex == ~0u ? ~0u : materials[submesh.materialIndex].id;
         return gpuSubmesh;
       });
       std::copy(submeshes.begin(), submeshes.end(), submeshesPtr);
       submeshesPtr += submeshes.size();
 
       std::vector<kt::Submesh> meshSubmeshes(mesh.submeshes.size());
-      uint32_t meshId = static_cast<uint32_t>(buffers.submeshes.count());
+      uint32_t meshId = static_cast<uint32_t>(bufs.submeshes.count());
       std::ranges::transform(mesh.submeshes, meshSubmeshes.begin(), [&](const Submesh& in) {
         kt::Submesh submesh{
             .indexCount = in.index.count,
-            .indexOffset = static_cast<uint32_t>(in.index.offset + buffers.vertexAttribs.count()),
-            .vertexOffset = static_cast<int32_t>(in.vertex.offset + buffers.positions.count()),
-            .meshletOffset = static_cast<uint32_t>(in.meshlet.offset + buffers.meshlets.count()),
+            .indexOffset = static_cast<uint32_t>(in.index.offset + bufs.vertexAttribs.count()),
+            .vertexOffset = static_cast<int32_t>(in.vertex.offset + bufs.positions.count()),
+            .meshletOffset = static_cast<uint32_t>(in.meshlet.offset + bufs.meshlets.count()),
             .meshletCount = in.meshlet.count,
-            .meshletVertexOffset = static_cast<uint32_t>(in.meshlet.vertexOffset + buffers.meshletVertices.count()),
-            .meshletTriangleOffset = static_cast<uint32_t>(in.meshlet.triangleOffset + buffers.meshletTriangles.count()),
+            .meshletVertexOffset = static_cast<uint32_t>(in.meshlet.vertexOffset + bufs.meshletVertices.count()),
+            .meshletTriangleOffset = static_cast<uint32_t>(in.meshlet.triangleOffset + bufs.meshletTriangles.count()),
             .vertexCount = in.vertex.count,
-            .materialIndex = in.materialIndex,
+            .material = in.materialIndex == ~0u ? Material{} : materials[in.materialIndex],
             .boundingSphere = in.boundingSphere,
             .id = meshId++,
         };
@@ -578,59 +617,459 @@ namespace kt::gltf {
     }
 
     auto copyValue = rhi::RHI::get().oneshotCopy([&](rhi::CommandBuffer& cmd) {
-      cmd.copyBufferRegion(buffers.positions, staging, buffers.positions.occupied(), positionsOffset, totalSize.positions);
-      buffers.positions.registerWrites(counts.positions);
-      cmd.copyBufferRegion(buffers.vertexAttribs, staging, buffers.vertexAttribs.occupied(), vertexAttribsOffset, totalSize.vertexAttribs);
-      buffers.vertexAttribs.registerWrites(counts.vertexAttribs);
-      cmd.copyBufferRegion(buffers.indices, staging, buffers.indices.occupied(), indicesOffset, totalSize.indices);
-      buffers.indices.registerWrites(counts.indices);
-      cmd.copyBufferRegion(buffers.submeshes, staging, buffers.submeshes.occupied(), submeshesOffset, totalSize.submeshes);
-      buffers.submeshes.registerWrites(counts.submeshes);
-      cmd.copyBufferRegion(buffers.meshlets, staging, buffers.meshlets.occupied(), meshletsOffset, totalSize.meshlets);
-      buffers.meshlets.registerWrites(counts.meshlets);
-      cmd.copyBufferRegion(buffers.meshletVertices, staging, buffers.meshletVertices.occupied(), meshletVerticesOffset,
+      cmd.copyBufferRegion(bufs.positions, staging, bufs.positions.occupied(), positionsOffset, totalSize.positions);
+      bufs.positions.registerWrites(counts.positions);
+      cmd.copyBufferRegion(bufs.vertexAttribs, staging, bufs.vertexAttribs.occupied(), vertexAttribsOffset, totalSize.vertexAttribs);
+      bufs.vertexAttribs.registerWrites(counts.vertexAttribs);
+      cmd.copyBufferRegion(bufs.indices, staging, bufs.indices.occupied(), indicesOffset, totalSize.indices);
+      bufs.indices.registerWrites(counts.indices);
+      cmd.copyBufferRegion(bufs.submeshes, staging, bufs.submeshes.occupied(), submeshesOffset, totalSize.submeshes);
+      bufs.submeshes.registerWrites(counts.submeshes);
+      cmd.copyBufferRegion(bufs.meshlets, staging, bufs.meshlets.occupied(), meshletsOffset, totalSize.meshlets);
+      bufs.meshlets.registerWrites(counts.meshlets);
+      cmd.copyBufferRegion(bufs.meshletVertices, staging, bufs.meshletVertices.occupied(), meshletVerticesOffset,
                            totalSize.meshletVertices);
-      buffers.meshletVertices.registerWrites(counts.meshletVertices);
-      cmd.copyBufferRegion(buffers.meshletTriangles, staging, buffers.meshletTriangles.occupied(), meshletTrianglesOffset,
+      bufs.meshletVertices.registerWrites(counts.meshletVertices);
+      cmd.copyBufferRegion(bufs.meshletTriangles, staging, bufs.meshletTriangles.occupied(), meshletTrianglesOffset,
                            totalSize.meshletTriangles);
-      buffers.meshletTriangles.registerWrites(counts.meshletTriangles);
+      bufs.meshletTriangles.registerWrites(counts.meshletTriangles);
+
+      std::vector<rhi::Buffer> buffersToDrop;
+      buffersToDrop.emplace_back(std::move(staging));
 
       if (oldPosBuf.has_value()) {
-        cmd.copyBufferRegion(buffers.positions, *oldPosBuf, 0, 0, oldPosBuf->size());
-        rhi::RHI::get().submitBufferToDrop(*oldPosBuf);
+        cmd.copyBufferRegion(bufs.positions, *oldPosBuf, 0, 0, oldPosBuf->size());
+        buffersToDrop.emplace_back(std::move(*oldPosBuf));
       }
       if (oldVertexAttribsBuf.has_value()) {
-        cmd.copyBufferRegion(buffers.vertexAttribs, *oldVertexAttribsBuf, 0, 0, oldVertexAttribsBuf->size());
-        rhi::RHI::get().submitBufferToDrop(*oldVertexAttribsBuf);
+        cmd.copyBufferRegion(bufs.vertexAttribs, *oldVertexAttribsBuf, 0, 0, oldVertexAttribsBuf->size());
+        buffersToDrop.emplace_back(std::move(*oldVertexAttribsBuf));
       }
       if (oldIndicesBuf.has_value()) {
-        cmd.copyBufferRegion(buffers.indices, *oldIndicesBuf, 0, 0, oldIndicesBuf->size());
-        rhi::RHI::get().submitBufferToDrop(*oldIndicesBuf);
+        cmd.copyBufferRegion(bufs.indices, *oldIndicesBuf, 0, 0, oldIndicesBuf->size());
+        buffersToDrop.emplace_back(std::move(*oldIndicesBuf));
       }
       if (oldSubmeshesBuf.has_value()) {
-        cmd.copyBufferRegion(buffers.submeshes, *oldSubmeshesBuf, 0, 0, oldSubmeshesBuf->size());
-        rhi::RHI::get().submitBufferToDrop(*oldSubmeshesBuf);
+        cmd.copyBufferRegion(bufs.submeshes, *oldSubmeshesBuf, 0, 0, oldSubmeshesBuf->size());
+        buffersToDrop.emplace_back(std::move(*oldSubmeshesBuf));
       }
       if (oldMeshletsBuf.has_value()) {
-        cmd.copyBufferRegion(buffers.meshlets, *oldMeshletsBuf, 0, 0, oldMeshletsBuf->size());
-        rhi::RHI::get().submitBufferToDrop(*oldMeshletsBuf);
+        cmd.copyBufferRegion(bufs.meshlets, *oldMeshletsBuf, 0, 0, oldMeshletsBuf->size());
+        buffersToDrop.emplace_back(std::move(*oldMeshletsBuf));
       }
       if (oldMeshletVerticesBuf.has_value()) {
-        cmd.copyBufferRegion(buffers.meshletVertices, *oldMeshletVerticesBuf, 0, 0, oldMeshletVerticesBuf->size());
-        rhi::RHI::get().submitBufferToDrop(*oldMeshletVerticesBuf);
+        cmd.copyBufferRegion(bufs.meshletVertices, *oldMeshletVerticesBuf, 0, 0, oldMeshletVerticesBuf->size());
+        buffersToDrop.emplace_back(std::move(*oldMeshletVerticesBuf));
       }
       if (oldMeshletTrianglesBuf.has_value()) {
-        cmd.copyBufferRegion(buffers.meshletTriangles, *oldMeshletTrianglesBuf, 0, 0, oldMeshletTrianglesBuf->size());
-        rhi::RHI::get().submitBufferToDrop(*oldMeshletTrianglesBuf);
+        cmd.copyBufferRegion(bufs.meshletTriangles, *oldMeshletTrianglesBuf, 0, 0, oldMeshletTrianglesBuf->size());
+        buffersToDrop.emplace_back(std::move(*oldMeshletTrianglesBuf));
       }
+
+      return buffersToDrop;
     });
 
     KT_DEBUG("Uploaded {} meshes to GPU", meshes.size());
 
-    return Data::UploadResult{
-        .scene = Scene(*this, resultMeshes, copyValue),
+    return Data::PartialUploadResult<std::vector<Mesh>>{
         .copyFenceValue = copyValue,
-        .stagingBuffer = std::move(staging),
+        .result = std::move(resultMeshes),
+    };
+  }
+
+  std::expected<Data::PartialUploadResult<std::vector<Material>>, std::string>
+  Data::uploadMaterialData(const std::vector<rhi::ImageRef>& textures) const {
+    auto& bufs = kt::Buffers::get();
+    size_t totalSize = sizeof(GpuMaterial) * materials.size();
+
+    if (totalSize == 0) {
+      return Data::PartialUploadResult<std::vector<Material>>{
+          .copyFenceValue = 0,
+          .result = {},
+      };
+    }
+
+    std::optional<rhi::Buffer> oldMaterialsBuf;
+    if (!bufs.materials.hasSpaceFor(materials.size())) {
+      auto newMaterialsBufRes =
+          rhi::Buffer::create({bufs.materials.occupied() + totalSize, rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
+                               rhi::BufferType::Default, "GLTF Materials Buffer"});
+      KT_ASSERT(newMaterialsBufRes.isOk(), "Failed to reallocate materials buffer: {}", newMaterialsBufRes.error());
+      if (bufs.materials->isValid())
+        oldMaterialsBuf = std::move(bufs.materials.getBuffer());
+      bufs.materials.getBuffer() = std::move(newMaterialsBufRes.value());
+    }
+
+    auto stagingRes =
+        rhi::Buffer::create({totalSize, rhi::BufferUsage::TransferSrc, rhi::BufferType::Staging, "GLTF Materials Staging Buffer"});
+    if (!stagingRes) {
+      return std::unexpected(fmt::format("Failed to create staging buffer: {}", stagingRes.error()));
+    }
+    auto& staging = stagingRes.value();
+    KT_ASSERT(staging.isMapped(), "Staging buffer should be mapped");
+
+    auto getImage = [&](const std::optional<fastgltf::TextureInfo>& texInfo) -> rhi::ImageRef {
+      if (!texInfo.has_value()) {
+        return {};
+      }
+      return textures[this->textures[texInfo->textureIndex].imageIndex.value()];
+    };
+
+    auto getNormalImage = [&](const std::optional<fastgltf::NormalTextureInfo>& texInfo) -> rhi::ImageRef {
+      if (!texInfo.has_value()) {
+        return {};
+      }
+      return textures[this->textures[texInfo->textureIndex].imageIndex.value()];
+    };
+    auto getOcclusionImage = [&](const std::optional<fastgltf::OcclusionTextureInfo>& texInfo) -> rhi::ImageRef {
+      if (!texInfo.has_value()) {
+        return {};
+      }
+      return textures[this->textures[texInfo->textureIndex].imageIndex.value()];
+    };
+
+    GpuMaterial* materialsPtr = staging.mapping<GpuMaterial>(0);
+
+    uint32_t materialId = static_cast<uint32_t>(bufs.materials.count());
+
+    std::vector<Material> resultMaterials;
+    resultMaterials.reserve(materials.size());
+    for (const auto& material : materials) {
+      Material resultMaterial{
+          .albedo = getImage(material.pbrData.baseColorTexture),
+          .bump = getNormalImage(material.normalTexture),
+          .emissive = getImage(material.emissiveTexture),
+          .metRough = getImage(material.pbrData.metallicRoughnessTexture),
+          .ao = getOcclusionImage(material.occlusionTexture),
+          .albedoFactor = glm::vec4(material.pbrData.baseColorFactor.x(), material.pbrData.baseColorFactor.y(),
+                                    material.pbrData.baseColorFactor.z(), material.pbrData.baseColorFactor.w()),
+          .emissiveFactor = glm::vec3(material.emissiveFactor.x(), material.emissiveFactor.y(), material.emissiveFactor.z()),
+          .metFactor = material.pbrData.metallicFactor,
+          .roughFactor = material.pbrData.roughnessFactor,
+          .specFactor = material.specular ? material.specular->specularFactor : 0.5f,
+          .alphaCutoff = material.alphaCutoff,
+          .alphaMode = static_cast<AlphaMode>(material.alphaMode),
+          .doubleSided = material.doubleSided,
+          .id = materialId++,
+      };
+      GpuMaterial gpuMaterial{
+          .albedo = resultMaterial.albedo.getTextureIndex(),
+          .bump = resultMaterial.bump.getTextureIndex(),
+          .emissive = resultMaterial.emissive.getTextureIndex(),
+          .metRough = resultMaterial.metRough.getTextureIndex(),
+          .ao = resultMaterial.ao.getTextureIndex(),
+          .albedoFactor = glm::vec4(material.pbrData.baseColorFactor.x(), material.pbrData.baseColorFactor.y(),
+                                    material.pbrData.baseColorFactor.z(), material.pbrData.baseColorFactor.w()),
+          .emissiveFactor = glm::vec3(material.emissiveFactor.x(), material.emissiveFactor.y(), material.emissiveFactor.z()),
+          .metFactor = material.pbrData.metallicFactor,
+          .roughFactor = material.pbrData.roughnessFactor,
+          .specFactor = material.specular ? material.specular->specularFactor : 0.5f,
+          .alphaCutoff = material.alphaCutoff,
+          .alphaMode = static_cast<uint32_t>(material.alphaMode),
+      };
+
+      *materialsPtr++ = gpuMaterial;
+      resultMaterials.emplace_back(resultMaterial);
+    }
+
+    auto copyValue = rhi::RHI::get().oneshotCopy([&](rhi::CommandBuffer& cmd) {
+      cmd.copyBufferRegion(bufs.materials, staging, bufs.materials.occupied(), 0, totalSize);
+      bufs.materials.registerWrites(materials.size());
+
+      std::vector<rhi::Buffer> buffersToDrop;
+      buffersToDrop.emplace_back(std::move(staging));
+      if (oldMaterialsBuf.has_value()) {
+        cmd.copyBufferRegion(bufs.materials, *oldMaterialsBuf, 0, 0, oldMaterialsBuf->size());
+        buffersToDrop.emplace_back(std::move(*oldMaterialsBuf));
+      }
+
+      return buffersToDrop;
+    });
+
+    return Data::PartialUploadResult<std::vector<Material>>{
+        .copyFenceValue = copyValue,
+        .result = std::move(resultMaterials),
+    };
+  }
+
+  std::expected<Data::PartialUploadResult<std::vector<rhi::ImageRef>>, std::string> Data::uploadTextureData() const {
+    // Alias map to map image indices to which image to load - for example we prefer to load the KTX2 image if it exists rather than the PNG
+    // image.
+    std::map<size_t, size_t> imageIndexMap;
+    for (auto& material : materials) {
+      if (material.pbrData.baseColorTexture.has_value()) {
+        auto& tex = textures[material.pbrData.baseColorTexture->textureIndex];
+        if (tex.basisuImageIndex.has_value()) {
+          imageIndexMap[tex.imageIndex.value()] = tex.basisuImageIndex.value();
+        } else if (tex.imageIndex.has_value()) {
+          imageIndexMap[tex.imageIndex.value()] = tex.imageIndex.value();
+        }
+      }
+      if (material.normalTexture.has_value()) {
+        auto& tex = textures[material.normalTexture->textureIndex];
+        if (tex.basisuImageIndex.has_value()) {
+          imageIndexMap[tex.imageIndex.value()] = tex.basisuImageIndex.value();
+        } else if (tex.imageIndex.has_value()) {
+          imageIndexMap[tex.imageIndex.value()] = tex.imageIndex.value();
+        }
+      }
+      if (material.emissiveTexture.has_value()) {
+        auto& tex = textures[material.emissiveTexture->textureIndex];
+        if (tex.basisuImageIndex.has_value()) {
+          imageIndexMap[tex.imageIndex.value()] = tex.basisuImageIndex.value();
+        } else if (tex.imageIndex.has_value()) {
+          imageIndexMap[tex.imageIndex.value()] = tex.imageIndex.value();
+        }
+      }
+      if (material.pbrData.metallicRoughnessTexture.has_value()) {
+        auto& tex = textures[material.pbrData.metallicRoughnessTexture->textureIndex];
+        if (tex.basisuImageIndex.has_value()) {
+          imageIndexMap[tex.imageIndex.value()] = tex.basisuImageIndex.value();
+        } else if (tex.imageIndex.has_value()) {
+          imageIndexMap[tex.imageIndex.value()] = tex.imageIndex.value();
+        }
+      }
+      if (material.occlusionTexture.has_value()) {
+        auto& tex = textures[material.occlusionTexture->textureIndex];
+        if (tex.basisuImageIndex.has_value()) {
+          imageIndexMap[tex.imageIndex.value()] = tex.basisuImageIndex.value();
+        } else if (tex.imageIndex.has_value()) {
+          imageIndexMap[tex.imageIndex.value()] = tex.imageIndex.value();
+        }
+      }
+    }
+
+    if (imageIndexMap.empty()) {
+      return Data::PartialUploadResult<std::vector<rhi::ImageRef>>{
+          .copyFenceValue = 0,
+          .result = {},
+      };
+    }
+
+    struct Tex {
+      const char* name;
+      void* data;
+      size_t size;
+      rhi::ImageFormat format;
+      glm::uvec2 dimensions;
+      ktxTexture2* ktx2Texture;
+    };
+
+    std::vector<Tex> texturesToLoad(imageIndexMap.size());
+
+    ktx_transcode_fmt_e transcodeFormat = KTX_TTF_BC7_RGBA;
+    rhi::ImageFormat imageFormat = rhi::ImageFormat::BC7_UNORM;
+
+    if (!rhi::RHI::get().canSampleFromFormat(imageFormat)) {
+      if (rhi::RHI::get().canSampleFromFormat(rhi::ImageFormat::BC3_UNORM)) {
+        transcodeFormat = KTX_TTF_BC3_RGBA;
+        imageFormat = rhi::ImageFormat::BC3_UNORM;
+      } else if (rhi::RHI::get().canSampleFromFormat(rhi::ImageFormat::R8G8B8A8_UNORM)) {
+        transcodeFormat = KTX_TTF_RGBA32;
+        imageFormat = rhi::ImageFormat::R8G8B8A8_UNORM;
+      } else {
+        KT_ABORT("No supported compressed texture format available for sampling");
+      }
+    }
+
+    std::for_each(std::execution::par, imageIndexMap.begin(), imageIndexMap.end(), [&](const std::pair<size_t, size_t>& pair) {
+      auto [index, imageIndex] = pair;
+      auto& gltfImage = images[imageIndex];
+
+      // PNG or something, use stb_image
+      if (index == imageIndex) {
+        auto fromMemory = [&](const std::span<const std::byte>& bytes) {
+          stbi_set_flip_vertically_on_load(true);
+          int width = 0, height = 0, channels = 0;
+          auto* data = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(bytes.data()), static_cast<int>(bytes.size()), &width,
+                                             &height, &channels, 4);
+          if (!data) {
+            KT_ABORT("Failed to load image from memory: {}", stbi_failure_reason());
+          }
+
+          texturesToLoad[index] = Tex{
+              .name = gltfImage.name.c_str(),
+              .data = data,
+              .size = static_cast<size_t>(width * height * 4),
+              .format = rhi::ImageFormat::R8G8B8A8_UNORM,
+              .dimensions = glm::uvec2(width, height),
+              .ktx2Texture = nullptr,
+          };
+        };
+
+        std::visit(fastgltf::visitor{
+                       [](auto& arg) -> void { KT_ABORT("Unsupported image source type: {}", typeid(arg).name()); },
+                       [&](const fastgltf::sources::Array& array) -> void { fromMemory(array.bytes); },
+                       [&](const fastgltf::sources::URI& filePath) -> void {
+                         std::filesystem::path path = basePath / filePath.uri.fspath();
+                         stbi_set_flip_vertically_on_load(true);
+                         int width = 0, height = 0, channels = 0;
+                         auto* data = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
+                         if (!data) {
+                           KT_ABORT("Failed to load image from file: {}", stbi_failure_reason());
+                         }
+                         texturesToLoad[index] = Tex{
+                             .name = gltfImage.name.c_str(),
+                             .data = data,
+                             .size = static_cast<size_t>(width * height * 4),
+                             .format = rhi::ImageFormat::R8G8B8A8_UNORM,
+                             .dimensions = glm::uvec2(width, height),
+                             .ktx2Texture = nullptr,
+                         };
+                       },
+                       [&](const fastgltf::sources::Vector& vector) -> void { fromMemory(vector.bytes); },
+                       [&](const fastgltf::sources::BufferView view) -> void {
+                         auto& bv = bufferViews[view.bufferViewIndex];
+                         auto& buf = buffers[bv.bufferIndex];
+
+                         std::visit(fastgltf::visitor{
+                                        [](auto& arg) -> void { KT_ABORT("Unsupported buffer source type: {}", typeid(arg).name()); },
+                                        [&](const fastgltf::sources::Array& array) -> void {
+                                          fromMemory(std::span<const std::byte>(array.bytes.data() + bv.byteOffset, bv.byteLength));
+                                        },
+                                        [&](const fastgltf::sources::Vector& vector) -> void {
+                                          fromMemory(std::span<const std::byte>(vector.bytes.data() + bv.byteOffset, bv.byteLength));
+                                        },
+                                    },
+                                    buf.data);
+                       },
+                   },
+                   gltfImage.data);
+      }
+      // KTX2 image
+      else {
+        auto fromMemory = [&](const std::span<const std::byte>& bytes) {
+          ktxTexture2* ktx2Texture = nullptr;
+          KTX_error_code result = ktxTexture2_CreateFromMemory(reinterpret_cast<const ktx_uint8_t*>(bytes.data()), bytes.size(),
+                                                               KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx2Texture);
+          if (result != KTX_SUCCESS) {
+            KT_ABORT("Failed to load KTX2 image from memory: {}", ktxErrorString(result));
+          }
+
+          auto e = ktxTexture2_TranscodeBasis(ktx2Texture, transcodeFormat, 0);
+          if (e != KTX_SUCCESS) {
+            KT_ABORT("Failed to transcode KTX2 image: {}", ktxErrorString(e));
+          }
+
+          texturesToLoad[index] = Tex{
+              .name = gltfImage.name.c_str(),
+              .data = nullptr,
+              .size = 0,
+              .format = imageFormat,
+              .dimensions = glm::uvec2(ktx2Texture->baseWidth, ktx2Texture->baseHeight),
+              .ktx2Texture = ktx2Texture,
+          };
+        };
+
+        std::visit(fastgltf::visitor{
+                       [](auto& arg) -> void { KT_ABORT("Unsupported image source type: {}", typeid(arg).name()); },
+                       [&](const fastgltf::sources::Array& array) -> void { fromMemory(array.bytes); },
+                       [&](const fastgltf::sources::URI& filePath) -> void {
+                         std::filesystem::path path = basePath / filePath.uri.fspath();
+
+                         ktxTexture2* ktx2Texture = nullptr;
+                         KTX_error_code result =
+                             ktxTexture2_CreateFromNamedFile(path.string().c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx2Texture);
+                         if (result != KTX_SUCCESS) {
+                           KT_ABORT("Failed to load KTX2 image from file: {}", ktxErrorString(result));
+                         }
+
+                         auto e = ktxTexture2_TranscodeBasis(ktx2Texture, transcodeFormat, 0);
+                         if (e != KTX_SUCCESS) {
+                           KT_ABORT("Failed to transcode KTX2 image: {}", ktxErrorString(e));
+                         }
+
+                         texturesToLoad[index] = Tex{
+                             .name = gltfImage.name.c_str(),
+                             .data = nullptr,
+                             .size = 0,
+                             .format = imageFormat,
+                             .dimensions = glm::uvec2(ktx2Texture->baseWidth, ktx2Texture->baseHeight),
+                             .ktx2Texture = ktx2Texture,
+                         };
+                       },
+                       [&](const fastgltf::sources::Vector& vector) -> void { fromMemory(vector.bytes); },
+                       [&](const fastgltf::sources::BufferView view) -> void {
+                         auto& bv = bufferViews[view.bufferViewIndex];
+                         auto& buf = buffers[bv.bufferIndex];
+
+                         std::visit(fastgltf::visitor{
+                                        [](auto& arg) -> void { KT_ABORT("Unsupported buffer source type: {}", typeid(arg).name()); },
+                                        [&](const fastgltf::sources::Array& array) -> void {
+                                          fromMemory(std::span<const std::byte>(array.bytes.data() + bv.byteOffset, bv.byteLength));
+                                        },
+                                        [&](const fastgltf::sources::Vector& vector) -> void {
+                                          fromMemory(std::span<const std::byte>(vector.bytes.data() + bv.byteOffset, bv.byteLength));
+                                        },
+                                    },
+                                    buf.data);
+                       },
+                   },
+                   gltfImage.data);
+      }
+    });
+
+    auto& rhi = rhi::RHI::get();
+
+    std::vector<rhi::ImageRef> resultTextures;
+    resultTextures.reserve(texturesToLoad.size());
+    uint64_t copyValue = rhi.oneshotCopy([&](rhi::CommandBuffer& cmd) {
+      std::vector<rhi::Buffer> stagingBuffers;
+      stagingBuffers.reserve(texturesToLoad.size());
+
+      for (const auto& tex : texturesToLoad) {
+        auto imageRes = rhi.createTexture({rhi::ImageDim::e2D,
+                                           tex.format,
+                                           {tex.dimensions.x, tex.dimensions.y, 1},
+                                           rhi::ImageUsage::Sampled | rhi::ImageUsage::TransferDst,
+                                           tex.ktx2Texture != nullptr ? tex.ktx2Texture->numLevels : 1,
+                                           1,
+                                           tex.name});
+        KT_ASSERT(imageRes.isOk(), "Failed to create image: {}", imageRes.error());
+        auto& image = imageRes.value();
+        resultTextures.emplace_back(image);
+
+        if (tex.ktx2Texture != nullptr) {
+          auto stagingRes = rhi::Buffer::create(
+              {tex.ktx2Texture->dataSize, rhi::BufferUsage::TransferSrc, rhi::BufferType::Staging, "GLTF KTX2 Staging Buffer"});
+          KT_ASSERT(stagingRes.isOk(), "Failed to create staging buffer for KTX2 image: {}", stagingRes.error());
+          stagingBuffers.emplace_back(std::move(stagingRes.value()));
+          auto& staging = stagingBuffers.back();
+
+          std::memcpy(staging.mapping<void>(0), tex.ktx2Texture->pData, tex.ktx2Texture->dataSize);
+
+          cmd.transitionImage(image, rhi::ImageLayout::Undefined, rhi::ImageLayout::TransferDst);
+          for (ktx_uint32_t level = 0; level < tex.ktx2Texture->numLevels; ++level) {
+            size_t offset = 0;
+            ktxTexture2_GetImageOffset(tex.ktx2Texture, level, 0, 0, &offset);
+
+            cmd.copyBufferToImage(staging, image, tex.dimensions.x >> level, tex.dimensions.y >> level, level, offset);
+          }
+          cmd.transitionImage(image, rhi::ImageLayout::TransferDst, rhi::ImageLayout::ShaderReadOnly);
+
+          ktxTexture2_Destroy(tex.ktx2Texture);
+        } else {
+          auto stagingRes = rhi::Buffer::create({tex.size, rhi::BufferUsage::TransferSrc, rhi::BufferType::Staging, "GLTF Staging Buffer"});
+          KT_ASSERT(stagingRes.isOk(), "Failed to create staging buffer for image: {}", stagingRes.error());
+          stagingBuffers.emplace_back(std::move(stagingRes.value()));
+          auto& staging = stagingBuffers.back();
+
+          std::memcpy(staging.mapping<void>(0), tex.data, tex.size);
+
+          cmd.transitionImage(image, rhi::ImageLayout::Undefined, rhi::ImageLayout::TransferDst);
+          cmd.copyBufferToImage(staging, image, tex.dimensions.x, tex.dimensions.y);
+          cmd.transitionImage(image, rhi::ImageLayout::TransferDst, rhi::ImageLayout::ShaderReadOnly);
+
+          stbi_image_free(tex.data);
+        }
+      }
+
+      return stagingBuffers;
+    });
+
+    return Data::PartialUploadResult<std::vector<rhi::ImageRef>>{
+        .copyFenceValue = copyValue,
+        .result = std::move(resultTextures),
     };
   }
 

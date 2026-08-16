@@ -18,6 +18,7 @@ namespace kt::rhi {
   bool Buffer::isValid() const { return allocation != nullptr; }
 
   kt::Result<Buffer, HRESULT, 0> Buffer::create(const BufferCreateInfo& info) {
+    DX_ASSERT(info.getSize() > 0, "Buffer {}: size must be greater than 0", info.getName());
     CD3DX12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(info.getSize());
 
     D3D12MA::ALLOCATION_DESC allocDesc{};

@@ -10,6 +10,7 @@ namespace kt::rhi {
     e1D,
     e2D,
     e3D,
+    eCube,
   };
 
   class ImageCreateInfo {

@@ -306,6 +306,71 @@ namespace kt::rhi {
     return *this;
   }
 
+  CommandBuffer& CommandBuffer::copyImageRegion(const rhi::ImageRef& dst, const rhi::ImageRef& src, size_t dstOffsetX, size_t dstOffsetY,
+                                                size_t srcOffsetX, size_t srcOffsetY, size_t width, size_t height, size_t dstMipLevel,
+                                                size_t srcMipLevel) {
+    DX_ASSERT(width > 0 && height > 0, "Width and height must be greater than 0");
+    DX_ASSERT(dst.dxGetResource() != nullptr, "Destination image resource is null");
+    DX_ASSERT(src.dxGetResource() != nullptr, "Source image resource is null");
+
+    D3D12_TEXTURE_COPY_LOCATION dstLocation{
+        .pResource = dst.dxGetResource(),
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = static_cast<UINT>(dstMipLevel),
+    };
+
+    D3D12_TEXTURE_COPY_LOCATION srcLocation{
+        .pResource = src.dxGetResource(),
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = static_cast<UINT>(srcMipLevel),
+    };
+
+    D3D12_BOX srcBox{
+        .left = static_cast<UINT>(srcOffsetX),
+        .top = static_cast<UINT>(srcOffsetY),
+        .front = 0,
+        .right = static_cast<UINT>(srcOffsetX + width),
+        .bottom = static_cast<UINT>(srcOffsetY + height),
+        .back = 1,
+    };
+
+    cmdList->CopyTextureRegion(&dstLocation, static_cast<UINT>(dstOffsetX), static_cast<UINT>(dstOffsetY), 0, &srcLocation, &srcBox);
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::copyBufferToImage(const rhi::BufferRef& buffer, const rhi::ImageRef& image, size_t width, size_t height,
+                                                  size_t mipLevel, size_t bufferOffset, size_t offsetX, size_t offsetY) {
+    DX_ASSERT(width > 0 && height > 0, "Width and height must be greater than 0");
+    DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
+    DX_ASSERT(image.dxGetResource() != nullptr, "Image resource is null");
+
+    D3D12_TEXTURE_COPY_LOCATION dstLocation{
+        .pResource = image.dxGetResource(),
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = static_cast<UINT>(mipLevel),
+    };
+
+    D3D12_TEXTURE_COPY_LOCATION srcLocation{
+        .pResource = buffer.dxGetResource(),
+        .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+        .PlacedFootprint =
+            {
+                .Offset = bufferOffset,
+                .Footprint =
+                    {
+                        .Format = raw(image.format()),
+                        .Width = static_cast<UINT>(width),
+                        .Height = static_cast<UINT>(height),
+                        .Depth = 1,
+                        .RowPitch = static_cast<UINT>(buffer.size()), // Assuming the buffer is tightly packed
+                    },
+            },
+    };
+
+    cmdList->CopyTextureRegion(&dstLocation, static_cast<UINT>(offsetX), static_cast<UINT>(offsetY), 0, &srcLocation, nullptr);
+    return *this;
+  }
+
   CommandBuffer& CommandBuffer::blitImage(const rhi::ImageRef& src, const rhi::ImageRef& dst) {
     DX_ASSERT(src.dxGetResource() != nullptr, "Source image resource is null");
     DX_ASSERT(dst.dxGetResource() != nullptr, "Destination image resource is null");

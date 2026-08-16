@@ -1,7 +1,6 @@
 #include "image.hpp"
 #include "d3dx12.h"
 #include "dx-logger.hpp"
-#include "imageLayout.hpp"
 #include "imageRef.hpp"
 #include "keptech/rhi/imageCreateInfo.hpp"
 #include "rhi.hpp"
@@ -14,6 +13,7 @@ namespace kt::rhi {
   uint32_t Image::layers() const { return _layers; }
   Bitflag<ImageUsage> Image::getUsage() const { return usage; }
   glm::uvec3 Image::getExtent() const { return extent; }
+  ImageDim Image::dim() const { return _dim; }
 
   bool Image::isDepth() const {
     switch (_format) {
@@ -53,6 +53,14 @@ namespace kt::rhi {
       desc = CD3DX12_RESOURCE_DESC::Tex3D(static_cast<DXGI_FORMAT>(info.getFormat()), info.getWidth(), info.getHeight(), info.getDepth(),
                                           info.getMipLevels(), raw(info.getUsage().as_enum()));
       break;
+    case ImageDim::eCube:
+#ifndef NDEBUG
+      if (info.getArrayLayers() != 6) {
+        DX_WARN("Creating a cube map with {} array layers, expected 6", info.getArrayLayers());
+      }
+#endif
+      desc = CD3DX12_RESOURCE_DESC::Tex2D(static_cast<DXGI_FORMAT>(info.getFormat()), info.getWidth(), info.getHeight(),
+                                          info.getArrayLayers(), info.getMipLevels(), 1, 0, raw(info.getUsage().as_enum()));
     }
 
     D3D12MA::ALLOCATION_DESC allocDesc{
@@ -135,7 +143,8 @@ namespace kt::rhi {
     return ImageRef(name.c_str(), dxresource().Get(), _format,
                     usage.has(kt::rhi::ImageUsage::RenderTarget) ? RHI::get().dxGetRtvHandle(rtvDsvIndex)
                     : usage.has(ImageUsage::DepthStencil)        ? RHI::get().dxGetDsvHandle(rtvDsvIndex)
-                                                                 : CD3DX12_CPU_DESCRIPTOR_HANDLE());
+                                                                 : CD3DX12_CPU_DESCRIPTOR_HANDLE(),
+                    textureIndex);
   }
 
   D3D12MA::Allocation* Image::dxTakeAllocation() {

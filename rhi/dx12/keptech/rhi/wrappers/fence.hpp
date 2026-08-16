@@ -11,6 +11,7 @@ namespace kt::rhi {
     ~Fence();
 
     uint64_t getValue() const { return m_fenceValue; }
+    uint64_t currentValue() const;
 
     uint64_t signal(const Microsoft::WRL::ComPtr<ID3D12CommandQueue>& commandQueue);
     void signal(const Microsoft::WRL::ComPtr<ID3D12CommandQueue>& commandQueue, uint64_t value);

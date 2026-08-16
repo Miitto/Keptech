@@ -36,6 +36,53 @@ namespace kt::rhi {
   }
   ImageFormat RHI::getSwapchainFormat() const { return static_cast<ImageFormat>(ImageFormat::R8G8B8A8_UNORM); }
 
+  kt::Result<ImageRef, HRESULT, S_OK> RHI::createTexture(const ImageCreateInfo& createInfo) {
+    auto imageRes = Image::create(createInfo);
+    if (imageRes.isError()) {
+      return imageRes.error();
+    }
+
+    size_t index = m.loadedTextures.size();
+
+    m.loadedTextures.push_back(std::move(imageRes.value()));
+
+    auto& img = m.loadedTextures.back();
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle =
+        CD3DX12_CPU_DESCRIPTOR_HANDLE(m.cbvSrvUavHeap.heap->GetCPUDescriptorHandleForHeapStart(), static_cast<INT>(index),
+                                      static_cast<UINT>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{
+        .Format = raw(img.format()),
+        .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+    };
+
+    switch (img.dim()) {
+    case ImageDim::e1D:
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
+      srvDesc.Texture1D.MipLevels = img.mips();
+      break;
+    case ImageDim::e2D:
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+      srvDesc.Texture2D.MipLevels = img.mips();
+      break;
+    case ImageDim::e3D:
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
+      srvDesc.Texture3D.MipLevels = img.mips();
+      break;
+    case ImageDim::eCube:
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+      srvDesc.TextureCube.MipLevels = img.mips();
+      break;
+    }
+
+    m.device->CreateShaderResourceView(img.dxresource().Get(), &srvDesc, srvHandle);
+
+    img.setTextureIndex(index);
+
+    return static_cast<ImageRef>(img);
+  }
+
   void RHI::newFrame() {
 
     ImGui_ImplDX12_NewFrame();
@@ -53,6 +100,19 @@ namespace kt::rhi {
       alloc->Release();
     }
     frame.allocsToDrop.clear();
+
+    uint64_t fenceValue = m.fence.currentValue();
+
+    for (auto& copy : m.ongoingCopies) {
+      if (copy.fenceValue <= fenceValue) {
+        for (auto* alloc : copy.allocsToDrop) {
+          alloc->Release();
+        }
+      }
+    }
+    m.ongoingCopies.erase(std::remove_if(m.ongoingCopies.begin(), m.ongoingCopies.end(),
+                                         [fenceValue](const Members::OngoingCopy& copy) { return copy.fenceValue <= fenceValue; }),
+                          m.ongoingCopies.end());
 
     m.runningAllocs[m.frameIndex].clear();
   }

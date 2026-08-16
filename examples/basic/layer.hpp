@@ -36,7 +36,6 @@ public:
     auto& monkeyUpload = monkeyUploadRes.value();
     KT_DEBUG("Uploading monkey mesh to GPU with fence value {}", monkeyUpload.copyFenceValue);
     rhi.waitCopyIdle();
-    monkeyUpload.stagingBuffer.destroy();
     KT_DEBUG("Upload done");
 
     // Create an entity for the monkey mesh and add it to the ECS scene.

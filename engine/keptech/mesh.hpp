@@ -2,7 +2,9 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "keptech/material.hpp"
 #include "keptech/maths/sphere.hpp"
+
 
 namespace kt {
   namespace constants {
@@ -54,7 +56,7 @@ namespace kt {
     uint32_t meshletTriangleCount;
 
     /// Index of the material in the global material buffer
-    uint32_t materialIndex = ~0u;
+    Material material;
     kt::maths::Sphere boundingSphere;
     uint32_t id = ~0u;
   };

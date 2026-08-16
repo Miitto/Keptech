@@ -31,7 +31,7 @@ namespace kt {
     objects.reserve(view.size_hint());
     for (const auto& [entity, mesh, transform] : view.each()) {
       for (auto& submesh : mesh.getSubmeshes()) {
-        gpuObjects.push_back({.modelMatrix = transform.getGlobal(), .meshIndex = submesh.id, .materialIndex = submesh.materialIndex});
+        gpuObjects.push_back({.modelMatrix = transform.getGlobal(), .meshIndex = submesh.id, .materialIndex = submesh.material.id});
         auto s = submesh;
         s.boundingSphere = s.boundingSphere.apply(transform.getGlobal());
         objects.push_back({.modelMatrix = transform.getGlobal(), .submesh = s});

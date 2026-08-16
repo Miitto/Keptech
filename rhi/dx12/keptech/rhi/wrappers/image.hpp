@@ -25,6 +25,9 @@ namespace kt::rhi {
 
     bool isDepth() const;
 
+    void setTextureIndex(uint64_t index) { textureIndex = index; }
+    uint64_t getTextureIndex() const { return textureIndex; }
+
     void destroy();
 
     Microsoft::WRL::ComPtr<ID3D12Resource> dxresource() const;
@@ -61,5 +64,6 @@ namespace kt::rhi {
     uint32_t _layers;
     D3D12MA::Allocation* allocation = nullptr;
     uint16_t rtvDsvIndex = 65535;
+    uint64_t textureIndex = UINT64_MAX;
   };
 } // namespace kt::rhi

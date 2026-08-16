@@ -19,8 +19,10 @@
 #include "keptech/maths/sphere.hpp"
 #include "keptech/maths/transform.hpp"
 #include "keptech/mesh.hpp"
-#include "keptech/rhi/wrappers/buffer.hpp"
 
+namespace kt::rhi {
+  class ImageRef;
+}
 namespace kt::gltf {
   class Scene;
 
@@ -113,11 +115,21 @@ namespace kt::gltf {
     struct UploadResult {
       Scene scene;
       uint64_t copyFenceValue;
-      rhi::Buffer stagingBuffer;
     };
 
     std::expected<UploadResult, std::string> upload() const;
 
     static std::expected<Data, std::string> fromFile(std::string_view path);
+
+  private:
+    template <typename T> struct PartialUploadResult {
+      uint64_t copyFenceValue;
+      T result;
+    };
+
+    std::expected<PartialUploadResult<std::vector<rhi::ImageRef>>, std::string> uploadTextureData() const;
+    std::expected<PartialUploadResult<std::vector<Material>>, std::string>
+    uploadMaterialData(const std::vector<rhi::ImageRef>& textures) const;
+    std::expected<PartialUploadResult<std::vector<Mesh>>, std::string> uploadMeshData(const std::vector<Material>& materials) const;
   };
 } // namespace kt::gltf

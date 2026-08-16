@@ -18,6 +18,8 @@ namespace kt::rhi {
     }
   }
 
+  uint64_t Fence::currentValue() const { return m_fence->GetCompletedValue(); }
+
   uint64_t Fence::signal(const Microsoft::WRL::ComPtr<ID3D12CommandQueue>& commandQueue) {
     auto hr = commandQueue->Signal(m_fence.Get(), ++m_fenceValue);
     DX_ASSERT(SUCCEEDED(hr), "Failed to signal command queue");
