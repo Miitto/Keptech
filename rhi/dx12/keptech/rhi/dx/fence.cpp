@@ -1,6 +1,6 @@
 #include "fence.hpp"
 
-#include "dx-logger.hpp"
+#include "dx/dx-logger.hpp"
 
 namespace kt::rhi {
   Fence::Fence(Microsoft::WRL::ComPtr<ID3D12Fence>&& fence)

@@ -1,10 +1,11 @@
 #include "d3dx12.h"
+#include "dx/macros.hpp"
 #include "helpers/formatting.hpp"
 #include "keptech/core/window.hpp"
-#include "macros.hpp"
 #include "rhi.hpp"
 #include <expected>
 #include <synchapi.h>
+
 
 template <typename T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 

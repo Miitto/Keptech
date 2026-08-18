@@ -1,12 +1,13 @@
 #pragma once
 
+#include "keptech/rhi/buffer.hpp"
 #include "keptech/rhi/constants.hpp"
-#include "keptech/rhi/wrappers/buffer.hpp"
 #include <Volk/volk.h>
 #include <array>
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
+
 
 namespace kt {
   struct VertexAttribs;

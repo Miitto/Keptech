@@ -3,15 +3,16 @@
 #include "glm/ext/vector_uint3.hpp"
 #include "keptech/core/bitflag.hpp"
 #include "keptech/core/macros.hpp"
+#include "keptech/rhi/buffer.hpp"
 #include "keptech/rhi/bufferTypes.hpp"
 #include "keptech/rhi/bufferUsage.hpp"
+#include "keptech/rhi/image.hpp"
 #include "keptech/rhi/imageLayout.hpp"
-#include "keptech/rhi/wrappers/buffer.hpp"
-#include "keptech/rhi/wrappers/image.hpp"
 #include <cstdint>
 #include <glm/ext/vector_float3.hpp>
 #include <spdlog/fmt/bundled/format.h>
 #include <string>
+
 
 namespace kt::rhi {
   struct ResourceSet;

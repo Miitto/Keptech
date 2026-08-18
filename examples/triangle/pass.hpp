@@ -7,8 +7,8 @@
 #include <keptech/core/kt-logger.hpp>
 #include <keptech/graph/graph.hpp>
 #include <keptech/graph/passInterface.hpp>
+#include <keptech/rhi/pipeline.hpp>
 #include <keptech/rhi/pipelineBuilder.hpp>
-#include <keptech/rhi/wrappers/pipeline.hpp>
 
 class TrianglePass : public kt::RenderPassInterface {
 public:

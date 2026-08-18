@@ -1,7 +1,7 @@
 #pragma once
 
+#include "keptech/rhi/buffer.hpp"
 #include "keptech/rhi/mesh.hpp"
-#include "keptech/rhi/wrappers/buffer.hpp"
 #include <Volk/volk.h>
 #include <expected>
 #include <glm/fwd.hpp>

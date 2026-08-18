@@ -1,6 +1,6 @@
+add_subdirectory(dx)
 add_subdirectory(helpers)
 add_subdirectory(setup)
-add_subdirectory(wrappers)
 
 target_sources(Keptech_RHI
   PRIVATE
@@ -8,9 +8,10 @@ target_sources(Keptech_RHI
     TYPE HEADERS
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
   PRIVATE
-    constants.cpp
-    dx-logger.cpp
     rhi.cpp
+    buffer.cpp
+    cmdBuf.cpp
+    image.cpp
 )
 
 target_compile_definitions(Keptech_RHI

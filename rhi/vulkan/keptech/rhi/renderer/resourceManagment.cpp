@@ -1,7 +1,9 @@
 #include "rhi.hpp"
 
+#include "bufferCreateInfo.hpp"
 #include "constants.hpp"
 #include "gpuObjects.hpp"
+#include "imageCreateInfo.hpp"
 #include "keptech/rhi/gltf/data.hpp"
 #include "keptech/rhi/gltf/scene.hpp"
 #include "loading/mesh.hpp"
@@ -9,8 +11,6 @@
 #include "profile.hpp"
 #include "stb/image.h"
 #include "vk-logger.hpp"
-#include "wrappers/bufferCreateInfo.hpp"
-#include "wrappers/imageCreateInfo.hpp"
 #include <cstring>
 #include <execution>
 #include <imgui/backends/imgui_impl_sdl3.h>

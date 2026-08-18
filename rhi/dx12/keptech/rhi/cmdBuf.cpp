@@ -1,11 +1,11 @@
 #include "cmdBuf.hpp"
 #include "bufferRef.hpp"
 #include "d3dx12.h"
-#include "dx-logger.hpp"
+#include "dx/dx-logger.hpp"
+#include "image.hpp"
 #include "imageRef.hpp"
+#include "pipeline.hpp"
 #include "rhi.hpp"
-#include "wrappers/image.hpp"
-#include "wrappers/pipeline.hpp"
 
 namespace kt::rhi {
   CommandBuffer& CommandBuffer::bindGraphicsPipeline(const Pipeline& pipeline) {

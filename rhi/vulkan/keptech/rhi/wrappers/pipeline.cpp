@@ -1,11 +1,12 @@
 #include "pipeline.hpp"
 
+#include "device.hpp"
 #include "helpers/conversions.hpp"
 #include "rhi.hpp"
 #include "vk-logger.hpp"
-#include "wrappers/device.hpp"
 #include <algorithm>
 #include <keptech/shaders/shader.h>
+
 
 namespace kt::rhi {
 

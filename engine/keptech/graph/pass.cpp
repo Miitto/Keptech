@@ -2,7 +2,7 @@
 
 #include "builder.hpp"
 #include "keptech/core/kt-logger.hpp"
-#include "keptech/rhi/wrappers/buffer.hpp"
+#include "keptech/rhi/buffer.hpp"
 #include "passInterface.hpp"
 #include <algorithm>
 

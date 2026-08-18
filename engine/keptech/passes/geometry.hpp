@@ -2,7 +2,7 @@
 
 #include "keptech/graph/passInterface.hpp"
 #include "keptech/passes/data.hpp"
-#include "keptech/rhi/wrappers/pipeline.hpp"
+#include "keptech/rhi/pipeline.hpp"
 
 namespace kt {
   class GeometryPass : public RenderPassInterface {

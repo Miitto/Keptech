@@ -1,7 +1,7 @@
 #pragma once
 
-#include "keptech/rhi/wrappers/buffer.hpp"
-#include "keptech/rhi/wrappers/bufferRef.hpp"
+#include "keptech/rhi/buffer.hpp"
+#include "keptech/rhi/bufferRef.hpp"
 
 namespace kt {
   template <typename T> class SubdivBuffer {

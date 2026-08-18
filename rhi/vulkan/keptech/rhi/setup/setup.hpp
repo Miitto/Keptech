@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core.hpp"
-#include "keptech/rhi/wrappers/fwd.hpp"
+#include "keptech/rhi/fwd.hpp"
 #include <Volk/volk.h>
 #include <expected>
 #include <glm/fwd.hpp>

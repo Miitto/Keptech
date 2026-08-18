@@ -1,7 +1,8 @@
 #include "device.hpp"
+#include "image.hpp"
 #include "keptech/core/result.hpp"
-#include "wrappers/image.hpp"
-#include "wrappers/pipeline.hpp"
+#include "pipeline.hpp"
+
 
 namespace kt::rhi {
 

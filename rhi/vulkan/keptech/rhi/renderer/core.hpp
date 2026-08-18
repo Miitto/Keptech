@@ -1,11 +1,11 @@
 #pragma once
 
 #include "keptech/rhi/constants.hpp"
-#include "keptech/rhi/wrappers/device.hpp"
-#include "keptech/rhi/wrappers/image.hpp"
-#include "keptech/rhi/wrappers/instance.hpp"
-#include "keptech/rhi/wrappers/queue.hpp"
-#include "keptech/rhi/wrappers/swapchain.hpp"
+#include "keptech/rhi/device.hpp"
+#include "keptech/rhi/image.hpp"
+#include "keptech/rhi/instance.hpp"
+#include "keptech/rhi/queue.hpp"
+#include "keptech/rhi/swapchain.hpp"
 #include <Volk/volk.h>
 #include <array>
 #include <vma/vk_mem_alloc.h>

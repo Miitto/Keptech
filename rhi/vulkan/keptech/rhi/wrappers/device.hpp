@@ -1,7 +1,7 @@
 #pragma once
 
 #include "keptech/core/fwd.hpp"
-#include "keptech/rhi/wrappers/fwd.hpp"
+#include "keptech/rhi/fwd.hpp"
 #include <Volk/volk.h>
 #include <vma/vk_mem_alloc.h>
 

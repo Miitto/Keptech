@@ -3,12 +3,12 @@
 
 #include "keptech/rhi/pipelineBuilder.hpp"
 
-#include "constants.hpp"
 #include "d3dx12.h"
-#include "dx-logger.hpp"
-#include "macros.hpp"
+#include "dx/constants.hpp"
+#include "dx/dx-logger.hpp"
+#include "dx/macros.hpp"
+#include "pipeline.hpp"
 #include "rhi.hpp"
-#include "wrappers/pipeline.hpp"
 #include <ranges>
 #include <wrl.h>
 

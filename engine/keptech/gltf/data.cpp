@@ -6,7 +6,8 @@
 #include "buffers.hpp"
 #include "keptech/core/kt-logger.hpp"
 #include "keptech/rhi/bufferCreateInfo.hpp"
-#include "keptech/rhi/wrappers/image.hpp"
+#include "keptech/rhi/image.hpp"
+#include "keptech/rhi/rhi_impl.hpp"
 #include "mesh.hpp"
 #include "scene.hpp"
 #include <__msvc_ostream.hpp>

@@ -1,5 +1,7 @@
 #include "setup.hpp"
 
+#include "buffer.hpp"
+#include "bufferCreateInfo.hpp"
 #include "buffers.hpp"
 #include "gpuObjects.hpp"
 #include "keptech/components/camera.hpp"
@@ -8,8 +10,6 @@
 #include "keptech/rhi/mesh.hpp"
 #include "keptech/rhi/meshConstants.hpp"
 #include "rhi.hpp"
-#include "wrappers/buffer.hpp"
-#include "wrappers/bufferCreateInfo.hpp"
 
 #undef VKH_MAKE
 

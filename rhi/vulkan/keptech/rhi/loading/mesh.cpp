@@ -1,11 +1,11 @@
 #include "mesh.hpp"
 
+#include "bufferCreateInfo.hpp"
 #include "gpuObjects.hpp"
 #include "keptech/rhi/gltf/data.hpp"
 #include "macros.hpp"
 #include "profile.hpp"
 #include "vk-logger.hpp"
-#include "wrappers/bufferCreateInfo.hpp"
 #include <glm/vec3.hpp>
 
 namespace kt::rhi::loading {

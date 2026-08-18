@@ -5,14 +5,14 @@
 #include <wrl.h>
 
 #include "d3dx12.h"
-#include "dx-logger.hpp"
+#include "dx/dx-logger.hpp"
 #include "helpers/imGuiDescriptorAlloc.hpp"
 #include "keptech/core/result.hpp"
-#include "keptech/rhi/constants.hpp"
+#include "keptech/rhi/cmdBuf.hpp"
+#include "keptech/rhi/dx/constants.hpp"
+#include "keptech/rhi/dx/fence.hpp"
 #include "keptech/rhi/imageFormat.hpp"
 #include "keptech/rhi/rendererCreateInfo.hpp"
-#include "keptech/rhi/wrappers/cmdBuf.hpp"
-#include "keptech/rhi/wrappers/fence.hpp"
 #include <D3D12MemAlloc.h>
 #include <array>
 #include <expected>
@@ -113,89 +113,9 @@ namespace kt::rhi {
   class RHI {
     template <typename T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 
+#include "keptech/rhi/interface/rhi.hpp"
+
   public:
-    static RHI& get();
-    uint8_t getFrameIndex() const { return m.frameIndex; }
-    uint8_t getLastFrameIndex() const { return (m.frameIndex + MAX_FRAMES_IN_FLIGHT - 1) % MAX_FRAMES_IN_FLIGHT; }
-
-    bool canRenderToFormat(ImageFormat format) const;
-    bool canSampleFromFormat(ImageFormat format) const;
-
-    ImageFormat getSwapchainFormat() const;
-    ImageRef getSwapchainImage() const;
-    glm::uvec2 getSwapchainSize() const;
-
-    uint64_t getTimelineValue() const { return m.fence.getValue(); }
-
-    VertexBufferView createVertexBufferView(const BufferRef& buffer, size_t stride, size_t offset = 0) const;
-
-    void submitGraphicsCmd(CommandBuffer& cmd, uint64_t waitFor = 0, uint64_t signalTo = 0, uint64_t waitForCopy = 0);
-    void submitComputeCmd(CommandBuffer& cmd, uint64_t waitFor = 0, uint64_t signalTo = 0, uint64_t waitForCopy = 0);
-
-    std::vector<CommandBuffer> allocateGraphicsCommandBuffers(uint32_t count);
-    std::vector<CommandBuffer> allocateComputeCommandBuffers(uint32_t count);
-
-    void submitBufferToDrop(Buffer& buffer);
-    void submitImageToDrop(Image& image);
-
-    kt::Result<ImageRef, HRESULT, S_OK> createTexture(const ImageCreateInfo& createInfo);
-
-    void waitGraphicsIdle() { m.fence.flush(m.queues.graphics); }
-    void waitComputeIdle() { m.fence.flush(m.queues.compute); }
-    void waitCopyIdle() { m.copyFence.flush(m.queues.copy); }
-    void waitIdle() {
-      waitGraphicsIdle();
-      waitComputeIdle();
-      waitCopyIdle();
-    }
-
-    template <typename F>
-      requires(std::is_invocable_v<F, CommandBuffer&> && std::is_same_v<std::invoke_result_t<F, CommandBuffer&>, std::vector<Buffer>>)
-    uint64_t oneshotCopy(const F& copyFunc) {
-      ComPtr<ID3D12CommandAllocator> cmdAlloc;
-      DX_REQUIRE(SUCCEEDED(m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&cmdAlloc))),
-                 "Failed to create copy command allocator");
-
-      m.copyCmdList->Reset(cmdAlloc.Get(), nullptr);
-
-      CommandBuffer cmdBuf(std::move(cmdAlloc), m.copyCmdList);
-
-      auto buffers = copyFunc(cmdBuf);
-
-      cmdBuf.end();
-
-      m.queues.copy->ExecuteCommandLists(1, cmdBuf);
-
-      uint64_t fenceValue = m.copyFence.signal(m.queues.copy);
-
-      std::vector<D3D12MA::Allocation*> allocsToDrop;
-      allocsToDrop.reserve(buffers.size());
-      for (auto& buffer : buffers) {
-        allocsToDrop.push_back(buffer.dxTakeAllocation());
-      }
-
-      m.ongoingCopies.push_back({.cmdAlloc = cmdBuf.dxGetAlloc(), .fenceValue = fenceValue, .allocsToDrop = std::move(allocsToDrop)});
-
-      return fenceValue;
-    }
-
-    // Called internally, don't use
-    void newFrame();
-    void startFrame();
-    void endFrame(CommandBuffer& cmdBuf);
-
-    static bool isInit();
-    std::expected<void, std::string> static init(const RendererCreateInfo& createInfo, const Window& window);
-
-    void onResize();
-
-    RHI(const RHI&) = delete;
-    RHI& operator=(const RHI&) = delete;
-    RHI(RHI&&) = delete;
-    RHI& operator=(RHI&&) = delete;
-
-    ~RHI();
-
     CD3DX12_CPU_DESCRIPTOR_HANDLE dxGetRtvHandle(uint16_t index) const;
     CD3DX12_CPU_DESCRIPTOR_HANDLE dxGetDsvHandle(uint16_t index) const;
 
@@ -209,12 +129,6 @@ namespace kt::rhi {
     void dxUpdateDepthStencilImage(rhi::Image& image);
 
   private:
-    void present();
-
-    void debugUi() const;
-
-    RHI() = default;
-
     std::expected<void, std::string> initInternal(const RendererCreateInfo& createInfo, const Window& window);
     std::expected<ComPtr<IDXGIAdapter4>, std::string> getAdapter(const RendererCreateInfo& createInfo,
                                                                  const ComPtr<IDXGIFactory4>& dxgiFactory);
@@ -225,8 +139,6 @@ namespace kt::rhi {
     std::expected<void, std::string> updateBackbufferDescriptors();
     std::expected<void, std::string> initImGui();
 
-    static RHI singleton;
-    static bool isInitialized;
     Members m;
   };
 } // namespace kt::rhi

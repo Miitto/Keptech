@@ -1,17 +1,17 @@
 #include "rhi.hpp"
 #include "backends/imgui_impl_dx12.h"
+#include "buffer.hpp"
+#include "cmdBuf.hpp"
 #include "d3dx12.h"
-#include "dx-logger.hpp"
+#include "dx/dx-logger.hpp"
+#include "image.hpp"
+#include "imageRef.hpp"
 #include "imgui.h"
 #include "keptech/components/transform.hpp"
 #include "keptech/core/scene.hpp"
 #include "keptech/core/version.h"
 #include "keptech/core/window.hpp"
 #include "keptech/rhi/imgui.hpp"
-#include "wrappers/buffer.hpp"
-#include "wrappers/cmdBuf.hpp"
-#include "wrappers/image.hpp"
-#include "wrappers/imageRef.hpp"
 #include <d3d12.h>
 #include <utility>
 
@@ -35,6 +35,15 @@ namespace kt::rhi {
     return (formatSupport.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE) != 0;
   }
   ImageFormat RHI::getSwapchainFormat() const { return static_cast<ImageFormat>(ImageFormat::R8G8B8A8_UNORM); }
+
+  void RHI::waitGraphicsIdle() { m.fence.flush(m.queues.graphics); }
+  void RHI::waitComputeIdle() { m.fence.flush(m.queues.compute); }
+  void RHI::waitCopyIdle() { m.copyFence.flush(m.queues.copy); }
+  void RHI::waitIdle() {
+    waitGraphicsIdle();
+    waitComputeIdle();
+    waitCopyIdle();
+  }
 
   kt::Result<ImageRef, HRESULT, S_OK> RHI::createTexture(const ImageCreateInfo& createInfo) {
     auto imageRes = Image::create(createInfo);

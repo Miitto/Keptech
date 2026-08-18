@@ -1,11 +1,12 @@
 #include "image.hpp"
+#include "device.hpp"
 #include "helpers/transitions.hpp"
 #include "imageCreateInfo.hpp"
 #include "keptech/core/result.hpp"
 #include "rhi.hpp"
 #include "vk-logger.hpp"
-#include "wrappers/device.hpp"
 #include <glm/vec3.hpp>
+
 
 namespace kt::rhi {
   kt::Result<Image, VkResult, VK_SUCCESS> Image::create(const ImageCreateInfo& info) {

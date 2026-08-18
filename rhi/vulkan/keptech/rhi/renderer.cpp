@@ -3,7 +3,7 @@
 #include "graph/builder.hpp"
 #include "helpers/transitions.hpp"
 #include "keptech/components/transform.hpp"
-#include "keptech/rhi/wrappers/swapchain.hpp"
+#include "keptech/rhi/swapchain.hpp"
 #include "macros.hpp"
 #include "passes/global.hpp"
 #include "profile.hpp"

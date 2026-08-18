@@ -1,7 +1,7 @@
 #pragma once
 
+#include "keptech/rhi/image.hpp"
 #include "keptech/rhi/interface.hpp"
-#include "keptech/rhi/wrappers/image.hpp"
 #include <glm/glm.hpp>
 
 namespace kt::components {

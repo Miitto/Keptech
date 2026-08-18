@@ -1,10 +1,10 @@
 #include "setup.hpp"
 
 #include "keptech/core/window.hpp"
+#include "keptech/rhi/device.hpp"
 #include "keptech/rhi/rendererCreateInfo.hpp"
 #include "keptech/rhi/rhi.hpp"
 #include "keptech/rhi/structs.hpp"
-#include "keptech/rhi/wrappers/device.hpp"
 #include "macros.hpp"
 #include "rhi.hpp"
 #include <SDL3/SDL_vulkan.h>

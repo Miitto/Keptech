@@ -1,6 +1,6 @@
 #include "image.hpp"
 #include "d3dx12.h"
-#include "dx-logger.hpp"
+#include "dx/dx-logger.hpp"
 #include "imageRef.hpp"
 #include "keptech/rhi/imageCreateInfo.hpp"
 #include "rhi.hpp"

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/rhi/wrappers/imageRef.hpp"
+#include "keptech/rhi/imageRef.hpp"
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 

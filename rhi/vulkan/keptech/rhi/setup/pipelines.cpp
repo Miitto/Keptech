@@ -2,9 +2,9 @@
 #include "setup.hpp"
 
 #include "core.hpp"
+#include "keptech/rhi/pipeline.hpp"
 #include "keptech/rhi/structs.hpp"
 #include "keptech/rhi/structs.hpp>
-#include "keptech/rhi/wrappers/pipeline.hpp"
 #include "macros.hpp"
 #include "pipelines.hpp"
 #include <Volk/volk.h>

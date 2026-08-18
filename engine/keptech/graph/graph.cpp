@@ -2,10 +2,10 @@
 #include "keptech/components/transform.hpp"
 #include "keptech/core/scene.hpp"
 #include "keptech/rhi/bufferCreateInfo.hpp"
+#include "keptech/rhi/cmdBuf.hpp"
+#include "keptech/rhi/imageRef.hpp"
 #include "keptech/rhi/profile.hpp"
 #include "keptech/rhi/rhi.hpp"
-#include "keptech/rhi/wrappers/cmdBuf.hpp"
-#include "keptech/rhi/wrappers/imageRef.hpp"
 #include "passInterface.hpp"
 #include <vector>
 

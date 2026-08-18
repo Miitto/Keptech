@@ -1,11 +1,10 @@
 #pragma once
 
 #include "keptech/maths/frustum.hpp"
+#include "keptech/rhi/buffer.hpp"
 #include "keptech/rhi/constants.hpp"
-#include "keptech/rhi/graphInterface.hpp"
+#include "keptech/rhi/image.hpp"
 #include "keptech/rhi/renderPass.hpp"
-#include "keptech/rhi/wrappers/buffer.hpp"
-#include "keptech/rhi/wrappers/image.hpp"
 #include "pass.hpp"
 #include <array>
 #include <glm/ext/vector_uint2.hpp>

@@ -1,4 +1,4 @@
-#include "keptech/rhi/wrappers/swapchain.hpp"
+#include "keptech/rhi/swapchain.hpp"
 #include "keptech/rhi/core.hpp"
 #include "macros.hpp"
 #include <SDL3/SDL_vulkan.h>

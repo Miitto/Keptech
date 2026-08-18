@@ -1,7 +1,6 @@
 target_sources(Keptech_RHI
   PRIVATE
-    buffer.cpp
-    cmdBuf.cpp
+    constants.cpp
+    dx-logger.cpp
     fence.cpp
-    image.cpp
 )

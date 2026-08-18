@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dx-logger.hpp"
+#include "dx/dx-logger.hpp"
 #include <comdef.h>
 
 #define DX_MAKE(expr, err)                                                                                                                 \
