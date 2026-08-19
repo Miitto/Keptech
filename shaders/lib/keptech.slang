@@ -12,6 +12,7 @@ __include frustum;
 __include struct;
 __include mesh;
 __include attribs;
+__include samplers;
 
 public namespace kt {
 

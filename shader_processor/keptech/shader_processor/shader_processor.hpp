@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/shaders/shader.h"
+#include "keptech/shaders/shader.hpp"
 #include <cstdint>
 #include <expected>
 #include <slang-com-ptr.h>

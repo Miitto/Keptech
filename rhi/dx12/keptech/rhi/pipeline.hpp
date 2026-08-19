@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keptech/shaders/shader.h"
+#include "keptech/shaders/shader.hpp"
 #include <d3d12.h>
 #include <wrl.h>
 

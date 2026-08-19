@@ -140,7 +140,7 @@ namespace kt::rhi {
 
   Image::operator ImageRef() const {
 
-    return ImageRef(name.c_str(), dxresource().Get(), _format,
+    return ImageRef(name.c_str(), dxresource().Get(), _dim, _format, _mips, _layers,
                     usage.has(kt::rhi::ImageUsage::RenderTarget) ? RHI::get().dxGetRtvHandle(rtvDsvIndex)
                     : usage.has(ImageUsage::DepthStencil)        ? RHI::get().dxGetDsvHandle(rtvDsvIndex)
                                                                  : CD3DX12_CPU_DESCRIPTOR_HANDLE(),

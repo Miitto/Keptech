@@ -1,6 +1,7 @@
 #include "cmdBuf.hpp"
 #include "bufferRef.hpp"
 #include "d3dx12.h"
+#include "descriptorSet.hpp"
 #include "dx/dx-logger.hpp"
 #include "image.hpp"
 #include "imageRef.hpp"
@@ -10,8 +11,10 @@
 namespace kt::rhi {
   CommandBuffer& CommandBuffer::bindGraphicsPipeline(const Pipeline& pipeline) {
     cmdList->SetPipelineState(pipeline.pipelineState.Get());
-    std::array<ID3D12DescriptorHeap*, 2> heaps = {rhi::RHI::get().dxGetMembers().cbvSrvUavHeap.heap.Get(),
-                                                  rhi::RHI::get().dxGetMembers().samplerHeap.heap.Get()};
+    std::array<ID3D12DescriptorHeap*, 2> heaps = {
+        rhi::RHI::get().dxGetMembers().samplerHeap.heap.Get(),
+        rhi::RHI::get().dxGetMembers().cbvSrvUavHeap.heap.Get(),
+    };
     cmdList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
     cmdList->SetGraphicsRootSignature(pipeline.rootSignature.Get());
     cmdList->IASetPrimitiveTopology(pipeline.primitiveTopology);
@@ -185,6 +188,12 @@ namespace kt::rhi {
     DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
     DX_ASSERT(offset < buffer.size(), "Offset is out of bounds of the buffer");
     cmdList->SetGraphicsRootShaderResourceView(binding, buffer.dxGetResource()->GetGPUVirtualAddress() + offset);
+    return *this;
+  }
+
+  CommandBuffer& CommandBuffer::bindDescriptorSet(const DescriptorSet& set, uint32_t setIndex) {
+    DX_ASSERT(set.dxGetGpuHandle().ptr != 0, "Descriptor set GPU handle is null");
+    cmdList->SetGraphicsRootDescriptorTable(setIndex, set.dxGetGpuHandle());
     return *this;
   }
 

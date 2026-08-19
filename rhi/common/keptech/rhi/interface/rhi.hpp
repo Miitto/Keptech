@@ -22,6 +22,8 @@ void submitBufferToDrop(Buffer& buffer);
 void submitImageToDrop(Image& image);
 
 kt::Result<ImageRef, HRESULT, S_OK> createTexture(const ImageCreateInfo& createInfo);
+DescriptorLayout createDescriptorLayout(const std::vector<DescriptorInfo>& descriptorInfos);
+DescriptorPool createDescriptorPool(const DescriptorPoolInfo& poolInfo);
 
 void waitGraphicsIdle();
 void waitComputeIdle();

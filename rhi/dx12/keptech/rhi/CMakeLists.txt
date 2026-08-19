@@ -11,6 +11,8 @@ target_sources(Keptech_RHI
     rhi.cpp
     buffer.cpp
     cmdBuf.cpp
+    descriptorPool.cpp
+    descriptorSet.cpp
     image.cpp
 )
 

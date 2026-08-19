@@ -1,4 +1,6 @@
-#include "keptech/shaders/shader.h"
+#pragma once
+
+#include "keptech/shaders/shader.hpp"
 #include <slang-com-ptr.h>
 #include <slang.h>
 #include <stdexcept>

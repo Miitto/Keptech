@@ -66,7 +66,7 @@ kt::DeferredOutput frag(VertexOutput input) {
   output.emissiveAo = float4(0.0, 0.0, 0.0, 1.f);
 
   if (kt::valid(mat.albedo)) {
-    output.albedo *= mat.albedo.Sample(uv);
+    output.albedo *= mat.albedo.Sample(kt::samplers::linearRepeat, uv);
   }
 
   if (output.albedo.a < mat.alphaCutoff) {
@@ -74,7 +74,7 @@ kt::DeferredOutput frag(VertexOutput input) {
   }
 
   if (kt::valid(mat.bump)) {
-    float3 normalSample = mat.bump.Sample(uv).xyz * 2.0 - 1.0;
+    float3 normalSample = mat.bump.Sample(kt::samplers::linearRepeat, uv).xyz * 2.0 - 1.0;
 
     float3x3 TBN = float3x3(normalize(input.tangent), normalize(input.bitangent), normalize(input.normal));
     float3 worldNormal = normalize(mul(normalSample, TBN));
@@ -83,11 +83,11 @@ kt::DeferredOutput frag(VertexOutput input) {
   }
 
   if (kt::valid(mat.emissive)) {
-    output.emissiveAo.rgb = mat.emissive.Sample(uv).rgb * mat.emissiveFactor;
+    output.emissiveAo.rgb = mat.emissive.Sample(kt::samplers::linearRepeat, uv).rgb * mat.emissiveFactor;
   }
 
   if (kt::valid(mat.metRough)) {
-    float4 metallicRoughnessSample = mat.metRough.Sample(uv);
+    float4 metallicRoughnessSample = mat.metRough.Sample(kt::samplers::linearRepeat, uv);
     output.metallicRoughness.r *= metallicRoughnessSample.b;
     output.metallicRoughness.g *= metallicRoughnessSample.g;
   }

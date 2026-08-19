@@ -1,4 +1,4 @@
-#include "shader.h"
+#include "shader.hpp"
 
 #include <spdlog/fmt/bundled/ranges.h>
 

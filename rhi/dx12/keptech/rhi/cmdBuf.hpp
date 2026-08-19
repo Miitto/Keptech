@@ -3,7 +3,7 @@
 #include "keptech/maths/sizes.hpp"
 #include "keptech/rhi/imageLayout.hpp"
 #include "keptech/rhi/imageRef.hpp"
-#include "keptech/rhi/renderPass.hpp"
+#include "keptech/rhi/loadStoreOps.hpp"
 #include <array>
 #include <d3d12.h>
 #include <span>
@@ -13,6 +13,7 @@ namespace kt::rhi {
   class ImageRef;
   struct Pipeline;
   class BufferRef;
+  class DescriptorSet;
 
   class CommandBuffer {
 #include "keptech/rhi/interface/cmdBuf.hpp"

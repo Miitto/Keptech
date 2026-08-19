@@ -1,9 +1,10 @@
 #pragma once
 
 #include "keptech/rhi/imageFormat.hpp"
+#include "keptech/shaders/shader.hpp"
 #include "pipelineTypes.hpp"
 #include <expected>
-#include <keptech/shaders/shader.h>
+
 
 namespace kt::rhi {
 

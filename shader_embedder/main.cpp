@@ -1,4 +1,4 @@
-#include "keptech/shaders/shader.h"
+#include "keptech/shaders/shader.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -193,7 +193,7 @@ int main(int argc, char** argv) {
   std::ofstream outHeader(outputHeader);
   std::ofstream outSource(outputSource);
 
-  outHeader << "#pragma once\n\n#include <keptech/shaders/shader.h>\n";
+  outHeader << "#pragma once\n\n#include <keptech/shaders/shader.hpp>\n";
   outHeader << "namespace " << ns << " {\n    extern const ::kt::shaders::Shader " << name << ";\n}\n";
 
   outSource << "#include \"" << std::filesystem::path(outputHeader).filename().string() << "\"\n\n";

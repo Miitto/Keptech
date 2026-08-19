@@ -3,6 +3,7 @@
 #include "buffer.hpp"
 #include "cmdBuf.hpp"
 #include "d3dx12.h"
+#include "dx/descriptorLayout.hpp"
 #include "dx/dx-logger.hpp"
 #include "image.hpp"
 #include "imageRef.hpp"
@@ -11,6 +12,7 @@
 #include "keptech/core/scene.hpp"
 #include "keptech/core/version.h"
 #include "keptech/core/window.hpp"
+#include "keptech/rhi/descriptorInfo.hpp"
 #include "keptech/rhi/imgui.hpp"
 #include <d3d12.h>
 #include <utility>
@@ -90,6 +92,43 @@ namespace kt::rhi {
     img.setTextureIndex(index);
 
     return static_cast<ImageRef>(img);
+  }
+
+  DescriptorLayout RHI::createDescriptorLayout(const std::vector<DescriptorInfo>& descriptorInfos) {
+    DescriptorLayout layout{};
+    auto& ranges = layout.dxGetRanges();
+    ranges.reserve(descriptorInfos.size());
+
+    uint32_t descriptorIndex = 0;
+    for (const auto& info : descriptorInfos) {
+      ranges.emplace_back(raw(info.type), info.count, info.binding, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, descriptorIndex);
+      descriptorIndex += info.count;
+    }
+
+    return layout;
+  }
+
+  DescriptorPool RHI::createDescriptorPool(const DescriptorPoolInfo& poolInfo) {
+    D3D12_DESCRIPTOR_HEAP_DESC otherHeapDesc{
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+        .NumDescriptors = 0,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+        .NodeMask = 0,
+    };
+
+    otherHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    otherHeapDesc.NumDescriptors =
+        poolInfo.maxSampledImages + poolInfo.maxStorageImages + poolInfo.maxUniformBuffers + poolInfo.maxStorageBuffers;
+
+    ComPtr<ID3D12DescriptorHeap> otherHeap;
+    if (otherHeapDesc.NumDescriptors > 0) {
+      auto res = m.device->CreateDescriptorHeap(&otherHeapDesc, IID_PPV_ARGS(&otherHeap));
+      if (FAILED(res)) {
+        DX_ABORT("Failed to create descriptor pool: {}", res);
+      }
+    }
+
+    return DescriptorPool{std::move(otherHeap)};
   }
 
   void RHI::newFrame() {
@@ -270,7 +309,7 @@ namespace kt::rhi {
   ImageRef RHI::getSwapchainImage() const {
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m.swapchain.rtvHeap->GetCPUDescriptorHandleForHeapStart(), m.imageIndex,
                                             static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
-    return {"Swapchain Image", m.swapchain.backbuffers[m.imageIndex].Get(), ImageFormat::R8G8B8A8_UNORM, rtvHandle};
+    return {"Swapchain Image", m.swapchain.backbuffers[m.imageIndex].Get(), ImageDim::e2D, ImageFormat::R8G8B8A8_UNORM, 1, 1, rtvHandle};
   }
   glm::uvec2 RHI::getSwapchainSize() const { return m.swapchain.size; }
 

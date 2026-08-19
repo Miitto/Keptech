@@ -1,6 +1,5 @@
 #include "shader_processor.hpp"
 
-#include "keptech/shaders/shader.h"
 #include "shader-logger.hpp"
 #include "slangFormatting.hpp"
 #include <array>
@@ -361,16 +360,55 @@ namespace kt::shader_processor {
       uint32_t paramCount = layout->getParameterCount();
       for (uint32_t i = 0; i < paramCount; ++i) {
         auto param = layout->getParameterByIndex(i);
+        bool isPush = false;
+        auto attribCount = param->getVariable()->getUserAttributeCount();
+        for (uint32_t idx = 0; idx < attribCount; ++idx) {
+          auto attribute = param->getVariable()->getUserAttributeByIndex(idx);
+          if (strcmp(attribute->getName(), "push") == 0) {
+            isPush = true;
+            break;
+          }
+        }
         auto category = param->getCategory();
         switch (category) {
         case slang::ParameterCategory::ShaderResource: {
           auto type = param->getTypeLayout();
           auto shape = type->getResourceShape();
+          bool isArray = shape & SLANG_TEXTURE_ARRAY_FLAG;
           switch (shape & SLANG_RESOURCE_BASE_SHAPE_MASK) {
+          case SLANG_TEXTURE_1D: {
+            shader.info.resources.push_back(kt::shaders::ResourceBinding{.type = isArray ? kt::shaders::ShaderResourceType::Texture1DArray
+                                                                                         : kt::shaders::ShaderResourceType::Texture1D,
+                                                                         .set = param->getBindingSpace(),
+                                                                         .binding = param->getBindingIndex(),
+                                                                         .isPushDescriptor = isPush});
+          } break;
+          case SLANG_TEXTURE_2D: {
+            shader.info.resources.push_back(kt::shaders::ResourceBinding{.type = isArray ? kt::shaders::ShaderResourceType::Texture2DArray
+                                                                                         : kt::shaders::ShaderResourceType::Texture2D,
+                                                                         .set = param->getBindingSpace(),
+                                                                         .binding = param->getBindingIndex(),
+                                                                         .isPushDescriptor = isPush});
+          } break;
+          case SLANG_TEXTURE_3D: {
+            shader.info.resources.push_back(kt::shaders::ResourceBinding{.type = isArray ? kt::shaders::ShaderResourceType::Texture3DArray
+                                                                                         : kt::shaders::ShaderResourceType::Texture3D,
+                                                                         .set = param->getBindingSpace(),
+                                                                         .binding = param->getBindingIndex(),
+                                                                         .isPushDescriptor = isPush});
+            break;
+          }
+          case SLANG_TEXTURE_CUBE: {
+            shader.info.resources.push_back(kt::shaders::ResourceBinding{.type = kt::shaders::ShaderResourceType::TextureCube,
+                                                                         .set = param->getBindingSpace(),
+                                                                         .binding = param->getBindingIndex(),
+                                                                         .isPushDescriptor = isPush});
+          } break;
           case SLANG_STRUCTURED_BUFFER: {
             shader.info.resources.push_back(kt::shaders::ResourceBinding{.type = kt::shaders::ShaderResourceType::StorageBuffer,
                                                                          .set = param->getBindingSpace(),
-                                                                         .binding = param->getBindingIndex()});
+                                                                         .binding = param->getBindingIndex(),
+                                                                         .isPushDescriptor = isPush});
           } break;
           default:
             SHDR_ABORT("Unsupported resource shape: {}", static_cast<int>(shape & SLANG_RESOURCE_BASE_SHAPE_MASK));
@@ -379,7 +417,14 @@ namespace kt::shader_processor {
         case slang::ParameterCategory::ConstantBuffer: {
           shader.info.resources.push_back(kt::shaders::ResourceBinding{.type = kt::shaders::ShaderResourceType::UniformBuffer,
                                                                        .set = param->getBindingSpace(),
-                                                                       .binding = param->getBindingIndex()});
+                                                                       .binding = param->getBindingIndex(),
+                                                                       .isPushDescriptor = isPush});
+        } break;
+        case slang::ParameterCategory::SamplerState: {
+          shader.info.resources.push_back(kt::shaders::ResourceBinding{.type = kt::shaders::ShaderResourceType::Sampler,
+                                                                       .set = param->getBindingSpace(),
+                                                                       .binding = param->getBindingIndex(),
+                                                                       .isPushDescriptor = isPush});
         } break;
         default:
           SHDR_ABORT("Unsupported parameter category: {}", static_cast<int>(category));

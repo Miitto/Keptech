@@ -49,3 +49,6 @@ struct depthWriteAttribute {
 
 [__AttributeUsage(_AttributeTargets.Struct)]
 struct instanceAttribute {};
+
+[__AttributeUsage(_AttributeTargets.Param)]
+struct pushAttribute {};

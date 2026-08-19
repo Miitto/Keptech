@@ -51,6 +51,8 @@ template <typename T> CommandBuffer& writeComputePushConstants(const T& data, si
 CommandBuffer& pushUniformBuffer(const BufferRef& buffer, uint32_t binding, size_t offset = 0);
 CommandBuffer& pushStorageBuffer(const BufferRef& buffer, uint32_t binding, size_t offset = 0);
 
+CommandBuffer& bindDescriptorSet(const DescriptorSet& set, uint32_t setIndex = 0);
+
 CommandBuffer& draw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0);
 CommandBuffer& drawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0,
                            uint32_t firstInstance = 0);

@@ -6,7 +6,6 @@
 #include <expected>
 #include <synchapi.h>
 
-
 template <typename T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 
 namespace kt::rhi {
@@ -236,6 +235,7 @@ namespace kt::rhi {
 
     RTV_DESCRIPTOR_SIZE = m.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     DSV_DESCRIPTOR_SIZE = m.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+    SAMPLER_DESCRIPTOR_SIZE = m.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
     CBV_SRV_UAV_DESCRIPTOR_SIZE = m.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};

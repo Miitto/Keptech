@@ -16,7 +16,13 @@ target_sources(keptech_shaders
   FILE_SET HEADERS
   BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
   FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/keptech/shaders/shader.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/keptech/shaders/dataType.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/keptech/shaders/fragment.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/keptech/shaders/info.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/keptech/shaders/resources.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/keptech/shaders/shader.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/keptech/shaders/stages.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/keptech/shaders/vertex.hpp
   PRIVATE
     keptech/shaders/formatting.cpp
 )

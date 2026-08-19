@@ -9,6 +9,7 @@
 #include "helpers/imGuiDescriptorAlloc.hpp"
 #include "keptech/core/result.hpp"
 #include "keptech/rhi/cmdBuf.hpp"
+#include "keptech/rhi/descriptorPool.hpp"
 #include "keptech/rhi/dx/constants.hpp"
 #include "keptech/rhi/dx/fence.hpp"
 #include "keptech/rhi/imageFormat.hpp"
@@ -34,6 +35,10 @@ namespace kt::rhi {
 
   class Image;
   class Buffer;
+  class DescriptorLayout;
+  struct DescriptorInfo;
+  struct DescriptorPoolInfo;
+  class DescriptorWriteInfo;
 
   struct DxImGui {
     ComPtr<ID3D12DescriptorHeap> srvHeap;
