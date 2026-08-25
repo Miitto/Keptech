@@ -8,6 +8,12 @@
 #include "pipeline.hpp"
 #include "rhi.hpp"
 
+#ifndef KT_DISABLE_STATS
+#define STATS_INC(x) ++(RHI::get().getStats().x)
+#else
+#define STATS_INC(x)
+#endif
+
 namespace kt::rhi {
   CommandBuffer& CommandBuffer::bindGraphicsPipeline(const Pipeline& pipeline) {
     cmdList->SetPipelineState(pipeline.pipelineState.Get());
@@ -19,6 +25,9 @@ namespace kt::rhi {
     cmdList->SetGraphicsRootSignature(pipeline.rootSignature.Get());
     cmdList->IASetPrimitiveTopology(pipeline.primitiveTopology);
     gPipeline = &pipeline;
+
+    STATS_INC(pipelineSwitches);
+
     return *this;
   }
 
@@ -29,6 +38,9 @@ namespace kt::rhi {
     cmdList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
     cmdList->SetComputeRootSignature(pipeline.rootSignature.Get());
     cPipeline = &pipeline;
+
+    STATS_INC(pipelineSwitches);
+
     return *this;
   }
 
@@ -120,6 +132,8 @@ namespace kt::rhi {
     cmdList->BeginRenderPass(static_cast<UINT>(renderTargetDescs.size()), renderTargetDescs.data(),
                              depthStencilAttachment.has_value() ? &depthStencilDesc : nullptr, D3D12_RENDER_PASS_FLAG_NONE);
 
+    STATS_INC(renderPasses);
+
     return *this;
   }
 
@@ -157,7 +171,7 @@ namespace kt::rhi {
     return *this;
   }
 
-  CommandBuffer& CommandBuffer::writePushConstants(const void* data, size_t size, size_t offset) {
+  CommandBuffer& CommandBuffer::writeGraphicsPushConstants(const void* data, size_t size, size_t offset) {
     DX_ASSERT(size > 0, "Size must be greater than 0");
     DX_ASSERT(offset + size <= 128, "Push constant size must be less than or equal to 128 bytes");
     DX_ASSERT(size % sizeof(uint32_t) == 0, "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
@@ -177,21 +191,21 @@ namespace kt::rhi {
     return *this;
   }
 
-  CommandBuffer& CommandBuffer::pushUniformBuffer(const BufferRef& buffer, uint32_t binding, size_t offset) {
+  CommandBuffer& CommandBuffer::pushGraphicsUniformBuffer(const BufferRef& buffer, uint32_t binding, size_t offset) {
     DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
     DX_ASSERT(offset < buffer.size(), "Offset is out of bounds of the buffer");
-    cmdList->SetGraphicsRootConstantBufferView(binding, buffer.dxGetResource()->GetGPUVirtualAddress() + offset);
+    cmdList->SetGraphicsRootConstantBufferView(binding + gPipeline->cbvOffset, buffer.dxGetResource()->GetGPUVirtualAddress() + offset);
     return *this;
   }
 
-  CommandBuffer& CommandBuffer::pushStorageBuffer(const BufferRef& buffer, uint32_t binding, size_t offset) {
+  CommandBuffer& CommandBuffer::pushGraphicsStorageBuffer(const BufferRef& buffer, uint32_t binding, size_t offset) {
     DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
     DX_ASSERT(offset < buffer.size(), "Offset is out of bounds of the buffer");
-    cmdList->SetGraphicsRootShaderResourceView(binding, buffer.dxGetResource()->GetGPUVirtualAddress() + offset);
+    cmdList->SetGraphicsRootShaderResourceView(binding + gPipeline->srvOffset, buffer.dxGetResource()->GetGPUVirtualAddress() + offset);
     return *this;
   }
 
-  CommandBuffer& CommandBuffer::bindDescriptorSet(const DescriptorSet& set, uint32_t setIndex) {
+  CommandBuffer& CommandBuffer::bindGraphicsDescriptorSet(const DescriptorSet& set, uint32_t setIndex) {
     DX_ASSERT(set.dxGetGpuHandle().ptr != 0, "Descriptor set GPU handle is null");
     cmdList->SetGraphicsRootDescriptorTable(setIndex, set.dxGetGpuHandle());
     return *this;
@@ -199,12 +213,14 @@ namespace kt::rhi {
 
   CommandBuffer& CommandBuffer::draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) {
     cmdList->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
+    STATS_INC(drawCalls);
     return *this;
   }
 
   CommandBuffer& CommandBuffer::drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset,
                                             uint32_t firstInstance) {
     cmdList->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    STATS_INC(drawCalls);
     return *this;
   }
 
@@ -215,6 +231,7 @@ namespace kt::rhi {
 
     cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndirectSignature.Get(), drawCount, buffer.dxGetResource(), offset, nullptr,
                              0);
+    STATS_INC(drawCalls);
     return *this;
   }
 
@@ -225,6 +242,7 @@ namespace kt::rhi {
 
     cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndexedIndirectSignature.Get(), drawCount, buffer.dxGetResource(), offset,
                              nullptr, 0);
+    STATS_INC(drawCalls);
     return *this;
   }
 
@@ -238,6 +256,7 @@ namespace kt::rhi {
 
     cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndirectSignature.Get(), maxDrawCount, buffer.dxGetResource(), drawOffset,
                              countBuffer.dxGetResource(), countBufferOffset);
+    STATS_INC(drawCalls);
     return *this;
   }
 
@@ -251,6 +270,7 @@ namespace kt::rhi {
 
     cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndexedIndirectSignature.Get(), maxDrawCount, buffer.dxGetResource(),
                              drawOffset, countBuffer.dxGetResource(), countBufferOffset);
+    STATS_INC(drawCalls);
     return *this;
   }
 

@@ -10,7 +10,6 @@
 #include "keptech/rhi/pipelineBuilder.hpp"
 #include "shaders/keptech/geometry.h"
 
-
 namespace kt {
 
   void GeometryPass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&) {
@@ -21,7 +20,7 @@ namespace kt {
     self.setDepthStencilOutput("kt::depth", {.format = rhi::ImageFormat::D32_FLOAT});
 
     self.addUniformInput("kt::camera");
-    self.addStorageReadOnlyInput("kt::objects");
+    self.addStorageReadOnlyInput("kt::objects", sizeof(Object));
 
     self.addMappedBuffer("kt::geom::drawCommands", sizeof(kt::rhi::DrawIndexedCommand) * 1000);
     self.addIndirectBufferInput("kt::geom::drawCommands");
@@ -106,7 +105,7 @@ namespace kt {
     drawCommandCount = static_cast<uint32_t>(drawCommands.size());
   }
 
-  void GeometryPass::execute(RenderGraph& graph, rhi::CommandBuffer& cmd, glm::uvec2 framebufferSize) {
+  void GeometryPass::execute(RenderGraph& graph, rhi::CommandBuffer& cmd, rhi::DescriptorSet& set, glm::uvec2 framebufferSize) {
     auto& albedo = graph.getImage(albedoIndex);
     auto& normal = graph.getImage(normalIndex);
     auto& material = graph.getImage(materialIndex);
@@ -114,6 +113,7 @@ namespace kt {
     auto& depth = graph.getImage(depthIndex);
 
     cmd.bindGraphicsPipeline(pipeline);
+    cmd.bindGraphicsDescriptorSet(set);
     cmd.setViewport({static_cast<float>(framebufferSize.x), static_cast<float>(framebufferSize.y)});
     cmd.setScissor({framebufferSize.x, framebufferSize.y});
 
@@ -133,12 +133,6 @@ namespace kt {
     };
     cmd.bindVertexBuffers(0, vertexBindings);
     cmd.bindIndexBuffer(buffers.indices);
-
-    auto& cameraBuffer = graph.getFrameBuffer(cameraIndex);
-    auto& objectsBuffer = graph.getFrameBuffer(objectsIndex);
-
-    cmd.pushUniformBuffer(cameraBuffer, 0);
-    cmd.pushStorageBuffer(objectsBuffer, 1);
 
     cmd.drawIndexedIndirect(graph.getFrameBuffer(drawCommandsIndex), drawCommandCount);
 

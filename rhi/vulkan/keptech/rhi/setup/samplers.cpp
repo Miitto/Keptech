@@ -1,6 +1,6 @@
-#include "macros.hpp"
 #include "rhi.hpp"
 #include "setup.hpp"
+#include "vk/macros.hpp"
 
 namespace kt::rhi {
 

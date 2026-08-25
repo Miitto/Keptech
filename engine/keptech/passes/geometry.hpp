@@ -14,7 +14,7 @@ namespace kt {
     void setup(RenderGraph& graph) final;
 
     void prepare(RenderGraph& graph) final;
-    void execute(RenderGraph& graph, rhi::CommandBuffer& cmdBuf, glm::uvec2 framebufferSize) final;
+    void execute(RenderGraph& graph, rhi::CommandBuffer& cmdBuf, rhi::DescriptorSet&, glm::uvec2 framebufferSize) final;
 
     void addToGraph(RenderGraphBuilder& graph);
 

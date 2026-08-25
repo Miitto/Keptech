@@ -1,7 +1,6 @@
 #pragma once
 
-#include "core.hpp"
-#include "keptech/rhi/fwd.hpp"
+#include "vk/core.hpp"
 #include <Volk/volk.h>
 #include <expected>
 #include <glm/fwd.hpp>
@@ -12,7 +11,7 @@ namespace kt {
 
 namespace kt {
   struct RendererCreateInfo;
-  namespace rdr {
+  namespace rhi {
     class RHI;
     struct VulkanCore;
     struct Buffers;
@@ -34,5 +33,5 @@ namespace kt {
                                                             VkSwapchainKHR oldSwapchain);
 
     } // namespace setup
-  } // namespace rdr
+  } // namespace rhi
 } // namespace kt

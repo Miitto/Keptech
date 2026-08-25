@@ -34,7 +34,7 @@ public:
     colorImageIndex = g.getImageIndex("color");
   }
 
-  void execute(kt::RenderGraph& g, kt::rhi::CommandBuffer& cmd, glm::uvec2 framebufferSize) override {
+  void execute(kt::RenderGraph& g, kt::rhi::CommandBuffer& cmd, kt::rhi::DescriptorSet&, glm::uvec2 framebufferSize) override {
     KT_TRACE("Executing geometry pass");
 
     auto& img = g.getImage(colorImageIndex);

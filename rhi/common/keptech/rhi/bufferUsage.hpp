@@ -5,7 +5,7 @@
 #include <spdlog/fmt/bundled/format.h>
 
 #ifdef KT_VULKAN
-#include <Volk/volh.h>
+#include <Volk/volk.h>
 #define F(vk, dx12) vk // NOLINT
 #else
 #include <d3d12.h>
@@ -21,7 +21,7 @@ namespace kt::rhi {
 #endif
 
   // DX12 does not have most of the usage flags, so we use custom bits for when we need to check the usage anyway. `raw` will mask them out.
-  enum class BufferUsage : uint32_t {
+  enum class BufferUsage : uint32_t { // NOLINT, size is set to uint32_t to match the size of VkBufferUsageFlags and D3D12_RESOURCE_FLAGS
     None = 0,
     Vertex = F(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, BIT(16)),
     Index = F(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, BIT(17)),

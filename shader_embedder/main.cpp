@@ -81,12 +81,20 @@ void writeFragment(std::ofstream& file, const kt::shaders::Fragment& fragment) {
        << "        .depthWrite = " << (fragment.depthWrite ? "true" : "false") << ",\n    },\n";
 }
 
-void writeResources(std::ofstream& file, const std::vector<kt::shaders::ResourceBinding>& resources, size_t pushConstantSize) {
+void writeResources(std::ofstream& file, const std::vector<kt::shaders::ResourceSet>& resources, size_t pushConstantSize) {
   file << "    .resources = {\n";
-  for (auto& resource : resources) {
-    file << "        {.type = static_cast<::kt::shaders::ShaderResourceType>(" << std::dec << static_cast<uint32_t>(resource.type) << "),\n"
-         << "         .set = " << resource.set << ",\n"
-         << "         .binding = " << resource.binding << "},\n";
+  for (size_t i = 0; i < resources.size(); ++i) {
+    const auto& resource = resources[i];
+
+    file << "         ::kt::shaders::ResourceSet(" << std::dec << static_cast<uint32_t>(resource.space)
+         << ", std::move(std::vector<::kt::shaders::ResourceBinding>{\n";
+    for (const auto& res : resource.resources) {
+      file << "             ::kt::shaders::ResourceBinding{.type = static_cast<::kt::shaders::ShaderResourceType>(" << std::dec
+           << static_cast<uint32_t>(res.type) << "),\n"
+           << "              .binding = " << res.binding << ",\n"
+           << "              .count = " << res.count << "},\n";
+    }
+    file << "         })),\n";
   }
   file << "    },\n    .pushConstantSize = " << std::dec << pushConstantSize << ",\n";
 }

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <d3d12.h>
 #include <d3dcompiler.h> // Requires macros that we undefine in headers below
 
@@ -7,9 +8,11 @@
 #include "dx/constants.hpp"
 #include "dx/dx-logger.hpp"
 #include "dx/macros.hpp"
+#include "keptech/shaders/resources.hpp"
 #include "pipeline.hpp"
 #include "rhi.hpp"
 #include <ranges>
+#include <vector>
 #include <wrl.h>
 
 template <typename T> using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -85,32 +88,92 @@ namespace kt::rhi {
 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 
-    size_t rootParameterCount = shader->info.resources.size();
-    if (shader->info.pushConstantSize > 0) {
-      DX_ASSERT(shader->info.pushConstantSize % sizeof(uint32_t) == 0,
-                "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
-      rootParameterCount += 1;
-    }
+    DX_ASSERT(shader->info.pushConstantSize == 0 || shader->info.pushConstantSize % sizeof(uint32_t) == 0,
+              "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
 
-    std::vector<CD3DX12_ROOT_PARAMETER1> rootParameters(rootParameterCount);
-    uint32_t maxConstantBinding = 1;
-    for (size_t i = 0; i < shader->info.resources.size(); ++i) {
-      auto& resource = shader->info.resources[i];
-      switch (resource.type) {
+    uint32_t maxCbvBinding = 0;
+
+    auto rangeTypeFromResourceType = [](shaders::ShaderResourceType type) {
+      switch (type) {
       case shaders::ShaderResourceType::UniformBuffer:
-        rootParameters[i].InitAsConstantBufferView(resource.binding, resource.set);
-        maxConstantBinding = std::max(maxConstantBinding, resource.binding + 2);
-        break;
+        return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
       case shaders::ShaderResourceType::StorageBuffer:
-        rootParameters[i].InitAsShaderResourceView(resource.binding, resource.set);
+      case shaders::ShaderResourceType::Texture1D:
+      case shaders::ShaderResourceType::Texture1DArray:
+      case shaders::ShaderResourceType::Texture2D:
+      case shaders::ShaderResourceType::Texture2DArray:
+      case shaders::ShaderResourceType::Texture3D:
+      case shaders::ShaderResourceType::Texture3DArray:
+      case shaders::ShaderResourceType::TextureCube:
+        return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+      case shaders::ShaderResourceType::RWStorageBuffer:
+        return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+      case shaders::ShaderResourceType::Sampler:
+        return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+      }
+    };
+
+    std::vector<D3D12_DESCRIPTOR_RANGE1> ranges;
+
+    if (!shader->info.resources.empty()) {
+      for (const auto& resourceSet : shader->info.resources) {
+        if (resourceSet.resources.empty()) {
+          continue;
+        }
+        ranges.push_back({.RangeType = rangeTypeFromResourceType(resourceSet.resources.front().type),
+                          .NumDescriptors = 0,
+                          .BaseShaderRegister = resourceSet.resources.front().binding,
+                          .RegisterSpace = resourceSet.space,
+                          .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND});
         break;
-      default:
-        DX_ABORT("Unsupported resource type for root signature: {}", static_cast<uint32_t>(resource.type));
+      }
+
+      for (const auto& resourceSet : shader->info.resources) {
+        for (const auto& resource : resourceSet.resources) {
+          auto rangeType = rangeTypeFromResourceType(resource.type);
+          if (rangeType != ranges.back().RangeType || resource.binding != ranges.back().BaseShaderRegister + ranges.back().NumDescriptors ||
+              resourceSet.space != ranges.back().RegisterSpace) {
+            ranges.push_back({.RangeType = rangeType,
+                              .NumDescriptors = 0,
+                              .BaseShaderRegister = resource.binding,
+                              .RegisterSpace = resourceSet.space,
+                              .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND});
+          }
+
+          ranges.back().NumDescriptors += resource.count;
+          if (ranges.back().RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_CBV) {
+            maxCbvBinding = std::max(maxCbvBinding, resource.binding + resource.count - 1);
+          }
+        }
       }
     }
 
+    size_t tableOffset = ranges.empty() ? 0 : 1;
+
+    DX_DEBUG("Building pipeline with:");
+    if (!ranges.empty()) {
+      DX_DEBUG("  Table:");
+      for (const auto& range : ranges) {
+        switch (range.RangeType) {
+        case D3D12_DESCRIPTOR_RANGE_TYPE_CBV:
+          DX_DEBUG("    {}-{} CBV", range.BaseShaderRegister, range.BaseShaderRegister + range.NumDescriptors - 1);
+          break;
+        case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
+          DX_DEBUG("    {}-{} SRV", range.BaseShaderRegister, range.BaseShaderRegister + range.NumDescriptors - 1);
+          break;
+        case D3D12_DESCRIPTOR_RANGE_TYPE_UAV:
+          DX_DEBUG("    {}-{} UAV", range.BaseShaderRegister, range.BaseShaderRegister + range.NumDescriptors - 1);
+          break;
+        }
+      }
+    }
+
+    std::vector<CD3DX12_ROOT_PARAMETER1> rootParameters{ranges.empty() ? 0 : 1 + (shader->info.pushConstantSize > 0u ? 1u : 0u)};
+
+    rootParameters[0].InitAsDescriptorTable(static_cast<UINT>(ranges.size()), ranges.data(), D3D12_SHADER_VISIBILITY_ALL);
+
     if (shader->info.pushConstantSize > 0) {
-      rootParameters.back().InitAsConstants(static_cast<UINT>(shader->info.pushConstantSize / sizeof(uint32_t)), maxConstantBinding - 1, 0);
+      rootParameters.back().InitAsConstants(static_cast<UINT>(shader->info.pushConstantSize / sizeof(uint32_t)), maxCbvBinding + 1, 0);
       pipeline.constantSlot = static_cast<uint32_t>(rootParameters.size() - 1);
     }
 

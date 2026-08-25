@@ -16,7 +16,7 @@ public:
                                      .format = kt::rhi::ImageFormat::R8G8B8A8_UNORM,
                                  });
 
-    pass.setBuildCallback([](kt::RenderGraph& graph, kt::rhi::CommandBuffer& cmd, glm::uvec2 framebufferSize) {
+    pass.setBuildCallback([](kt::RenderGraph& graph, kt::rhi::CommandBuffer& cmd, kt::rhi::DescriptorSet&, glm::uvec2 framebufferSize) {
       auto index = graph.getImageIndex("color");
       auto& image = graph.getImage(index);
 

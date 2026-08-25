@@ -121,3 +121,31 @@ fmt::format_context::iterator fmt::formatter<InputRate>::format(const InputRate&
     return fmt::format_to(ctx.out(), "Instance");
   }
 }
+
+fmt::format_context::iterator fmt::formatter<ShaderResourceType>::format(const ShaderResourceType& srt, fmt::format_context& ctx) const {
+  switch (srt) {
+  case ShaderResourceType::UniformBuffer:
+    return fmt::format_to(ctx.out(), "UniformBuffer");
+  case ShaderResourceType::StorageBuffer:
+    return fmt::format_to(ctx.out(), "StorageBuffer");
+  case ShaderResourceType::RWStorageBuffer:
+    return fmt::format_to(ctx.out(), "RWStorageBuffer");
+  case ShaderResourceType::Texture1D:
+    return fmt::format_to(ctx.out(), "Texture1D");
+  case ShaderResourceType::Texture2D:
+    return fmt::format_to(ctx.out(), "Texture2D");
+  case ShaderResourceType::Texture3D:
+    return fmt::format_to(ctx.out(), "Texture3D");
+  case ShaderResourceType::TextureCube:
+    return fmt::format_to(ctx.out(), "TextureCube");
+  case ShaderResourceType::Texture1DArray:
+    return fmt::format_to(ctx.out(), "Texture1DArray");
+  case ShaderResourceType::Texture2DArray:
+    return fmt::format_to(ctx.out(), "Texture2DArray");
+  case ShaderResourceType::Texture3DArray:
+    return fmt::format_to(ctx.out(), "Texture3DArray");
+  case ShaderResourceType::Sampler:
+    return fmt::format_to(ctx.out(), "Sampler");
+    break;
+  }
+}

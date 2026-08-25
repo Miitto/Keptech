@@ -2,7 +2,7 @@
 
 #include "keptech/rhi/structs.hpp"
 #include "rhi.hpp"
-#include "vk-logger.hpp"
+#include "vk/vk-logger.hpp"
 #include <Volk/volk.h>
 #include <keptech/shaders/shader.h>
 

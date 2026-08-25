@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <spdlog/fmt/bundled/format.h>
+#include <vector>
 
 namespace kt::shaders {
   enum class ShaderResourceType : uint8_t {
@@ -19,8 +21,17 @@ namespace kt::shaders {
 
   struct ResourceBinding {
     ShaderResourceType type;
-    uint32_t set;
     uint32_t binding;
-    bool isPushDescriptor;
+    uint32_t count;
+    bool isPush = false;
+  };
+
+  struct ResourceSet {
+    uint8_t space;
+    std::vector<ResourceBinding> resources;
   };
 } // namespace kt::shaders
+
+template <> struct fmt::formatter<kt::shaders::ShaderResourceType> : fmt::formatter<std::string_view> {
+  fmt::format_context::iterator format(const kt::shaders::ShaderResourceType& type, fmt::format_context& ctx) const;
+};

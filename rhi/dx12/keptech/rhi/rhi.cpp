@@ -3,14 +3,13 @@
 #include "buffer.hpp"
 #include "cmdBuf.hpp"
 #include "d3dx12.h"
-#include "dx/descriptorLayout.hpp"
+#include "descriptorLayout.hpp"
 #include "dx/dx-logger.hpp"
 #include "image.hpp"
 #include "imageRef.hpp"
 #include "imgui.h"
 #include "keptech/components/transform.hpp"
 #include "keptech/core/scene.hpp"
-#include "keptech/core/version.h"
 #include "keptech/core/window.hpp"
 #include "keptech/rhi/descriptorInfo.hpp"
 #include "keptech/rhi/imgui.hpp"
@@ -24,6 +23,7 @@ namespace kt::rhi {
 
   RHI& RHI::get() { return singleton; }
   bool RHI::isInit() { return isInitialized; }
+  uint64_t RHI::getTimelineValue() const { return m.fence.currentValue(); }
 
   bool RHI::canRenderToFormat(ImageFormat format) const {
     D3D12_FEATURE_DATA_FORMAT_SUPPORT formatSupport{.Format = raw(format)};
@@ -94,7 +94,7 @@ namespace kt::rhi {
     return static_cast<ImageRef>(img);
   }
 
-  DescriptorLayout RHI::createDescriptorLayout(const std::vector<DescriptorInfo>& descriptorInfos) {
+  DescriptorLayout RHI::createDescriptorLayout(std::span<const DescriptorInfo> descriptorInfos) {
     DescriptorLayout layout{};
     auto& ranges = layout.dxGetRanges();
     ranges.reserve(descriptorInfos.size());
@@ -128,13 +128,15 @@ namespace kt::rhi {
       }
     }
 
-    return DescriptorPool{std::move(otherHeap)};
+    return DescriptorPool{std::move(otherHeap), otherHeapDesc.NumDescriptors};
   }
 
   void RHI::newFrame() {
 
     ImGui_ImplDX12_NewFrame();
     imgui::newFrame();
+
+    resetStats();
   }
 
   void RHI::startFrame() {
@@ -165,37 +167,7 @@ namespace kt::rhi {
     m.runningAllocs[m.frameIndex].clear();
   }
 
-  void RHI::debugUi() const {
-
-    auto camera = Scene::active().getActiveCamera();
-    if (camera.isValid()) {
-      ImGui::Begin("Debug View");
-      auto& camT = camera.getComponents<components::Transform>();
-      auto camPos = camT.getGlobal()[3];
-
-      ImGui::Text("Camera Position: %.2f, %.2f, %.2f", static_cast<double>(camPos.x), static_cast<double>(camPos.y),
-                  static_cast<double>(camPos.z));
-
-      ImGui::End();
-    }
-
-    std::string ktInfo = fmt::format("KepTech v{} (DX12) {}x{}", KT_VERSION_STRING, m.swapchain.size.x, m.swapchain.size.y);
-
-    auto viewportSize = ImGui::GetMainViewport()->Size;
-    // Needs to be always because of window resize
-    ImGui::SetNextWindowPos({viewportSize.x, .0f}, ImGuiCond_None, {1.0f, 0.f});
-    ImGui::SetNextWindowBgAlpha(0.f);
-
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {2.f, 2.f});
-
-    ImGui::Begin("KepTech Info", nullptr,
-                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing |
-                     ImGuiWindowFlags_NoNav);
-    ImGui::TextUnformatted(ktInfo.c_str());
-    ImGui::End();
-    ImGui::PopStyleVar(2);
-  }
+  void RHI::debugUi() const {}
 
   void RHI::endFrame(CommandBuffer& cmd) {
 #ifndef NDEBUG

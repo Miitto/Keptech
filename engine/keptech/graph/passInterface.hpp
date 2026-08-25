@@ -10,6 +10,7 @@ namespace kt {
     struct ColorClearValue;
     struct ResourceLayout;
     struct ResourceSet;
+    class DescriptorSet;
   } // namespace rhi
   class RenderPassBuilder;
   class RenderGraphBuilder;
@@ -58,12 +59,7 @@ namespace kt {
     /// @param cmd The command buffer to record commands to.
     /// @param descriptorSet The descriptor set for the pass. This is populated with the resources that were specified during setup.
     /// @param framebufferSize The size of the framebuffer for this pass. This is useful for setting the viewport and scissor.
-    virtual void execute(RenderGraph& graph, rhi::CommandBuffer& cmd,
-#ifdef KT_VULKAN
-                         ResourceSet& resourceSet,
-#endif
-                         glm::uvec2 framebufferSize = {}) {
-    }
+    virtual void execute(RenderGraph& graph, rhi::CommandBuffer& cmd, rhi::DescriptorSet& resourceSet, glm::uvec2 framebufferSize = {}) {}
 
     /// Called when the render graph is destroyed.
     virtual void shutdown(RenderGraph& graph) {}

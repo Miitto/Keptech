@@ -25,7 +25,7 @@ namespace kt {
     return res;
   }
 
-  RenderBufferResource& RenderPassBuilder::addGenericBufferInput(const std::string& n, BufferUsage usage
+  RenderBufferResource& RenderPassBuilder::addGenericBufferInput(const std::string& n, BufferUsage usage, uint32_t stride
 #ifdef KT_VULKAN
                                                                  ,
                                                                  VkPipelineStageFlags2 stages, VkAccessFlags2 access
@@ -36,6 +36,9 @@ namespace kt {
 
     res.addBufferUsage(usage).addQueue(queue).readInPass(id);
 
+    KT_ASSERT(res.getBufferUsage().intersect(rhi::BufferUsage::Uniform | rhi::BufferUsage::Storage).bitCount() != 2,
+              "Generic buffer input '{}' must be either a uniform or storage buffer", res.getName());
+
     // Check if we already use this buffer. The same buffer may be used as multiple types of inputs in the same pass.
     auto it = std::ranges::find_if(genericBuffers, [&](const AccessedBufferResource& b) { return b.buffer->getId() == res.getId(); });
     if (it != genericBuffers.end()) {
@@ -43,9 +46,13 @@ namespace kt {
       it->stages |= stages;
       it->access |= access;
 #endif
+      KT_ASSERT(it->stride == stride || it->stride == 0,
+                "Generic buffer input '{}' has a different stride than previously added. Previous: {}, New: {}", res.getName(), it->stride,
+                stride);
+      it->stride = stride;
       return res;
     }
-    AccessedBufferResource acc{.buffer = &res};
+    AccessedBufferResource acc{.buffer = &res, .stride = stride};
     acc.layout = rhi::ImageLayout::General;
 #ifdef KT_VULKAN
     acc.access = access;
@@ -59,7 +66,7 @@ namespace kt {
 
   RenderBufferResource& RenderPassBuilder::addVertexBufferInput(const std::string& n) {
     LOG("Adding vertex buffer input '{}' to pass '{}'", name, this->name);
-    return addGenericBufferInput(n, rhi::BufferUsage::Vertex
+    return addGenericBufferInput(n, rhi::BufferUsage::Vertex, 0
 #ifdef KT_VULKAN
                                  ,
                                  VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT
@@ -69,7 +76,7 @@ namespace kt {
 
   RenderBufferResource& RenderPassBuilder::addIndexBufferInput(const std::string& n) {
     LOG("Adding index buffer input '{}' to pass '{}'", name, this->name);
-    return addGenericBufferInput(n, rhi::BufferUsage::Index
+    return addGenericBufferInput(n, rhi::BufferUsage::Index, 0
 #ifdef KT_VULKAN
                                  ,
                                  VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_ACCESS_INDEX_READ_BIT
@@ -79,7 +86,7 @@ namespace kt {
 
   RenderBufferResource& RenderPassBuilder::addIndirectBufferInput(const std::string& n) {
     LOG("Adding indirect buffer input '{}' to pass '{}'", name, this->name);
-    return addGenericBufferInput(n, rhi::BufferUsage::Indirect
+    return addGenericBufferInput(n, rhi::BufferUsage::Indirect, 0
 #ifdef KT_VULKAN
                                  ,
                                  VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT
@@ -206,13 +213,13 @@ namespace kt {
         stages = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
       }
     }
-    return addGenericBufferInput(n, rhi::BufferUsage::Uniform, stages, VK_ACCESS_UNIFORM_READ_BIT);
+    return addGenericBufferInput(n, rhi::BufferUsage::Uniform, 0, stages, VK_ACCESS_UNIFORM_READ_BIT);
 #else
-    return addGenericBufferInput(n, rhi::BufferUsage::Uniform);
+    return addGenericBufferInput(n, rhi::BufferUsage::Uniform, 0);
 #endif
   } // namespace kt::rhi
 
-  RenderBufferResource& RenderPassBuilder::addStorageReadOnlyInput(const std::string& n
+  RenderBufferResource& RenderPassBuilder::addStorageReadOnlyInput(const std::string& n, uint32_t stride
 #ifdef KT_VULKAN
                                                                    ,
                                                                    VkPipelineStageFlags2 stages
@@ -228,9 +235,9 @@ namespace kt {
         stages = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
       }
     }
-    return addGenericBufferInput(n, rhi::BufferUsage::Storage, stages, VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
+    return addGenericBufferInput(n, rhi::BufferUsage::Storage, stride, stages, VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
 #else
-    return addGenericBufferInput(n, rhi::BufferUsage::Storage);
+    return addGenericBufferInput(n, rhi::BufferUsage::Storage, stride);
 #endif
   }
 

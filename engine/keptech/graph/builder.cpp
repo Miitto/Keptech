@@ -2,9 +2,15 @@
 
 #include "graph.hpp"
 #include "keptech/core/kt-logger.hpp"
+#include "keptech/maths/maths.hpp"
 #include "keptech/rhi/buffer.hpp"
 #include "keptech/rhi/bufferCreateInfo.hpp"
+#include "keptech/rhi/bufferUsage.hpp"
 #include "keptech/rhi/cmdBuf.hpp"
+#include "keptech/rhi/descriptorInfo.hpp"
+#include "keptech/rhi/descriptorLayout.hpp"
+#include "keptech/rhi/descriptorSet.hpp"
+#include "keptech/rhi/descriptorTypes.hpp"
 #include "keptech/rhi/helpers/formatting.hpp"
 #include "keptech/rhi/imageCreateInfo.hpp"
 #include "keptech/rhi/imageRef.hpp"
@@ -121,18 +127,16 @@ namespace kt {
   } // namespace
 
   RenderGraph RenderGraphBuilder::build() {
-    auto& renderer = RHI::get();
+    auto& rhi = RHI::get();
     auto builtResources = buildResources();
 
-#ifdef KT_VULKAN
-    auto descriptorPool = buildDescriptorPool(renderer, builtResources);
-    auto passDescriptors = buildDescriptors(renderer, builtResources, descriptorPool);
-#endif
+    auto descriptorPool = buildDescriptorPool(rhi);
+    auto passDescriptors = buildDescriptors(rhi, builtResources, descriptorPool);
 
     auto bakedPasses = bakePasses(builtResources);
     auto passGroups = buildPassGroups(bakedPasses);
 
-    auto cmds = renderer.allocateGraphicsCommandBuffers(1);
+    auto cmds = rhi.allocateGraphicsCommandBuffers(1);
     auto& cmd = cmds.front();
 
     std::vector<rhi::CommandBuffer::ImageLayoutTransition> its;
@@ -146,19 +150,12 @@ namespace kt {
 
     cmd.end();
 
-    renderer.submitGraphicsCmd(cmd);
-    renderer.waitGraphicsIdle();
+    rhi.submitGraphicsCmd(cmd);
+    rhi.waitGraphicsIdle();
 
     RenderGraph res{
-        std::move(passGroups),
-        std::move(bakedPasses),
-        std::move(builtResources),
-        std::move(initialTransitions),
-#ifdef KT_VULKAN
-        ,
-        descriptorPool,
-        std::move(passDescriptors),
-#endif
+        std::move(passGroups),         std::move(bakedPasses),    std::move(builtResources),
+        std::move(initialTransitions), std::move(descriptorPool), std::move(passDescriptors),
     };
 
     res.setBackbufferSource(backbufferSource);
@@ -177,63 +174,41 @@ namespace kt {
     return res;
   }
 
-#ifdef KT_VULKAN
-  VkDescriptorPool RenderGraphBuilder::buildDescriptorPool(const rhi::RHI& renderer, const Resources& resources) {
-    struct DescriptorCounts {
-      size_t textures = 0;
-      size_t storageImages = 0;
-      size_t uniformBuffers = 0;
-      size_t storageBuffers = 0;
-    } counts;
+  rhi::DescriptorPool RenderGraphBuilder::buildDescriptorPool(rhi::RHI& rhi) {
+    rhi::DescriptorPoolInfo info{.maxSets = static_cast<uint32_t>(passStack.size())};
 
     for (const auto& passId : passStack) {
       auto& pass = passes[passId];
-      counts.textures += pass->getGenericTextureInputs().size();
-      counts.storageImages += pass->getStorageImageOutputs().size();
+      info.maxSampledImages += pass->getGenericTextureInputs().size() * 2;
+      info.maxStorageImages += pass->getStorageImageOutputs().size() * 2;
       for (const auto& buffer : pass->getGenericBufferInputs()) {
         if (buffer.buffer) {
-          if (buffer.access & VK_ACCESS_UNIFORM_READ_BIT) {
-            ++counts.uniformBuffers;
-          } else if (buffer.access & VK_ACCESS_2_SHADER_STORAGE_READ_BIT) {
-            ++counts.storageBuffers;
+          if (buffer.buffer->getBufferUsage().has(kt::rhi::BufferUsage::Uniform)) {
+            info.maxUniformBuffers += 2;
+          } else if (buffer.buffer->getBufferUsage().has(kt::rhi::BufferUsage::Storage)) {
+            info.maxStorageBuffers += 2;
           }
         }
       }
-      counts.storageBuffers += pass->getStorageOutputs().size();
+      info.maxStorageBuffers += pass->getStorageOutputs().size() * 2;
     }
 
-    std::vector<VkDescriptorPoolSize> poolSizes = {
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-                             .descriptorCount = static_cast<uint32_t>(counts.textures * MAX_FRAMES_IN_FLIGHT)},
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                             .descriptorCount = static_cast<uint32_t>(counts.storageImages * MAX_FRAMES_IN_FLIGHT)},
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                             .descriptorCount = static_cast<uint32_t>(counts.uniformBuffers * MAX_FRAMES_IN_FLIGHT)},
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                             .descriptorCount = static_cast<uint32_t>(counts.storageBuffers * MAX_FRAMES_IN_FLIGHT)}};
+    KT_DEBUG("RenderGraph descriptor pool has:");
+    KT_DEBUG("  Max sets: {}", info.maxSets);
+    KT_DEBUG("  Max sampled images: {}", info.maxSampledImages);
+    KT_DEBUG("  Max storage images: {}", info.maxStorageImages);
+    KT_DEBUG("  Max uniform buffers: {}", info.maxUniformBuffers);
+    KT_DEBUG("  Max storage buffers: {}", info.maxStorageBuffers);
 
-    poolSizes.erase(
-        std::remove_if(poolSizes.begin(), poolSizes.end(), [](const VkDescriptorPoolSize& size) { return size.descriptorCount == 0; }),
-        poolSizes.end());
-
-    VkDescriptorPoolCreateInfo poolInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
-        .maxSets = static_cast<uint32_t>(passes.size() * MAX_FRAMES_IN_FLIGHT),
-        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
-        .pPoolSizes = poolSizes.data(),
-    };
-    VkDescriptorPool descriptorPool = nullptr;
-    KT_REQUIRE(vkCreateDescriptorPool(members.vkcore.device, &poolInfo, nullptr, &descriptorPool) == VK_SUCCESS,
-               "Failed to create descriptor pool for render graph.");
+    auto descriptorPool = rhi.createDescriptorPool(info);
 
     return descriptorPool;
   }
 
-  std::vector<Descriptors> RenderGraphBuilder::buildDescriptors(const rhi::RHI& renderer, const Resources& resources,
-                                                                VkDescriptorPool descriptorPool) {
+  std::vector<std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT>>
+  RenderGraphBuilder::buildDescriptors(rhi::RHI& rhi, Resources& builtResources, rhi::DescriptorPool& descriptorPool) {
 
-    std::vector<Descriptors> passDescriptors;
+    std::vector<std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT>> passDescriptors;
     passDescriptors.reserve(passStack.size());
 
     builtResources.imageUsedInPass.resize(builtResources.images.size());
@@ -245,12 +220,11 @@ namespace kt {
 
       struct PerFrameWrite {
         size_t writeIndex;
-        size_t bufferIndex;
+        PhysResourceId bufferId;
       };
 
-      std::vector<VkDescriptorImageInfo> imageInfos;
-      std::vector<VkDescriptorBufferInfo> bufferInfos;
-      std::vector<VkWriteDescriptorSet> writes;
+      std::vector<rhi::DescriptorInfo> infos;
+      std::vector<rhi::DescriptorWriteInfo> writes;
       std::vector<PerFrameWrite> perFrameWrites;
 
       size_t imgMaxCount = pass->getGenericTextureInputs().size() + pass->getStorageImageOutputs().size();
@@ -258,8 +232,6 @@ namespace kt {
                            MAX_FRAMES_IN_FLIGHT; // Reserve max bound of every buffer being CPU mapped (and hence duplicated).
       size_t writeMaxCount = imgMaxCount + bufMaxCount;
 
-      imageInfos.reserve(imgMaxCount);
-      bufferInfos.reserve(bufMaxCount); // Reserve max bound of every buffer being CPU mapped.
       writes.reserve(writeMaxCount);
 
       auto getImage = [&](const std::string& name) -> Image& { return builtResources.images[builtResources.nameToImage[name]]; };
@@ -267,241 +239,149 @@ namespace kt {
         return builtResources.buffers[builtResources.nameToBuffer[name] + offset];
       };
 
-      std::vector<VkDescriptorBindingFlags> bindingFlags;
-      std::vector<VkDescriptorSetLayoutBinding> bindings;
       for (const auto& texture : pass->getGenericTextureInputs()) {
         if (texture.texture && texture.texture->getPhysicalId().used()) {
-          uint32_t binding = static_cast<uint32_t>(bindings.size());
+          uint32_t binding = static_cast<uint32_t>(writes.size());
           KT_DEBUG("Pass '{}' has texture input '{}' at binding {}", pass->getName(), texture.texture->getName(), binding);
-          bindings.push_back(VkDescriptorSetLayoutBinding{
-              .binding = static_cast<uint32_t>(binding),
-              .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-              .descriptorCount = 1,
-              .stageFlags = 0,
-              .pImmutableSamplers = nullptr,
+          writes.push_back(rhi::DescriptorWriteInfo{
+              .binding = binding,
+              .arrayIndex = 0,
+              .type = rhi::DescriptorType::SampledImage,
+              .image = getImage(texture.texture->getName()),
           });
-          switch (pass->getQueue()) {
-          case QueueType::Graphics:
-            bindings.back().stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-            break;
-          case QueueType::Compute:
-          case QueueType::AsyncCompute:
-            bindings.back().stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-            break;
-          }
-          bindingFlags.push_back(VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT);
 
-          imageInfos.push_back(VkDescriptorImageInfo{
-              .sampler = VK_NULL_HANDLE,
-              .imageView = getImage(texture.texture->getName()),
-              .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+          builtResources.imageUsedInPass[texture.texture->getPhysicalId()].push_back(UsedInPass{
+              .passIndex = idx,
+              .binding = binding,
+              .descriptorType = rhi::DescriptorType::SampledImage,
+              .layout = rhi::ImageLayout::ShaderReadOnly,
           });
-          writes.push_back(VkWriteDescriptorSet{
-              .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-              .dstBinding = static_cast<uint32_t>(bindings.size() - 1),
-              .dstArrayElement = 0,
-              .descriptorCount = 1,
-              .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-              .pImageInfo = &imageInfos.back(),
+          infos.push_back(rhi::DescriptorInfo{
+              .type = rhi::DescriptorType::SampledImage,
+              .binding = binding,
+              .count = 1,
           });
-          if (texture.texture->getPhysicalId().used())
-            builtResources.imageUsedInPass[texture.texture->getPhysicalId()].push_back(
-                UsedInPass{.passIndex = idx,
-                           .binding = binding,
-                           .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                           .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE});
         }
       }
-      for (const auto& buffer : pass->getGenericBufferInputs()) {
-        if (buffer.buffer && buffer.buffer->getPhysicalId().used()) {
-          uint32_t binding = static_cast<uint32_t>(bindings.size());
-          KT_DEBUG("Pass '{}' has {} buffer input '{}' at binding {}", pass->getName(),
-                   (buffer.access & VK_ACCESS_UNIFORM_READ_BIT) ? "uniform" : "storage", buffer.buffer->getName(), binding);
-          bindings.push_back(VkDescriptorSetLayoutBinding{
-              .binding = binding,
-              .descriptorType =
-                  (buffer.access & VK_ACCESS_UNIFORM_READ_BIT) ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-              .descriptorCount = 1,
-              .stageFlags = 0,
-              .pImmutableSamplers = nullptr,
-          });
-          switch (pass->getQueue()) {
-          case QueueType::Graphics:
-            bindings.back().stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-            break;
-          case QueueType::Compute:
-          case QueueType::AsyncCompute:
-            bindings.back().stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-            break;
-          }
-          bindingFlags.push_back(VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT);
 
-          bufferInfos.push_back(VkDescriptorBufferInfo{
-              .buffer = getBuffer(buffer.buffer->getName()),
-              .offset = 0,
-              .range = buffer.buffer->getBufferInfo().size,
-          });
-          writes.push_back(VkWriteDescriptorSet{
-              .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-              .dstBinding = static_cast<uint32_t>(bindings.size() - 1),
-              .dstArrayElement = 0,
-              .descriptorCount = 1,
-              .descriptorType =
-                  (buffer.access & VK_ACCESS_UNIFORM_READ_BIT) ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-              .pBufferInfo = &bufferInfos.back(),
-          });
-          if (buffer.buffer->getBufferInfo().isHostAccessible()) {
-            perFrameWrites.push_back({.writeIndex = writes.size() - 1, .bufferIndex = bufferInfos.size() - 1});
-            for (size_t i = 1; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-              bufferInfos.push_back(VkDescriptorBufferInfo{
-                  .buffer = getBuffer(buffer.buffer->getName(), i),
-                  .offset = 0,
-                  .range = buffer.buffer->getBufferInfo().size,
-              });
+      auto addBufferWrites = [&](rhi::BufferUsage usage, rhi::DescriptorType descriptorType) {
+        for (const auto& buffer : pass->getGenericBufferInputs()) {
+          if (buffer.buffer && buffer.buffer->getPhysicalId().used() && buffer.buffer->getBufferUsage().has(usage)) {
+            uint32_t binding = static_cast<uint32_t>(writes.size());
+            KT_DEBUG("Pass '{}' has {} buffer input '{}' at binding {}", pass->getName(),
+                     buffer.buffer->getBufferUsage().has(rhi::BufferUsage::Uniform) ? "uniform" : "storage", buffer.buffer->getName(),
+                     binding);
+
+            KT_ASSERT(buffer.buffer->getBufferInfo().size > 0, "Pass {}: Buffer '{}' has size 0. Buffers must have a non-zero size.",
+                      pass->getName(), buffer.buffer->getName());
+
+            KT_ASSERT((!buffer.buffer->getBufferUsage().has(rhi::BufferUsage::Storage)) || buffer.stride > 0,
+                      "Pass {}: Buffer '{}' has stride 0. Storage buffers must have a non-zero stride.", pass->getName(),
+                      buffer.buffer->getName());
+
+            writes.push_back(rhi::DescriptorWriteInfo{
+                .binding = binding,
+                .arrayIndex = 0,
+                .type = descriptorType,
+                .buffer = getBuffer(buffer.buffer->getName()),
+                .offset = 0,
+                .range = buffer.buffer->getBufferInfo().size,
+                .stride = buffer.stride,
+            });
+
+            if (buffer.buffer->getBufferInfo().isHostAccessible()) {
+              perFrameWrites.push_back(
+                  PerFrameWrite{.writeIndex = writes.size() - 1, .bufferId = builtResources.nameToBuffer[buffer.buffer->getName()]});
             }
-          }
-          if (buffer.buffer->getPhysicalId().used())
             builtResources.bufferUsedInPass[buffer.buffer->getPhysicalId()].push_back(
-                UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = writes.back().descriptorType});
+                UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = descriptorType});
+
+            infos.push_back(rhi::DescriptorInfo{
+                .type = descriptorType,
+                .binding = binding,
+                .count = 1,
+            });
+          }
+        }
+      };
+
+      addBufferWrites(rhi::BufferUsage::Uniform, rhi::DescriptorType::UniformBuffer);
+      addBufferWrites(rhi::BufferUsage::Storage, rhi::DescriptorType::StorageBuffer);
+
+      for (const auto& buffer : pass->getStorageOutputs()) {
+        if (buffer && buffer->getPhysicalId().used()) {
+          uint32_t binding = static_cast<uint32_t>(writes.size());
+          KT_DEBUG("Pass '{}' has storage buffer output '{}' at binding {}", pass->getName(), buffer->getName(), binding);
+          writes.push_back(rhi::DescriptorWriteInfo{
+              .binding = binding,
+              .arrayIndex = 0,
+              .type = rhi::DescriptorType::RWStorageBuffer,
+              .buffer = getBuffer(buffer->getName()),
+              .offset = 0,
+              .range = buffer->getBufferInfo().size,
+              .stride = buffer->getBufferInfo().stride,
+          });
+
+          if (buffer->getBufferInfo().isHostAccessible()) {
+            perFrameWrites.push_back(
+                PerFrameWrite{.writeIndex = writes.size() - 1, .bufferId = builtResources.nameToBuffer[buffer->getName()]});
+          }
+          builtResources.bufferUsedInPass[buffer->getPhysicalId()].push_back(
+              UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = rhi::DescriptorType::RWStorageBuffer});
+
+          infos.push_back(rhi::DescriptorInfo{
+              .type = rhi::DescriptorType::RWStorageBuffer,
+              .binding = binding,
+              .count = 1,
+          });
         }
       }
 
       for (const auto& image : pass->getStorageImageOutputs()) {
         if (image && image->getPhysicalId().used()) {
-          uint32_t binding = static_cast<uint32_t>(bindings.size());
+          uint32_t binding = static_cast<uint32_t>(writes.size());
           KT_DEBUG("Pass '{}' has storage image output '{}' at binding {}", pass->getName(), image->getName(), binding);
-          bindings.push_back(VkDescriptorSetLayoutBinding{
+
+          writes.push_back(rhi::DescriptorWriteInfo{
               .binding = binding,
-              .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-              .descriptorCount = 1,
-              .stageFlags = 0,
-              .pImmutableSamplers = nullptr,
+              .arrayIndex = 0,
+              .type = rhi::DescriptorType::StorageImage,
+              .image = getImage(image->getName()),
           });
-          switch (pass->getQueue()) {
-          case QueueType::Graphics:
-            bindings.back().stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-            break;
-          case QueueType::Compute:
-          case QueueType::AsyncCompute:
-            bindings.back().stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-            break;
-          }
-          bindingFlags.push_back(VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT);
 
-          imageInfos.push_back(VkDescriptorImageInfo{
-              .sampler = VK_NULL_HANDLE,
-              .imageView = getImage(image->getName()),
-              .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-          });
-          writes.push_back(VkWriteDescriptorSet{
-              .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-              .dstBinding = static_cast<uint32_t>(bindings.size() - 1),
-              .dstArrayElement = 0,
-              .descriptorCount = 1,
-              .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-              .pImageInfo = &imageInfos.back(),
-          });
-          if (image->getPhysicalId().used())
-            builtResources.imageUsedInPass[image->getPhysicalId()].push_back(
-                UsedInPass{.passIndex = idx,
-                           .binding = binding,
-                           .layout = VK_IMAGE_LAYOUT_GENERAL,
-                           .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
-        }
-      }
+          builtResources.imageUsedInPass[image->getPhysicalId()].push_back(
+              UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = rhi::DescriptorType::StorageImage});
 
-      for (const auto& buffer : pass->getStorageOutputs()) {
-        if (buffer && buffer->getPhysicalId().used()) {
-          uint32_t binding = static_cast<uint32_t>(bindings.size());
-          KT_DEBUG("Pass '{}' has storage buffer output '{}' at binding {}", pass->getName(), buffer->getName(), binding);
-          bindings.push_back(VkDescriptorSetLayoutBinding{
+          infos.push_back(rhi::DescriptorInfo{
+              .type = rhi::DescriptorType::StorageImage,
               .binding = binding,
-              .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-              .descriptorCount = 1,
-              .stageFlags = 0,
-              .pImmutableSamplers = nullptr,
+              .count = 1,
           });
-          switch (pass->getQueue()) {
-          case QueueType::Graphics:
-            bindings.back().stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-            break;
-          case QueueType::Compute:
-          case QueueType::AsyncCompute:
-            bindings.back().stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-            break;
-          }
-          bindingFlags.push_back(VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT);
-          bufferInfos.push_back(VkDescriptorBufferInfo{
-              .buffer = getBuffer(buffer->getName()),
-              .offset = 0,
-              .range = buffer->getBufferInfo().size,
-          });
-          writes.push_back(VkWriteDescriptorSet{
-              .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-              .dstBinding = static_cast<uint32_t>(bindings.size() - 1),
-              .dstArrayElement = 0,
-              .descriptorCount = 1,
-              .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-              .pBufferInfo = &bufferInfos.back(),
-          });
-          if (buffer->getBufferInfo().isHostAccessible()) {
-            perFrameWrites.push_back({.writeIndex = writes.size() - 1, .bufferIndex = bufferInfos.size() - 1});
-            for (size_t i = 1; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-              bufferInfos.push_back(VkDescriptorBufferInfo{
-                  .buffer = getBuffer(buffer->getName(), i),
-                  .offset = 0,
-                  .range = buffer->getBufferInfo().size,
-              });
-            }
-          }
-          if (buffer->getPhysicalId().used())
-            builtResources.bufferUsedInPass[buffer->getPhysicalId()].push_back(
-                UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER});
         }
       }
 
-      VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{
-          .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
-          .bindingCount = static_cast<uint32_t>(bindingFlags.size()),
-          .pBindingFlags = bindingFlags.data(),
-      };
-      VkDescriptorSetLayoutCreateInfo layoutInfo{
-          .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-          .pNext = &bindingFlagsInfo,
-          .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
-          .bindingCount = static_cast<uint32_t>(bindings.size()),
-          .pBindings = bindings.data(),
-      };
-      VkDescriptorSetLayout layout = nullptr;
-      KT_REQUIRE(vkCreateDescriptorSetLayout(members.vkcore.device, &layoutInfo, nullptr, &layout) == VK_SUCCESS,
-                 "Failed to create descriptor set layout for pass '{}'", pass->getName());
-      std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> sets{};
-      std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, layout);
-      VkDescriptorSetAllocateInfo allocInfo{
-          .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-          .descriptorPool = descriptorPool,
-          .descriptorSetCount = MAX_FRAMES_IN_FLIGHT,
-          .pSetLayouts = layouts.data(),
-      };
-      KT_REQUIRE(vkAllocateDescriptorSets(members.vkcore.device, &allocInfo, sets.data()) == VK_SUCCESS,
-                 "Failed to allocate descriptor sets for pass '{}'", pass->getName());
+      auto layout = rhi.createDescriptorLayout(infos);
 
-      for (const auto& [setIdx, set] : sets | std::views::enumerate) {
-        for (auto& write : writes) {
-          write.dstSet = set;
-        }
-
-        for (auto pfw : perFrameWrites) {
-          writes[pfw.writeIndex].pBufferInfo = &bufferInfos[pfw.bufferIndex + static_cast<size_t>(setIdx)];
-        }
-
-        vkUpdateDescriptorSets(members.vkcore.device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+      std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT> sets{};
+      for (auto& set : sets) {
+        set = descriptorPool.allocate(layout);
       }
 
-      passDescriptors.push_back(Descriptors{.layout = layout, .sets = sets});
+      sets[0].write(layout, writes);
+
+      for (size_t frame = 1; frame < MAX_FRAMES_IN_FLIGHT; ++frame) {
+        for (const auto& perFrameWrite : perFrameWrites) {
+          auto& write = writes[perFrameWrite.writeIndex];
+          write.buffer = builtResources.buffers[perFrameWrite.bufferId + frame];
+        }
+        sets[frame].write(layout, writes);
+      }
+
+      passDescriptors.push_back(sets);
     }
+
+    return passDescriptors;
   }
-#endif
 
   void RenderGraphBuilder::log() const {
     KT_DEBUG("Render Graph Log:");
@@ -887,6 +767,25 @@ namespace kt {
         physicalResourceInfos[id + i].bufferInfo.usage |= usage;
       }
     };
+
+    for (auto& pass : passes) {
+      for (auto& input : pass->getGenericBufferInputs()) {
+        if (input.buffer->getBufferUsage().has(rhi::BufferUsage::Uniform)) {
+          auto info = input.buffer->getBufferInfo();
+          if (info.size % 256 != 0) {
+#ifdef KT_DX12
+            KT_WARN("DX12 requires uniform buffer sizes to be a multiple of 256 bytes. Buffer '{}' has size {}. Padding to 256 bytes.",
+                    input.buffer->getName(), info.size);
+            info.size = maths::roundToAlignment(info.size, 256);
+            input.buffer->setBufferInfo(info);
+#else
+            KT_WARN("Buffer '{}' has size {} which is not a multiple of 256 bytes. This may cause issues on some platforms.",
+                    input.buffer->getName(), info.size);
+#endif
+          }
+        }
+      }
+    }
 
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       auto& pass = *passes[passId];

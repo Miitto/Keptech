@@ -3,11 +3,6 @@
 #include "keptech/rhi/descriptorTypes.hpp"
 
 namespace kt::rhi {
-  enum class DescriptorPoolType : uint8_t {
-    Sampler,
-    Other,
-  };
-
   struct DescriptorPoolInfo {
     /// Maximum number of descriptor sets that can be allocated from the created pool
     /// @note Only applicable for Vulkan

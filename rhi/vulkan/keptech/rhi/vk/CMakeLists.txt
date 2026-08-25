@@ -1,0 +1,9 @@
+target_sources(Keptech_RHI
+  PRIVATE
+    constants.cpp
+    device.cpp
+    impls.cpp
+    instance.cpp
+    swapchain.cpp
+    vk-logger.cpp
+)

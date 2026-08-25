@@ -3,7 +3,7 @@
 #include "keptech/rhi/rhi.hpp"
 
 #include "profile.hpp"
-#include "vk-logger.hpp"
+#include "vk/vk-logger.hpp"
 
 namespace kt::rhi {
 

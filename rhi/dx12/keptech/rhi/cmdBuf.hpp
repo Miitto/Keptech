@@ -16,7 +16,7 @@ namespace kt::rhi {
   class DescriptorSet;
 
   class CommandBuffer {
-#include "keptech/rhi/interface/cmdBuf.hpp"
+#include "keptech/rhi/interface/cmdBuf.inl"
 
   public:
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator>& dxGetAlloc() { return allocator; }

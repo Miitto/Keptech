@@ -70,3 +70,60 @@ template <> struct fmt::formatter<slang::TypeReflection::Kind> : fmt::formatter<
     }
   }
 };
+
+template <> struct fmt::formatter<slang::ParameterCategory> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const slang::ParameterCategory& category, FormatContext& ctx) const {
+    switch (category) {
+    case slang::ParameterCategory::None:
+      return fmt::format_to(ctx.out(), "None");
+    case slang::ParameterCategory::ConstantBuffer:
+      return fmt::format_to(ctx.out(), "ConstantBuffer");
+    case slang::Mixed:
+      return fmt::format_to(ctx.out(), "Mixed");
+    case slang::ShaderResource:
+      return fmt::format_to(ctx.out(), "ShaderResource");
+    case slang::UnorderedAccess:
+      return fmt::format_to(ctx.out(), "UnorderedAccess");
+    case slang::VaryingInput:
+      return fmt::format_to(ctx.out(), "VaryingInput");
+    case slang::VaryingOutput:
+      return fmt::format_to(ctx.out(), "VaryingOutput");
+    case slang::SamplerState:
+      return fmt::format_to(ctx.out(), "SamplerState");
+    case slang::Uniform:
+      return fmt::format_to(ctx.out(), "Uniform");
+    case slang::DescriptorTableSlot:
+      return fmt::format_to(ctx.out(), "DescriptorTableSlot");
+    case slang::SpecializationConstant:
+      return fmt::format_to(ctx.out(), "SpecializationConstant");
+    case slang::PushConstantBuffer:
+      return fmt::format_to(ctx.out(), "PushConstantBuffer");
+    case slang::RegisterSpace:
+      return fmt::format_to(ctx.out(), "RegisterSpace");
+    case slang::GenericResource:
+      return fmt::format_to(ctx.out(), "GenericResource");
+    case slang::RayPayload:
+      return fmt::format_to(ctx.out(), "RayPayload");
+    case slang::HitAttributes:
+      return fmt::format_to(ctx.out(), "HitAttributes");
+    case slang::CallablePayload:
+      return fmt::format_to(ctx.out(), "CallablePayload");
+    case slang::ShaderRecord:
+      return fmt::format_to(ctx.out(), "ShaderRecord");
+    case slang::ExistentialTypeParam:
+      return fmt::format_to(ctx.out(), "ExistentialTypeParam");
+    case slang::ExistentialObjectParam:
+      return fmt::format_to(ctx.out(), "ExistentialObjectParam");
+    case slang::SubElementRegisterSpace:
+      return fmt::format_to(ctx.out(), "SubElementRegisterSpace");
+    case slang::InputAttachmentIndex:
+      return fmt::format_to(ctx.out(), "InputAttachmentIndex");
+    case slang::MetalArgumentBufferElement:
+      return fmt::format_to(ctx.out(), "MetalArgumentBufferElement");
+    case slang::MetalAttribute:
+      return fmt::format_to(ctx.out(), "MetalAttribute");
+    case slang::MetalPayload:
+      return fmt::format_to(ctx.out(), "MetalPayload");
+    }
+  }
+};

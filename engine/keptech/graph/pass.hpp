@@ -39,6 +39,7 @@ namespace kt {
 
   struct AccessedBufferResource : public AccessedResource {
     RenderBufferResource* buffer = nullptr;
+    uint32_t stride = 0;
   };
 
   class RenderPassBuilder {
@@ -74,7 +75,7 @@ namespace kt {
     RenderBufferResource& addUniformInput(const std::string& name KT_PIPELINE_STAGES);
     /// Adds a storage buffer input for this pass. The buffer will be used as a storage buffer in the shader. To read and write to the same
     /// buffer, use addStorageOutput with the input parameter.
-    RenderBufferResource& addStorageReadOnlyInput(const std::string& name KT_PIPELINE_STAGES);
+    RenderBufferResource& addStorageReadOnlyInput(const std::string& name, uint32_t stride KT_PIPELINE_STAGES);
 
     /// Adds a storage image output for this pass. The image will be used as a storage image in the shader. Will alias with the input and
     /// use VK_LOAD_OP_LOAD if the input name is provided.
@@ -178,7 +179,7 @@ namespace kt {
 
     rhi::ImageLayout depthStencilLayout = rhi::ImageLayout::Undefined;
 
-    RenderBufferResource& addGenericBufferInput(const std::string& name, rhi::BufferUsage usage
+    RenderBufferResource& addGenericBufferInput(const std::string& name, rhi::BufferUsage usage, uint32_t stride
 #ifdef KT_VULKAN
                                                 ,
                                                 VkPipelineStageFlags2 stages, VkAccessFlags2 access

@@ -1,12 +1,11 @@
 #include "setup.hpp"
 
 #include "keptech/core/window.hpp"
-#include "keptech/rhi/device.hpp"
 #include "keptech/rhi/rendererCreateInfo.hpp"
 #include "keptech/rhi/rhi.hpp"
-#include "keptech/rhi/structs.hpp"
-#include "macros.hpp"
+#include "keptech/rhi/vk/device.hpp"
 #include "rhi.hpp"
+#include "vk/macros.hpp"
 #include <SDL3/SDL_vulkan.h>
 #include <Volk/volk.h>
 #include <array>

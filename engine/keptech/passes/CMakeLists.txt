@@ -13,4 +13,5 @@ compile_shader(Keptech SPIRV
   LINK PRIVATE
   SOURCES
     geometry
+    pointLight
 )

@@ -3,6 +3,7 @@
 #include "keptech/maths/frustum.hpp"
 #include "keptech/rhi/buffer.hpp"
 #include "keptech/rhi/constants.hpp"
+#include "keptech/rhi/descriptorPool.hpp"
 #include "keptech/rhi/image.hpp"
 #include "keptech/rhi/loadStoreOps.hpp"
 #include "pass.hpp"
@@ -44,11 +45,7 @@ namespace kt {
 
     void prepare();
 
-    void execute(rhi::CommandBuffer& cmd,
-#ifdef KT_VULKAN
-                 ResourceSet& descriptorSet,
-#endif
-                 glm::uvec2 framebufferSize = {});
+    void execute(rhi::CommandBuffer& cmd, rhi::DescriptorSet& descriptorSet, glm::uvec2 framebufferSize = {});
 
     void shutdown();
 
@@ -171,12 +168,8 @@ namespace kt {
 
   private:
     RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
-                std::vector<ImageTransition>&& initialTransitions
-#ifdef KT_VULKAN
-                ,
-                VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors
-#endif
-    );
+                std::vector<ImageTransition>&& initialTransitions, rhi::DescriptorPool&& descriptorPool,
+                std::vector<std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT>>&& descriptors);
 
     std::unordered_map<std::string, void*> userData;
 
@@ -189,10 +182,8 @@ namespace kt {
 
     Resources resources;
 
-#ifdef KT_VULKAN
-    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-    std::vector<Descriptors> passDescriptors;
-#endif
+    rhi::DescriptorPool descriptorPool{};
+    std::vector<std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT>> passDescriptors;
 
     size_t backbufferSourceIndex = 0;
 
@@ -204,6 +195,8 @@ namespace kt {
 
     void updateDescriptors();
     void passBarriers(rhi::CommandBuffer& cmd, const Barriers& barriers);
+
+    void debugUi();
 
     static RenderGraph* activeGraph;
   };

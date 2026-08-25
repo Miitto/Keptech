@@ -6,13 +6,14 @@
 #include "keptech/rhi/buffer.hpp"
 #include "keptech/rhi/bufferTypes.hpp"
 #include "keptech/rhi/bufferUsage.hpp"
+#include "keptech/rhi/descriptorSet.hpp"
+#include "keptech/rhi/descriptorTypes.hpp"
 #include "keptech/rhi/image.hpp"
 #include "keptech/rhi/imageLayout.hpp"
 #include <cstdint>
 #include <glm/ext/vector_float3.hpp>
 #include <spdlog/fmt/bundled/format.h>
 #include <string>
-
 
 namespace kt::rhi {
   struct ResourceSet;
@@ -22,11 +23,7 @@ namespace kt::rhi {
 namespace kt {
   class RenderGraph;
 
-  using PassExecuteCb = std::function<void(RenderGraph&, rhi::CommandBuffer&,
-#ifdef KT_VULKAN
-                                           rhi::ResourceSet&,
-#endif
-                                           glm::uvec2)>;
+  using PassExecuteCb = std::function<void(RenderGraph&, rhi::CommandBuffer&, rhi::DescriptorSet&, glm::uvec2)>;
 
   class PassId {
   public:
@@ -142,6 +139,7 @@ namespace kt {
 
   struct BufferInfo {
     size_t size = 0;
+    size_t stride = 0;
     Bitflag<rhi::BufferUsage> usage = rhi::BufferUsage::None;
     rhi::BufferType type = rhi::BufferType::Default;
     bool persistent = true;
@@ -240,6 +238,7 @@ namespace kt {
   struct UsedInPass {
     size_t passIndex = ~0u;
     uint32_t binding = ~0u;
+    rhi::DescriptorType descriptorType;
     rhi::ImageLayout layout = rhi::ImageLayout::Undefined;
   };
 
@@ -259,13 +258,6 @@ namespace kt {
     std::vector<std::vector<UsedInPass>> imageUsedInPass;
     std::vector<std::vector<UsedInPass>> bufferUsedInPass;
   };
-
-#ifdef KT_VULKAN
-  struct Descriptors {
-    VkDescriptorSetLayout layout = nullptr;
-    std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> sets{};
-  };
-#endif
 } // namespace kt
 
 namespace std {

@@ -3,14 +3,8 @@
 #ifdef KT_PROFILE
 #include "profile.hpp"
 #endif
-#include "rhi.hpp"
-#include <SDL3/SDL_vulkan.h>
 
-#include "constants.hpp"
-#include "graph/builder.hpp"
-#include "graph/graph.hpp"
-#include <keptech/components/camera.hpp>
-#include <keptech/maths/maths.hpp>
+#include "rhi.hpp"
 
 namespace kt::rhi {
   using namespace kt::rhi::setup;
@@ -42,38 +36,18 @@ namespace kt::rhi {
     };
     vkGetPhysicalDeviceProperties2(m.vkcore.device, &properties);
 
-    limits::minUniformBufferOffsetAlignment = properties.properties.limits.minUniformBufferOffsetAlignment;
-    limits::minStorageBufferOffsetAlignment = properties.properties.limits.minStorageBufferOffsetAlignment;
-    limits::maxPushConstantsSize = properties.properties.limits.maxPushConstantsSize;
+    constants::minUniformBufferOffsetAlignment = properties.properties.limits.minUniformBufferOffsetAlignment;
+    constants::minStorageBufferOffsetAlignment = properties.properties.limits.minStorageBufferOffsetAlignment;
+    constants::maxPushConstantsSize = properties.properties.limits.maxPushConstantsSize;
 
     if (properties.pNext) {
       VkPhysicalDeviceMaintenance3Properties p = *reinterpret_cast<VkPhysicalDeviceMaintenance3Properties*>(properties.pNext);
-      limits::maxMemoryAllocationSize = p.maxMemoryAllocationSize;
-    }
-
-    auto samplers_res = initSamplers();
-    if (!samplers_res) {
-      return std::unexpected(samplers_res.error());
+      constants::maxMemoryAllocationSize = p.maxMemoryAllocationSize;
     }
 
     auto imGui_res = initImGui();
     if (!imGui_res) {
       return std::unexpected(imGui_res.error());
-    }
-
-    auto desc_res = initDescriptors();
-    if (!desc_res) {
-      return std::unexpected(desc_res.error());
-    }
-
-    auto buffers_res = initBuffers();
-    if (!buffers_res) {
-      return std::unexpected(buffers_res.error());
-    }
-
-    auto formats_res = initFormats();
-    if (!formats_res) {
-      return std::unexpected(formats_res.error());
     }
 
 #ifdef KT_PROFILE
@@ -84,8 +58,6 @@ namespace kt::rhi {
 #endif
 
     vkDeviceWaitIdle(m.vkcore.device);
-
-    writeDescriptors();
 
     return {};
   }

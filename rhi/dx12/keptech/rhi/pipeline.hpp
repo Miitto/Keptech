@@ -10,6 +10,8 @@ namespace kt::rhi {
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState;
     D3D12_PRIMITIVE_TOPOLOGY primitiveTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
     uint32_t constantSlot = 0;
+    uint32_t cbvOffset = 0;
+    uint32_t srvOffset = 0;
     shaders::ShaderInfo info;
   };
 } // namespace kt::rhi

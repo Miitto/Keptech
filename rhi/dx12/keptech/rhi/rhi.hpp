@@ -17,6 +17,7 @@
 #include <D3D12MemAlloc.h>
 #include <array>
 #include <expected>
+#include "keptech/rhi/result.hpp"
 
 #ifdef min
 #undef min
@@ -118,7 +119,7 @@ namespace kt::rhi {
   class RHI {
     template <typename T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 
-#include "keptech/rhi/interface/rhi.hpp"
+#include "keptech/rhi/interface/rhi.inl"
 
   public:
     CD3DX12_CPU_DESCRIPTOR_HANDLE dxGetRtvHandle(uint16_t index) const;

@@ -3,7 +3,9 @@
 #include "keptech/core/result.hpp"
 #include "keptech/rhi/imageCreateInfo.hpp"
 #include "keptech/rhi/imageFormat.hpp"
+#include "keptech/rhi/result.hpp"
 #include <wrl/client.h>
+
 
 namespace D3D12MA {
   struct Allocation;
@@ -14,7 +16,7 @@ namespace kt::rhi {
   class ImageRef;
 
   class Image {
-#include "keptech/rhi/interface/image.hpp"
+#include "keptech/rhi/interface/image.inl"
 
   public:
     Microsoft::WRL::ComPtr<ID3D12Resource> dxresource() const;

@@ -30,26 +30,42 @@ namespace kt::rhi {
       BufferRef buffer;
       ImageRef image;
     };
-    size_t offset;
-    size_t range;
+    size_t offset = 0;
+    size_t range = 0;
+    size_t stride = 0;
   };
 
   class DescriptorSet {
   public:
     DescriptorSet() = default;
-    DescriptorSet(CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle, CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle)
-        : cpuHandle(cpuHandle), gpuHandle(gpuHandle) {}
+    DescriptorSet(CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle, CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle
+#ifndef NDEBUG
+                  ,
+                  uint32_t numDescriptors
+#endif
+                  )
+        : cpuHandle(cpuHandle), gpuHandle(gpuHandle)
+#ifndef NDEBUG
+          ,
+          numDescriptors(numDescriptors)
+#endif
+    {
+    }
 
     void write(const DescriptorLayout& layout, uint32_t binding, uint32_t arrayIndex, DescriptorWriteBufferType bufferType,
                BufferRef buffer, size_t offset, size_t range, size_t stride);
     void write(const DescriptorLayout& layout, uint32_t binding, uint32_t arrayIndex, DescriptorWriteImageType imageType, ImageRef image);
     void write(const DescriptorLayout& layout, std::span<const DescriptorWriteInfo> writeInfos);
 
-    [[nodiscard]] auto& dxGetCpuHandle(this auto& self) { return self.cpuHandle; }
-    [[nodiscard]] auto& dxGetGpuHandle(this auto& self) { return self.gpuHandle; }
+    [[nodiscard]] CD3DX12_CPU_DESCRIPTOR_HANDLE dxGetCpuHandle() const { return cpuHandle; }
+    [[nodiscard]] CD3DX12_GPU_DESCRIPTOR_HANDLE dxGetGpuHandle() const { return gpuHandle; }
 
   private:
-    CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle;
-    CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle{};
+    CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle{};
+
+#ifndef NDEBUG
+    uint32_t numDescriptors = 0;
+#endif
   };
 } // namespace kt::rhi

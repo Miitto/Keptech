@@ -7,10 +7,10 @@
 #include "keptech/rhi/gltf/data.hpp"
 #include "keptech/rhi/gltf/scene.hpp"
 #include "loading/mesh.hpp"
-#include "macros.hpp"
 #include "profile.hpp"
 #include "stb/image.h"
-#include "vk-logger.hpp"
+#include "vk/macros.hpp"
+#include "vk/vk-logger.hpp"
 #include <cstring>
 #include <execution>
 #include <imgui/backends/imgui_impl_sdl3.h>

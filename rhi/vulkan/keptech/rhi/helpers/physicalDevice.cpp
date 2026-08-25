@@ -1,7 +1,7 @@
 #include "physicalDevice.hpp"
 
-#include "macros.hpp"
-#include "vk-logger.hpp"
+#include "vk/macros.hpp"
+#include "vk/vk-logger.hpp"
 #include <algorithm>
 
 namespace kt::rhi {

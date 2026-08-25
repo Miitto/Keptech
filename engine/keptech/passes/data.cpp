@@ -11,7 +11,7 @@ namespace kt {
 
   void DataPass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&) {
     self.addMappedBuffer("kt::camera", sizeof(kt::components::Camera::Uniforms));
-    self.addStorageOutput("kt::objects", {.size = 1000 * sizeof(Object), .type = rhi::BufferType::GpuMapped});
+    self.addMappedBuffer("kt::objects", 1000 * sizeof(Object));
   }
 
   void DataPass::setup(RenderGraph& graph) {

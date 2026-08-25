@@ -16,8 +16,12 @@ struct Object {
   uint materialIndex;
 };
 
-ConstantBuffer<kt::Camera> camera;
-StructuredBuffer<Object> objects;
+struct Buffers {
+  ConstantBuffer<kt::Camera> camera;
+  StructuredBuffer<Object> objects;
+}
+
+ParameterBlock<Buffers> buffers;
 
 [shader("vertex")]
 [topology(kt::PrimitiveTopology::TriangleList)]
@@ -25,11 +29,11 @@ StructuredBuffer<Object> objects;
 VertexOutput vert(float3 position: POSITION, kt::VertexAttribs v, uint baseInstance: SV_StartInstanceLocation) {
   VertexOutput output;
 
-  Object obj = objects[baseInstance];
+  Object obj = buffers.objects[baseInstance];
 
   let worldPosition = mul(float4(position, 1.0), obj.modelMatrix);
 
-  output.position = camera.worldToClip(worldPosition);
+  output.position = buffers.camera.worldToClip(worldPosition);
   output.uvX = v.uv.x;
   output.uvY = v.uv.y;
 

@@ -1,8 +1,7 @@
 #include "constants.hpp"
 #include "keptech/maths/maths.hpp"
 #include "keptech/rhi/rhi.hpp"
-#include "keptech/rhi/structs.hpp"
-#include "macros.hpp"
+#include "vk/macros.hpp"
 #include <Volk/volk.h>
 #include <array>
 #include <keptech/components/camera.hpp>
@@ -73,7 +72,7 @@ namespace kt::rhi {
         .pPoolSizes = sizes.data(),
     };
 
-    VK_MAKE(vkCreateDescriptorPool(m.vkcore.device, &poolCreateInfo, nullptr, &m.globalDescriptorSets.pool),
+    VK_MAKE(vkCreateDescriptorPool(m.vkcore.device, &poolCreateInfo, nullptr, &m.bindlessDescriptorSets.pool),
             "Failed to create bindless descriptor pool.");
 
     constexpr size_t descriptorBindingCount = 8;

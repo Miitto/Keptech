@@ -1,12 +1,14 @@
 #include "graph.hpp"
 #include "keptech/components/transform.hpp"
 #include "keptech/core/scene.hpp"
+#include "keptech/core/version.h"
 #include "keptech/rhi/bufferCreateInfo.hpp"
 #include "keptech/rhi/cmdBuf.hpp"
 #include "keptech/rhi/imageRef.hpp"
 #include "keptech/rhi/profile.hpp"
 #include "keptech/rhi/rhi.hpp"
 #include "passInterface.hpp"
+#include <imgui/imgui.h>
 #include <vector>
 
 namespace kt {
@@ -50,11 +52,12 @@ namespace kt {
         auto& cmd = graphicsCmds[graphicsCmdIndex];
         cmd.label(fmt::format("RenderGraph Graphics Pass Group {}", idx));
         for (uint32_t i = 0; i < group.count; ++i) {
+          auto& descriptorSet = passDescriptors[passIdx][frameIndex];
           auto& pass = passes[passIdx++];
           passBarriers(cmd, pass.getBarriers().pre);
           glm::uvec2 framebufferSize =
               pass.getQueue() == QueueType::Graphics ? resources.images[pass.getExtentSourceId()].getExtent() : glm::uvec2{0, 0};
-          pass.execute(cmd, framebufferSize);
+          pass.execute(cmd, descriptorSet, framebufferSize);
           passBarriers(cmd, pass.getBarriers().post);
         }
 
@@ -66,9 +69,10 @@ namespace kt {
         auto& cmd = computeCmds[computeCmdIndex];
         cmd.label(fmt::format("RenderGraph Async Compute Pass Group {}", idx));
         for (uint32_t i = 0; i < group.count; ++i) {
+          auto& descriptorSet = passDescriptors[passIdx][frameIndex];
           auto& pass = passes[passIdx++];
           passBarriers(cmd, pass.getBarriers().pre);
-          pass.execute(cmd, {});
+          pass.execute(cmd, descriptorSet, {});
           passBarriers(cmd, pass.getBarriers().post);
         }
         cmd.end();
@@ -82,6 +86,8 @@ namespace kt {
       }
     }
 
+    debugUi();
+
     auto& cmd = graphicsCmds.back();
     auto& backSource = getBackbufferImage();
     auto swp = rhi.getSwapchainImage();
@@ -92,6 +98,45 @@ namespace kt {
     cmd.transitionImage(swp, ImageLayout::TransferDst, ImageLayout::RenderTarget);
 
     rhi.endFrame(cmd);
+  }
+
+  void RenderGraph::debugUi() {
+    auto camera = Scene::active().getActiveCamera();
+    if (camera.isValid()) {
+      ImGui::Begin("Debug View");
+      auto& camT = camera.getComponents<components::Transform>();
+      auto camPos = camT.getGlobal()[3];
+
+      ImGui::Text("Camera Position: %.2f, %.2f, %.2f", static_cast<double>(camPos.x), static_cast<double>(camPos.y),
+                  static_cast<double>(camPos.z));
+
+#ifndef KT_DISABLE_STATS
+      auto& stats = RHI::get().getStats();
+      ImGui::SeparatorText("Stats");
+      ImGui::Text("Pipeline Switches: %llu", stats.pipelineSwitches);
+      ImGui::Text("Draw Calls: %llu", stats.drawCalls);
+      ImGui::Text("Dispatch Calls: %llu", stats.dispatchCalls);
+      ImGui::Text("Render Passes: %llu", stats.renderPasses);
+#endif
+      ImGui::End();
+    }
+
+    constexpr const char* ktInfo = "KepTech v" KT_VERSION_STRING " (" KT_RHI_STRING ")";
+
+    auto viewportSize = ImGui::GetMainViewport()->Size;
+    // Needs to be always because of window resize
+    ImGui::SetNextWindowPos({viewportSize.x, .0f}, ImGuiCond_None, {1.0f, 0.f});
+    ImGui::SetNextWindowBgAlpha(0.f);
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {2.f, 2.f});
+
+    ImGui::Begin("KepTech Info", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing |
+                     ImGuiWindowFlags_NoNav);
+    ImGui::TextUnformatted(ktInfo);
+    ImGui::End();
+    ImGui::PopStyleVar(2);
   }
 
   void RenderGraph::destroy() {
@@ -159,22 +204,16 @@ namespace kt {
     // TODO: Buffer barriers
   }
 
-  void RenderGraph::updateDescriptors() {}
+  void RenderGraph::updateDescriptors() {
+    // TODO: Update descriptors for buffers that have been realloc'd and images that have been resized.
+  }
 
   RenderGraph::RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
-                           std::vector<ImageTransition>&& initialTransitions
-#ifdef KT_VULKAN
-                           ,
-                           VkDescriptorPool descriptorPool, std::vector<Descriptors>&& descriptors
-#endif
-                           )
+                           std::vector<ImageTransition>&& initialTransitions, rhi::DescriptorPool&& descriptorPool,
+                           std::vector<std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT>>&& descriptors)
       : passGroups(std::move(passGroups)), passes(std::move(passes)), resources(std::move(resources)),
-        initialTransitions(std::move(initialTransitions))
-#ifdef KT_VULKAN
-        ,
-        descriptorPool(descriptorPool), passDescriptors(std::move(descriptors))
-#endif
-  {
+        descriptorPool(std::move(descriptorPool)), passDescriptors(std::move(descriptors)),
+        initialTransitions(std::move(initialTransitions)) {
     for (const auto& group : this->passGroups) {
       if (group.queue == QueueType::Graphics) {
         graphicsQueuePassCount += group.count;
@@ -307,23 +346,11 @@ namespace kt {
     if (passInterface)
       passInterface->prepare(*graph);
   }
-  void RenderPass::execute(CommandBuffer& cmd,
-#ifdef KT_VULKAN
-                           VkDescriptorSet descriptorSet,
-#endif
-                           glm::uvec2 framebufferSize) {
+  void RenderPass::execute(CommandBuffer& cmd, rhi::DescriptorSet& descriptorSet, glm::uvec2 framebufferSize) {
     if (passInterface) {
-      passInterface->execute(*graph, cmd,
-#ifdef KT_VULKAN
-                             descriptorSet,
-#endif
-                             framebufferSize);
+      passInterface->execute(*graph, cmd, descriptorSet, framebufferSize);
     } else if (buildCb) {
-      buildCb(*graph, cmd,
-#ifdef KT_VULKAN
-              descriptorSet,
-#endif
-              framebufferSize);
+      buildCb(*graph, cmd, descriptorSet, framebufferSize);
     }
   }
   void RenderPass::shutdown() {

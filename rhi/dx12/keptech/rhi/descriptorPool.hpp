@@ -11,7 +11,7 @@ namespace kt::rhi {
   class DescriptorPool {
   public:
     DescriptorPool() = default;
-    DescriptorPool(RawDescriptorPool pool) : pool(std::move(pool)) {}
+    DescriptorPool(RawDescriptorPool pool, uint32_t cap) : pool(std::move(pool)), capacity(cap) {}
 
     DescriptorSet allocate(const DescriptorLayout& layout);
 
@@ -20,5 +20,6 @@ namespace kt::rhi {
   private:
     RawDescriptorPool pool;
     uint32_t count = 0;
+    uint32_t capacity = 0;
   };
 } // namespace kt::rhi

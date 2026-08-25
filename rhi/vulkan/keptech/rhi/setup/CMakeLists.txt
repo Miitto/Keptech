@@ -1,13 +1,8 @@
 target_sources(Keptech_RHI
   PRIVATE
-    buffers.cpp
     core.cpp
-    descriptors.cpp
     device.cpp
-    formats.cpp
     imgui.cpp
-    pipelines.cpp
-    samplers.cpp
     setup.cpp
     swapchain.cpp
 )

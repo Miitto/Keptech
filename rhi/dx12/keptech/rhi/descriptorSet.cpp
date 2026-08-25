@@ -1,5 +1,5 @@
 #include "descriptorSet.hpp"
-#include "dx/descriptorLayout.hpp"
+#include "descriptorLayout.hpp"
 #include "rhi.hpp"
 
 namespace kt::rhi {
@@ -10,16 +10,22 @@ namespace kt::rhi {
 
     uint32_t descriptorIndex = 0;
     for (const auto& range : ranges) {
+      KT_ASSERT(descriptorIndex + arrayIndex < numDescriptors, "Descriptor index {} is out of range for descriptor set", descriptorIndex);
       if (range.BaseShaderRegister == binding) {
         if (bufferType == DescriptorWriteBufferType::Uniform) {
-          auto cpuHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(this->cpuHandle, descriptorIndex + arrayIndex, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+          auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(cpuHandle, static_cast<INT>(descriptorIndex + arrayIndex),
+                                                      static_cast<UINT>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
+          DX_ASSERT(r > 0, "Range must be greater than 0 for uniform buffer descriptor write");
+          DX_ASSERT(r % 256 == 0, "Range must be a multiple of 256 for uniform buffer descriptor write");
           D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc{
               .BufferLocation = buffer.dxGetResource()->GetGPUVirtualAddress() + offset,
               .SizeInBytes = static_cast<UINT>(r),
           };
-          device->CreateConstantBufferView(&cbvDesc, cpuHandle);
+          device->CreateConstantBufferView(&cbvDesc, handle);
         } else if (bufferType == DescriptorWriteBufferType::Storage) {
-          auto cpuHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(this->cpuHandle, descriptorIndex + arrayIndex, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+          auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(cpuHandle, static_cast<INT>(descriptorIndex + arrayIndex),
+                                                      static_cast<UINT>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
+          DX_ASSERT(stride > 0, "Stride must be greater than 0 for storage buffer descriptor write");
           D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{
               .Format = DXGI_FORMAT_UNKNOWN,
               .ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
@@ -32,9 +38,11 @@ namespace kt::rhi {
                       .Flags = D3D12_BUFFER_SRV_FLAG_NONE,
                   },
           };
-          device->CreateShaderResourceView(buffer.dxGetResource(), &srvDesc, cpuHandle);
+          device->CreateShaderResourceView(buffer.dxGetResource(), &srvDesc, handle);
         } else if (bufferType == DescriptorWriteBufferType::RWStorage) {
-          auto cpuHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(this->cpuHandle, descriptorIndex + arrayIndex, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+          auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(cpuHandle, static_cast<INT>(descriptorIndex + arrayIndex),
+                                                      static_cast<UINT>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
+          DX_ASSERT(stride > 0, "Stride must be greater than 0 for RW storage buffer descriptor write");
           D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc{
               .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
               .Buffer =
@@ -46,7 +54,7 @@ namespace kt::rhi {
                       .Flags = D3D12_BUFFER_UAV_FLAG_NONE,
                   },
           };
-          device->CreateUnorderedAccessView(buffer.dxGetResource(), nullptr, &uavDesc, cpuHandle);
+          device->CreateUnorderedAccessView(buffer.dxGetResource(), nullptr, &uavDesc, handle);
         } else {
           DX_ABORT("Unknown buffer type for descriptor write");
         }
@@ -100,13 +108,14 @@ namespace kt::rhi {
     for (const auto& info : writeInfos) {
       switch (info.type) {
       case DescriptorType::UniformBuffer:
-        write(layout, info.binding, info.arrayIndex, DescriptorWriteBufferType::Uniform, info.buffer, info.offset, info.range, 0);
+        write(layout, info.binding, info.arrayIndex, DescriptorWriteBufferType::Uniform, info.buffer, info.offset, info.range, info.stride);
         break;
       case DescriptorType::StorageBuffer:
-        write(layout, info.binding, info.arrayIndex, DescriptorWriteBufferType::Storage, info.buffer, info.offset, info.range, 0);
+        write(layout, info.binding, info.arrayIndex, DescriptorWriteBufferType::Storage, info.buffer, info.offset, info.range, info.stride);
         break;
       case DescriptorType::RWStorageBuffer:
-        write(layout, info.binding, info.arrayIndex, DescriptorWriteBufferType::RWStorage, info.buffer, info.offset, info.range, 0);
+        write(layout, info.binding, info.arrayIndex, DescriptorWriteBufferType::RWStorage, info.buffer, info.offset, info.range,
+              info.stride);
         break;
       case DescriptorType::SampledImage:
         write(layout, info.binding, info.arrayIndex, DescriptorWriteImageType::Sampled, info.image);

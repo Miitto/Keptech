@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bit>
 #include <type_traits>
 
 namespace kt {
@@ -97,6 +98,8 @@ namespace kt {
     constexpr inline Bitflag intersect(Bitflag<T> flag) const { return Bitflag(flags & flag.flags); }
 
     constexpr inline Bitflag intersect(T flag) const { return Bitflag(flags & static_cast<Underlying>(flag)); }
+
+    constexpr inline int bitCount() const { return std::popcount(flags); }
 
     Underlying flags;
   };

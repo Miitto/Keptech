@@ -3,6 +3,7 @@
 #include "keptech/core/result.hpp"
 #include "keptech/rhi/bufferTypes.hpp"
 #include "keptech/rhi/bufferUsage.hpp"
+#include "keptech/rhi/result.hpp"
 
 namespace D3D12MA {
   struct Allocation;
@@ -14,7 +15,7 @@ namespace kt::rhi {
   using RawBuffer = ID3D12Resource*;
 
   class Buffer {
-#include "keptech/rhi/interface/buffer.hpp"
+#include "keptech/rhi/interface/buffer.inl"
 
   public:
     operator ID3D12Resource*() const;

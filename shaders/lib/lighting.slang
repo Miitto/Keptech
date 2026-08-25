@@ -5,22 +5,24 @@ public struct PointLight {
   public float3 position;
   public float radius;
   public float3 color;
-  public DescriptorHandle<SamplerCubeShadow> shadowMap;
+  public float intensity;
 };
 
 public float calculatePointLightOcclusion(float3 worldToLight, float distToLight, PointLight light) {
-  if (!valid(light.shadowMap)) {
-    return 1.f;
-  }
-  let shadowMapSample = light.shadowMap.Sample(worldToLight).r;
+  return 1.f;
+  // TODO: Shadow mapping
+  // if (!valid(light.shadowMap)) {
+  //   return 1.f;
+  // }
+  // let shadowMapSample = light.shadowMap.Sample(worldToLight).r;
 
-  float closestDepth = shadowMapSample * light.radius;
-  float currentDepth = distToLight;
+  // float closestDepth = shadowMapSample * light.radius;
+  // float currentDepth = distToLight;
 
-  float bias = 0.05;
-  var shadow = currentDepth - bias > closestDepth ? 0.0 : 1.0;
+  // float bias = 0.05;
+  // var shadow = currentDepth - bias > closestDepth ? 0.0 : 1.0;
 
-  return shadow;
+  // return shadow;
 }
 
 public float DistributionGGX(float3 N, float3 H, float roughness) {

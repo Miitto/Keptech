@@ -1,6 +1,6 @@
 #pragma once
 
-#include "imageCreateInfo.hpp"
+#include "keptech/rhi/imageCreateInfo.hpp"
 #include "keptech/rhi/imageFormat.hpp"
 #include <d3d12.h>
 #include <wrl/client.h>
