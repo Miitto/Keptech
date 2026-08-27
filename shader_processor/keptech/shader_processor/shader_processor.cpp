@@ -353,13 +353,20 @@ namespace kt::shader_processor {
     };
     auto layout = program->getLayout();
 
-    {
-      auto globalVarLayout = layout->getGlobalParamsVarLayout();
-      auto setsRes = parseParameter(*globalVarLayout);
-      if (!setsRes) {
-        return std::unexpected<std::string>("Failed to parse global parameters: " + setsRes.error());
+    LayoutManager layoutManager{};
+    layoutManager.info = &shader.info;
+    layoutManager.printProgramLayout(layout);
+
+    for (size_t space = 0; space < shader.info.resources.size(); ++space) {
+      auto& resourceSet = shader.info.resources[space];
+      SHDR_DEBUG("Space {}: {} resources", space, resourceSet.resources.size());
+      for (const auto& resource : resourceSet.resources) {
+        SHDR_DEBUG("  Binding {}: {} {} (count: {}, push: {}, size/stride: {})", resource.binding, resource.type, resource.name,
+                   resource.count, resource.isPush, resource.bufferInfo.sizeOrStride);
+        for (const auto& [fieldName, offset] : resource.bufferInfo.fieldOffsets) {
+          SHDR_DEBUG("    Field {}: offset {}", fieldName, offset);
+        }
       }
-      shader.info.resources = std::move(setsRes.value());
     }
 
     shader.stages.reserve(entryPointCount);
@@ -428,7 +435,7 @@ namespace kt::shader_processor {
           return std::unexpected<std::string>("Failed to parse vertex attributes: " + res.error());
         }
 
-        shader.info.pushConstantSize = std::max(shader.info.pushConstantSize, pushConstantSize);
+        shader.info.pushConstants.size = std::max(shader.info.pushConstants.size, pushConstantSize);
 
         break;
       }
@@ -449,7 +456,7 @@ namespace kt::shader_processor {
           }
         }
 
-        shader.info.pushConstantSize = std::max(shader.info.pushConstantSize, pushConstantSize);
+        shader.info.pushConstants.size = std::max(shader.info.pushConstants.size, pushConstantSize);
         break;
       }
       case kt::shaders::ShaderStages::Fragment: {
@@ -474,7 +481,7 @@ namespace kt::shader_processor {
           }
         }
 
-        shader.info.pushConstantSize = std::max(shader.info.pushConstantSize, pushConstantSize);
+        shader.info.pushConstants.size = std::max(shader.info.pushConstants.size, pushConstantSize);
 
       } break;
       default:

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <spdlog/fmt/bundled/format.h>
+#include <unordered_map>
 #include <vector>
 
 namespace kt::shaders {
@@ -19,15 +20,21 @@ namespace kt::shaders {
     RWStorageBuffer
   };
 
+  struct BufferInfo {
+    size_t sizeOrStride;
+    std::unordered_map<std::string, size_t> fieldOffsets;
+  };
+
   struct ResourceBinding {
+    std::string name;
     ShaderResourceType type;
     uint32_t binding;
     uint32_t count;
     bool isPush = false;
+    BufferInfo bufferInfo;
   };
 
   struct ResourceSet {
-    uint8_t space;
     std::vector<ResourceBinding> resources;
   };
 } // namespace kt::shaders

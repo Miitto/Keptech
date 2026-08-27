@@ -2,6 +2,9 @@
 
 #include <slang.h>
 #include <spdlog/fmt/bundled/format.h>
+#include <spdlog/fmt/bundled/ranges.h>
+#include <string_view>
+#include <vector>
 
 template <> struct fmt::formatter<SlangResult> : formatter<std::string_view> {
   template <typename FormatContext> auto format(const SlangResult& res, FormatContext& ctx) const {
@@ -124,6 +127,164 @@ template <> struct fmt::formatter<slang::ParameterCategory> : fmt::formatter<std
       return fmt::format_to(ctx.out(), "MetalAttribute");
     case slang::MetalPayload:
       return fmt::format_to(ctx.out(), "MetalPayload");
+    }
+  }
+};
+
+template <> struct fmt::formatter<slang::TypeReflection::ScalarType> : fmt::formatter<std::string_view> {
+  fmt::format_context::iterator format(const slang::TypeReflection::ScalarType& scalarType, fmt::format_context& ctx) const {
+    switch (scalarType) {
+    case slang::TypeReflection::ScalarType::None:
+      return fmt::format_to(ctx.out(), "None");
+    case slang::TypeReflection::ScalarType::Bool:
+      return fmt::format_to(ctx.out(), "Bool");
+    case slang::TypeReflection::ScalarType::Int8:
+      return fmt::format_to(ctx.out(), "Int8");
+    case slang::TypeReflection::ScalarType::UInt8:
+      return fmt::format_to(ctx.out(), "UInt8");
+    case slang::TypeReflection::ScalarType::Int16:
+      return fmt::format_to(ctx.out(), "Int16");
+    case slang::TypeReflection::ScalarType::UInt16:
+      return fmt::format_to(ctx.out(), "UInt16");
+    case slang::TypeReflection::ScalarType::Int32:
+      return fmt::format_to(ctx.out(), "Int32");
+    case slang::TypeReflection::ScalarType::UInt32:
+      return fmt::format_to(ctx.out(), "UInt32");
+    case slang::TypeReflection::ScalarType::Int64:
+      return fmt::format_to(ctx.out(), "Int64");
+    case slang::TypeReflection::ScalarType::UInt64:
+      return fmt::format_to(ctx.out(), "UInt64");
+    case slang::TypeReflection::Void:
+      return fmt::format_to(ctx.out(), "Void");
+    case slang::TypeReflection::Float16:
+      return fmt::format_to(ctx.out(), "Float16");
+    case slang::TypeReflection::Float32:
+      return fmt::format_to(ctx.out(), "Float32");
+    case slang::TypeReflection::Float64:
+      return fmt::format_to(ctx.out(), "Float64");
+    case slang::TypeReflection::IntPtr:
+      return fmt::format_to(ctx.out(), "IntPtr");
+    case slang::TypeReflection::UIntPtr:
+      return fmt::format_to(ctx.out(), "UIntPtr");
+    case slang::TypeReflection::BFloat16:
+      return fmt::format_to(ctx.out(), "BFloat16");
+    case slang::TypeReflection::FloatE4M3:
+      return fmt::format_to(ctx.out(), "FloatE4M3");
+    case slang::TypeReflection::FloatE5M2:
+      return fmt::format_to(ctx.out(), "FloatE5M2");
+      break;
+    }
+  }
+};
+
+template <> struct fmt::formatter<SlangResourceShape> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const SlangResourceShape& shape, FormatContext& ctx) const {
+    if (shape == SLANG_RESOURCE_NONE) {
+      return fmt::format_to(ctx.out(), "None");
+    }
+
+    std::vector<std::string_view> shapeStrings;
+
+    auto baseShape = shape & SLANG_RESOURCE_BASE_SHAPE_MASK;
+
+    switch (baseShape) {
+    case SLANG_TEXTURE_1D:
+      shapeStrings.push_back("Texture1D");
+      break;
+    case SLANG_TEXTURE_2D:
+      shapeStrings.push_back("Texture2D");
+      break;
+    case SLANG_TEXTURE_3D:
+      shapeStrings.push_back("Texture3D");
+      break;
+    case SLANG_TEXTURE_CUBE:
+      shapeStrings.push_back("TextureCube");
+      break;
+    case SLANG_TEXTURE_BUFFER:
+      shapeStrings.push_back("TextureBuffer");
+      break;
+    case SLANG_STRUCTURED_BUFFER:
+      shapeStrings.push_back("StructuredBuffer");
+      break;
+    case SLANG_BYTE_ADDRESS_BUFFER:
+      shapeStrings.push_back("ByteAddressBuffer");
+      break;
+    case SLANG_RESOURCE_UNKNOWN:
+      shapeStrings.push_back("Unknown");
+      break;
+    case SLANG_ACCELERATION_STRUCTURE:
+      shapeStrings.push_back("AccelerationStructure");
+      break;
+    case SLANG_TEXTURE_SUBPASS:
+      shapeStrings.push_back("TextureSubpass");
+      break;
+    default:
+      break;
+    }
+
+    if ((shape & SLANG_TEXTURE_FEEDBACK_FLAG) != 0) {
+      shapeStrings.push_back("TextureFeedback");
+    }
+    if ((shape & SLANG_TEXTURE_SHADOW_FLAG) != 0) {
+      shapeStrings.push_back("TextureShadow");
+    }
+    if ((shape & SLANG_TEXTURE_ARRAY_FLAG) != 0) {
+      shapeStrings.push_back("TextureArray");
+    }
+    if ((shape & SLANG_TEXTURE_MULTISAMPLE_FLAG) != 0) {
+      shapeStrings.push_back("TextureMultisample");
+    }
+    if ((shape & SLANG_TEXTURE_COMBINED_FLAG) != 0) {
+      shapeStrings.push_back("TextureCombined");
+    }
+
+    return fmt::format_to(ctx.out(), "{}", fmt::join(shapeStrings, " | "));
+  }
+};
+
+template <> struct fmt::formatter<SlangResourceAccess> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const SlangResourceAccess& access, FormatContext& ctx) const {
+    switch (access) {
+    case SLANG_RESOURCE_ACCESS_NONE:
+      return fmt::format_to(ctx.out(), "None");
+    case SLANG_RESOURCE_ACCESS_READ:
+      return fmt::format_to(ctx.out(), "Read");
+    case SLANG_RESOURCE_ACCESS_WRITE:
+      return fmt::format_to(ctx.out(), "Write");
+    case SLANG_RESOURCE_ACCESS_READ_WRITE:
+      return fmt::format_to(ctx.out(), "ReadWrite");
+    }
+  }
+};
+
+template <> struct fmt::formatter<SlangMatrixLayoutMode> : fmt::formatter<std::string_view> {
+  template <typename FormatContext> auto format(const SlangMatrixLayoutMode& mode, FormatContext& ctx) const {
+    switch (mode) {
+    case SLANG_MATRIX_LAYOUT_ROW_MAJOR:
+      return fmt::format_to(ctx.out(), "RowMajor");
+    case SLANG_MATRIX_LAYOUT_COLUMN_MAJOR:
+      return fmt::format_to(ctx.out(), "ColumnMajor");
+    }
+  }
+};
+
+template <> struct fmt::formatter<SlangStage> : formatter<std::string_view> {
+  template <typename FormatContext> auto format(const SlangStage& stage, FormatContext& ctx) const {
+    switch (stage) {
+    case SLANG_STAGE_NONE:
+      return fmt::format_to(ctx.out(), "None");
+    case SLANG_STAGE_VERTEX:
+      return fmt::format_to(ctx.out(), "Vertex");
+    case SLANG_STAGE_HULL:
+      return fmt::format_to(ctx.out(), "Hull");
+    case SLANG_STAGE_DOMAIN:
+      return fmt::format_to(ctx.out(), "Domain");
+    case SLANG_STAGE_GEOMETRY:
+      return fmt::format_to(ctx.out(), "Geometry");
+    case SLANG_STAGE_FRAGMENT:
+      return fmt::format_to(ctx.out(), "Fragment");
+    case SLANG_STAGE_COMPUTE:
+      return fmt::format_to(ctx.out(), "Compute");
     }
   }
 };

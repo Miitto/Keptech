@@ -44,7 +44,7 @@ void submitImageToDrop(Image& image);
 
 kt::Result<ImageRef, RawRhiResult, RawRhiResultOk> createTexture(const ImageCreateInfo& createInfo);
 DescriptorLayout createDescriptorLayout(std::span<const DescriptorInfo> infos);
-DescriptorPool createDescriptorPool(const DescriptorPoolInfo& poolInfo);
+DescriptorSet allocateDescriptorSet(const DescriptorLayout& layout);
 
 void waitGraphicsIdle();
 void waitComputeIdle();

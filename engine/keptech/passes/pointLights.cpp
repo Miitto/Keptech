@@ -1,28 +1,27 @@
-#include "deferredLighting.hpp"
+#include "pointLights.hpp"
 
 #include "graph/graph.hpp"
-#include "keptech/buffers.hpp"
 #include "keptech/components/pointLight.hpp"
 #include "keptech/components/transform.hpp"
 #include "keptech/core/scene.hpp"
 #include "keptech/graph/builder.hpp"
 #include "keptech/maths/intersection.hpp"
+#include "keptech/maths/sphere.hpp"
 #include "keptech/rhi/cmdBuf.hpp"
-#include "keptech/rhi/drawCommands.hpp"
 #include "keptech/rhi/imageFormat.hpp"
 #include "keptech/rhi/pipelineBuilder.hpp"
 #include "shaders/keptech/pointLight.h"
 
 namespace kt {
 
-  void DeferredLightingPass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&) {
+  void PointLightPass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&) {
     self.addColorOutput("kt::diffuse", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
     self.addColorOutput("kt::specular", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
 
     self.addUniformInput("kt::camera");
 
-    self.addMappedBuffer("kt::lights", sizeof(GpuLight) * 100);
-    self.addStorageReadOnlyInput("kt::lights");
+    self.addMappedBuffer("kt::lights", sizeof(GpuPointLight) * 100);
+    self.addStorageReadOnlyInput("kt::lights", sizeof(GpuPointLight));
 
     self.addTextureInput("kt::albedo");
     self.addTextureInput("kt::normal");
@@ -31,7 +30,7 @@ namespace kt {
     self.addTextureInput("kt::depth");
   }
 
-  bool DeferredLightingPass::validate(RenderPassBuilder&, RenderGraphBuilder& graph) {
+  bool PointLightPass::validate(RenderPassBuilder&, RenderGraphBuilder& graph) {
     if (!graph.hasBufferResource("kt::camera")) {
       KT_ERROR("Deferred lighting pass requires a uniform buffer resource named 'kt::camera'. Either add kt::DataPass or manage the camera "
                "buffer resource "
@@ -73,7 +72,7 @@ namespace kt {
     return true;
   }
 
-  void DeferredLightingPass::setup(RenderGraph& graph) {
+  void PointLightPass::setup(RenderGraph& graph, const rhi::DescriptorLayout&) {
     diffuseIndex = graph.getImageIndex("kt::diffuse");
     specularIndex = graph.getImageIndex("kt::specular");
 
@@ -93,16 +92,16 @@ namespace kt {
 
     KT_ASSERT(cameraFrustum != nullptr,
               "Deferred lighting pass requires a pointer to a camera frustum. Make sure that the DataPass is added "
-              "to the render graph before the DeferredLightingPass, or that \"kt::data::cameraFrustum\" is set in the "
-              "render graph user data before the DeferredLightingPass was set up.");
+              "to the render graph before the PointLightPass, or that \"kt::data::cameraFrustum\" is set in the "
+              "render graph user data before the PointLightPass was set up.");
 
     KT_DEBUG("Deferred lighting pass setup");
   }
 
-  void DeferredLightingPass::prepare(RenderGraph& graph) {
+  void PointLightPass::prepare(RenderGraph& graph) {
     auto frustum = *cameraFrustum;
 
-    std::vector<GpuLight> lights;
+    std::vector<GpuPointLight> lights;
 
     auto view = Scene::active().view<components::PointLight, components::Transform>();
 
@@ -113,7 +112,7 @@ namespace kt {
       }
     }
 
-    size_t lightBufferSize = lights.size() * sizeof(GpuLight);
+    size_t lightBufferSize = lights.size() * sizeof(GpuPointLight);
     {
       auto& lightBuffer = graph.getFrameBuffer(graph.getBufferIndex("kt::lights"));
       if (lightBuffer.size() < lightBufferSize) {
@@ -126,7 +125,7 @@ namespace kt {
     lightCount = lights.size();
   }
 
-  void DeferredLightingPass::execute(RenderGraph& graph, rhi::CommandBuffer& cmd, rhi::DescriptorSet& set, glm::uvec2 framebufferSize) {
+  void PointLightPass::execute(RenderGraph& graph, rhi::CommandBuffer& cmd, const rhi::DescriptorSet& set, glm::uvec2 framebufferSize) {
 
     auto& diffuse = graph.getImage(diffuseIndex);
     auto& specular = graph.getImage(specularIndex);
@@ -155,8 +154,8 @@ namespace kt {
     cmd.endRendering();
   }
 
-  void DeferredLightingPass::addToGraph(RenderGraphBuilder& graph) {
-    auto& pass = graph.addPass("kt::geometry");
+  void PointLightPass::addToGraph(RenderGraphBuilder& graph) {
+    auto& pass = graph.addPass("kt::pointLights");
     pass.setInterface(this);
   }
 } // namespace kt

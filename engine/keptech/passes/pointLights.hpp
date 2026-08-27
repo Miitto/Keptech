@@ -1,24 +1,24 @@
 #pragma once
 
 #include "keptech/graph/passInterface.hpp"
-#include "keptech/passes/data.hpp"
+#include "keptech/maths/frustum.hpp"
 #include "keptech/rhi/pipeline.hpp"
 
 namespace kt {
-  class DeferredLightingPass : public RenderPassInterface {
+  class PointLightPass : public RenderPassInterface {
   public:
-    DeferredLightingPass() = default;
+    PointLightPass() = default;
 
     void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
     bool validate(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
-    void setup(RenderGraph& graph) final;
+    void setup(RenderGraph& graph, const rhi::DescriptorLayout&) final;
 
     void prepare(RenderGraph& graph) final;
-    void execute(RenderGraph& graph, rhi::CommandBuffer& cmdBuf, rhi::DescriptorSet&, glm::uvec2 framebufferSize) final;
+    void execute(RenderGraph& graph, rhi::CommandBuffer& cmdBuf, const rhi::DescriptorSet&, glm::uvec2 framebufferSize) final;
 
     void addToGraph(RenderGraphBuilder& graph);
 
-    struct GpuLight {
+    struct GpuPointLight {
       glm::vec3 position;
       float radius;
       glm::vec3 color;

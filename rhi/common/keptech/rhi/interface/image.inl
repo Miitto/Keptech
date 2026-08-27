@@ -7,6 +7,8 @@ glm::uvec3 getExtent() const;
 const std::string& getName() const;
 Bitflag<ImageUsage> getUsage() const;
 
+bool operator==(const Image& other) const;
+
 bool isDepth() const;
 
 void setTextureIndex(uint64_t index) { textureIndex = index; }

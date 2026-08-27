@@ -41,7 +41,7 @@ namespace kt {
     return true;
   }
 
-  void GeometryPass::setup(RenderGraph& graph) {
+  void GeometryPass::setup(RenderGraph& graph, const rhi::DescriptorLayout&) {
     albedoIndex = graph.getImageIndex("kt::albedo");
     normalIndex = graph.getImageIndex("kt::normal");
     materialIndex = graph.getImageIndex("kt::material");
@@ -105,7 +105,7 @@ namespace kt {
     drawCommandCount = static_cast<uint32_t>(drawCommands.size());
   }
 
-  void GeometryPass::execute(RenderGraph& graph, rhi::CommandBuffer& cmd, rhi::DescriptorSet& set, glm::uvec2 framebufferSize) {
+  void GeometryPass::execute(RenderGraph& graph, rhi::CommandBuffer& cmd, const rhi::DescriptorSet& set, glm::uvec2 framebufferSize) {
     auto& albedo = graph.getImage(albedoIndex);
     auto& normal = graph.getImage(normalIndex);
     auto& material = graph.getImage(materialIndex);

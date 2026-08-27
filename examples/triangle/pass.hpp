@@ -21,7 +21,7 @@ public:
                                  });
   }
 
-  void setup(kt::RenderGraph& g) override {
+  void setup(kt::RenderGraph& g, const kt::rhi::DescriptorLayout& layout) override {
     kt::rhi::PipelineBuilder pipelineBuilder{};
     pipelineBuilder.setShader(::shaders::triangle).addColorAttachment(kt::rhi::ImageFormat::R8G8B8A8_UNORM);
 
@@ -34,7 +34,7 @@ public:
     colorImageIndex = g.getImageIndex("color");
   }
 
-  void execute(kt::RenderGraph& g, kt::rhi::CommandBuffer& cmd, kt::rhi::DescriptorSet&, glm::uvec2 framebufferSize) override {
+  void execute(kt::RenderGraph& g, kt::rhi::CommandBuffer& cmd, const kt::rhi::DescriptorSet&, glm::uvec2 framebufferSize) override {
     KT_TRACE("Executing geometry pass");
 
     auto& img = g.getImage(colorImageIndex);

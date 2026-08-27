@@ -37,11 +37,7 @@ namespace kt {
     void setGetClearDepthStencilCallback(std::function<bool(rhi::DepthClearValue*)>&& cb);
     void setGetClearColorCallback(std::function<bool(uint32_t, rhi::ColorClearValue*)>&& cb);
 
-    void setup(
-#ifdef KT_VULKAN
-        ResourceLayout& descriptorSetLayout
-#endif
-    );
+    void setup(rhi::DescriptorLayout& layout);
 
     void prepare();
 
@@ -166,10 +162,11 @@ namespace kt {
     /// For internal use only.
     static void setActiveGraph(RenderGraph* graph) { activeGraph = graph; }
 
+    const std::vector<rhi::Image>& getImages() const;
+
   private:
     RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
-                std::vector<ImageTransition>&& initialTransitions, rhi::DescriptorPool&& descriptorPool,
-                std::vector<std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT>>&& descriptors);
+                std::vector<ImageTransition>&& initialTransitions, std::vector<Descriptors>&& descriptors);
 
     std::unordered_map<std::string, void*> userData;
 
@@ -182,8 +179,7 @@ namespace kt {
 
     Resources resources;
 
-    rhi::DescriptorPool descriptorPool{};
-    std::vector<std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT>> passDescriptors;
+    std::vector<Descriptors> passDescriptors;
 
     size_t backbufferSourceIndex = 0;
 

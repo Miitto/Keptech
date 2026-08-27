@@ -6,16 +6,10 @@ set(KT_SHADER_OPT_LEVELS "0" "1" "3")
 set(KT_SHADER_OPT_LEVEL_DEBUG "0" CACHE STRING "Optimization level for shader compilation in Debug mode")
 set(KT_SHADER_OPT_LEVEL_RELEASE "3" CACHE STRING "Optimization level for shader compilation in Release mode")
 
-function(compile_shader target shader_target)
+function(compile_shader target)
   set(SINGLEVALUE NAMESPACE BASE_DIR OUTPUT_DIR LINK)
   set(MULTIVALUE SOURCES INCLUDES)
   cmake_parse_arguments(PARSE_ARGV 0 arg "" "${SINGLEVALUE}" "${MULTIVALUE}")
-
-  set(VALID_OUTPUT_TARGETS GLSL SPIRV)
-
-  if(NOT shader_target IN_LIST VALID_OUTPUT_TARGETS)
-    message(FATAL_ERROR "Invalid output target: ${shader_target}. Valid targets are: ${VALID_OUTPUT_TARGETS}")
-  endif()
 
   if(arg_BASE_DIR)
     set(BASE_DIR ${arg_BASE_DIR})

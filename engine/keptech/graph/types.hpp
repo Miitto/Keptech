@@ -6,10 +6,13 @@
 #include "keptech/rhi/buffer.hpp"
 #include "keptech/rhi/bufferTypes.hpp"
 #include "keptech/rhi/bufferUsage.hpp"
+#include "keptech/rhi/constants.hpp"
+#include "keptech/rhi/descriptorLayout.hpp"
 #include "keptech/rhi/descriptorSet.hpp"
 #include "keptech/rhi/descriptorTypes.hpp"
 #include "keptech/rhi/image.hpp"
 #include "keptech/rhi/imageLayout.hpp"
+#include <array>
 #include <cstdint>
 #include <glm/ext/vector_float3.hpp>
 #include <spdlog/fmt/bundled/format.h>
@@ -23,7 +26,7 @@ namespace kt::rhi {
 namespace kt {
   class RenderGraph;
 
-  using PassExecuteCb = std::function<void(RenderGraph&, rhi::CommandBuffer&, rhi::DescriptorSet&, glm::uvec2)>;
+  using PassExecuteCb = std::function<void(RenderGraph&, rhi::CommandBuffer&, const rhi::DescriptorSet&, glm::uvec2)>;
 
   class PassId {
   public:
@@ -257,6 +260,11 @@ namespace kt {
     std::vector<RelativeImage> resolutionRelativeImages;
     std::vector<std::vector<UsedInPass>> imageUsedInPass;
     std::vector<std::vector<UsedInPass>> bufferUsedInPass;
+  };
+
+  struct Descriptors {
+    rhi::DescriptorLayout layout;
+    std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT> sets;
   };
 } // namespace kt
 

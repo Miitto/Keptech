@@ -2,6 +2,7 @@
 #include "dx/macros.hpp"
 #include "helpers/formatting.hpp"
 #include "keptech/core/window.hpp"
+#include "pipelineBuilder.hpp"
 #include "rhi.hpp"
 #include <expected>
 #include <synchapi.h>
@@ -113,34 +114,38 @@ namespace kt::rhi {
     DX_MAKE(m.device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&*m.copyFence)), "Failed to create copy fence");
     m.copyFence.makeEvent();
 
+    m.rtvHeap.capacity = 300; // TODO: Make this configurable
     D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {
         .Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-        .NumDescriptors = 300, // TODO: Make this configurable
+        .NumDescriptors = m.rtvHeap.capacity,
         .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
         .NodeMask = 0,
     };
     DX_MAKE(m.device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m.rtvHeap.heap)), "Failed to create RTV descriptor heap");
 
+    m.dsvHeap.capacity = 100; // TODO: Make this configurable
     D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {
         .Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
-        .NumDescriptors = 100, // TODO: Make this configurable
+        .NumDescriptors = m.dsvHeap.capacity,
         .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
         .NodeMask = 0,
     };
     DX_MAKE(m.device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m.dsvHeap.heap)), "Failed to create DSV descriptor heap");
 
+    m.cbvSrvUavHeap.capacity = 1000; // TODO: Make this configurable
     D3D12_DESCRIPTOR_HEAP_DESC cbvSrvUavHeapDesc = {
         .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-        .NumDescriptors = 1000, // TODO: Make this configurable
+        .NumDescriptors = m.cbvSrvUavHeap.capacity,
         .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
         .NodeMask = 0,
     };
     DX_MAKE(m.device->CreateDescriptorHeap(&cbvSrvUavHeapDesc, IID_PPV_ARGS(&m.cbvSrvUavHeap.heap)),
             "Failed to create CBV_SRV_UAV descriptor heap");
 
+    m.samplerHeap.capacity = 100; // TODO: Make this configurable
     D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc = {
         .Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
-        .NumDescriptors = 100, // TODO: Make this configurable
+        .NumDescriptors = m.samplerHeap.capacity,
         .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
         .NodeMask = 0,
     };
@@ -167,6 +172,7 @@ namespace kt::rhi {
     };
     DX_MAKE(m.device->CreateCommandSignature(&drawIndexedIndirectSignatureDesc, nullptr, IID_PPV_ARGS(&m.drawIndexedIndirectSignature)),
             "Failed to create draw indexed indirect command signature");
+
     return {};
   }
 

@@ -1,3 +1,4 @@
+#include "keptech/shaders/info.hpp"
 #include "keptech/shaders/shader.hpp"
 
 #include <filesystem>
@@ -81,22 +82,33 @@ void writeFragment(std::ofstream& file, const kt::shaders::Fragment& fragment) {
        << "        .depthWrite = " << (fragment.depthWrite ? "true" : "false") << ",\n    },\n";
 }
 
-void writeResources(std::ofstream& file, const std::vector<kt::shaders::ResourceSet>& resources, size_t pushConstantSize) {
+void writeResources(std::ofstream& file, const std::vector<kt::shaders::ResourceSet>& resources,
+                    const kt::shaders::PushConstantData& pushConstantData) {
   file << "    .resources = {\n";
   for (size_t i = 0; i < resources.size(); ++i) {
     const auto& resource = resources[i];
 
-    file << "         ::kt::shaders::ResourceSet(" << std::dec << static_cast<uint32_t>(resource.space)
-         << ", std::move(std::vector<::kt::shaders::ResourceBinding>{\n";
+    file << "         ::kt::shaders::ResourceSet(std::move(std::vector<::kt::shaders::ResourceBinding>{\n";
     for (const auto& res : resource.resources) {
       file << "             ::kt::shaders::ResourceBinding{.type = static_cast<::kt::shaders::ShaderResourceType>(" << std::dec
            << static_cast<uint32_t>(res.type) << "),\n"
            << "              .binding = " << res.binding << ",\n"
-           << "              .count = " << res.count << "},\n";
+           << "              .count = " << res.count << ",\n"
+           << "              .isPush = " << (res.isPush ? "true" : "false") << ",\n"
+           << "              .bufferInfo = ::kt::shaders::BufferInfo{.sizeOrStride = " << res.bufferInfo.sizeOrStride << ",\n"
+           << "               .fieldOffsets = {\n";
+      for (const auto& offset : res.bufferInfo.fieldOffsets) {
+        file << "                    {\"" << offset.first << "\", " << offset.second << "},\n";
+      }
+      file << "                }}},\n";
     }
     file << "         })),\n";
   }
-  file << "    },\n    .pushConstantSize = " << std::dec << pushConstantSize << ",\n";
+  file << "    },\n    .pushConstants = {.size = " << std::dec << pushConstantData.size << ", .memberOffsets = {\n";
+  for (const auto& offset : pushConstantData.memberOffsets) {
+    file << "                {\"" << offset.first << "\", " << offset.second << "},\n";
+  }
+  file << "            }},\n";
 }
 
 int main(int argc, char** argv) {
@@ -217,7 +229,7 @@ int main(int argc, char** argv) {
 
   writeFragment(outSource, shader.info.fragment);
 
-  writeResources(outSource, shader.info.resources, shader.info.pushConstantSize);
+  writeResources(outSource, shader.info.resources, shader.info.pushConstants);
 
   outSource << "}\n};\n}";
 

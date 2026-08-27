@@ -13,7 +13,9 @@
 #include "keptech/gltf/scene.hpp"
 #include "keptech/graph/builder.hpp"
 #include "keptech/graph/graph.hpp"
+#include "keptech/passes/debug.hpp"
 #include "keptech/passes/geometry.hpp"
+#include "keptech/passes/pointLights.hpp"
 #include "keptech/rhi/rhi.hpp"
 
 class ExampleLayer : public kt::Layer {
@@ -78,16 +80,13 @@ public:
 
     dataPass.addToGraph(builder);
     geomPass.addToGraph(builder);
+    pointLightPass.addToGraph(builder);
 
     // Here we set the backbuffer source for the render graph. This determines which render pass output will be used as the final image to
-    // present to the screen. The geometry pass outputs to multiple G-buffers, and we can choose which one to use as the final output. Here
-    // we default to the albedo buffer, which contains the color information of the scene.
+    // present to the screen. The geometry pass outputs to multiple G-buffers, and we can choose which one to use as the final output.
     //
     // We also read the environment variable `KT_SURFACE` to allow the user to override this default. Try setting `KT_SURFACE=kt::normal`
     // before running this example to see the normal buffer instead.
-    //
-    // More complex debugging tools may use ImGui and a blit pass to allow the user to switch between different G-buffers at runtime, but
-    // this is outside the scope of this basic example.
     const char* backBufferSourceEnv = std::getenv("KT_SURFACE");
 
     builder.setBackbufferSource(backBufferSourceEnv ? backBufferSourceEnv : "kt::albedo");
@@ -97,6 +96,10 @@ public:
     /// output to a swapchain relative image. In normal usage, having a seperate variable for the render resolution means that every render
     /// target does not need to be recreated when the window is resized.
     builder.setRenderResolution(rhi.getSwapchainSize());
+
+    // Debug pass should always be added last so it can read from all the other passes. It uses the backbuffer source at the time it was
+    // added to the graph as the dependency tree root.
+    debugPass.addToGraph(builder);
   }
 
   // The `onUpdate` function is called every frame, and is where we update the camera controller. The camera controller will update the
@@ -123,5 +126,7 @@ private:
   kt::cameras::OrbitCameraController orbitController{};
   kt::DataPass dataPass{};
   kt::GeometryPass geomPass{};
+  kt::PointLightPass pointLightPass{};
+  kt::DebugPass debugPass{};
   kt::RenderGraph* graph;
 };

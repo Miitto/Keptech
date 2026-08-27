@@ -15,6 +15,8 @@ namespace kt::rhi {
   glm::uvec3 Image::getExtent() const { return extent; }
   ImageDim Image::dim() const { return _dim; }
 
+  bool Image::operator==(const Image& other) const { return allocation == other.allocation; }
+
   bool Image::isDepth() const {
     switch (_format) {
     case ImageFormat::D16_UNORM:

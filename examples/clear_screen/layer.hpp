@@ -16,12 +16,13 @@ public:
                                      .format = kt::rhi::ImageFormat::R8G8B8A8_UNORM,
                                  });
 
-    pass.setBuildCallback([](kt::RenderGraph& graph, kt::rhi::CommandBuffer& cmd, kt::rhi::DescriptorSet&, glm::uvec2 framebufferSize) {
-      auto index = graph.getImageIndex("color");
-      auto& image = graph.getImage(index);
+    pass.setBuildCallback(
+        [](kt::RenderGraph& graph, kt::rhi::CommandBuffer& cmd, const kt::rhi::DescriptorSet&, glm::uvec2 framebufferSize) {
+          auto index = graph.getImageIndex("color");
+          auto& image = graph.getImage(index);
 
-      cmd.clearColorImage(image, {0.0f, 0.2f, 0.5f, 1.0f});
-    });
+          cmd.clearColorImage(image, {0.0f, 0.2f, 0.5f, 1.0f});
+        });
 
     builder.setBackbufferSource("color");
   }

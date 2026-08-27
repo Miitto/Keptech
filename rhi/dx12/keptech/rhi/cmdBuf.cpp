@@ -403,7 +403,16 @@ namespace kt::rhi {
   CommandBuffer& CommandBuffer::blitImage(const rhi::ImageRef& src, const rhi::ImageRef& dst) {
     DX_ASSERT(src.dxGetResource() != nullptr, "Source image resource is null");
     DX_ASSERT(dst.dxGetResource() != nullptr, "Destination image resource is null");
-    cmdList->CopyResource(dst, src);
+
+    auto& rhi = RHI::get();
+    auto& pipeline = rhi.getBlitPipeline(dst.format());
+
+    bindGraphicsPipeline(pipeline);
+
+    cmdList->SetGraphicsRootShaderResourceView(0, src.dxGetResource()->GetGPUVirtualAddress());
+
+    cmdList->DrawInstanced(3, 1, 0, 0);
+
     return *this;
   }
 

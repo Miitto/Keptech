@@ -2,7 +2,6 @@
 
 #include "keptech/graph/passInterface.hpp"
 #include "keptech/maths/frustum.hpp"
-#include "keptech/maths/sphere.hpp"
 #include "keptech/mesh.hpp"
 
 namespace kt {
@@ -22,16 +21,16 @@ namespace kt {
     DataPass() = default;
 
     void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
-    void setup(RenderGraph& graph) final;
+    void setup(RenderGraph& graph, const rhi::DescriptorLayout&) final;
 
     void prepare(RenderGraph& graph) final;
 
     void addToGraph(RenderGraphBuilder& graph);
 
   private:
-    size_t camIndex;
-    size_t objectsIndex;
-    std::vector<Object> objects;
-    maths::Frustum cameraFrustum;
+    size_t camIndex = 0;
+    size_t objectsIndex = 0;
+    std::vector<Object> objects{};
+    maths::Frustum cameraFrustum{};
   };
 } // namespace kt

@@ -88,10 +88,10 @@ namespace kt::rhi {
 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 
-    DX_ASSERT(shader->info.pushConstantSize == 0 || shader->info.pushConstantSize % sizeof(uint32_t) == 0,
+    DX_ASSERT(shader->info.pushConstants.size == 0 || shader->info.pushConstants.size % sizeof(uint32_t) == 0,
               "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
 
-    uint32_t maxCbvBinding = 0;
+    int32_t maxCbvBinding = -1;
 
     auto rangeTypeFromResourceType = [](shaders::ShaderResourceType type) {
       switch (type) {
@@ -115,34 +115,74 @@ namespace kt::rhi {
 
     std::vector<D3D12_DESCRIPTOR_RANGE1> ranges;
 
+    struct BindingSpace {
+      uint32_t binding;
+      uint32_t space;
+    };
+
+    std::vector<BindingSpace> directCbvs;
+    std::vector<BindingSpace> directSrvs;
+    std::vector<BindingSpace> directUavs;
+    std::vector<BindingSpace> directSamplers;
+
     if (!shader->info.resources.empty()) {
-      for (const auto& resourceSet : shader->info.resources) {
+      for (uint32_t space = 0; space < shader->info.resources.size(); ++space) {
+        const auto& resourceSet = shader->info.resources[space];
         if (resourceSet.resources.empty()) {
           continue;
         }
-        ranges.push_back({.RangeType = rangeTypeFromResourceType(resourceSet.resources.front().type),
-                          .NumDescriptors = 0,
-                          .BaseShaderRegister = resourceSet.resources.front().binding,
-                          .RegisterSpace = resourceSet.space,
-                          .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND});
+        for (const auto& resource : resourceSet.resources) {
+          if (resource.isPush) {
+            continue;
+          }
+          ranges.push_back({.RangeType = rangeTypeFromResourceType(resource.type),
+                            .NumDescriptors = 0,
+                            .BaseShaderRegister = resource.binding,
+                            .RegisterSpace = space,
+                            .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND});
+          break;
+        }
         break;
       }
 
-      for (const auto& resourceSet : shader->info.resources) {
+      for (uint32_t space = 0; space < shader->info.resources.size(); ++space) {
+        const auto& resourceSet = shader->info.resources[space];
         for (const auto& resource : resourceSet.resources) {
           auto rangeType = rangeTypeFromResourceType(resource.type);
+
+          if (resource.isPush) {
+            switch (rangeType) {
+            case D3D12_DESCRIPTOR_RANGE_TYPE_CBV:
+              maxCbvBinding = std::max(maxCbvBinding, static_cast<int32_t>(resource.binding));
+              directCbvs.push_back({resource.binding, space});
+              break;
+            case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
+              DX_ASSERT(resource.type == shaders::ShaderResourceType::StorageBuffer,
+                        "Only storage buffers can be directly bound as SRVs in DX12");
+              directSrvs.push_back({resource.binding, space});
+              break;
+            case D3D12_DESCRIPTOR_RANGE_TYPE_UAV:
+              directUavs.push_back({resource.binding, space});
+              break;
+            case D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER:
+              DX_ABORT("Directly bound samplers are not supported in DX12");
+              break;
+            }
+            continue;
+          }
+
           if (rangeType != ranges.back().RangeType || resource.binding != ranges.back().BaseShaderRegister + ranges.back().NumDescriptors ||
-              resourceSet.space != ranges.back().RegisterSpace) {
+              space != ranges.back().RegisterSpace) {
             ranges.push_back({.RangeType = rangeType,
                               .NumDescriptors = 0,
                               .BaseShaderRegister = resource.binding,
-                              .RegisterSpace = resourceSet.space,
+                              .RegisterSpace = space,
                               .OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND});
           }
 
           ranges.back().NumDescriptors += resource.count;
           if (ranges.back().RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_CBV) {
-            maxCbvBinding = std::max(maxCbvBinding, resource.binding + resource.count - 1);
+            maxCbvBinding = std::max(maxCbvBinding, static_cast<int32_t>(resource.binding + resource.count - 1));
           }
         }
       }
@@ -168,12 +208,28 @@ namespace kt::rhi {
       }
     }
 
-    std::vector<CD3DX12_ROOT_PARAMETER1> rootParameters{ranges.empty() ? 0 : 1 + (shader->info.pushConstantSize > 0u ? 1u : 0u)};
+    std::vector<CD3DX12_ROOT_PARAMETER1> rootParameters{tableOffset + directCbvs.size() + directSrvs.size() + directUavs.size() +
+                                                        directSamplers.size() + (shader->info.pushConstants.size > 0u ? 1u : 0u)};
 
-    rootParameters[0].InitAsDescriptorTable(static_cast<UINT>(ranges.size()), ranges.data(), D3D12_SHADER_VISIBILITY_ALL);
+    if (!ranges.empty()) {
+      rootParameters[0].InitAsDescriptorTable(static_cast<UINT>(ranges.size()), ranges.data(), D3D12_SHADER_VISIBILITY_ALL);
+    }
 
-    if (shader->info.pushConstantSize > 0) {
-      rootParameters.back().InitAsConstants(static_cast<UINT>(shader->info.pushConstantSize / sizeof(uint32_t)), maxCbvBinding + 1, 0);
+    for (size_t i = 0; i < directCbvs.size(); ++i) {
+      rootParameters[tableOffset + i].InitAsConstantBufferView(directCbvs[i].binding, directCbvs[i].space);
+    }
+    uint32_t offset = static_cast<uint32_t>(tableOffset + directCbvs.size());
+    for (size_t i = 0; i < directSrvs.size(); ++i) {
+      rootParameters[offset + i].InitAsShaderResourceView(directSrvs[i].binding, directSrvs[i].space);
+    }
+    offset += static_cast<uint32_t>(directSrvs.size());
+    for (size_t i = 0; i < directUavs.size(); ++i) {
+      rootParameters[offset + i].InitAsUnorderedAccessView(directUavs[i].binding, directUavs[i].space);
+    }
+
+    if (shader->info.pushConstants.size > 0) {
+      rootParameters.back().InitAsConstants(static_cast<UINT>(shader->info.pushConstants.size / sizeof(uint32_t)),
+                                            static_cast<UINT>(maxCbvBinding) + 1, 0);
       pipeline.constantSlot = static_cast<uint32_t>(rootParameters.size() - 1);
     }
 

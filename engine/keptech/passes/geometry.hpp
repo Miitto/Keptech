@@ -11,10 +11,10 @@ namespace kt {
 
     void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
     bool validate(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
-    void setup(RenderGraph& graph) final;
+    void setup(RenderGraph& graph, const rhi::DescriptorLayout&) final;
 
     void prepare(RenderGraph& graph) final;
-    void execute(RenderGraph& graph, rhi::CommandBuffer& cmdBuf, rhi::DescriptorSet&, glm::uvec2 framebufferSize) final;
+    void execute(RenderGraph& graph, rhi::CommandBuffer& cmdBuf, const rhi::DescriptorSet&, glm::uvec2 framebufferSize) final;
 
     void addToGraph(RenderGraphBuilder& graph);
 

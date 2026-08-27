@@ -8,7 +8,6 @@
 #include "keptech/rhi/bufferUsage.hpp"
 #include "keptech/rhi/cmdBuf.hpp"
 #include "keptech/rhi/descriptorInfo.hpp"
-#include "keptech/rhi/descriptorLayout.hpp"
 #include "keptech/rhi/descriptorSet.hpp"
 #include "keptech/rhi/descriptorTypes.hpp"
 #include "keptech/rhi/helpers/formatting.hpp"
@@ -130,8 +129,7 @@ namespace kt {
     auto& rhi = RHI::get();
     auto builtResources = buildResources();
 
-    auto descriptorPool = buildDescriptorPool(rhi);
-    auto passDescriptors = buildDescriptors(rhi, builtResources, descriptorPool);
+    auto passDescriptors = buildDescriptors(rhi, builtResources);
 
     auto bakedPasses = bakePasses(builtResources);
     auto passGroups = buildPassGroups(bakedPasses);
@@ -154,8 +152,7 @@ namespace kt {
     rhi.waitGraphicsIdle();
 
     RenderGraph res{
-        std::move(passGroups),         std::move(bakedPasses),    std::move(builtResources),
-        std::move(initialTransitions), std::move(descriptorPool), std::move(passDescriptors),
+        std::move(passGroups), std::move(bakedPasses), std::move(builtResources), std::move(initialTransitions), std::move(passDescriptors),
     };
 
     res.setBackbufferSource(backbufferSource);
@@ -164,51 +161,15 @@ namespace kt {
              res.resources.buffers.size());
 
     for (const auto& [idx, pass] : res.passes | std::views::enumerate) {
-      pass.setup(
-#ifdef KT_VULKAN
-          , res.passDescriptors[static_cast<size_t>(idx)].layout
-#endif
-      );
+      pass.setup(res.passDescriptors[static_cast<size_t>(idx)].layout);
     }
 
     return res;
   }
 
-  rhi::DescriptorPool RenderGraphBuilder::buildDescriptorPool(rhi::RHI& rhi) {
-    rhi::DescriptorPoolInfo info{.maxSets = static_cast<uint32_t>(passStack.size())};
+  std::vector<Descriptors> RenderGraphBuilder::buildDescriptors(rhi::RHI& rhi, Resources& builtResources) {
 
-    for (const auto& passId : passStack) {
-      auto& pass = passes[passId];
-      info.maxSampledImages += pass->getGenericTextureInputs().size() * 2;
-      info.maxStorageImages += pass->getStorageImageOutputs().size() * 2;
-      for (const auto& buffer : pass->getGenericBufferInputs()) {
-        if (buffer.buffer) {
-          if (buffer.buffer->getBufferUsage().has(kt::rhi::BufferUsage::Uniform)) {
-            info.maxUniformBuffers += 2;
-          } else if (buffer.buffer->getBufferUsage().has(kt::rhi::BufferUsage::Storage)) {
-            info.maxStorageBuffers += 2;
-          }
-        }
-      }
-      info.maxStorageBuffers += pass->getStorageOutputs().size() * 2;
-    }
-
-    KT_DEBUG("RenderGraph descriptor pool has:");
-    KT_DEBUG("  Max sets: {}", info.maxSets);
-    KT_DEBUG("  Max sampled images: {}", info.maxSampledImages);
-    KT_DEBUG("  Max storage images: {}", info.maxStorageImages);
-    KT_DEBUG("  Max uniform buffers: {}", info.maxUniformBuffers);
-    KT_DEBUG("  Max storage buffers: {}", info.maxStorageBuffers);
-
-    auto descriptorPool = rhi.createDescriptorPool(info);
-
-    return descriptorPool;
-  }
-
-  std::vector<std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT>>
-  RenderGraphBuilder::buildDescriptors(rhi::RHI& rhi, Resources& builtResources, rhi::DescriptorPool& descriptorPool) {
-
-    std::vector<std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT>> passDescriptors;
+    std::vector<Descriptors> passDescriptors;
     passDescriptors.reserve(passStack.size());
 
     builtResources.imageUsedInPass.resize(builtResources.images.size());
@@ -234,9 +195,11 @@ namespace kt {
 
       writes.reserve(writeMaxCount);
 
-      auto getImage = [&](const std::string& name) -> Image& { return builtResources.images[builtResources.nameToImage[name]]; };
+      auto getImageIndex = [&](const std::string& name) -> size_t { return builtResources.nameToImage[name]; };
+      auto getBufferIndex = [&](const std::string& name) -> size_t { return builtResources.nameToBuffer[name]; };
+      auto getImage = [&](const std::string& name) -> Image& { return builtResources.images[getImageIndex(name)]; };
       auto getBuffer = [&](const std::string& name, size_t offset = 0) -> Buffer& {
-        return builtResources.buffers[builtResources.nameToBuffer[name] + offset];
+        return builtResources.buffers[getBufferIndex(name) + offset];
       };
 
       for (const auto& texture : pass->getGenericTextureInputs()) {
@@ -250,7 +213,7 @@ namespace kt {
               .image = getImage(texture.texture->getName()),
           });
 
-          builtResources.imageUsedInPass[texture.texture->getPhysicalId()].push_back(UsedInPass{
+          builtResources.imageUsedInPass[getImageIndex(texture.texture->getName())].push_back(UsedInPass{
               .passIndex = idx,
               .binding = binding,
               .descriptorType = rhi::DescriptorType::SampledImage,
@@ -291,9 +254,9 @@ namespace kt {
 
             if (buffer.buffer->getBufferInfo().isHostAccessible()) {
               perFrameWrites.push_back(
-                  PerFrameWrite{.writeIndex = writes.size() - 1, .bufferId = builtResources.nameToBuffer[buffer.buffer->getName()]});
+                  PerFrameWrite{.writeIndex = writes.size() - 1, .bufferId = getBufferIndex(buffer.buffer->getName())});
             }
-            builtResources.bufferUsedInPass[buffer.buffer->getPhysicalId()].push_back(
+            builtResources.bufferUsedInPass[getBufferIndex(buffer.buffer->getName())].push_back(
                 UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = descriptorType});
 
             infos.push_back(rhi::DescriptorInfo{
@@ -323,10 +286,9 @@ namespace kt {
           });
 
           if (buffer->getBufferInfo().isHostAccessible()) {
-            perFrameWrites.push_back(
-                PerFrameWrite{.writeIndex = writes.size() - 1, .bufferId = builtResources.nameToBuffer[buffer->getName()]});
+            perFrameWrites.push_back(PerFrameWrite{.writeIndex = writes.size() - 1, .bufferId = getBufferIndex(buffer->getName())});
           }
-          builtResources.bufferUsedInPass[buffer->getPhysicalId()].push_back(
+          builtResources.bufferUsedInPass[getBufferIndex(buffer->getName())].push_back(
               UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = rhi::DescriptorType::RWStorageBuffer});
 
           infos.push_back(rhi::DescriptorInfo{
@@ -349,7 +311,7 @@ namespace kt {
               .image = getImage(image->getName()),
           });
 
-          builtResources.imageUsedInPass[image->getPhysicalId()].push_back(
+          builtResources.imageUsedInPass[getImageIndex(image->getName())].push_back(
               UsedInPass{.passIndex = idx, .binding = binding, .descriptorType = rhi::DescriptorType::StorageImage});
 
           infos.push_back(rhi::DescriptorInfo{
@@ -360,11 +322,16 @@ namespace kt {
         }
       }
 
+      if (infos.empty()) {
+        passDescriptors.push_back({});
+        continue;
+      }
+
       auto layout = rhi.createDescriptorLayout(infos);
 
       std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT> sets{};
       for (auto& set : sets) {
-        set = descriptorPool.allocate(layout);
+        set = rhi.allocateDescriptorSet(layout);
       }
 
       sets[0].write(layout, writes);
@@ -377,7 +344,7 @@ namespace kt {
         sets[frame].write(layout, writes);
       }
 
-      passDescriptors.push_back(sets);
+      passDescriptors.push_back({.layout = layout, .sets = sets});
     }
 
     return passDescriptors;

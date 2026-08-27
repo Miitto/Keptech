@@ -12,7 +12,10 @@
 #include "keptech/core/scene.hpp"
 #include "keptech/core/window.hpp"
 #include "keptech/rhi/descriptorInfo.hpp"
+#include "keptech/rhi/descriptorSet.hpp"
 #include "keptech/rhi/imgui.hpp"
+#include "pipelineBuilder.hpp"
+#include "shaders/keptech/rhi/blit.h"
 #include <d3d12.h>
 #include <utility>
 
@@ -108,27 +111,39 @@ namespace kt::rhi {
     return layout;
   }
 
-  DescriptorPool RHI::createDescriptorPool(const DescriptorPoolInfo& poolInfo) {
-    D3D12_DESCRIPTOR_HEAP_DESC otherHeapDesc{
-        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-        .NumDescriptors = 0,
-        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
-        .NodeMask = 0,
-    };
+  DescriptorSet RHI::allocateDescriptorSet(const DescriptorLayout& layout) {
+    auto cpuHandle =
+        CD3DX12_CPU_DESCRIPTOR_HANDLE(m.cbvSrvUavHeap.heap->GetCPUDescriptorHandleForHeapStart(), static_cast<INT>(m.cbvSrvUavHeap.count),
+                                      static_cast<uint32_t>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
+    auto gpuHandle =
+        CD3DX12_GPU_DESCRIPTOR_HANDLE(m.cbvSrvUavHeap.heap->GetGPUDescriptorHandleForHeapStart(), static_cast<INT>(m.cbvSrvUavHeap.count),
+                                      static_cast<uint32_t>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
 
-    otherHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    otherHeapDesc.NumDescriptors =
-        poolInfo.maxSampledImages + poolInfo.maxStorageImages + poolInfo.maxUniformBuffers + poolInfo.maxStorageBuffers;
-
-    ComPtr<ID3D12DescriptorHeap> otherHeap;
-    if (otherHeapDesc.NumDescriptors > 0) {
-      auto res = m.device->CreateDescriptorHeap(&otherHeapDesc, IID_PPV_ARGS(&otherHeap));
-      if (FAILED(res)) {
-        DX_ABORT("Failed to create descriptor pool: {}", res);
-      }
+    uint32_t c = 0;
+    for (const auto& range : layout.dxGetRanges()) {
+      c += range.NumDescriptors;
     }
+    m.cbvSrvUavHeap.count += c;
 
-    return DescriptorPool{std::move(otherHeap), otherHeapDesc.NumDescriptors};
+    // TODO: Reallocate heap.
+    DX_ASSERT(m.cbvSrvUavHeap.count <= m.cbvSrvUavHeap.capacity, "Descriptor pool overflow: allocated {} descriptors, but capacity is {}",
+              m.cbvSrvUavHeap.count, m.cbvSrvUavHeap.capacity);
+
+    DX_DEBUG("Allocated {} descriptors from descriptor pool ({} used, {} remaining)", c, m.cbvSrvUavHeap.count,
+             m.cbvSrvUavHeap.capacity - m.cbvSrvUavHeap.count);
+
+#ifndef NDEBUG
+    if (c == 0) {
+      DX_WARN("Allocated 0 descriptors from descriptor pool. This may indicate a misconfiguration in the descriptor layout.");
+    }
+#endif
+
+    return DescriptorSet{cpuHandle, gpuHandle
+#ifndef NDEBUG
+                         ,
+                         c
+#endif
+    };
   }
 
   void RHI::newFrame() {
@@ -308,6 +323,23 @@ namespace kt::rhi {
     image.dxSetRtvDsvIndex(m.rtvHeap.count++);
 
     dxUpdateRenderTargetImage(image);
+  }
+
+  Pipeline& RHI::getBlitPipeline(ImageFormat format) {
+    auto it = m.blitPipelines.find(format);
+    if (it != m.blitPipelines.end()) {
+      return it->second;
+    }
+
+    PipelineBuilder pipelineBuilder{};
+    pipelineBuilder.setShader(::shaders::kt::blit).addColorAttachment(format);
+    auto pipelineRes = pipelineBuilder.build();
+    if (!pipelineRes) {
+      DX_ABORT("Failed to create blit pipeline for format {}: {}", format, pipelineRes.error());
+    }
+
+    m.blitPipelines[format] = std::move(pipelineRes.value());
+    return m.blitPipelines[format];
   }
 
   void RHI::dxRegisterDepthStencilImage(rhi::Image& image) {

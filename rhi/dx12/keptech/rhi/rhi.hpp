@@ -13,11 +13,12 @@
 #include "keptech/rhi/dx/constants.hpp"
 #include "keptech/rhi/dx/fence.hpp"
 #include "keptech/rhi/imageFormat.hpp"
+#include "keptech/rhi/pipeline.hpp"
 #include "keptech/rhi/rendererCreateInfo.hpp"
+#include "keptech/rhi/result.hpp"
 #include <D3D12MemAlloc.h>
 #include <array>
 #include <expected>
-#include "keptech/rhi/result.hpp"
 
 #ifdef min
 #undef min
@@ -69,6 +70,7 @@ namespace kt::rhi {
   struct DescriptorHeap {
     ComPtr<ID3D12DescriptorHeap> heap;
     uint16_t count = 0;
+    uint16_t capacity = 0;
   };
 
   struct Members {
@@ -111,6 +113,8 @@ namespace kt::rhi {
     uint8_t imageIndex = 0;
 
     std::array<std::vector<ComPtr<ID3D12CommandAllocator>>, MAX_FRAMES_IN_FLIGHT> runningAllocs;
+
+    std::unordered_map<ImageFormat, Pipeline> blitPipelines;
   };
 
   using VertexBufferView = D3D12_VERTEX_BUFFER_VIEW;
@@ -133,6 +137,8 @@ namespace kt::rhi {
     void dxRegisterDepthStencilImage(rhi::Image& image);
     void dxUpdateRenderTargetImage(rhi::Image& image);
     void dxUpdateDepthStencilImage(rhi::Image& image);
+
+    Pipeline& getBlitPipeline(ImageFormat format);
 
   private:
     std::expected<void, std::string> initInternal(const RendererCreateInfo& createInfo, const Window& window);

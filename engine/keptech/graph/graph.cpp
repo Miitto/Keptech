@@ -52,7 +52,7 @@ namespace kt {
         auto& cmd = graphicsCmds[graphicsCmdIndex];
         cmd.label(fmt::format("RenderGraph Graphics Pass Group {}", idx));
         for (uint32_t i = 0; i < group.count; ++i) {
-          auto& descriptorSet = passDescriptors[passIdx][frameIndex];
+          auto& descriptorSet = passDescriptors[passIdx].sets[frameIndex];
           auto& pass = passes[passIdx++];
           passBarriers(cmd, pass.getBarriers().pre);
           glm::uvec2 framebufferSize =
@@ -69,7 +69,7 @@ namespace kt {
         auto& cmd = computeCmds[computeCmdIndex];
         cmd.label(fmt::format("RenderGraph Async Compute Pass Group {}", idx));
         for (uint32_t i = 0; i < group.count; ++i) {
-          auto& descriptorSet = passDescriptors[passIdx][frameIndex];
+          auto& descriptorSet = passDescriptors[passIdx].sets[frameIndex];
           auto& pass = passes[passIdx++];
           passBarriers(cmd, pass.getBarriers().pre);
           pass.execute(cmd, descriptorSet, {});
@@ -206,14 +206,55 @@ namespace kt {
 
   void RenderGraph::updateDescriptors() {
     // TODO: Update descriptors for buffers that have been realloc'd and images that have been resized.
+
+    auto& rhi = RHI::get();
+    auto frameIndex = rhi.getFrameIndex();
+
+    std::vector<std::vector<rhi::DescriptorWriteInfo>> writes;
+    writes.resize(passes.size());
+
+    for (auto bufIdx : buffersToUpdate[frameIndex]) {
+      auto& buf = resources.buffers[bufIdx];
+      auto& usedInPass = resources.bufferUsedInPass[bufIdx];
+      for (auto& used : usedInPass) {
+        writes[used.passIndex].push_back(rhi::DescriptorWriteInfo{
+            .binding = used.binding,
+            .arrayIndex = 0,
+            .type = used.descriptorType,
+            .buffer = buf,
+        });
+      }
+    }
+
+    for (auto imageIdx : imagesToUpdate[frameIndex]) {
+      auto& img = resources.images[imageIdx];
+      auto& usedInPass = resources.imageUsedInPass[imageIdx];
+      for (auto& used : usedInPass) {
+        writes[used.passIndex].push_back(rhi::DescriptorWriteInfo{
+            .binding = used.binding,
+            .arrayIndex = 0,
+            .type = used.descriptorType,
+            .image = img,
+        });
+      }
+    }
+
+    for (size_t passIdx = 0; passIdx < passes.size(); ++passIdx) {
+      if (!writes[passIdx].empty()) {
+        for (size_t frame = 0; frame < MAX_FRAMES_IN_FLIGHT; ++frame) {
+          passDescriptors[passIdx].sets[frame].write(passDescriptors[passIdx].layout, writes[passIdx]);
+        }
+      }
+    }
+
+    buffersToUpdate[frameIndex].clear();
+    imagesToUpdate[frameIndex].clear();
   }
 
   RenderGraph::RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
-                           std::vector<ImageTransition>&& initialTransitions, rhi::DescriptorPool&& descriptorPool,
-                           std::vector<std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT>>&& descriptors)
+                           std::vector<ImageTransition>&& initialTransitions, std::vector<Descriptors>&& descriptors)
       : passGroups(std::move(passGroups)), passes(std::move(passes)), resources(std::move(resources)),
-        descriptorPool(std::move(descriptorPool)), passDescriptors(std::move(descriptors)),
-        initialTransitions(std::move(initialTransitions)) {
+        passDescriptors(std::move(descriptors)), initialTransitions(std::move(initialTransitions)) {
     for (const auto& group : this->passGroups) {
       if (group.queue == QueueType::Graphics) {
         graphicsQueuePassCount += group.count;
@@ -329,18 +370,9 @@ namespace kt {
   void RenderPass::setBuildCallback(PassExecuteCb&& cb) { buildCb = std::move(cb); }
   void RenderPass::setGetClearDepthStencilCallback(std::function<bool(DepthClearValue*)>&& cb) { getClearDepthStencilCb = std::move(cb); }
   void RenderPass::setGetClearColorCallback(std::function<bool(uint32_t, ColorClearValue*)>&& cb) { getClearColorCb = std::move(cb); }
-  void RenderPass::setup(
-#ifdef KT_VULKAN
-      , VkDescriptorSetLayout descriptorSetLayout
-#endif
-  ) {
+  void RenderPass::setup(rhi::DescriptorLayout& layout) {
     if (passInterface)
-      passInterface->setup(*graph
-#ifdef KT_VULKAN
-                           ,
-                           descriptorSetLayout
-#endif
-      );
+      passInterface->setup(*graph, layout);
   }
   void RenderPass::prepare() {
     if (passInterface)
@@ -387,6 +419,8 @@ namespace kt {
     }
     return nullptr;
   }
+
+  const std::vector<rhi::Image>& RenderGraph::getImages() const { return resources.images; }
 
   void RenderGraph::onResolutionChanged(const glm::uvec2& newResolution) {
     KT_PROFILE_FUNCTION

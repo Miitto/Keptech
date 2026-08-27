@@ -2,9 +2,7 @@
 
 #include "keptech/graph/pass.hpp"
 #include "keptech/graph/renderResources.hpp"
-#include "keptech/rhi/constants.hpp"
 #include "keptech/rhi/descriptorPool.hpp"
-#include "keptech/rhi/descriptorSet.hpp"
 #include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_uint2.hpp>
 #include <memory>
@@ -152,9 +150,7 @@ namespace kt {
 
     Resources buildResources();
 
-    rhi::DescriptorPool buildDescriptorPool(rhi::RHI& rhi);
-    std::vector<std::array<rhi::DescriptorSet, MAX_FRAMES_IN_FLIGHT>> buildDescriptors(rhi::RHI& rhi, Resources& resources,
-                                                                                       rhi::DescriptorPool& descriptorPool);
+    std::vector<Descriptors> buildDescriptors(rhi::RHI& rhi, Resources& resources);
 
     std::vector<RenderPass> bakePasses(const Resources& resources);
 

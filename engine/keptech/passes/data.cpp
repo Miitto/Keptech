@@ -14,7 +14,7 @@ namespace kt {
     self.addMappedBuffer("kt::objects", 1000 * sizeof(Object));
   }
 
-  void DataPass::setup(RenderGraph& graph) {
+  void DataPass::setup(RenderGraph& graph, const rhi::DescriptorLayout&) {
     camIndex = graph.getBufferIndex("kt::camera");
     objectsIndex = graph.getBufferIndex("kt::objects");
 

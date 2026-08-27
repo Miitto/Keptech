@@ -50,5 +50,5 @@ struct depthWriteAttribute {
 [__AttributeUsage(_AttributeTargets.Struct)]
 struct instanceAttribute {};
 
-[__AttributeUsage(_AttributeTargets.Param)]
+[__AttributeUsage(_AttributeTargets.Var)]
 struct pushAttribute {};
