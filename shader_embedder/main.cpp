@@ -82,11 +82,10 @@ void writeFragment(std::ofstream& file, const kt::shaders::Fragment& fragment) {
        << "        .depthWrite = " << (fragment.depthWrite ? "true" : "false") << ",\n    },\n";
 }
 
-void writeResources(std::ofstream& file, const std::vector<kt::shaders::ResourceSet>& resources,
-                    const kt::shaders::PushConstantData& pushConstantData) {
-  file << "    .resources = {\n";
-  for (size_t i = 0; i < resources.size(); ++i) {
-    const auto& resource = resources[i];
+void writeResources(std::ofstream& file, const kt::shaders::Resources& resources) {
+  file << "{.sets = {\n";
+  for (size_t i = 0; i < resources.sets.size(); ++i) {
+    const auto& resource = resources.sets[i];
 
     file << "         ::kt::shaders::ResourceSet(std::move(std::vector<::kt::shaders::ResourceBinding>{\n";
     for (const auto& res : resource.resources) {
@@ -98,17 +97,19 @@ void writeResources(std::ofstream& file, const std::vector<kt::shaders::Resource
            << "              .bufferInfo = ::kt::shaders::BufferInfo{.sizeOrStride = " << res.bufferInfo.sizeOrStride << ",\n"
            << "               .fieldOffsets = {\n";
       for (const auto& offset : res.bufferInfo.fieldOffsets) {
-        file << "                    {\"" << offset.first << "\", " << offset.second << "},\n";
+        file << "                    {\"" << offset.first << "\", {" << offset.second.offset << ", " << offset.second.size << ", "
+             << offset.second.stride << "}},\n";
       }
       file << "                }}},\n";
     }
     file << "         })),\n";
   }
-  file << "    },\n    .pushConstants = {.size = " << std::dec << pushConstantData.size << ", .memberOffsets = {\n";
-  for (const auto& offset : pushConstantData.memberOffsets) {
-    file << "                {\"" << offset.first << "\", " << offset.second << "},\n";
+  file << "    },\n    .pushConstants = {.size = " << std::dec << resources.pushConstants.size << ", .fieldOffsets = {\n";
+  for (const auto& offset : resources.pushConstants.fieldOffsets) {
+    file << "                {\"" << offset.first << "\", {" << offset.second.offset << ", " << offset.second.size << ", "
+         << offset.second.stride << "}},\n";
   }
-  file << "            }},\n";
+  file << "            }}},\n";
 }
 
 int main(int argc, char** argv) {
@@ -229,7 +230,8 @@ int main(int argc, char** argv) {
 
   writeFragment(outSource, shader.info.fragment);
 
-  writeResources(outSource, shader.info.resources, shader.info.pushConstants);
+  outSource << "    .globalResources = ";
+  writeResources(outSource, shader.info.globalResources);
 
   outSource << "}\n};\n}";
 

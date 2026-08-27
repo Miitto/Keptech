@@ -22,7 +22,6 @@ struct Buffers {
 }
 
 ParameterBlock<Buffers> buffers;
-ParameterBlock<Buffers> buffers2;
 
 [shader("vertex")]
 [topology(kt::PrimitiveTopology::TriangleList)]

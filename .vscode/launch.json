@@ -44,7 +44,7 @@
             "cwd": "${workspaceFolder}",
             "args": [
                 "geometry",
-                "shaders",
+                "shaders::kt",
                 "engine/keptech/passes/geometry.slang",
                 "__output/clang-x64-dx12/shaders/gen/shaders/keptech/geometry.h",
                 "__output/clang-x64-dx12/shaders/gen/shaders/keptech/geometry.cpp"

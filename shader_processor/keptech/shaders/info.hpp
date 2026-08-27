@@ -16,7 +16,7 @@ namespace kt::shaders {
     Vertex vertex;
     Fragment fragment;
     uint32_t bindlessIndex;
-    std::vector<ResourceSet> resources;
-    PushConstantData pushConstants;
+    Resources globalResources;
+    std::vector<Resources> entryPointResources;
   };
 } // namespace kt::shaders

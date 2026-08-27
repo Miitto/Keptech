@@ -405,7 +405,7 @@ namespace kt::rhi {
     DX_ASSERT(dst.dxGetResource() != nullptr, "Destination image resource is null");
 
     auto& rhi = RHI::get();
-    auto& pipeline = rhi.getBlitPipeline(dst.format());
+    auto& pipeline = rhi.dxGetBlitPipeline(dst.format());
 
     bindGraphicsPipeline(pipeline);
 

@@ -6,6 +6,7 @@
 #include "slangFormatting.hpp"
 #include <expected>
 #include <slang.h>
+#include <spdlog/fmt/bundled/ranges.h>
 #include <utility>
 
 namespace kt::shader_processor {
@@ -162,14 +163,14 @@ namespace kt::shader_processor {
 
           auto offset = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
 
-          if (info->resources.size() <= offset.space) {
-            info->resources.resize(offset.space + 1);
+          if (resources->sets.size() <= offset.space) {
+            resources->sets.resize(offset.space + 1);
           }
 
           auto bindingIt = std::find_if(
-              info->resources[offset.space].resources.begin(), info->resources[offset.space].resources.end(),
+              resources->sets[offset.space].resources.begin(), resources->sets[offset.space].resources.end(),
               [resourceType, offset](const shaders::ResourceBinding& b) { return b.binding == offset.value && b.type == resourceType; });
-          if (bindingIt == info->resources[offset.space].resources.end()) {
+          if (bindingIt == resources->sets[offset.space].resources.end()) {
             shaders::ResourceBinding bindingInfo{
                 .name = fmt::format("{}", fmt::join(offset.name, ".")),
                 .type = resourceType,
@@ -178,17 +179,17 @@ namespace kt::shader_processor {
                 .isPush = false,
                 .bufferInfo = {.sizeOrStride = stride},
             };
-            info->resources[offset.space].resources.push_back(bindingInfo);
-            bindingIt = std::prev(info->resources[offset.space].resources.end());
+            resources->sets[offset.space].resources.push_back(bindingInfo);
+            bindingIt = std::prev(resources->sets[offset.space].resources.end());
           }
         } break;
         case SLANG_TEXTURE_1D: {
           auto offset = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
-          if (info->resources.size() <= offset.space) {
-            info->resources.resize(offset.space + 1);
+          if (resources->sets.size() <= offset.space) {
+            resources->sets.resize(offset.space + 1);
           }
 
-          info->resources[offset.space].resources.push_back(shaders::ResourceBinding{
+          resources->sets[offset.space].resources.push_back(shaders::ResourceBinding{
               .name = fmt::format("{}", fmt::join(offset.name, ".")),
               .type = isTexArray ? shaders::ShaderResourceType::Texture1DArray : shaders::ShaderResourceType::Texture1D,
               .binding = static_cast<uint32_t>(offset.value),
@@ -198,11 +199,11 @@ namespace kt::shader_processor {
         } break;
         case SLANG_TEXTURE_2D: {
           auto offset = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
-          if (info->resources.size() <= offset.space) {
-            info->resources.resize(offset.space + 1);
+          if (resources->sets.size() <= offset.space) {
+            resources->sets.resize(offset.space + 1);
           }
 
-          info->resources[offset.space].resources.push_back(shaders::ResourceBinding{
+          resources->sets[offset.space].resources.push_back(shaders::ResourceBinding{
               .name = fmt::format("{}", fmt::join(offset.name, ".")),
               .type = isTexArray ? shaders::ShaderResourceType::Texture2DArray : shaders::ShaderResourceType::Texture2D,
               .binding = static_cast<uint32_t>(offset.value),
@@ -212,11 +213,11 @@ namespace kt::shader_processor {
         } break;
         case SLANG_TEXTURE_3D: {
           auto offset = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
-          if (info->resources.size() <= offset.space) {
-            info->resources.resize(offset.space + 1);
+          if (resources->sets.size() <= offset.space) {
+            resources->sets.resize(offset.space + 1);
           }
 
-          info->resources[offset.space].resources.push_back(shaders::ResourceBinding{
+          resources->sets[offset.space].resources.push_back(shaders::ResourceBinding{
               .name = fmt::format("{}", fmt::join(offset.name, ".")),
               .type = isTexArray ? shaders::ShaderResourceType::Texture3DArray : shaders::ShaderResourceType::Texture3D,
               .binding = static_cast<uint32_t>(offset.value),
@@ -227,11 +228,11 @@ namespace kt::shader_processor {
         case SLANG_TEXTURE_CUBE: {
           SHDR_ASSERT(!isTexArray, "Cube textures cannot be arrays.");
           auto offset = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
-          if (info->resources.size() <= offset.space) {
-            info->resources.resize(offset.space + 1);
+          if (resources->sets.size() <= offset.space) {
+            resources->sets.resize(offset.space + 1);
           }
 
-          info->resources[offset.space].resources.push_back(shaders::ResourceBinding{
+          resources->sets[offset.space].resources.push_back(shaders::ResourceBinding{
               .name = fmt::format("{}", fmt::join(offset.name, ".")),
               .type = shaders::ShaderResourceType::TextureCube,
               .binding = static_cast<uint32_t>(offset.value),
@@ -244,13 +245,33 @@ namespace kt::shader_processor {
         } break;
         }
       } break;
+      case slang::TypeReflection::Kind::Array:
       case slang::TypeReflection::Kind::Vector:
       case slang::TypeReflection::Kind::Matrix:
       case slang::TypeReflection::Kind::Scalar: {
-        if (accessPath.deepestBufer == nullptr) {
-          // TODO: Push constant
+        if (accessPath.deepestBuffer == nullptr) {
+          if (variableLayout->getCategory() == slang::ParameterCategory::Uniform) {
+            auto offset = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
+            if (resources->pushConstants.size < offset.value + variableLayout->getTypeLayout()->getSize()) {
+              resources->pushConstants.size = offset.value + variableLayout->getTypeLayout()->getSize();
+            }
+            resources->pushConstants.space = offset.space;
+            resources->pushConstants
+                .fieldOffsets[fmt::format("{}{}", fmt::join(offset.name, "."),
+                                          variableLayout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::Array ? "[]" : "")] =
+                shaders::FieldInfo{offset.value, variableLayout->getTypeLayout()->getSize(), variableLayout->getTypeLayout()->getStride()};
+
+            SHDR_DEBUG("Push constant field {}: offset {}, size {} with cats:", fmt::format("{}", fmt::join(offset.name, ".")),
+                       offset.value, variableLayout->getTypeLayout()->getSize());
+            auto catCount = variableLayout->getCategoryCount();
+            for (int i = 0; i < catCount; ++i) {
+              auto layoutUnit = variableLayout->getCategoryByIndex(i);
+              SHDR_DEBUG("  {}: offset {}, space {}", layoutUnit, variableLayout->getOffset(layoutUnit),
+                         variableLayout->getBindingSpace(layoutUnit));
+            }
+          }
         } else {
-          auto bufferVar = accessPath.deepestBufer->variableLayout;
+          auto bufferVar = accessPath.deepestBuffer->variableLayout;
 
           size_t sizeOrStride = 0;
           shaders::ShaderResourceType type = shaders::ShaderResourceType::UniformBuffer;
@@ -277,19 +298,23 @@ namespace kt::shader_processor {
             SHDR_ABORT("Unexpected type for buffer variable: {}", bufferVar->getTypeLayout()->getKind());
           }
 
+          AccessPath bufferAccessPath{};
+          bufferAccessPath.leaf = accessPath.deepestBuffer;
           auto [byteOffset, _s, varName] = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
-          auto [binding, space, bufName] = calculateCumulativeOffset(bufferVar, bufferVar->getCategory(), accessPath);
+          auto [binding, space, bufName] = calculateCumulativeOffset(bufferVar->getCategory(), bufferAccessPath);
+
+          SHDR_DEBUG("Var name: {}  Buf Name: {}", fmt::join(varName, "."), fmt::join(bufName, "."));
 
           std::vector<std::string> name = bufName;
           name.append_range(varName);
 
-          if (info->resources.size() <= space) {
-            info->resources.resize(space + 1);
+          if (resources->sets.size() <= space) {
+            resources->sets.resize(space + 1);
           }
           auto bindingIt =
-              std::find_if(info->resources[space].resources.begin(), info->resources[space].resources.end(),
+              std::find_if(resources->sets[space].resources.begin(), resources->sets[space].resources.end(),
                            [binding, type](const shaders::ResourceBinding& b) { return b.binding == binding && b.type == type; });
-          if (bindingIt == info->resources[space].resources.end()) {
+          if (bindingIt == resources->sets[space].resources.end()) {
             shaders::ResourceBinding bindingInfo{
                 .name = fmt::format("{}", fmt::join(bufName, ".")),
                 .type = type,
@@ -298,10 +323,12 @@ namespace kt::shader_processor {
                 .isPush = false,
                 .bufferInfo = {.sizeOrStride = sizeOrStride},
             };
-            info->resources[space].resources.push_back(bindingInfo);
-            bindingIt = std::prev(info->resources[space].resources.end());
+            resources->sets[space].resources.push_back(bindingInfo);
+            bindingIt = std::prev(resources->sets[space].resources.end());
           }
-          bindingIt->bufferInfo.fieldOffsets[fmt::format("{}", fmt::join(name, "."))] = byteOffset;
+          bindingIt->bufferInfo.fieldOffsets[fmt::format(
+              "{}{}", fmt::join(name, "."), variableLayout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::Array ? "[]" : "")] =
+              shaders::FieldInfo{byteOffset, variableLayout->getTypeLayout()->getSize(), variableLayout->getTypeLayout()->getStride()};
         }
       }
       default:
@@ -426,7 +453,7 @@ namespace kt::shader_processor {
       //
       case slang::TypeReflection::Kind::Array: {
         key("element type layout");
-        printTypeLayout(typeLayout->getElementTypeLayout(), AccessPath());
+        printTypeLayout(typeLayout->getElementVarLayout()->getTypeLayout(), AccessPath());
       } break;
 
       // #### Matrix Type Layouts
@@ -454,7 +481,9 @@ namespace kt::shader_processor {
         auto elementVarLayout = typeLayout->getElementVarLayout();
 
         AccessPath innerOffsets = accessPath;
-        innerOffsets.deepestBufer = innerOffsets.leaf;
+        if (containerVarLayout->getTypeLayout()->getSize(slang::ParameterCategory::ConstantBuffer) != 0) {
+          innerOffsets.deepestBuffer = innerOffsets.leaf;
+        }
         if (containerVarLayout->getTypeLayout()->getSize(slang::ParameterCategory::SubElementRegisterSpace) != 0) {
           innerOffsets.deepestParameterBlock = innerOffsets.leaf;
         }
@@ -482,7 +511,8 @@ namespace kt::shader_processor {
         if ((typeLayout->getResourceShape() & SLANG_RESOURCE_BASE_SHAPE_MASK) == SLANG_STRUCTURED_BUFFER) {
           key("element type layout");
           AccessPath innerOffsets = accessPath;
-          innerOffsets.deepestBufer = innerOffsets.leaf;
+          if (typeLayout->getSize(slang::ParameterCategory::ShaderResource) != 0)
+            innerOffsets.deepestBuffer = innerOffsets.leaf;
           printTypeLayout(typeLayout->getElementTypeLayout(), innerOffsets);
 
         } else {
@@ -499,7 +529,7 @@ namespace kt::shader_processor {
     // Programs and Scopes
     // -------------------
     //
-    void printProgramLayout(slang::ProgramLayout* programLayout) {
+    void printProgramLayout(slang::ProgramLayout* programLayout, shaders::ShaderInfo& shaderInfo) {
       SCOPE();
 
       AccessPath rootOffsets;
@@ -507,6 +537,7 @@ namespace kt::shader_processor {
 
       key("global scope");
       {
+        resources = &shaderInfo.globalResources;
         SCOPE();
         printScope(programLayout->getGlobalParamsVarLayout(), rootOffsets);
       }
@@ -515,6 +546,8 @@ namespace kt::shader_processor {
       int entryPointCount = programLayout->getEntryPointCount();
       ARRAY()
       for (int i = 0; i < entryPointCount; ++i) {
+        shaderInfo.entryPointResources.push_back(shaders::Resources{});
+        resources = &shaderInfo.entryPointResources.back();
         element();
         printEntryPointLayout(programLayout->getEntryPointByIndex(i), rootOffsets);
       }
@@ -658,7 +691,7 @@ namespace kt::shader_processor {
       AccessPath() {}
 
       bool valid = false;
-      AccessPathNode* deepestBufer = nullptr;
+      AccessPathNode* deepestBuffer = nullptr;
       AccessPathNode* deepestParameterBlock = nullptr;
       AccessPathNode* leaf = nullptr;
     };
@@ -722,17 +755,17 @@ namespace kt::shader_processor {
           SHDR_ASSERT(node->variableLayout != nullptr);
           result.value += node->variableLayout->getOffset(layoutUnit);
           if (node->variableLayout->getName() != nullptr)
-            result.name.push_back(node->variableLayout->getName());
+            result.name.insert(result.name.begin(), node->variableLayout->getName());
         }
         break;
 
       // #### Bytes
       //
       case slang::ParameterCategory::Uniform:
-        for (auto node = accessPath.leaf; node != accessPath.deepestBufer; node = node->outer) {
+        for (auto node = accessPath.leaf; node != accessPath.deepestBuffer; node = node->outer) {
           result.value += node->variableLayout->getOffset(layoutUnit);
           if (node->variableLayout->getName() != nullptr)
-            result.name.push_back(node->variableLayout->getName());
+            result.name.insert(result.name.begin(), node->variableLayout->getName());
         }
         break;
 
@@ -747,12 +780,12 @@ namespace kt::shader_processor {
           result.value += node->variableLayout->getOffset(layoutUnit);
           result.space += node->variableLayout->getBindingSpace(layoutUnit);
           if (node->variableLayout->getName() != nullptr)
-            result.name.push_back(node->variableLayout->getName());
+            result.name.insert(result.name.begin(), node->variableLayout->getName());
         }
         for (auto node = accessPath.deepestParameterBlock; node != nullptr; node = node->outer) {
           result.space += node->variableLayout->getOffset(slang::ParameterCategory::SubElementRegisterSpace);
           if (node->variableLayout->getName() != nullptr)
-            result.name.push_back(node->variableLayout->getName());
+            result.name.insert(result.name.begin(), node->variableLayout->getName());
         }
         break;
       }
@@ -817,6 +850,6 @@ namespace kt::shader_processor {
     size_t depth = 0;
     std::string currentLine;
 
-    shaders::ShaderInfo* info;
+    shaders::Resources* resources = nullptr;
   };
 } // namespace kt::shader_processor

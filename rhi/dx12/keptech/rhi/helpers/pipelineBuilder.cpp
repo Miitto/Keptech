@@ -88,9 +88,6 @@ namespace kt::rhi {
 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 
-    DX_ASSERT(shader->info.pushConstants.size == 0 || shader->info.pushConstants.size % sizeof(uint32_t) == 0,
-              "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
-
     int32_t maxCbvBinding = -1;
 
     auto rangeTypeFromResourceType = [](shaders::ShaderResourceType type) {
@@ -125,9 +122,9 @@ namespace kt::rhi {
     std::vector<BindingSpace> directUavs;
     std::vector<BindingSpace> directSamplers;
 
-    if (!shader->info.resources.empty()) {
-      for (uint32_t space = 0; space < shader->info.resources.size(); ++space) {
-        const auto& resourceSet = shader->info.resources[space];
+    if (!shader->info.globalResources.sets.empty()) {
+      for (uint32_t space = 0; space < shader->info.globalResources.sets.size(); ++space) {
+        const auto& resourceSet = shader->info.globalResources.sets[space];
         if (resourceSet.resources.empty()) {
           continue;
         }
@@ -145,8 +142,8 @@ namespace kt::rhi {
         break;
       }
 
-      for (uint32_t space = 0; space < shader->info.resources.size(); ++space) {
-        const auto& resourceSet = shader->info.resources[space];
+      for (uint32_t space = 0; space < shader->info.globalResources.sets.size(); ++space) {
+        const auto& resourceSet = shader->info.globalResources.sets[space];
         for (const auto& resource : resourceSet.resources) {
           auto rangeType = rangeTypeFromResourceType(resource.type);
 
@@ -209,7 +206,8 @@ namespace kt::rhi {
     }
 
     std::vector<CD3DX12_ROOT_PARAMETER1> rootParameters{tableOffset + directCbvs.size() + directSrvs.size() + directUavs.size() +
-                                                        directSamplers.size() + (shader->info.pushConstants.size > 0u ? 1u : 0u)};
+                                                        directSamplers.size() +
+                                                        (shader->info.globalResources.pushConstants.size > 0u ? 1u : 0u)};
 
     if (!ranges.empty()) {
       rootParameters[0].InitAsDescriptorTable(static_cast<UINT>(ranges.size()), ranges.data(), D3D12_SHADER_VISIBILITY_ALL);
@@ -227,8 +225,8 @@ namespace kt::rhi {
       rootParameters[offset + i].InitAsUnorderedAccessView(directUavs[i].binding, directUavs[i].space);
     }
 
-    if (shader->info.pushConstants.size > 0) {
-      rootParameters.back().InitAsConstants(static_cast<UINT>(shader->info.pushConstants.size / sizeof(uint32_t)),
+    if (shader->info.globalResources.pushConstants.size > 0) {
+      rootParameters.back().InitAsConstants(static_cast<UINT>(shader->info.globalResources.pushConstants.size / sizeof(uint32_t)),
                                             static_cast<UINT>(maxCbvBinding) + 1, 0);
       pipeline.constantSlot = static_cast<uint32_t>(rootParameters.size() - 1);
     }

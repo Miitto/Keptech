@@ -138,7 +138,7 @@ namespace kt::rhi {
     void dxUpdateRenderTargetImage(rhi::Image& image);
     void dxUpdateDepthStencilImage(rhi::Image& image);
 
-    Pipeline& getBlitPipeline(ImageFormat format);
+    Pipeline& dxGetBlitPipeline(ImageFormat format);
 
   private:
     std::expected<void, std::string> initInternal(const RendererCreateInfo& createInfo, const Window& window);

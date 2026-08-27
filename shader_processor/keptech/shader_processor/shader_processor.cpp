@@ -354,20 +354,28 @@ namespace kt::shader_processor {
     auto layout = program->getLayout();
 
     LayoutManager layoutManager{};
-    layoutManager.info = &shader.info;
-    layoutManager.printProgramLayout(layout);
+    layoutManager.printProgramLayout(layout, shader.info);
 
-    for (size_t space = 0; space < shader.info.resources.size(); ++space) {
-      auto& resourceSet = shader.info.resources[space];
-      SHDR_DEBUG("Space {}: {} resources", space, resourceSet.resources.size());
-      for (const auto& resource : resourceSet.resources) {
-        SHDR_DEBUG("  Binding {}: {} {} (count: {}, push: {}, size/stride: {})", resource.binding, resource.type, resource.name,
-                   resource.count, resource.isPush, resource.bufferInfo.sizeOrStride);
-        for (const auto& [fieldName, offset] : resource.bufferInfo.fieldOffsets) {
-          SHDR_DEBUG("    Field {}: offset {}", fieldName, offset);
+    auto printResources = [&](const shaders::Resources& resources) {
+      for (size_t space = 0; space < resources.sets.size(); ++space) {
+        auto& resourceSet = resources.sets[space];
+        SHDR_DEBUG("  Space {}: {} resources", space, resourceSet.resources.size());
+        for (const auto& resource : resourceSet.resources) {
+          SHDR_DEBUG("    Binding {}: {} {} (count: {}, push: {}, size/stride: {})", resource.binding, resource.type, resource.name,
+                     resource.count, resource.isPush, resource.bufferInfo.sizeOrStride);
+          for (const auto& [fieldName, offset] : resource.bufferInfo.fieldOffsets) {
+            SHDR_DEBUG("      Field {}: offset {}, size {}, stride {}", fieldName, offset.offset, offset.size, offset.stride);
+          }
         }
       }
-    }
+      SHDR_DEBUG("  Push Constants: {} bytes, space {}", resources.pushConstants.size, resources.pushConstants.space);
+      for (const auto& [fieldName, offset] : resources.pushConstants.fieldOffsets) {
+        SHDR_DEBUG("    Field {}: offset {}, size {}, stride {}", fieldName, offset.offset, offset.size, offset.stride);
+      }
+    };
+
+    SHDR_DEBUG("Global parameters for shader {}:", name);
+    printResources(shader.info.globalResources);
 
     shader.stages.reserve(entryPointCount);
 
@@ -378,19 +386,13 @@ namespace kt::shader_processor {
       kt::shaders::ShaderStages stage = slangStagetoKeptechStage(entryPoint->getStage());
       switch (stage) {
       case kt::shaders::ShaderStages::Vertex: {
-        size_t pushConstantSize = 0;
         auto paramCount = entryPoint->getParameterCount();
         for (auto j = 0u; j < paramCount; ++j) {
           auto param = entryPoint->getParameterByIndex(j);
           auto category = param->getCategory();
 
-          if (category == slang::ParameterCategory::Uniform) {
-            pushConstantSize += param->getTypeLayout()->getSize();
-            continue;
-          }
-
           if (category != slang::ParameterCategory::VaryingInput && category != slang::ParameterCategory::Mixed)
-            continue; // Some sort of builtin, such as vertex ID
+            continue; // Some sort of builtin, such as vertex ID.
 
           switch (param->getType()->getKind()) {
           case slang::TypeReflection::Kind::Scalar:
@@ -435,8 +437,6 @@ namespace kt::shader_processor {
           return std::unexpected<std::string>("Failed to parse vertex attributes: " + res.error());
         }
 
-        shader.info.pushConstants.size = std::max(shader.info.pushConstants.size, pushConstantSize);
-
         break;
       }
       case kt::shaders::ShaderStages::Mesh: {
@@ -445,18 +445,6 @@ namespace kt::shader_processor {
           return std::unexpected<std::string>("Failed to parse mesh attributes: " + res.error());
         }
 
-        size_t pushConstantSize = 0;
-
-        auto paramCount = entryPoint->getParameterCount();
-        for (auto j = 0u; j < paramCount; ++j) {
-          auto param = entryPoint->getParameterByIndex(j);
-          auto category = param->getCategory();
-          if (category == slang::ParameterCategory::Uniform) {
-            pushConstantSize += param->getTypeLayout()->getSize();
-          }
-        }
-
-        shader.info.pushConstants.size = std::max(shader.info.pushConstants.size, pushConstantSize);
         break;
       }
       case kt::shaders::ShaderStages::Fragment: {
@@ -471,18 +459,6 @@ namespace kt::shader_processor {
           return std::unexpected<std::string>("Failed to parse fragment attributes: " + res.error());
         }
 
-        size_t pushConstantSize = 0;
-        auto paramCount = entryPoint->getParameterCount();
-        for (auto j = 0u; j < paramCount; ++j) {
-          auto param = entryPoint->getParameterByIndex(j);
-          auto category = param->getCategory();
-          if (category == slang::ParameterCategory::Uniform) {
-            pushConstantSize += param->getTypeLayout()->getSize();
-          }
-        }
-
-        shader.info.pushConstants.size = std::max(shader.info.pushConstants.size, pushConstantSize);
-
       } break;
       default:
         break;
@@ -493,6 +469,11 @@ namespace kt::shader_processor {
     shader.info.vertex.layout.reserve(vertexLayout.size());
     for (auto& layoutEntry : vertexLayout) {
       shader.info.vertex.layout.emplace_back(std::move(layoutEntry));
+    }
+
+    for (size_t i = 0; i < shader.info.entryPointResources.size(); ++i) {
+      SHDR_DEBUG("Entry point {} (\"{}\") parameters for shader {}:", i, shader.stages[i].name, name);
+      printResources(shader.info.entryPointResources[i]);
     }
 
     return Return<kt::shaders::Shader>{.value = std::move(shader), .diagnostics = std::move(diag)};

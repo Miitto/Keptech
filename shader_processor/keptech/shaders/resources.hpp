@@ -20,9 +20,18 @@ namespace kt::shaders {
     RWStorageBuffer
   };
 
+  struct FieldInfo {
+    /// Offset of the field within the buffer or push constant block.
+    size_t offset;
+    /// Size of the field in bytes.
+    size_t size;
+    /// Stride of the fields elements in bytes, if the field is an array.
+    size_t stride;
+  };
+
   struct BufferInfo {
     size_t sizeOrStride;
-    std::unordered_map<std::string, size_t> fieldOffsets;
+    std::unordered_map<std::string, FieldInfo> fieldOffsets;
   };
 
   struct ResourceBinding {
@@ -36,6 +45,17 @@ namespace kt::shaders {
 
   struct ResourceSet {
     std::vector<ResourceBinding> resources;
+  };
+
+  struct PushConstantInfo {
+    size_t size = 0;
+    size_t space = 0;
+    std::unordered_map<std::string, FieldInfo> fieldOffsets;
+  };
+
+  struct Resources {
+    std::vector<ResourceSet> sets;
+    PushConstantInfo pushConstants;
   };
 } // namespace kt::shaders
 
