@@ -224,12 +224,12 @@ const std::vector<kt::shaders::DataType> slangTypeToKeptechTypes(slang::TypeRefl
   } break;
   case slang::TypeReflection::Kind::Array: {
     auto typeElem = type->getElementType();
-    auto types = slangTypeToKeptechTypes(typeElem);
+    auto t = slangTypeToKeptechTypes(typeElem)[0];
     auto elemCount = type->getElementCount();
     std::vector<DataType> arrayTypes;
-    arrayTypes.reserve(types.size() * elemCount);
+    arrayTypes.reserve(elemCount);
     for (size_t i = 0; i < elemCount; ++i) {
-      arrayTypes.insert(arrayTypes.end(), types.begin(), types.end());
+      arrayTypes.push_back(t);
     }
     return arrayTypes;
   }
@@ -240,7 +240,7 @@ const std::vector<kt::shaders::DataType> slangTypeToKeptechTypes(slang::TypeRefl
       slang::VariableReflection* field = type->getFieldByIndex(i);
       auto fieldType = field->getType();
       auto t = slangTypeToKeptechTypes(fieldType);
-      fieldTypes.insert(fieldTypes.end(), t.begin(), t.end());
+      fieldTypes.append_range(t);
     }
     return fieldTypes;
   }

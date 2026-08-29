@@ -239,8 +239,6 @@ namespace kt::shader_processor {
           if (argCount != 1) {
             return std::unexpected<std::string>("Invalid number of arguments for topology attribute");
           }
-          auto argType = attribute->getArgumentType(0);
-          std::clog << fmt::format("Argument type: {}", argType->getKind());
           int value = 0;
           attribute->getArgumentValueInt(0, &value);
           switch (value) {
@@ -258,8 +256,6 @@ namespace kt::shader_processor {
           if (argCount != 1) {
             return std::unexpected<std::string>("Invalid number of arguments for cull attribute");
           }
-          auto argType = attribute->getArgumentType(0);
-          std::clog << fmt::format("Argument type: {}", argType->getKind());
           int value = 0;
           attribute->getArgumentValueInt(0, &value);
           switch (value) {
@@ -368,9 +364,11 @@ namespace kt::shader_processor {
           }
         }
       }
-      SHDR_DEBUG("  Push Constants: {} bytes, space {}", resources.pushConstants.size, resources.pushConstants.space);
-      for (const auto& [fieldName, offset] : resources.pushConstants.fieldOffsets) {
-        SHDR_DEBUG("    Field {}: offset {}, size {}, stride {}", fieldName, offset.offset, offset.size, offset.stride);
+      if (resources.pushConstants.size > 0) {
+        SHDR_DEBUG("  Push Constants: {} bytes, space {}", resources.pushConstants.size, resources.pushConstants.space);
+        for (const auto& [fieldName, offset] : resources.pushConstants.fieldOffsets) {
+          SHDR_DEBUG("    Field {}: offset {}, size {}, stride {}", fieldName, offset.offset, offset.size, offset.stride);
+        }
       }
     };
 
@@ -379,101 +377,35 @@ namespace kt::shader_processor {
 
     shader.stages.reserve(entryPointCount);
 
-    std::vector<shaders::VertexBuffer> vertexLayout;
-
     for (uint32_t i = 0; i < entryPointCount; ++i) {
       auto entryPoint = layout->getEntryPointByIndex(i);
       kt::shaders::ShaderStages stage = slangStagetoKeptechStage(entryPoint->getStage());
+      shader.stages.push_back(kt::shaders::ShaderStage{.name = entryPoint->getName(), .stage = stage});
+    }
+
+    for (size_t i = 0; i < shader.info.entryPointResources.size(); ++i) {
+      auto& resources = shader.info.entryPointResources[i];
+      SHDR_DEBUG("Entry point {} (\"{}\") parameters for shader {}:", i, shader.stages[i].name, name);
+      printResources(shader.info.entryPointResources[i]);
+
+      auto stage = shader.stages[i].stage;
       switch (stage) {
-      case kt::shaders::ShaderStages::Vertex: {
-        auto paramCount = entryPoint->getParameterCount();
-        for (auto j = 0u; j < paramCount; ++j) {
-          auto param = entryPoint->getParameterByIndex(j);
-          auto category = param->getCategory();
-
-          if (category != slang::ParameterCategory::VaryingInput && category != slang::ParameterCategory::Mixed)
-            continue; // Some sort of builtin, such as vertex ID.
-
-          switch (param->getType()->getKind()) {
-          case slang::TypeReflection::Kind::Scalar:
-          case slang::TypeReflection::Kind::Vector: {
-            auto semantic = param->getSemanticName();
-            auto semanticIndex = param->getSemanticIndex();
-            auto type = slangTypeToKeptechTypes(param->getType())[0];
-            vertexLayout.push_back(shaders::VertexBuffer{
-                .layout = {shaders::VertexLayoutEntry{.type = type, .semantic = semantic, .semanticIndex = semanticIndex}},
-                .inputRate = shaders::InputRate::Vertex});
-          } break;
-          case slang::TypeReflection::Kind::Struct: {
-            bool isInstanceData = false;
-            auto attribCount = param->getType()->getUserAttributeCount();
-            for (uint32_t idx = 0; idx < attribCount; ++idx) {
-              auto attribute = param->getType()->getUserAttributeByIndex(idx);
-              if (strcmp(attribute->getName(), "instance") == 0) {
-                isInstanceData = true;
-              }
-            }
-            auto fieldCount = param->getTypeLayout()->getFieldCount();
-            shaders::VertexBuffer buffer;
-            for (auto k = 0u; k < fieldCount; ++k) {
-              auto field = param->getTypeLayout()->getFieldByIndex(k);
-              auto types = slangTypeToKeptechTypes(field->getType());
-              if (types.size() != 1) {
-                return std::unexpected<std::string>("Reflection does not yet support nested structs for vertex input");
-              }
-              auto semantic = field->getSemanticName();
-              auto semanticIndex = field->getSemanticIndex();
-              buffer.layout.push_back(shaders::VertexLayoutEntry{.type = types[0], .semantic = semantic, .semanticIndex = semanticIndex});
-            }
-            buffer.inputRate = isInstanceData ? shaders::InputRate::Instance : shaders::InputRate::Vertex;
-            vertexLayout.push_back(std::move(buffer));
-          } break;
-          default:
-          }
+      case shaders::ShaderStages::Vertex:
+      case shaders::ShaderStages::Fragment:
+      case shaders::ShaderStages::Geometry:
+      case shaders::ShaderStages::Mesh:
+      case shaders::ShaderStages::Task: {
+        if (resources.pushConstants.size > 0 || !resources.sets.empty()) {
+          SHDR_ERROR("Shader \"{}\" has a {} entry point (\"{}\") with entry point resources. Per-entry resources are not supported for "
+                     "multi-stage programs (vertex/fragment/geometry/mesh/task).",
+                     name, stage, shader.stages[i].name);
+          return std::unexpected<std::string>(
+              "Per-entry resources are not supported for multi-stage programs (vertex/fragment/geometry/mesh/task).");
         }
-
-        auto res = parseVertexAttribs(shader.info.vertex, *entryPoint->getFunction());
-        if (!res) {
-          return std::unexpected<std::string>("Failed to parse vertex attributes: " + res.error());
-        }
-
-        break;
-      }
-      case kt::shaders::ShaderStages::Mesh: {
-        auto res = parseVertexAttribs(shader.info.vertex, *entryPoint->getFunction());
-        if (!res) {
-          return std::unexpected<std::string>("Failed to parse mesh attributes: " + res.error());
-        }
-
-        break;
-      }
-      case kt::shaders::ShaderStages::Fragment: {
-        auto returnT = entryPoint->getFunction()->getReturnType();
-        Slang::ComPtr<slang::IBlob> typeNameBlob;
-        returnT->getFullName(typeNameBlob.writeRef());
-
-        std::string_view returnTypeName(static_cast<const char*>(typeNameBlob->getBufferPointer()), typeNameBlob->getBufferSize());
-
-        auto res = parseFragmentAttribs(shader.info.fragment, *entryPoint->getFunction());
-        if (!res) {
-          return std::unexpected<std::string>("Failed to parse fragment attributes: " + res.error());
-        }
-
       } break;
       default:
         break;
       }
-      shader.stages.push_back(kt::shaders::ShaderStage{.name = entryPoint->getName(), .stage = stage});
-    }
-
-    shader.info.vertex.layout.reserve(vertexLayout.size());
-    for (auto& layoutEntry : vertexLayout) {
-      shader.info.vertex.layout.emplace_back(std::move(layoutEntry));
-    }
-
-    for (size_t i = 0; i < shader.info.entryPointResources.size(); ++i) {
-      SHDR_DEBUG("Entry point {} (\"{}\") parameters for shader {}:", i, shader.stages[i].name, name);
-      printResources(shader.info.entryPointResources[i]);
     }
 
     return Return<kt::shaders::Shader>{.value = std::move(shader), .diagnostics = std::move(diag)};

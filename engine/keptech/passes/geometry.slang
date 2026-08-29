@@ -26,7 +26,7 @@ ParameterBlock<Buffers> buffers;
 [shader("vertex")]
 [topology(kt::PrimitiveTopology::TriangleList)]
 [cull(kt::CullMode::Back)]
-VertexOutput vert(float3 position: POSITION, kt::VertexAttribs v, uint baseInstance: SV_StartInstanceLocation) {
+VertexOutput vert(float3 position: POSITION, [vertexBuffer(1)] kt::VertexAttribs v, uint baseInstance: SV_StartInstanceLocation) {
   VertexOutput output;
 
   Object obj = buffers.objects[baseInstance];

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "conversions.hpp"
 #include "keptech/shaders/info.hpp"
 #include "keptech/shaders/resources.hpp"
 #include "shader-logger.hpp"
@@ -11,139 +12,14 @@
 
 namespace kt::shader_processor {
 
-#define ARRAY() for (int _i = (beginArray(), 1); _i; _i = (endArray(), 0))
-#define SCOPE() ScopedObject scope##__COUNTER__(*this)
-
   struct LayoutManager {
     struct AccessPath;
 
-    void printVariable(slang::VariableReflection* varLayout) {
-      SCOPE();
-
-      const char* name = varLayout->getName();
-      slang::TypeReflection* type = varLayout->getType();
-
-      key("name");
-      printQuotesString(name);
-      key("type");
-      printType(type);
-    }
-
-    void printType(slang::TypeReflection* type) {
-      SCOPE();
-
-      const char* name = type->getName();
-      slang::TypeReflection::Kind kind = type->getKind();
-      key("name");
-      printQuotesString(name);
-      key("kind");
-      print(kind);
-
-      printCommonTypeInfo(type);
-
-      switch (kind) {
-      case slang::TypeReflection::Kind::Struct: {
-        key("fields");
-        int fieldCount = type->getFieldCount();
-
-        ARRAY();
-        for (int i = 0; i < fieldCount; ++i) {
-          element();
-          auto fieldLayout = type->getFieldByIndex(i);
-          printVariable(fieldLayout);
-        }
-      } break;
-      case slang::TypeReflection::Kind::Array:
-      case slang::TypeReflection::Kind::Vector:
-      case slang::TypeReflection::Kind::Matrix: {
-        key("elementType");
-        printType(type->getElementType());
-      } break;
-      case slang::TypeReflection::Kind::Resource: {
-        key("resultType");
-        printType(type->getResourceResultType());
-      } break;
-      case slang::TypeReflection::Kind::ConstantBuffer:
-      case slang::TypeReflection::Kind::ParameterBlock:
-      case slang::TypeReflection::Kind::TextureBuffer:
-      case slang::TypeReflection::Kind::ShaderStorageBuffer: {
-        key("element type");
-        printType(type->getElementType());
-      } break;
-      default:
-        break;
-      }
-    }
-
-    void printPossiblyUnbounded(size_t value) {
-      if (value == ~size_t(0)) {
-        printf("unbounded");
-      } else {
-        printf("%u", unsigned(value));
-      }
-    }
-
-    void printCommonTypeInfo(slang::TypeReflection* type) {
-      switch (type->getKind()) {
-      // #### Scalar Types
-      //
-      case slang::TypeReflection::Kind::Scalar: {
-        key("scalar type");
-        print(type->getScalarType());
-      } break;
-
-      // #### Array Types
-      //
-      case slang::TypeReflection::Kind::Array: {
-        key("element count");
-        printPossiblyUnbounded(type->getElementCount());
-      } break;
-
-      // #### Vector Types
-      //
-      case slang::TypeReflection::Kind::Vector: {
-        key("element count");
-        print(type->getElementCount());
-      } break;
-
-      // #### Matrix Types
-      //
-      case slang::TypeReflection::Kind::Matrix: {
-        key("row count");
-        print(type->getRowCount());
-
-        key("column count");
-        print(type->getColumnCount());
-      } break;
-
-      // #### Resource Types
-      //
-      case slang::TypeReflection::Kind::Resource: {
-        key("shape");
-        print(type->getResourceShape());
-
-        key("access");
-        print(type->getResourceAccess());
-      } break;
-
-      default:
-        break;
-      }
-    }
-
     void printVariableLayout(slang::VariableLayoutReflection* variableLayout, AccessPath accessPath) {
-      SCOPE();
-
-      key("name");
-      printQuotesString(variableLayout->getName());
-
-      printOffsets(variableLayout, accessPath);
-
-      printVaryingParameterInfo(variableLayout);
+      printVaryingParameterInfo(variableLayout, accessPath);
 
       ExtendedAccessPath variablePath(accessPath, variableLayout);
 
-      key("type layout");
       printTypeLayout(variableLayout->getTypeLayout(), variablePath);
 
       auto typeLayout = variableLayout->getTypeLayout();
@@ -276,6 +152,7 @@ namespace kt::shader_processor {
           size_t sizeOrStride = 0;
           shaders::ShaderResourceType type = shaders::ShaderResourceType::UniformBuffer;
           switch (bufferVar->getTypeLayout()->getKind()) {
+          case slang::TypeReflection::Kind::ParameterBlock:
           case slang::TypeReflection::Kind::ConstantBuffer:
             sizeOrStride = bufferVar->getTypeLayout()->getElementTypeLayout()->getSize();
             break;
@@ -302,8 +179,6 @@ namespace kt::shader_processor {
           bufferAccessPath.leaf = accessPath.deepestBuffer;
           auto [byteOffset, _s, varName] = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
           auto [binding, space, bufName] = calculateCumulativeOffset(bufferVar->getCategory(), bufferAccessPath);
-
-          SHDR_DEBUG("Var name: {}  Buf Name: {}", fmt::join(varName, "."), fmt::join(bufName, "."));
 
           std::vector<std::string> name = bufName;
           name.append_range(varName);
@@ -336,138 +211,28 @@ namespace kt::shader_processor {
       }
     }
 
-    void printRelativeOffsets(slang::VariableLayoutReflection* variableLayout) {
-      key("relative");
-      int usedLayoutUnitCount = variableLayout->getCategoryCount();
-      ARRAY();
-      for (int i = 0; i < usedLayoutUnitCount; ++i) {
-        element();
-
-        auto layoutUnit = variableLayout->getCategoryByIndex(i);
-        printOffset(variableLayout, layoutUnit);
-      }
-    }
-
-    void printOffset(slang::VariableLayoutReflection* variableLayout, slang::ParameterCategory layoutUnit) {
-      printOffset(layoutUnit, variableLayout->getOffset(layoutUnit), variableLayout->getBindingSpace(layoutUnit));
-    }
-
-    void printOffset(slang::ParameterCategory layoutUnit, size_t offset, size_t spaceOffset) {
-      SCOPE();
-
-      key("value");
-      print(offset);
-      key("unit");
-      print(layoutUnit);
-
-      // #### Spaces / Sets
-
-      switch (layoutUnit) {
-      default:
-        break;
-
-      case slang::ParameterCategory::ConstantBuffer:
-      case slang::ParameterCategory::ShaderResource:
-      case slang::ParameterCategory::UnorderedAccess:
-      case slang::ParameterCategory::SamplerState:
-      case slang::ParameterCategory::DescriptorTableSlot:
-        key("space");
-        print(spaceOffset);
-        break;
-      }
-    }
-
     // ### Type Layouts
     //
-    void printTypeLayout(slang::TypeLayoutReflection* typeLayout, AccessPath accessPath) {
-      SCOPE();
-
-      key("name");
-      printQuotesString(typeLayout->getName());
-      key("kind");
-      print(typeLayout->getKind());
-      printCommonTypeInfo(typeLayout->getType());
-
-      printSizes(typeLayout);
-
-      printKindSpecificInfo(typeLayout, accessPath);
-    }
-
-    // #### Size
-    //
-    void printSizes(slang::TypeLayoutReflection* typeLayout) {
-      key("size");
-
-      int usedLayoutUnitCount = typeLayout->getCategoryCount();
-      ARRAY()
-      for (int i = 0; i < usedLayoutUnitCount; ++i) {
-        element();
-
-        auto layoutUnit = typeLayout->getCategoryByIndex(i);
-        printSize(typeLayout, layoutUnit);
-      }
-
-      // #### Alignment and Stride
-      if (typeLayout->getSize() != 0) {
-        key("alignment in bytes");
-        print(typeLayout->getAlignment());
-
-        key("stride in bytes");
-        print(typeLayout->getStride());
-      }
-    }
-
-    void printSize(slang::TypeLayoutReflection* typeLayout, slang::ParameterCategory layoutUnit) {
-      printSize(layoutUnit, typeLayout->getSize(layoutUnit));
-    }
-
-    void printSize(slang::ParameterCategory layoutUnit, size_t size) {
-      SCOPE();
-
-      key("value");
-      printPossiblyUnbounded(size);
-      key("unit");
-      print(layoutUnit);
-    }
+    void printTypeLayout(slang::TypeLayoutReflection* typeLayout, AccessPath accessPath) { printKindSpecificInfo(typeLayout, accessPath); }
 
     // #### Kind-Specific Information
     //
     void printKindSpecificInfo(slang::TypeLayoutReflection* typeLayout, AccessPath accessPath) {
       switch (typeLayout->getKind()) {
-      // #### Structure Type Layouts
-      //
       case slang::TypeReflection::Kind::Struct: {
-        key("fields");
-
         int fieldCount = typeLayout->getFieldCount();
-        ARRAY()
         for (int f = 0; f < fieldCount; f++) {
-          element();
-
           auto field = typeLayout->getFieldByIndex(f);
           printVariableLayout(field, accessPath);
         }
       } break;
 
-      // #### Array Type Layouts
-      //
       case slang::TypeReflection::Kind::Array: {
-        key("element type layout");
         printTypeLayout(typeLayout->getElementVarLayout()->getTypeLayout(), AccessPath());
       } break;
 
-      // #### Matrix Type Layouts
-      //
-      case slang::TypeReflection::Kind::Matrix: {
-        key("matrix layout mode");
-        print(typeLayout->getMatrixLayoutMode());
-
-        key("element type layout");
-        printTypeLayout(typeLayout->getElementTypeLayout(), AccessPath());
-      } break;
-
+      case slang::TypeReflection::Kind::Matrix:
       case slang::TypeReflection::Kind::Vector: {
-        key("element type layout");
         printTypeLayout(typeLayout->getElementTypeLayout(), AccessPath());
       } break;
 
@@ -488,39 +253,19 @@ namespace kt::shader_processor {
           innerOffsets.deepestParameterBlock = innerOffsets.leaf;
         }
 
-        key("container");
-        {
-          SCOPE();
-          printOffsets(containerVarLayout, innerOffsets);
-        }
+        ExtendedAccessPath elementOffsets(innerOffsets, elementVarLayout);
 
-        key("content");
-        {
-          SCOPE();
-
-          printOffsets(elementVarLayout, innerOffsets);
-
-          ExtendedAccessPath elementOffsets(innerOffsets, elementVarLayout);
-
-          key("type layout");
-          printTypeLayout(elementVarLayout->getTypeLayout(), elementOffsets);
-        }
+        printTypeLayout(elementVarLayout->getTypeLayout(), elementOffsets);
       } break;
 
       case slang::TypeReflection::Kind::Resource: {
         if ((typeLayout->getResourceShape() & SLANG_RESOURCE_BASE_SHAPE_MASK) == SLANG_STRUCTURED_BUFFER) {
-          key("element type layout");
           AccessPath innerOffsets = accessPath;
           if (typeLayout->getSize(slang::ParameterCategory::ShaderResource) != 0)
             innerOffsets.deepestBuffer = innerOffsets.leaf;
           printTypeLayout(typeLayout->getElementTypeLayout(), innerOffsets);
-
-        } else {
-          key("result type");
-          printType(typeLayout->getResourceResultType());
         }
       } break;
-
       default:
         break;
       }
@@ -530,26 +275,30 @@ namespace kt::shader_processor {
     // -------------------
     //
     void printProgramLayout(slang::ProgramLayout* programLayout, shaders::ShaderInfo& shaderInfo) {
-      SCOPE();
 
       AccessPath rootOffsets;
       rootOffsets.valid = true;
 
-      key("global scope");
+      vertexInfo = nullptr;
+
       {
         resources = &shaderInfo.globalResources;
-        SCOPE();
         printScope(programLayout->getGlobalParamsVarLayout(), rootOffsets);
       }
 
-      key("entry points");
       int entryPointCount = programLayout->getEntryPointCount();
-      ARRAY()
       for (int i = 0; i < entryPointCount; ++i) {
         shaderInfo.entryPointResources.push_back(shaders::Resources{});
         resources = &shaderInfo.entryPointResources.back();
-        element();
-        printEntryPointLayout(programLayout->getEntryPointByIndex(i), rootOffsets);
+
+        auto entryPoint = programLayout->getEntryPointByIndex(i);
+        if (entryPoint->getStage() == SLANG_STAGE_VERTEX) {
+          vertexInfo = &shaderInfo.vertex;
+        } else {
+          vertexInfo = nullptr;
+        }
+
+        printScope(entryPoint->getVarLayout(), rootOffsets);
       }
     }
 
@@ -563,12 +312,8 @@ namespace kt::shader_processor {
       // #### Parameters are Grouped Into a Structure
       //
       case slang::TypeReflection::Kind::Struct: {
-        key("parameters");
-
         int paramCount = scopeTypeLayout->getFieldCount();
         for (int i = 0; i < paramCount; i++) {
-          element();
-
           auto param = scopeTypeLayout->getFieldByIndex(i);
 
           printVariableLayout(param, scopeOffsets);
@@ -578,96 +323,64 @@ namespace kt::shader_processor {
       // #### Wrapped in a Constant Buffer If Needed
       //
       case slang::TypeReflection::Kind::ConstantBuffer:
-        key("automatically-introduced constant buffer");
-        {
-          SCOPE();
-          printOffsets(scopeTypeLayout->getContainerVarLayout(), scopeOffsets);
-        }
-
         printScope(scopeTypeLayout->getElementVarLayout(), scopeOffsets);
         break;
 
       // #### Wrapped in a Parameter Block If Needed
       //
       case slang::TypeReflection::Kind::ParameterBlock:
-        key("automatically-introduced parameter block");
-        {
-          SCOPE();
-          printOffsets(scopeTypeLayout->getContainerVarLayout(), scopeOffsets);
-        }
-
         printScope(scopeTypeLayout->getElementVarLayout(), scopeOffsets);
         break;
 
       default:
-        // Note that this default case is never expected to
-        // arise with the current Slang compiler and reflection
-        // API, but we include it here as a kind of failsafe.
-        //
-        key("variable layout");
         printVariableLayout(scopeVarLayout, accessPath);
-        break;
-      }
-    }
-
-    // ### Entry Points
-    //
-    void printEntryPointLayout(slang::EntryPointReflection* entryPointLayout, AccessPath accessPath) {
-      SCOPE();
-
-      key("stage");
-      print(entryPointLayout->getStage());
-
-      printStageSpecificInfo(entryPointLayout);
-
-      printScope(entryPointLayout->getVarLayout(), accessPath);
-
-      auto resultVariableLayout = entryPointLayout->getResultVarLayout();
-      if (resultVariableLayout->getTypeLayout()->getKind() != slang::TypeReflection::Kind::None) {
-        key("result");
-        printVariableLayout(resultVariableLayout, accessPath);
-      }
-    }
-
-    // #### Stage-Specific Information
-    //
-    void printStageSpecificInfo(slang::EntryPointReflection* entryPointLayout) {
-      switch (entryPointLayout->getStage()) {
-      default:
-        break;
-
-      case SLANG_STAGE_COMPUTE: {
-        static const int kAxisCount = 3;
-        SlangUInt sizes[kAxisCount];
-        entryPointLayout->getComputeThreadGroupSize(kAxisCount, sizes);
-
-        key("thread group size");
-        SCOPE();
-        key("x");
-        print(sizes[0]);
-        key("y");
-        print(sizes[1]);
-        key("z");
-        print(sizes[2]);
-      } break;
-
-      case SLANG_STAGE_FRAGMENT:
-        key("uses any sample-rate inputs");
-        printBool(entryPointLayout->usesAnySampleRateInput());
         break;
       }
     }
 
     // #### Varying Parameters
     //
-    void printVaryingParameterInfo(slang::VariableLayoutReflection* variableLayout) {
-      if (auto semanticName = variableLayout->getSemanticName()) {
-        key("semantic");
-        SCOPE();
-        key("name");
-        printQuotesString(semanticName);
-        key("index");
-        print(variableLayout->getSemanticIndex());
+    void printVaryingParameterInfo(slang::VariableLayoutReflection* variableLayout, AccessPath accessPath) {
+      auto category = variableLayout->getCategory();
+      bool isVarInput = (category == slang::ParameterCategory::VaryingInput);
+      auto kind = variableLayout->getTypeLayout()->getKind();
+      bool isVar = kind == slang::TypeReflection::Kind::Scalar || kind == slang::TypeReflection::Kind::Vector ||
+                   kind == slang::TypeReflection::Kind::Matrix;
+
+      if (isVar && isVarInput) {
+        auto semanticName = variableLayout->getSemanticName();
+        if (!semanticName) {
+          SHDR_WARN("Varying parameter {} has no semantic. This will cause errors with DX12.", variableLayout->getName());
+        }
+
+        if (vertexInfo) {
+          uint32_t vertexBufferSlot = 0;
+          auto var = accessPath.leaf;
+          while (var) {
+            auto attribCount = var->variableLayout->getVariable()->getUserAttributeCount();
+            for (uint32_t idx = 0; idx < attribCount; ++idx) {
+              auto attribute = var->variableLayout->getVariable()->getUserAttributeByIndex(idx);
+              if (strcmp(attribute->getName(), "vertexBuffer") == 0) {
+                int value = 0;
+                attribute->getArgumentValueInt(0, &value);
+                vertexBufferSlot = static_cast<uint32_t>(value);
+                break;
+              }
+            }
+            var = var->outer;
+          }
+
+          auto offsets = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
+
+          if (vertexInfo->layout.size() <= vertexBufferSlot) {
+            vertexInfo->layout.resize(vertexBufferSlot + 1);
+          }
+          auto types = slangTypeToKeptechTypes(variableLayout->getType());
+          for (auto type : types) {
+            vertexInfo->layout[vertexBufferSlot].layout.push_back(shaders::VertexLayoutEntry{
+                .type = type, .semantic = variableLayout->getSemanticName(), .semanticIndex = variableLayout->getSemanticIndex()});
+          }
+        }
       }
     }
 
@@ -696,19 +409,6 @@ namespace kt::shader_processor {
       AccessPathNode* leaf = nullptr;
     };
 
-    void printCumulativeOffsets(slang::VariableLayoutReflection* variableLayout, AccessPath accessPath) {
-      key("cumulative");
-
-      int usedLayoutUnitCount = variableLayout->getCategoryCount();
-      ARRAY();
-      for (int i = 0; i < usedLayoutUnitCount; ++i) {
-        element();
-
-        auto layoutUnit = variableLayout->getCategoryByIndex(i);
-        printCumulativeOffset(variableLayout, layoutUnit, accessPath);
-      }
-    }
-
     CumulativeOffset calculateCumulativeOffset(slang::VariableLayoutReflection* variableLayout, slang::ParameterCategory layoutUnit,
                                                AccessPath accessPath) {
       CumulativeOffset result = calculateCumulativeOffset(layoutUnit, accessPath);
@@ -718,13 +418,6 @@ namespace kt::shader_processor {
         result.name.push_back(variableLayout->getName());
 
       return result;
-    }
-
-    void printCumulativeOffset(slang::VariableLayoutReflection* variableLayout, slang::ParameterCategory layoutUnit,
-                               AccessPath accessPath) {
-      CumulativeOffset cumulativeOffset = calculateCumulativeOffset(variableLayout, layoutUnit, accessPath);
-
-      printOffset(layoutUnit, cumulativeOffset.value, cumulativeOffset.space);
     }
 
     // ### Tracking Access Paths
@@ -792,64 +485,7 @@ namespace kt::shader_processor {
       return result;
     }
 
-    void printOffsets(slang::VariableLayoutReflection* variableLayout, AccessPath accessPath) {
-      key("offset");
-      {
-        SCOPE();
-
-        if (accessPath.valid) {
-          printCumulativeOffsets(variableLayout, accessPath);
-        } else {
-          printRelativeOffsets(variableLayout);
-        }
-      }
-    }
-
-    void beginObject() { ++depth; }
-    void endObject() { --depth; }
-    void beginArray() { ++depth; }
-    void endArray() { --depth; }
-
-    struct ScopedObject {
-      LayoutManager& manager;
-      ScopedObject(LayoutManager& manager) : manager(manager) { manager.beginObject(); }
-      ~ScopedObject() { manager.endObject(); }
-    };
-
-    void newLine() {
-      SHDR_TRACE("{}{}", std::string(depth * 2, ' '), currentLine);
-      currentLine.clear();
-    }
-
-    bool afterArrayElement = true;
-
-    void element() {
-      newLine();
-      currentLine += "- ";
-      afterArrayElement = true;
-    }
-
-    void key(const char* key) {
-      if (!afterArrayElement) {
-        newLine();
-      }
-      currentLine += fmt::format("{}: ", key);
-      afterArrayElement = false;
-    }
-    void printQuotesString(const char* str) {
-      if (str) {
-        currentLine += fmt::format("\"{}\"", str);
-      } else {
-        currentLine += "null";
-      }
-    }
-
-    void printBool(bool value) { currentLine += value ? "true" : "false"; }
-    template <typename T> void print(const T& value) { currentLine += fmt::format("{}", value); }
-
-    size_t depth = 0;
-    std::string currentLine;
-
+    shaders::Vertex* vertexInfo = nullptr;
     shaders::Resources* resources = nullptr;
   };
 } // namespace kt::shader_processor

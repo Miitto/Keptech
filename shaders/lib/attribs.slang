@@ -47,6 +47,11 @@ struct depthWriteAttribute {
   bool value;
 };
 
+[__AttributeUsage(_AttributeTargets.Param)]
+struct vertexBufferAttribute {
+  uint value;
+};
+
 [__AttributeUsage(_AttributeTargets.Struct)]
 struct instanceAttribute {};
 
