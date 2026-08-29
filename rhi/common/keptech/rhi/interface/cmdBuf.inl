@@ -78,10 +78,15 @@ struct ImageLayoutTransition {
 CommandBuffer& transitionImage(const ImageLayoutTransition& transition);
 CommandBuffer& transitionImages(std::span<const ImageLayoutTransition> transitions);
 
+static rhi::ImageLayout getOptimalBlitSrcLayout();
+static rhi::ImageLayout getOptimalBlitDstLayout();
+static rhi::ImageUsage getBlitSrcUsage();
+
 /// Blits the contents of the source image to the destination image. Requires that the source image is in the TransferSrc layout and the
 /// destination image is in the TransferDst layout.
 /// @note DX12: Requires that the source and destination images have the same dimensions and format.
-CommandBuffer& blitImage(const rhi::ImageRef& src, const rhi::ImageRef& dst);
+CommandBuffer& blitImage(const rhi::ImageRef& src, rhi::ImageLayout srcLayoutStart, rhi::ImageLayout srcLayoutEnd, const rhi::ImageRef& dst,
+                         rhi::ImageLayout dstLayoutStart, rhi::ImageLayout dstLayoutEnd);
 
 CommandBuffer& copyBufferRegion(const rhi::BufferRef& dst, const rhi::BufferRef& src, size_t dstOffset, size_t srcOffset, size_t size);
 CommandBuffer& copyImageRegion(const rhi::ImageRef& dst, const rhi::ImageRef& src, size_t dstOffsetX, size_t dstOffsetY, size_t srcOffsetX,

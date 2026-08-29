@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-
 namespace kt::shaders {
   enum class PrimitiveTopology : uint8_t { TriangleList, TriangleStrip };
 
@@ -18,6 +17,7 @@ namespace kt::shaders {
     DataType type;
     std::string semantic;
     size_t semanticIndex = 0;
+    size_t vIndex = 0;
   };
 
   struct VertexBuffer {

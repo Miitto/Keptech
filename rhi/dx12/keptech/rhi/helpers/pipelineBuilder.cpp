@@ -263,6 +263,9 @@ namespace kt::rhi {
       CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
       CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
       CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
+      CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
+      CD3DX12_PIPELINE_STATE_STREAM_BLEND_DESC Blend;
+      CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL DepthStencil;
       CD3DX12_PIPELINE_STATE_STREAM_VS VS;
       CD3DX12_PIPELINE_STATE_STREAM_PS PS;
       CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
@@ -273,7 +276,38 @@ namespace kt::rhi {
     pipelineStateStream.InputLayout = {.pInputElementDescs = inputLayout.data(), .NumElements = static_cast<UINT>(inputLayout.size())};
     pipelineStateStream.PrimitiveTopologyType = shader->info.vertex.topology == shaders::PrimitiveTopology::TriangleList
                                                     ? D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE
-                                                    : D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+                                                    : D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE; // TODO: Properly map all topologies.
+
+    CD3DX12_RASTERIZER_DESC raster{D3D12_DEFAULT};
+    raster.FrontCounterClockwise =
+        TRUE; // TODO: Properly handle front face winding from shader attributes. Engine loads models CCW though so fine for now.
+    switch (shader->info.vertex.cullMode) {
+    case shaders::CullMode::None:
+      raster.CullMode = D3D12_CULL_MODE_NONE;
+      break;
+    case shaders::CullMode::Front:
+      raster.CullMode = D3D12_CULL_MODE_FRONT;
+      break;
+    case shaders::CullMode::Back:
+      raster.CullMode = D3D12_CULL_MODE_BACK;
+      break;
+    case shaders::CullMode::FrontAndBack:
+      DX_ABORT("DX12 does not support culling front and back faces");
+    }
+    pipelineStateStream.Rasterizer = raster;
+
+    CD3DX12_BLEND_DESC blend{D3D12_DEFAULT}; // TODO: Properly handle blending state fro shader attributes.
+    pipelineStateStream.Blend = blend;
+
+    CD3DX12_DEPTH_STENCIL_DESC depthStencil{D3D12_DEFAULT}; // TODO: Properly handle depth/stencil state from shader attributes.
+    if (!shader->info.fragment.depthWrite) {
+      depthStencil.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+    }
+    if (depthAttachmentFormat == ImageFormat::Undefined) {
+      depthStencil.DepthEnable = FALSE;
+    }
+    pipelineStateStream.DepthStencil = depthStencil;
+
     // FIXME: Shader order is not guaranteed to be vertex first, fragment second. We should sort by stage instead of relying on order.
     pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(code[0].Get());
     pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(code[1].Get());

@@ -68,6 +68,9 @@ namespace kt {
     }
     [[nodiscard]] rhi::ImageFormat getSwapchainFormat() const { return swapchainFormat; }
 
+    void requestRenderTargetsBlitable() { renderTargetsBlitable = true; }
+    [[nodiscard]] bool areRenderTargetsBlitable() const { return renderTargetsBlitable; }
+
   private:
     glm::uvec2 renderResolution{0, 0};
     glm::uvec2 swapchainSize{0, 0};
@@ -155,6 +158,8 @@ namespace kt {
     std::vector<RenderPass> bakePasses(const Resources& resources);
 
     ResourceInfo getResourceInfo(RenderTextureResource& resource) const;
+
+    bool renderTargetsBlitable = false;
     ResourceInfo getResourceInfo(RenderBufferResource& resource) const;
   };
 } // namespace kt

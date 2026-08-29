@@ -6,10 +6,12 @@
 #include <imgui/imgui.h>
 
 namespace kt {
-  void DebugPass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&) {
+  void DebugPass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& b) {
     self.addColorOutput("kt::debug", {.format = rhi::ImageFormat::R8G8B8A8_UNORM});
 
     self.addTextureInput(backbufferSource);
+
+    b.requestRenderTargetsBlitable();
   }
 
   void DebugPass::setup(RenderGraph& graph, const rhi::DescriptorLayout&) {
@@ -63,16 +65,9 @@ namespace kt {
       return;
     }
 
-    cmdBuf.transitionImage(debugImage, rhi::ImageLayout::RenderTarget, rhi::ImageLayout::TransferDst);
-    cmdBuf.transitionImage(srcImage,
-                           srcImage.getName() == backbufferSource ? rhi::ImageLayout::ShaderReadOnly : rhi::ImageLayout::RenderTarget,
-                           rhi::ImageLayout::TransferSrc);
-
-    cmdBuf.blitImage(srcImage, debugImage);
-
-    cmdBuf.transitionImage(debugImage, rhi::ImageLayout::TransferDst, rhi::ImageLayout::RenderTarget);
-    cmdBuf.transitionImage(srcImage, rhi::ImageLayout::TransferSrc,
-                           srcImage.getName() == backbufferSource ? rhi::ImageLayout::ShaderReadOnly : rhi::ImageLayout::RenderTarget);
+    cmdBuf.blitImage(srcImage, srcImage.getName() == backbufferSource ? rhi::ImageLayout::ShaderReadOnly : rhi::ImageLayout::RenderTarget,
+                     srcImage.getName() == backbufferSource ? rhi::ImageLayout::ShaderReadOnly : rhi::ImageLayout::RenderTarget, debugImage,
+                     rhi::ImageLayout::RenderTarget, rhi::ImageLayout::RenderTarget);
   }
 
   void DebugPass::addToGraph(RenderGraphBuilder& graph) {

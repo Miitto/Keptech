@@ -4,6 +4,7 @@
 #include "keptech/core/version.h"
 #include "keptech/rhi/bufferCreateInfo.hpp"
 #include "keptech/rhi/cmdBuf.hpp"
+#include "keptech/rhi/imageLayout.hpp"
 #include "keptech/rhi/imageRef.hpp"
 #include "keptech/rhi/profile.hpp"
 #include "keptech/rhi/rhi.hpp"
@@ -91,11 +92,10 @@ namespace kt {
     auto& cmd = graphicsCmds.back();
     auto& backSource = getBackbufferImage();
     auto swp = rhi.getSwapchainImage();
-    cmd.transitionImage(swp, ImageLayout::Present, ImageLayout::TransferDst);
 
-    cmd.blitImage(backSource, swp);
+    rhi::ImageLayout optimalBlitSrc = rhi::CommandBuffer::getOptimalBlitSrcLayout();
 
-    cmd.transitionImage(swp, ImageLayout::TransferDst, ImageLayout::RenderTarget);
+    cmd.blitImage(backSource, optimalBlitSrc, optimalBlitSrc, swp, ImageLayout::Present, ImageLayout::RenderTarget);
 
     rhi.endFrame(cmd);
   }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "glm/ext/vector_uint3.hpp"
 #include "keptech/rhi/imageCreateInfo.hpp"
 #include "keptech/rhi/imageFormat.hpp"
 #include <d3d12.h>
@@ -11,10 +12,10 @@ namespace kt::rhi {
   class ImageRef {
   public:
     ImageRef() = default;
-    ImageRef(const char* name, ID3D12Resource* resource, ImageDim dimension, ImageFormat format, uint32_t mips, uint32_t layers,
-             D3D12_CPU_DESCRIPTOR_HANDLE rtvDsvHandle = {}, uint64_t texIndex = ~0ul)
-        : name(name), resource(resource), dimension(dimension), _format(format), _mips(mips), _layers(layers), rtvDsvHandle(rtvDsvHandle),
-          texIndex(texIndex) {}
+    ImageRef(const char* name, ID3D12Resource* resource, ImageDim dimension, ImageFormat format, glm::uvec3 extent, uint32_t mips,
+             uint32_t layers, D3D12_CPU_DESCRIPTOR_HANDLE rtvDsvHandle = {}, uint64_t texIndex = ~0ul)
+        : name(name), resource(resource), dimension(dimension), _format(format), _mips(mips), _layers(layers), _extent(extent),
+          rtvDsvHandle(rtvDsvHandle), texIndex(texIndex) {}
     ImageRef(const ImageRef&) = default;
     ImageRef& operator=(const ImageRef&) = default;
 
@@ -24,6 +25,7 @@ namespace kt::rhi {
     ImageDim dim() const { return dimension; }
     uint32_t mips() const { return _mips; }
     uint32_t layers() const { return _layers; }
+    glm::uvec3 extent() const { return _extent; }
 
     bool valid() const { return resource != nullptr; }
 
@@ -40,6 +42,7 @@ namespace kt::rhi {
     ImageFormat _format;
     uint32_t _mips;
     uint32_t _layers;
+    glm::uvec3 _extent;
     D3D12_CPU_DESCRIPTOR_HANDLE rtvDsvHandle{};
     uint64_t texIndex = ~0ul;
   };

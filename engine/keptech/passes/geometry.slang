@@ -52,51 +52,48 @@ VertexOutput vert(float3 position: POSITION, [vertexBuffer(1)] kt::VertexAttribs
 kt::DeferredOutput frag(VertexOutput input) {
   kt::DeferredOutput output;
 
-  output.albedo = float4(1.f, 1.f, 1.f, 1.f);
-  return output;
+  float3 normalSample = float3(0.f, 0.f, 1.f);
+  if (input.materialIndex != ~0u) {
+    kt::Material mat = (*kt::materials)[input.materialIndex];
 
-  if (input.materialIndex == ~0u) {
-    discard;
+    float2 uv = float2(input.uvX, input.uvY);
+
+    output.albedo = mat.albedoFactor;
+    output.metallicRoughness = float4(mat.metFactor, mat.roughFactor, 0.f, 1.f);
+    output.emissiveAo = float4(mat.emissiveFactor, 1.f);
+
+    if (kt::valid(mat.albedo)) {
+      output.albedo *= mat.albedo.Sample(kt::samplers::linearRepeat, uv);
+    }
+
+    if (output.albedo.a < mat.alphaCutoff) {
+      discard;
+    }
+
+    if (kt::valid(mat.bump)) {
+      normalSample = mat.bump.Sample(kt::samplers::linearRepeat, uv).xyz * 2.0 - 1.0;
+    }
+
+    if (kt::valid(mat.emissive)) {
+      output.emissiveAo.rgb *= mat.emissive.Sample(kt::samplers::linearRepeat, uv).rgb;
+    }
+
+    if (kt::valid(mat.metRough)) {
+      float4 metallicRoughnessSample = mat.metRough.Sample(kt::samplers::linearRepeat, uv);
+      output.metallicRoughness.r *= metallicRoughnessSample.b;
+      output.metallicRoughness.g *= metallicRoughnessSample.g;
+    }
+  } else {
+    output.albedo = float4(1.f, 1.f, 1.f, 1.f);
+    output.metallicRoughness = float4(05.f, 0.5f, 0.f, 1.f);
+    output.emissiveAo = float4(0.f, 0.f, 0.f, 1.f);
   }
 
-  kt::Material mat = (*kt::materials)[input.materialIndex];
+  float3x3 TBN = float3x3(normalize(input.tangent), normalize(input.bitangent), normalize(input.normal));
+  float3 worldNormal = normalize(mul(normalSample, TBN));
 
-  float2 uv = float2(input.uvX, input.uvY);
-
-  output.albedo = mat.albedoFactor;
-  output.normal = float4(input.normal, 1.f);
-
-  output.metallicRoughness = float4(mat.metFactor, mat.roughFactor, 0.f, 1.f);
-  output.emissiveAo = float4(0.0, 0.0, 0.0, 1.f);
-
-  if (kt::valid(mat.albedo)) {
-    output.albedo *= mat.albedo.Sample(kt::samplers::linearRepeat, uv);
-  }
-
-  if (output.albedo.a < mat.alphaCutoff) {
-    discard;
-  }
-
-  if (kt::valid(mat.bump)) {
-    float3 normalSample = mat.bump.Sample(kt::samplers::linearRepeat, uv).xyz * 2.0 - 1.0;
-
-    float3x3 TBN = float3x3(normalize(input.tangent), normalize(input.bitangent), normalize(input.normal));
-    float3 worldNormal = normalize(mul(normalSample, TBN));
-
-    output.normal = float4(worldNormal, 1.f);
-  }
-
-  if (kt::valid(mat.emissive)) {
-    output.emissiveAo.rgb = mat.emissive.Sample(kt::samplers::linearRepeat, uv).rgb * mat.emissiveFactor;
-  }
-
-  if (kt::valid(mat.metRough)) {
-    float4 metallicRoughnessSample = mat.metRough.Sample(kt::samplers::linearRepeat, uv);
-    output.metallicRoughness.r *= metallicRoughnessSample.b;
-    output.metallicRoughness.g *= metallicRoughnessSample.g;
-  }
-
-  output.normal.xyz = output.normal.xyz * 0.5 + 0.5;
+  output.normal = float4(worldNormal, 1.f);
+  output.normal.xyz = output.normal.xyz * 0.5 + 0.5; // We may be in a UNORM format depending on what is supported.
 
   return output;
 }

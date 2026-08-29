@@ -58,13 +58,15 @@ void writeStages(std::ofstream& file, const std::vector<kt::shaders::ShaderStage
 
 void writeVertex(std::ofstream& file, const kt::shaders::Vertex& vertex) {
   file << "    .vertex = {\n        .topology = static_cast<::kt::shaders::PrimitiveTopology>(" << static_cast<uint32_t>(vertex.topology)
-       << "),\n        .layout = {\n";
+       << "),\n        .cullMode = static_cast<::kt::shaders::CullMode>(" << static_cast<uint32_t>(vertex.cullMode) << "),\n"
+       << "        .layout = {\n";
   for (auto& buffer : vertex.layout) {
     file << "            {\n.layout = {\n";
     for (auto& entry : buffer.layout) {
       file << "                {.type = static_cast<::kt::shaders::DataType>(" << std::dec << static_cast<uint32_t>(entry.type) << "),\n"
            << "                 .semantic = \"" << entry.semantic << "\",\n"
-           << "                 .semanticIndex = " << entry.semanticIndex << "},\n";
+           << "                 .semanticIndex = " << entry.semanticIndex << ",\n"
+           << "                 .vIndex = " << entry.vIndex << "},\n";
     }
     file << "},\n            .inputRate = static_cast<::kt::shaders::InputRate>(" << std::dec << static_cast<uint32_t>(buffer.inputRate)
          << "),\n"
@@ -197,7 +199,7 @@ int main(int argc, char** argv) {
   }
   auto& program = programRes.value();
 
-  auto res = program.toShader(name);
+  auto res = program.toShader(name, inputFile);
   if (!res) {
     SHDR_ERROR("Failed to convert program to shader: {}", res.error());
     return -1;

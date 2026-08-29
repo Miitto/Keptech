@@ -42,18 +42,27 @@ namespace kt::rhi {
 
     CD3DX12_RESOURCE_DESC desc;
 
+    auto format = raw(info.getFormat());
+    bool isSampled = info.getUsage().has(kt::rhi::ImageUsage::Sampled);
+    if (isSampled) {
+      if (format == DXGI_FORMAT_D32_FLOAT)
+        format = DXGI_FORMAT_R32_TYPELESS;
+      if (format == DXGI_FORMAT_D16_UNORM)
+        format = DXGI_FORMAT_R16_TYPELESS;
+    }
+
     switch (info.getImageDim()) {
     case ImageDim::e1D:
-      desc = CD3DX12_RESOURCE_DESC::Tex1D(static_cast<DXGI_FORMAT>(info.getFormat()), info.getWidth(), info.getArrayLayers(),
-                                          info.getMipLevels(), raw(info.getUsage().as_enum()));
+      desc =
+          CD3DX12_RESOURCE_DESC::Tex1D(format, info.getWidth(), info.getArrayLayers(), info.getMipLevels(), raw(info.getUsage().as_enum()));
       break;
     case ImageDim::e2D:
-      desc = CD3DX12_RESOURCE_DESC::Tex2D(static_cast<DXGI_FORMAT>(info.getFormat()), info.getWidth(), info.getHeight(),
-                                          info.getArrayLayers(), info.getMipLevels(), 1, 0, raw(info.getUsage().as_enum()));
+      desc = CD3DX12_RESOURCE_DESC::Tex2D(format, info.getWidth(), info.getHeight(), info.getArrayLayers(), info.getMipLevels(), 1, 0,
+                                          raw(info.getUsage().as_enum()));
       break;
     case ImageDim::e3D:
-      desc = CD3DX12_RESOURCE_DESC::Tex3D(static_cast<DXGI_FORMAT>(info.getFormat()), info.getWidth(), info.getHeight(), info.getDepth(),
-                                          info.getMipLevels(), raw(info.getUsage().as_enum()));
+      desc = CD3DX12_RESOURCE_DESC::Tex3D(format, info.getWidth(), info.getHeight(), info.getDepth(), info.getMipLevels(),
+                                          raw(info.getUsage().as_enum()));
       break;
     case ImageDim::eCube:
 #ifndef NDEBUG
@@ -61,8 +70,8 @@ namespace kt::rhi {
         DX_WARN("Creating a cube map with {} array layers, expected 6", info.getArrayLayers());
       }
 #endif
-      desc = CD3DX12_RESOURCE_DESC::Tex2D(static_cast<DXGI_FORMAT>(info.getFormat()), info.getWidth(), info.getHeight(),
-                                          info.getArrayLayers(), info.getMipLevels(), 1, 0, raw(info.getUsage().as_enum()));
+      desc = CD3DX12_RESOURCE_DESC::Tex2D(format, info.getWidth(), info.getHeight(), info.getArrayLayers(), info.getMipLevels(), 1, 0,
+                                          raw(info.getUsage().as_enum()));
     }
 
     D3D12MA::ALLOCATION_DESC allocDesc{
@@ -106,6 +115,9 @@ namespace kt::rhi {
       } else if (usage.has(kt::rhi::ImageUsage::DepthStencil)) {
         RHI::get().dxUpdateDepthStencilImage(i.value());
       }
+      if (usage.has(kt::rhi::ImageUsage::Sampled)) {
+        RHI::get().dxRegisterSampledImage(i.value());
+      }
     }
     return i;
   }
@@ -119,7 +131,7 @@ namespace kt::rhi {
 
   Image::Image(Image&& other) noexcept
       : name(std::move(other.name)), _dim(other._dim), _format(other._format), extent(other.extent), usage(other.usage), _mips(other._mips),
-        _layers(other._layers), allocation(other.allocation), rtvDsvIndex(other.rtvDsvIndex) {
+        _layers(other._layers), allocation(other.allocation), rtvDsvIndex(other.rtvDsvIndex), textureIndex(other.textureIndex) {
     other.allocation = nullptr;
   }
 
@@ -133,6 +145,7 @@ namespace kt::rhi {
       _layers = other._layers;
       allocation = other.allocation;
       rtvDsvIndex = other.rtvDsvIndex;
+      textureIndex = other.textureIndex;
       usage = other.usage;
 
       other.allocation = nullptr;
@@ -142,7 +155,7 @@ namespace kt::rhi {
 
   Image::operator ImageRef() const {
 
-    return ImageRef(name.c_str(), dxresource().Get(), _dim, _format, _mips, _layers,
+    return ImageRef(name.c_str(), dxresource().Get(), _dim, _format, extent, _mips, _layers,
                     usage.has(kt::rhi::ImageUsage::RenderTarget) ? RHI::get().dxGetRtvHandle(rtvDsvIndex)
                     : usage.has(ImageUsage::DepthStencil)        ? RHI::get().dxGetDsvHandle(rtvDsvIndex)
                                                                  : CD3DX12_CPU_DESCRIPTOR_HANDLE(),

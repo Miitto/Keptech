@@ -28,10 +28,10 @@
 namespace kt::gltf {
   namespace {
     struct Vertex {
-      glm::vec3 position;
-      glm::vec2 uv;
-      glm::vec3 normal;
-      glm::vec4 tangent;
+      glm::vec3 position = {};
+      glm::vec2 uv = {};
+      glm::vec3 normal = glm::vec3(0.f, 0.f, 1.f);
+      glm::vec4 tangent = glm::vec4(1.f, 0.f, 0.f, 1.f);
     };
 
     size_t findBaseColorTexIndex(const fastgltf::Asset& asset, const fastgltf::Primitive& primitive) {

@@ -5,7 +5,6 @@
 #include "keptech/material.hpp"
 #include "keptech/maths/sphere.hpp"
 
-
 namespace kt {
   namespace constants {
     constexpr size_t VERTICES_PER_MESHLET = 64;
@@ -13,9 +12,9 @@ namespace kt {
   } // namespace constants
 
   struct VertexAttribs {
+    glm::vec4 tangent;
     glm::vec3 normal;
     uint32_t packedUv;
-    glm::vec4 tangent;
 
     glm::vec2 uv() const { return glm::unpackHalf2x16(packedUv); }
     VertexAttribs& setUv(glm::vec2 uv) {
@@ -24,7 +23,7 @@ namespace kt {
     }
 
     VertexAttribs() = default;
-    VertexAttribs(glm::vec3 normal, glm::vec2 uv, glm::vec4 tangent) : normal(normal), packedUv(glm::packHalf2x16(uv)), tangent(tangent) {}
+    VertexAttribs(glm::vec3 normal, glm::vec2 uv, glm::vec4 tangent) : tangent(tangent), normal(normal), packedUv(glm::packHalf2x16(uv)) {}
   };
 
   struct Meshlet {

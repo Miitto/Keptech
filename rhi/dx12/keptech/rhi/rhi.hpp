@@ -135,6 +135,7 @@ namespace kt::rhi {
     Members& dxGetMembers() { return m; }
     void dxRegisterRenderTargetImage(rhi::Image& image);
     void dxRegisterDepthStencilImage(rhi::Image& image);
+    void dxRegisterSampledImage(rhi::Image& image);
     void dxUpdateRenderTargetImage(rhi::Image& image);
     void dxUpdateDepthStencilImage(rhi::Image& image);
 
@@ -150,6 +151,8 @@ namespace kt::rhi {
     std::expected<void, std::string> initCommandLists();
     std::expected<void, std::string> updateBackbufferDescriptors();
     std::expected<void, std::string> initImGui();
+    std::expected<void, std::string> initDescriptorHeaps();
+    std::expected<void, std::string> initSamplers();
 
     Members m;
   };

@@ -400,21 +400,97 @@ namespace kt::rhi {
     return *this;
   }
 
-  CommandBuffer& CommandBuffer::blitImage(const rhi::ImageRef& src, const rhi::ImageRef& dst) {
+  CommandBuffer& CommandBuffer::blitImage(const rhi::ImageRef& src, rhi::ImageLayout srcImageStart, rhi::ImageLayout srcImageEnd,
+                                          const rhi::ImageRef& dst, rhi::ImageLayout dstImageStart, rhi::ImageLayout dstImageEnd) {
     DX_ASSERT(src.dxGetResource() != nullptr, "Source image resource is null");
     DX_ASSERT(dst.dxGetResource() != nullptr, "Destination image resource is null");
 
     auto& rhi = RHI::get();
     auto& pipeline = rhi.dxGetBlitPipeline(dst.format());
 
+    if (srcImageStart != ImageLayout::ShaderReadOnly) {
+      transitionImage(src, srcImageStart, ImageLayout::ShaderReadOnly);
+    }
+    if (dstImageStart != ImageLayout::RenderTarget) {
+      transitionImage(dst, dstImageStart, ImageLayout::RenderTarget);
+    }
+
     bindGraphicsPipeline(pipeline);
 
-    cmdList->SetGraphicsRootShaderResourceView(0, src.dxGetResource()->GetGPUVirtualAddress());
+    struct BlitPushConstants {
+      glm::vec2 offset;
+      glm::vec2 extent;
+      float z;
+      float level;
+      uint64_t src;
+    } pc{
+        .offset = {},
+        .extent = {static_cast<float>(dst.extent().x), static_cast<float>(dst.extent().y)},
+        .z = 0.f,
+        .level = 0.f,
+        .src = src.getTextureIndex(),
+    };
+
+    DX_ASSERT(pc.src != UINT64_MAX,
+              "Source image must have a valid texture index. Ensure that the source image was created with usage including "
+              "`kt::rhi::CommandBuffer::getBlitSrcUsage()`. The Render Graph also supports `requestRenderTargetsBlitable()` to "
+              "automatically set this usage for render targets created by it.");
+
+    cmdList->SetGraphicsRoot32BitConstants(0, sizeof(BlitPushConstants) / sizeof(uint32_t), &pc, 0);
+
+    D3D12_VIEWPORT viewport{
+        .TopLeftX = 0.f,
+        .TopLeftY = 0.f,
+        .Width = static_cast<float>(dst.extent().x),
+        .Height = static_cast<float>(dst.extent().y),
+        .MinDepth = 0.f,
+        .MaxDepth = 1.f,
+    };
+    D3D12_RECT scissorRect{
+        .left = 0,
+        .top = 0,
+        .right = static_cast<LONG>(dst.extent().x),
+        .bottom = static_cast<LONG>(dst.extent().y),
+    };
+    cmdList->RSSetViewports(1, &viewport);
+    cmdList->RSSetScissorRects(1, &scissorRect);
+
+    auto rtvHandle = dst.dxGetRtvDsvHandle();
+    DX_ASSERT(rtvHandle.ptr != 0, "Destination image must have a valid RTV handle");
+
+    // Discard the previous contents of the render target before rendering to it
+    D3D12_RENDER_PASS_RENDER_TARGET_DESC renderTargetDesc{
+        .cpuDescriptor = rtvHandle,
+        .BeginningAccess =
+            {
+                .Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD,
+            },
+        .EndingAccess =
+            {
+                .Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE,
+            },
+    };
+    cmdList->BeginRenderPass(1, &renderTargetDesc, nullptr, D3D12_RENDER_PASS_FLAG_NONE);
 
     cmdList->DrawInstanced(3, 1, 0, 0);
 
+    cmdList->EndRenderPass();
+
+    if (srcImageEnd != ImageLayout::ShaderReadOnly) {
+      transitionImage(src, ImageLayout::ShaderReadOnly, srcImageEnd);
+    }
+
+    if (dstImageEnd != ImageLayout::RenderTarget) {
+      transitionImage(dst, ImageLayout::RenderTarget, dstImageEnd);
+    }
+
     return *this;
   }
+
+  rhi::ImageLayout CommandBuffer::getOptimalBlitSrcLayout() { return rhi::ImageLayout::ShaderReadOnly; }
+
+  rhi::ImageLayout CommandBuffer::getOptimalBlitDstLayout() { return rhi::ImageLayout::RenderTarget; }
+  rhi::ImageUsage CommandBuffer::getBlitSrcUsage() { return rhi::ImageUsage::Sampled; }
 
   void CommandBuffer::end() {
     auto res = cmdList->Close();

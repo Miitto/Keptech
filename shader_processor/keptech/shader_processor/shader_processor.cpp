@@ -1,7 +1,9 @@
 #include "shader_processor.hpp"
 
+#include "keptech/shaders/stages.hpp"
 #include "paramProcessing.hpp"
 #include "shader-logger.hpp"
+#include <algorithm>
 #include <array>
 #include <expected>
 #include <iostream>
@@ -311,7 +313,9 @@ namespace kt::shader_processor {
   } // namespace
 
   std::expected<Return<kt::shaders::Shader>, std::string> Program::toShader(const char* name, const char* file) const {
-    SHDR_DEBUG("Creating shader from program: {}", name);
+    SHDR_INFO("Shader {}:", name);
+    if (file)
+      SHDR_INFO("  File: {}", file);
     std::vector<std::vector<uint8_t>> code;
     auto diag = Slang::ComPtr<slang::IBlob>{};
     try {
@@ -352,28 +356,43 @@ namespace kt::shader_processor {
     LayoutManager layoutManager{};
     layoutManager.printProgramLayout(layout, shader.info);
 
-    auto printResources = [&](const shaders::Resources& resources) {
+    for (auto& set : shader.info.globalResources.sets) {
+      std::sort(set.resources.begin(), set.resources.end(), [](const auto& a, const auto& b) { return a.binding < b.binding; });
+    }
+
+    for (auto& entryPointResources : shader.info.entryPointResources) {
+      for (auto& set : entryPointResources.sets) {
+        std::sort(set.resources.begin(), set.resources.end(), [](const auto& a, const auto& b) { return a.binding < b.binding; });
+      }
+    }
+
+    for (auto& buffer : shader.info.vertex.layout) {
+      std::sort(buffer.layout.begin(), buffer.layout.end(), [](const auto& a, const auto& b) { return a.vIndex < b.vIndex; });
+    }
+
+    auto printResources = [&](const shaders::Resources& resources, size_t indent) {
+      auto indentStr = std::string(indent, ' ');
       for (size_t space = 0; space < resources.sets.size(); ++space) {
         auto& resourceSet = resources.sets[space];
-        SHDR_DEBUG("  Space {}: {} resources", space, resourceSet.resources.size());
+        SHDR_INFO("{}Space {}: {} resources", indentStr, space, resourceSet.resources.size());
         for (const auto& resource : resourceSet.resources) {
-          SHDR_DEBUG("    Binding {}: {} {} (count: {}, push: {}, size/stride: {})", resource.binding, resource.type, resource.name,
-                     resource.count, resource.isPush, resource.bufferInfo.sizeOrStride);
+          SHDR_INFO("{}  Binding {}: {} {} (count: {}, push: {}, size/stride: {})", indentStr, resource.binding, resource.type,
+                    resource.name, resource.count, resource.isPush, resource.bufferInfo.sizeOrStride);
           for (const auto& [fieldName, offset] : resource.bufferInfo.fieldOffsets) {
-            SHDR_DEBUG("      Field {}: offset {}, size {}, stride {}", fieldName, offset.offset, offset.size, offset.stride);
+            SHDR_INFO("{}    Field {}: offset {}, size {}, stride {}", indentStr, fieldName, offset.offset, offset.size, offset.stride);
           }
         }
       }
       if (resources.pushConstants.size > 0) {
-        SHDR_DEBUG("  Push Constants: {} bytes, space {}", resources.pushConstants.size, resources.pushConstants.space);
+        SHDR_INFO("{}Push Constants: {} bytes, space {}", indentStr, resources.pushConstants.size, resources.pushConstants.space);
         for (const auto& [fieldName, offset] : resources.pushConstants.fieldOffsets) {
-          SHDR_DEBUG("    Field {}: offset {}, size {}, stride {}", fieldName, offset.offset, offset.size, offset.stride);
+          SHDR_INFO("{}  Field {}: offset {}, size {}, stride {}", indentStr, fieldName, offset.offset, offset.size, offset.stride);
         }
       }
     };
 
-    SHDR_DEBUG("Global parameters for shader {}:", name);
-    printResources(shader.info.globalResources);
+    SHDR_INFO("  Global Resources:");
+    printResources(shader.info.globalResources, 4);
 
     shader.stages.reserve(entryPointCount);
 
@@ -381,12 +400,39 @@ namespace kt::shader_processor {
       auto entryPoint = layout->getEntryPointByIndex(i);
       kt::shaders::ShaderStages stage = slangStagetoKeptechStage(entryPoint->getStage());
       shader.stages.push_back(kt::shaders::ShaderStage{.name = entryPoint->getName(), .stage = stage});
+
+      switch (stage) {
+      case shaders::ShaderStages::Vertex: {
+        auto res = parseVertexAttribs(shader.info.vertex, *entryPoint->getFunction());
+        if (!res) {
+          return std::unexpected<std::string>("Failed to parse vertex attributes for entry point \"" + std::string(entryPoint->getName()) +
+                                              "\": " + res.error());
+        }
+      } break;
+      case shaders::ShaderStages::Mesh: {
+        auto res = parseVertexAttribs(shader.info.vertex, *entryPoint->getFunction());
+        if (!res) {
+          return std::unexpected<std::string>("Failed to parse geometry attributes for entry point \"" +
+                                              std::string(entryPoint->getName()) + "\": " + res.error());
+        }
+      } break;
+      case shaders::ShaderStages::Fragment: {
+        auto res = parseFragmentAttribs(shader.info.fragment, *entryPoint->getFunction());
+        if (!res) {
+          return std::unexpected<std::string>("Failed to parse fragment attributes for entry point \"" +
+                                              std::string(entryPoint->getName()) + "\": " + res.error());
+        }
+      } break;
+      default:
+        break;
+      }
     }
 
+    SHDR_INFO("  Entry Points:");
     for (size_t i = 0; i < shader.info.entryPointResources.size(); ++i) {
       auto& resources = shader.info.entryPointResources[i];
-      SHDR_DEBUG("Entry point {} (\"{}\") parameters for shader {}:", i, shader.stages[i].name, name);
-      printResources(shader.info.entryPointResources[i]);
+      SHDR_INFO("    {}) {} \"{}\":", i, shader.stages[i].stage, shader.stages[i].name);
+      printResources(shader.info.entryPointResources[i], 6);
 
       auto stage = shader.stages[i].stage;
       switch (stage) {

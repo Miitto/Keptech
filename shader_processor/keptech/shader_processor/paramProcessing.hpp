@@ -136,15 +136,6 @@ namespace kt::shader_processor {
                 .fieldOffsets[fmt::format("{}{}", fmt::join(offset.name, "."),
                                           variableLayout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::Array ? "[]" : "")] =
                 shaders::FieldInfo{offset.value, variableLayout->getTypeLayout()->getSize(), variableLayout->getTypeLayout()->getStride()};
-
-            SHDR_DEBUG("Push constant field {}: offset {}, size {} with cats:", fmt::format("{}", fmt::join(offset.name, ".")),
-                       offset.value, variableLayout->getTypeLayout()->getSize());
-            auto catCount = variableLayout->getCategoryCount();
-            for (int i = 0; i < catCount; ++i) {
-              auto layoutUnit = variableLayout->getCategoryByIndex(i);
-              SHDR_DEBUG("  {}: offset {}, space {}", layoutUnit, variableLayout->getOffset(layoutUnit),
-                         variableLayout->getBindingSpace(layoutUnit));
-            }
           }
         } else {
           auto bufferVar = accessPath.deepestBuffer->variableLayout;
@@ -370,15 +361,18 @@ namespace kt::shader_processor {
             var = var->outer;
           }
 
-          auto offsets = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
+          auto offsets = calculateCumulativeOffset(variableLayout, slang::ParameterCategory::VaryingInput, accessPath);
 
           if (vertexInfo->layout.size() <= vertexBufferSlot) {
             vertexInfo->layout.resize(vertexBufferSlot + 1);
           }
           auto types = slangTypeToKeptechTypes(variableLayout->getType());
           for (auto type : types) {
-            vertexInfo->layout[vertexBufferSlot].layout.push_back(shaders::VertexLayoutEntry{
-                .type = type, .semantic = variableLayout->getSemanticName(), .semanticIndex = variableLayout->getSemanticIndex()});
+            vertexInfo->layout[vertexBufferSlot].layout.push_back(
+                shaders::VertexLayoutEntry{.type = type,
+                                           .semantic = variableLayout->getSemanticName(),
+                                           .semanticIndex = variableLayout->getSemanticIndex(),
+                                           .vIndex = static_cast<uint32_t>(offsets.value)});
           }
         }
       }

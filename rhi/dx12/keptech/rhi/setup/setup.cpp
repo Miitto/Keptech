@@ -5,6 +5,7 @@
 #include "pipelineBuilder.hpp"
 #include "rhi.hpp"
 #include <expected>
+#include <string>
 #include <synchapi.h>
 
 template <typename T> using ComPtr = Microsoft::WRL::ComPtr<T>;
@@ -109,48 +110,24 @@ namespace kt::rhi {
       }
     }
 
+    {
+      auto res = initDescriptorHeaps();
+      if (!res) {
+        return std::unexpected(res.error());
+      }
+    }
+
+    {
+      auto res = initSamplers();
+      if (!res) {
+        return std::unexpected(res.error());
+      }
+    }
+
     DX_MAKE(m.device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&*m.fence)), "Failed to create fence");
     m.fence.makeEvent();
     DX_MAKE(m.device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&*m.copyFence)), "Failed to create copy fence");
     m.copyFence.makeEvent();
-
-    m.rtvHeap.capacity = 300; // TODO: Make this configurable
-    D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {
-        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-        .NumDescriptors = m.rtvHeap.capacity,
-        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
-        .NodeMask = 0,
-    };
-    DX_MAKE(m.device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m.rtvHeap.heap)), "Failed to create RTV descriptor heap");
-
-    m.dsvHeap.capacity = 100; // TODO: Make this configurable
-    D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {
-        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
-        .NumDescriptors = m.dsvHeap.capacity,
-        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
-        .NodeMask = 0,
-    };
-    DX_MAKE(m.device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m.dsvHeap.heap)), "Failed to create DSV descriptor heap");
-
-    m.cbvSrvUavHeap.capacity = 1000; // TODO: Make this configurable
-    D3D12_DESCRIPTOR_HEAP_DESC cbvSrvUavHeapDesc = {
-        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-        .NumDescriptors = m.cbvSrvUavHeap.capacity,
-        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
-        .NodeMask = 0,
-    };
-    DX_MAKE(m.device->CreateDescriptorHeap(&cbvSrvUavHeapDesc, IID_PPV_ARGS(&m.cbvSrvUavHeap.heap)),
-            "Failed to create CBV_SRV_UAV descriptor heap");
-
-    m.samplerHeap.capacity = 100; // TODO: Make this configurable
-    D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc = {
-        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
-        .NumDescriptors = m.samplerHeap.capacity,
-        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
-        .NodeMask = 0,
-    };
-    DX_MAKE(m.device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&m.samplerHeap.heap)),
-            "Failed to create sampler descriptor heap");
 
     D3D12_INDIRECT_ARGUMENT_DESC indirectArgumentDesc = {
         .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW,
@@ -334,6 +311,90 @@ namespace kt::rhi {
             "Failed to create command list");
 
     m.copyCmdList->Close();
+
+    return {};
+  }
+
+  std::expected<void, std::string> RHI::initDescriptorHeaps() {
+    m.rtvHeap.capacity = 300; // TODO: Make this configurable
+    D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+        .NumDescriptors = m.rtvHeap.capacity,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+        .NodeMask = 0,
+    };
+    DX_MAKE(m.device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m.rtvHeap.heap)), "Failed to create RTV descriptor heap");
+
+    m.dsvHeap.capacity = 100; // TODO: Make this configurable
+    D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+        .NumDescriptors = m.dsvHeap.capacity,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+        .NodeMask = 0,
+    };
+    DX_MAKE(m.device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m.dsvHeap.heap)), "Failed to create DSV descriptor heap");
+
+    m.cbvSrvUavHeap.capacity = 1000; // TODO: Make this configurable
+    D3D12_DESCRIPTOR_HEAP_DESC cbvSrvUavHeapDesc = {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+        .NumDescriptors = m.cbvSrvUavHeap.capacity,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+        .NodeMask = 0,
+    };
+    DX_MAKE(m.device->CreateDescriptorHeap(&cbvSrvUavHeapDesc, IID_PPV_ARGS(&m.cbvSrvUavHeap.heap)),
+            "Failed to create CBV_SRV_UAV descriptor heap");
+
+    m.samplerHeap.capacity = 100; // TODO: Make this configurable
+    D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc = {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+        .NumDescriptors = m.samplerHeap.capacity,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+        .NodeMask = 0,
+    };
+    DX_MAKE(m.device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&m.samplerHeap.heap)),
+            "Failed to create sampler descriptor heap");
+
+    return {};
+  }
+
+  std::expected<void, std::string> RHI::initSamplers() {
+    D3D12_SAMPLER_DESC samplerDesc = {
+        .Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+        .AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+        .AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+        .AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+        .MipLODBias = 0.0f,
+        .MaxAnisotropy = 1,
+        .ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS,
+        .BorderColor = {D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK, D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
+                        D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK, D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK},
+        .MinLOD = 0.0f,
+        .MaxLOD = D3D12_FLOAT32_MAX,
+    };
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE samplerHandle(m.samplerHeap.heap->GetCPUDescriptorHandleForHeapStart());
+
+    auto makeSampler = [&](D3D12_FILTER filter, D3D12_TEXTURE_ADDRESS_MODE addressMode) {
+      samplerDesc.Filter = filter;
+      samplerDesc.AddressU = addressMode;
+      samplerDesc.AddressV = addressMode;
+      samplerDesc.AddressW = addressMode;
+      m.device->CreateSampler(&samplerDesc, samplerHandle);
+      samplerHandle.Offset(static_cast<INT>(SAMPLER_DESCRIPTOR_SIZE));
+    };
+
+    auto makeSet = [&](D3D12_FILTER filter) {
+      makeSampler(filter, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+      makeSampler(filter, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
+      makeSampler(filter, D3D12_TEXTURE_ADDRESS_MODE_MIRROR);
+    };
+
+    makeSet(D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR);
+    makeSet(D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR);
+    makeSet(D3D12_FILTER_MIN_MAG_MIP_POINT);
+    makeSet(D3D12_FILTER_MIN_MAG_MIP_POINT);
+
+    m.samplerHeap.count += 12; // 4 filters * 3 address modes
 
     return {};
   }

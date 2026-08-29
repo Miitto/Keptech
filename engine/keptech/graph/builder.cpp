@@ -853,6 +853,10 @@ namespace kt {
           physicalResourceInfos[output->getPhysicalId()].queues |= output->getUsedQueues();
           physicalResourceInfos[output->getPhysicalId()].imageUsage |= output->getImageUsage();
         }
+
+        if (renderTargetsBlitable) {
+          physicalResourceInfos[output->getPhysicalId()].imageUsage |= rhi::CommandBuffer::getBlitSrcUsage();
+        }
       }
 
       for (auto* output : pass.getStorageImageOutputs()) {
@@ -862,6 +866,9 @@ namespace kt {
         } else {
           physicalResourceInfos[output->getPhysicalId()].queues |= output->getUsedQueues();
           physicalResourceInfos[output->getPhysicalId()].imageUsage |= output->getImageUsage();
+        }
+        if (renderTargetsBlitable) {
+          physicalResourceInfos[output->getPhysicalId()].imageUsage |= rhi::CommandBuffer::getBlitSrcUsage();
         }
       }
 
@@ -935,7 +942,7 @@ namespace kt {
       auto& backbufferVirt = *resources[backbufferIt->second];
       auto& backbufferPhys = physicalResourceInfos[backbufferVirt.getPhysicalId()];
 
-      backbufferPhys.imageUsage |= rhi::ImageUsage::TransferSrc;
+      backbufferPhys.imageUsage |= rhi::CommandBuffer::getBlitSrcUsage();
     }
 
     physicalImageHasHistory.clear();
@@ -1334,7 +1341,9 @@ namespace kt {
     auto backbufferPhysId = resources[resourceNameToId.at(backbufferSource)]->getPhysicalId();
     auto& backbufferResInfo = resInfos[backbufferPhysId];
 
-    backbufferResInfo.layout = rhi::ImageLayout::TransferSrc;
+    rhi::ImageLayout optimalBlitSrc = rhi::CommandBuffer::getOptimalBlitSrcLayout();
+
+    backbufferResInfo.layout = optimalBlitSrc;
 
     for (const auto& [idx, resInfo] : resInfos | std::views::enumerate) {
       auto& res = physicalResourceInfos[idx];
@@ -1422,22 +1431,20 @@ namespace kt {
     }
 
     // Need it in transfer src for the blit to swapchain.
-    if (backbufferResInfo.layout != rhi::ImageLayout::TransferSrc) {
-      ImageBarrier barrier{
-          .resourceId = backbufferPhysId,
+    ImageBarrier barrier{
+        .resourceId = backbufferPhysId,
 #ifdef KT_VULKAN
-          .srcStages = backbufferResInfo.stages,
-          .dstStages = VK_PIPELINE_STAGE_2_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COPY_BIT,
-          .srcAccess = backbufferResInfo.access,
-          .dstAccess = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
+        .srcStages = backbufferResInfo.stages,
+        .dstStages = VK_PIPELINE_STAGE_2_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COPY_BIT,
+        .srcAccess = backbufferResInfo.access,
+        .dstAccess = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
 #endif
-          .oldLayout = backbufferResInfo.layout,
-          .newLayout = rhi::ImageLayout::TransferSrc,
-      };
-      KT_ASSERT(backbufferResInfo.lastUsedInPass < passBarriers.size(),
-                "Backbuffer resource was never used in any pass. This should have been caught earlier.");
-      passBarriers[backbufferResInfo.lastUsedInPass].post.image.push_back(barrier);
-    }
+        .oldLayout = backbufferResInfo.layout,
+        .newLayout = optimalBlitSrc,
+    };
+    KT_ASSERT(backbufferResInfo.lastUsedInPass < passBarriers.size(),
+              "Backbuffer resource was never used in any pass. This should have been caught earlier.");
+    passBarriers[backbufferResInfo.lastUsedInPass].post.image.push_back(barrier);
   }
 
   Resources RenderGraphBuilder::buildResources() {

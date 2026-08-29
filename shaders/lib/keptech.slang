@@ -19,8 +19,8 @@ public namespace kt {
 public struct DeferredOutput {
   public float4 albedo : SV_Target0;
   public float4 normal : SV_Target1;
-  public float4 emissiveAo : SV_Target2;
-  public float4 metallicRoughness : SV_Target3;
+  public float4 metallicRoughness : SV_Target2;
+  public float4 emissiveAo : SV_Target3;
 };
 
 public struct DeferredLightingOutput {

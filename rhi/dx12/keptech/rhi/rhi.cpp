@@ -296,7 +296,14 @@ namespace kt::rhi {
   ImageRef RHI::getSwapchainImage() const {
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m.swapchain.rtvHeap->GetCPUDescriptorHandleForHeapStart(), m.imageIndex,
                                             static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
-    return {"Swapchain Image", m.swapchain.backbuffers[m.imageIndex].Get(), ImageDim::e2D, ImageFormat::R8G8B8A8_UNORM, 1, 1, rtvHandle};
+    return {"Swapchain Image",
+            m.swapchain.backbuffers[m.imageIndex].Get(),
+            ImageDim::e2D,
+            ImageFormat::R8G8B8A8_UNORM,
+            {m.swapchain.size, 1},
+            1,
+            1,
+            rtvHandle};
   }
   glm::uvec2 RHI::getSwapchainSize() const { return m.swapchain.size; }
 
@@ -325,7 +332,57 @@ namespace kt::rhi {
     dxUpdateRenderTargetImage(image);
   }
 
-  Pipeline& RHI::getBlitPipeline(ImageFormat format) {
+  void RHI::dxRegisterSampledImage(rhi::Image& img) {
+    if (img.getTextureIndex() != UINT64_MAX) {
+      DX_WARN("Image {} is already registered as a sampled image", img.getName());
+      return;
+    }
+
+    auto index = m.cbvSrvUavHeap.count++;
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle =
+        CD3DX12_CPU_DESCRIPTOR_HANDLE(m.cbvSrvUavHeap.heap->GetCPUDescriptorHandleForHeapStart(), static_cast<INT>(index),
+                                      static_cast<UINT>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
+
+    auto format = raw(img.format());
+    if (format == DXGI_FORMAT_D32_FLOAT) {
+      format = DXGI_FORMAT_R32_FLOAT;
+    } else if (format == DXGI_FORMAT_D24_UNORM_S8_UINT) {
+      format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+    } else if (format == DXGI_FORMAT_D16_UNORM) {
+      format = DXGI_FORMAT_R16_UNORM;
+    }
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{
+        .Format = format,
+        .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+    };
+
+    switch (img.dim()) {
+    case ImageDim::e1D:
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
+      srvDesc.Texture1D.MipLevels = img.mips();
+      break;
+    case ImageDim::e2D:
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+      srvDesc.Texture2D.MipLevels = img.mips();
+      break;
+    case ImageDim::e3D:
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
+      srvDesc.Texture3D.MipLevels = img.mips();
+      break;
+    case ImageDim::eCube:
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+      srvDesc.TextureCube.MipLevels = img.mips();
+      break;
+    }
+
+    m.device->CreateShaderResourceView(img.dxresource().Get(), &srvDesc, srvHandle);
+
+    img.setTextureIndex(index);
+  }
+
+  Pipeline& RHI::dxGetBlitPipeline(ImageFormat format) {
     auto it = m.blitPipelines.find(format);
     if (it != m.blitPipelines.end()) {
       return it->second;
