@@ -74,8 +74,27 @@ namespace kt::rhi {
       if (range.BaseShaderRegister == binding) {
         if (imageType == DescriptorWriteImageType::Sampled) {
           auto cpuHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(this->cpuHandle, descriptorIndex + arrayIndex, CBV_SRV_UAV_DESCRIPTOR_SIZE);
+
+          auto format = raw(image.format());
+          switch (format) {
+          case DXGI_FORMAT_D32_FLOAT:
+            format = DXGI_FORMAT_R32_FLOAT;
+            break;
+          case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+            format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+            break;
+          case DXGI_FORMAT_D24_UNORM_S8_UINT:
+            format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+            break;
+          case DXGI_FORMAT_D16_UNORM:
+            format = DXGI_FORMAT_R16_UNORM;
+            break;
+          default:
+            break;
+          }
+
           D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{
-              .Format = raw(image.format()),
+              .Format = format,
               .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
           };
 

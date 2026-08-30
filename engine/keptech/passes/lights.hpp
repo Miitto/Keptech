@@ -5,9 +5,9 @@
 #include "keptech/rhi/pipeline.hpp"
 
 namespace kt {
-  class PointLightPass : public RenderPassInterface {
+  class LightPass : public RenderPassInterface {
   public:
-    PointLightPass() = default;
+    LightPass() = default;
 
     void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
     bool validate(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
@@ -28,6 +28,7 @@ namespace kt {
   private:
     size_t diffuseIndex = 0;
     size_t specularIndex = 0;
+    size_t lightBufferIndex = 0;
 
     size_t lightCount = 0;
 

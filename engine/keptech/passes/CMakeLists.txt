@@ -2,8 +2,9 @@ target_sources(Keptech
   PRIVATE
     data.cpp
     debug.cpp
-    pointLights.cpp
     geometry.cpp
+    lightCombine.cpp
+    lights.cpp
 )
 
 compile_shader(Keptech
@@ -16,4 +17,5 @@ compile_shader(Keptech
   SOURCES
     geometry
     pointLight
+    lightCombine
 )

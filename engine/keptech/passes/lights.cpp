@@ -1,4 +1,4 @@
-#include "pointLights.hpp"
+#include "lights.hpp"
 
 #include "graph/graph.hpp"
 #include "keptech/components/pointLight.hpp"
@@ -14,7 +14,7 @@
 
 namespace kt {
 
-  void PointLightPass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&) {
+  void LightPass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&) {
     self.addColorOutput("kt::diffuse", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
     self.addColorOutput("kt::specular", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
 
@@ -26,11 +26,10 @@ namespace kt {
     self.addTextureInput("kt::albedo");
     self.addTextureInput("kt::normal");
     self.addTextureInput("kt::material");
-    self.addTextureInput("kt::emissive");
     self.addTextureInput("kt::depth");
   }
 
-  bool PointLightPass::validate(RenderPassBuilder&, RenderGraphBuilder& graph) {
+  bool LightPass::validate(RenderPassBuilder&, RenderGraphBuilder& graph) {
     if (!graph.hasBufferResource("kt::camera")) {
       KT_ERROR("Deferred lighting pass requires a uniform buffer resource named 'kt::camera'. Either add kt::DataPass or manage the camera "
                "buffer resource "
@@ -72,9 +71,10 @@ namespace kt {
     return true;
   }
 
-  void PointLightPass::setup(RenderGraph& graph, const rhi::DescriptorLayout&) {
+  void LightPass::setup(RenderGraph& graph, const rhi::DescriptorLayout&) {
     diffuseIndex = graph.getImageIndex("kt::diffuse");
     specularIndex = graph.getImageIndex("kt::specular");
+    lightBufferIndex = graph.getBufferIndex("kt::lights");
 
     kt::rhi::PipelineBuilder pipelineBuilder{};
     pipelineBuilder.setShader(::shaders::kt::pointLight)
@@ -92,13 +92,13 @@ namespace kt {
 
     KT_ASSERT(cameraFrustum != nullptr,
               "Deferred lighting pass requires a pointer to a camera frustum. Make sure that the DataPass is added "
-              "to the render graph before the PointLightPass, or that \"kt::data::cameraFrustum\" is set in the "
-              "render graph user data before the PointLightPass was set up.");
+              "to the render graph before the LightPass, or that \"kt::data::cameraFrustum\" is set in the "
+              "render graph user data before the LightPass was set up.");
 
     KT_DEBUG("Deferred lighting pass setup");
   }
 
-  void PointLightPass::prepare(RenderGraph& graph) {
+  void LightPass::prepare(RenderGraph& graph) {
     auto frustum = *cameraFrustum;
 
     std::vector<GpuPointLight> lights;
@@ -114,18 +114,18 @@ namespace kt {
 
     size_t lightBufferSize = lights.size() * sizeof(GpuPointLight);
     {
-      auto& lightBuffer = graph.getFrameBuffer(graph.getBufferIndex("kt::lights"));
+      auto& lightBuffer = graph.getFrameBuffer(lightBufferIndex);
       if (lightBuffer.size() < lightBufferSize) {
-        graph.reallocateBuffer(graph.getBufferIndex("kt::lights"), lightBufferSize, false);
+        graph.reallocateBuffer(lightBufferIndex, lightBufferSize, false);
       }
     }
-    auto& lightBuffer = graph.getFrameBuffer(graph.getBufferIndex("kt::lights"));
+    auto& lightBuffer = graph.getFrameBuffer(lightBufferIndex);
     memcpy(lightBuffer.mapping(), lights.data(), lightBufferSize);
 
     lightCount = lights.size();
   }
 
-  void PointLightPass::execute(RenderGraph& graph, rhi::CommandBuffer& cmd, const rhi::DescriptorSet& set, glm::uvec2 framebufferSize) {
+  void LightPass::execute(RenderGraph& graph, rhi::CommandBuffer& cmd, const rhi::DescriptorSet& set, glm::uvec2 framebufferSize) {
 
     auto& diffuse = graph.getImage(diffuseIndex);
     auto& specular = graph.getImage(specularIndex);
@@ -139,7 +139,7 @@ namespace kt {
     cmd.setViewport({static_cast<float>(framebufferSize.x), static_cast<float>(framebufferSize.y)});
     cmd.setScissor({framebufferSize.x, framebufferSize.y});
 
-    std::array<rhi::CommandBuffer::ColorAttachmentDesc, 4> colorAttachments = {
+    std::array<rhi::CommandBuffer::ColorAttachmentDesc, 2> colorAttachments = {
         rhi::CommandBuffer::ColorAttachmentDesc{.imageRef = diffuse, .loadOp = rhi::LoadOp::Clear, .clearColor = {0.0f, 0.0f, 0.0f, 1.0f}},
         rhi::CommandBuffer::ColorAttachmentDesc{.imageRef = specular, .loadOp = rhi::LoadOp::Clear, .clearColor = {0.0f, 0.0f, 0.0f, 1.0f}},
     };
@@ -154,7 +154,7 @@ namespace kt {
     cmd.endRendering();
   }
 
-  void PointLightPass::addToGraph(RenderGraphBuilder& graph) {
+  void LightPass::addToGraph(RenderGraphBuilder& graph) {
     auto& pass = graph.addPass("kt::pointLights");
     pass.setInterface(this);
   }

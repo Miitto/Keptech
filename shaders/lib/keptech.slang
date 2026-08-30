@@ -1,11 +1,9 @@
 module keptech;
 
 __include camera;
-__include fullscreen;
 __include lighting;
 __include maths;
 __include vertex;
-__include buffers;
 __include material;
 __include sphere;
 __include frustum;

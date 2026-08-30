@@ -120,7 +120,7 @@ namespace kt {
     std::vector<ResourceInfo> physicalResourceInfos;
     std::vector<bool> physicalImageHasHistory;
 
-    std::vector<ImageTransition> initialTransitions;
+    std::vector<ImageTransition> finalLayouts;
 
     /// Validate the registered passes. Aborts if any pass has invalid inputs or outputs.
     void validatePasses() const;

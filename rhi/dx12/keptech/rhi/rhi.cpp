@@ -345,12 +345,21 @@ namespace kt::rhi {
                                       static_cast<UINT>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
 
     auto format = raw(img.format());
-    if (format == DXGI_FORMAT_D32_FLOAT) {
+    switch (format) {
+    case DXGI_FORMAT_D32_FLOAT:
       format = DXGI_FORMAT_R32_FLOAT;
-    } else if (format == DXGI_FORMAT_D24_UNORM_S8_UINT) {
+      break;
+    case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+      format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+      break;
+    case DXGI_FORMAT_D24_UNORM_S8_UINT:
       format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-    } else if (format == DXGI_FORMAT_D16_UNORM) {
+      break;
+    case DXGI_FORMAT_D16_UNORM:
       format = DXGI_FORMAT_R16_UNORM;
+      break;
+    default:
+      break;
     }
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{

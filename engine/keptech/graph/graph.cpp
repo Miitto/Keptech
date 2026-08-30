@@ -252,9 +252,9 @@ namespace kt {
   }
 
   RenderGraph::RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
-                           std::vector<ImageTransition>&& initialTransitions, std::vector<Descriptors>&& descriptors)
+                           std::vector<rhi::ImageLayout>&& finalLayouts, std::vector<Descriptors>&& descriptors)
       : passGroups(std::move(passGroups)), passes(std::move(passes)), resources(std::move(resources)),
-        passDescriptors(std::move(descriptors)), initialTransitions(std::move(initialTransitions)) {
+        passDescriptors(std::move(descriptors)), finalLayouts(std::move(finalLayouts)) {
     for (const auto& group : this->passGroups) {
       if (group.queue == QueueType::Graphics) {
         graphicsQueuePassCount += group.count;
@@ -421,6 +421,10 @@ namespace kt {
   }
 
   const std::vector<rhi::Image>& RenderGraph::getImages() const { return resources.images; }
+  rhi::ImageLayout RenderGraph::getFinalLayout(size_t imageIndex) const {
+    KT_ASSERT(imageIndex < finalLayouts.size(), "Image index {} is out of bounds (size: {})", imageIndex, finalLayouts.size());
+    return finalLayouts[imageIndex];
+  }
 
   void RenderGraph::onResolutionChanged(const glm::uvec2& newResolution) {
     KT_PROFILE_FUNCTION
@@ -443,11 +447,10 @@ namespace kt {
       RHI::get().submitImageToDrop(img);
       resources.images[resImage.index] = std::move(newImageRes.value());
 
-      for (auto& transition : initialTransitions) {
-        if (static_cast<size_t>(transition.resourceId) == resImage.index) {
-          transitions.push_back(CommandBuffer::ImageLayoutTransition{
-              .imageRef = resources.images[resImage.index], .oldLayout = rhi::ImageLayout::Undefined, .newLayout = transition.newLayout});
-        }
+      auto layout = finalLayouts[resImage.index];
+      if (layout != rhi::ImageLayout::Undefined) {
+        transitions.push_back(CommandBuffer::ImageLayoutTransition{
+            .imageRef = resources.images[resImage.index], .oldLayout = rhi::ImageLayout::Undefined, .newLayout = layout});
       }
 
       for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
@@ -484,11 +487,10 @@ namespace kt {
       RHI::get().submitImageToDrop(img);
       resources.images[resImage.index] = std::move(newImageRes.value());
 
-      for (auto& transition : initialTransitions) {
-        if (static_cast<size_t>(transition.resourceId) == resImage.index) {
-          transitions.push_back(CommandBuffer::ImageLayoutTransition{
-              .imageRef = resources.images[resImage.index], .oldLayout = rhi::ImageLayout::Undefined, .newLayout = transition.newLayout});
-        }
+      auto layout = finalLayouts[resImage.index];
+      if (layout != rhi::ImageLayout::Undefined) {
+        transitions.push_back(CommandBuffer::ImageLayoutTransition{
+            .imageRef = resources.images[resImage.index], .oldLayout = rhi::ImageLayout::Undefined, .newLayout = layout});
       }
 
       for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {

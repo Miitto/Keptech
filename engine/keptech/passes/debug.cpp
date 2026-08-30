@@ -65,9 +65,9 @@ namespace kt {
       return;
     }
 
-    cmdBuf.blitImage(srcImage, srcImage.getName() == backbufferSource ? rhi::ImageLayout::ShaderReadOnly : rhi::ImageLayout::RenderTarget,
-                     srcImage.getName() == backbufferSource ? rhi::ImageLayout::ShaderReadOnly : rhi::ImageLayout::RenderTarget, debugImage,
-                     rhi::ImageLayout::RenderTarget, rhi::ImageLayout::RenderTarget);
+    auto srcLayout = graph.getFinalLayout(debugView);
+
+    cmdBuf.blitImage(srcImage, srcLayout, srcLayout, debugImage, rhi::ImageLayout::RenderTarget, rhi::ImageLayout::RenderTarget);
   }
 
   void DebugPass::addToGraph(RenderGraphBuilder& graph) {

@@ -19,10 +19,10 @@ StructuredBuffer<kt::PointLight> lightBuffer;
 Texture2D<float4> albedoTex;
 Texture2D<float4> normalTex;
 Texture2D<float4> metallicRoughnessTex;
-Texture2D<float4> emissiveTex;
 Texture2D<float> depthTex;
 
 [shader("vertex")]
+[cull(kt::CullMode::Front)]
 v2f vert(uint vid: SV_VertexID, uint iid: SV_InstanceID, uint bid: SV_StartInstanceLocation) {
   v2f output;
 
@@ -35,9 +35,10 @@ v2f vert(uint vid: SV_VertexID, uint iid: SV_InstanceID, uint bid: SV_StartInsta
 
   float4 worldPos = float4(scaledPos + lightPos, 1.0);
 
-  output.position = (*kt::camera).worldToClip(worldPos);
+  output.position = camera.worldToClip(worldPos);
 
   output.light = light;
+  output.light.color *= light.intensity;
 
   return output;
 }
@@ -45,8 +46,6 @@ v2f vert(uint vid: SV_VertexID, uint iid: SV_InstanceID, uint bid: SV_StartInsta
 [shader("pixel")]
 kt::DeferredLightingOutput frag(v2f input) {
   kt::DeferredLightingOutput output;
-
-  let camera = (*kt::camera);
 
   let fragCoord = input.position;
 

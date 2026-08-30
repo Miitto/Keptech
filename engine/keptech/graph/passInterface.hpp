@@ -45,7 +45,14 @@ namespace kt {
     virtual bool validate(RenderPassBuilder& self, RenderGraphBuilder& graph) { return true; }
 
     /// Called once after the render graph has been built.
-    virtual void setup(RenderGraph& graph, const rhi::DescriptorLayout& resourceLayout
+    /// The provided descriptor layout puts resources in the following order:
+    ///   - Constant buffers (CBVs)
+    ///   - Read Only storage buffers (SRVs)
+    ///   - Textures (SRVs)
+    ///   - Read Write storage buffers (UAVs)
+    ///   - Read Write textures (UAVs)
+    /// @note The exact layout can be seen in the debug output if `KT_LOG_LEVEL` is set to `DEBUG` or lower.
+    virtual void setup(RenderGraph& graph, const rhi::DescriptorLayout& descriptorLayout
 
     ) {}
 
@@ -54,8 +61,15 @@ namespace kt {
 
     /// @brief Called when the pass is executed. This is where you should record the commands for the pass.
     /// @param cmd The command buffer to record commands to.
-    /// @param descriptorSet The descriptor set for the pass. This is populated with the resources that were specified during setup.
+    /// @param descriptorSet The descriptor set for the pass. This is populated with the resources that were specified during setup
     /// @param framebufferSize The size of the framebuffer for this pass. This is useful for setting the viewport and scissor.
+    /// @note The descriptor set resources are in the following order:
+    ///   - Constant buffers (CBVs)
+    ///   - Read Only storage buffers (SRVs)
+    ///   - Textures (SRVs)
+    ///   - Read Write storage buffers (UAVs)
+    ///   - Read Write textures (UAVs)
+    /// @note The exact layout can be seen in the debug output if `KT_LOG_LEVEL` is set to `DEBUG` or lower.
     virtual void execute(RenderGraph& graph, rhi::CommandBuffer& cmd, const rhi::DescriptorSet& resourceSet,
                          glm::uvec2 framebufferSize = {}) {}
 

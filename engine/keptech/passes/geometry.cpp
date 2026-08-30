@@ -16,7 +16,7 @@ namespace kt {
     self.addColorOutput("kt::albedo", {.format = rhi::ImageFormat::R8G8B8A8_UNORM});
     self.addColorOutput("kt::normal", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
     self.addColorOutput("kt::material", {.format = rhi::ImageFormat::R8G8_UNORM});
-    self.addColorOutput("kt::emissive", {.format = rhi::ImageFormat::R16G16B16A16_FLOAT});
+    self.addColorOutput("kt::emissive", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
     self.setDepthStencilOutput("kt::depth", {.format = rhi::ImageFormat::D32_FLOAT});
 
     self.addUniformInput("kt::camera");
@@ -56,7 +56,7 @@ namespace kt {
         .addColorAttachment(kt::rhi::ImageFormat::R8G8B8A8_UNORM)
         .addColorAttachment(kt::rhi::ImageFormat::R11G11B10_FLOAT)
         .addColorAttachment(kt::rhi::ImageFormat::R8G8_UNORM)
-        .addColorAttachment(kt::rhi::ImageFormat::R16G16B16A16_FLOAT)
+        .addColorAttachment(kt::rhi::ImageFormat::R11G11B10_FLOAT)
         .setDepthAttachment(kt::rhi::ImageFormat::D32_FLOAT);
 
     auto pipeline_res = pipelineBuilder.build();

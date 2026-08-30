@@ -163,10 +163,11 @@ namespace kt {
     static void setActiveGraph(RenderGraph* graph) { activeGraph = graph; }
 
     const std::vector<rhi::Image>& getImages() const;
+    rhi::ImageLayout getFinalLayout(size_t imageIndex) const;
 
   private:
     RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
-                std::vector<ImageTransition>&& initialTransitions, std::vector<Descriptors>&& descriptors);
+                std::vector<rhi::ImageLayout>&& finalLayouts, std::vector<Descriptors>&& descriptors);
 
     std::unordered_map<std::string, void*> userData;
 
@@ -183,7 +184,7 @@ namespace kt {
 
     size_t backbufferSourceIndex = 0;
 
-    std::vector<ImageTransition> initialTransitions;
+    std::vector<rhi::ImageLayout> finalLayouts;
 
     std::array<std::vector<rhi::Buffer>, MAX_FRAMES_IN_FLIGHT> buffersToDrop;
     std::array<std::vector<size_t>, MAX_FRAMES_IN_FLIGHT> imagesToUpdate;

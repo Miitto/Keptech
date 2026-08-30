@@ -2,6 +2,7 @@
 
 #include "keptech/cameras/orbitCamera.hpp"
 #include "keptech/components/camera.hpp"
+#include "keptech/components/pointLight.hpp"
 #include "keptech/components/transform.hpp"
 #include "keptech/core/events/event.hpp"
 #include "keptech/core/events/window.hpp"
@@ -15,7 +16,8 @@
 #include "keptech/graph/graph.hpp"
 #include "keptech/passes/debug.hpp"
 #include "keptech/passes/geometry.hpp"
-#include "keptech/passes/pointLights.hpp"
+#include "keptech/passes/lightCombine.hpp"
+#include "keptech/passes/lights.hpp"
 #include "keptech/rhi/rhi.hpp"
 
 class ExampleLayer : public kt::Layer {
@@ -50,6 +52,14 @@ public:
     // had.
     monkeyUpload.scene.addToEcsScene(scene, monkey.getHandle());
 
+    // Create an entity for a point light.
+    lightEntity = scene.createEntity("Point Light");
+    // Add a transform to the light and move it up 4 units.
+    lightEntity.addComponent<kt::components::Transform>().getLocalMut().translate(glm::vec3(0.0f, 4.0f, 0.0f));
+    // Add the point light component to the light entity. This is a simple point light with a blueish color, intensity of 1, and radius
+    // of 10.
+    lightEntity.addComponent<kt::components::PointLight>(glm::vec3{.5f, .5f, .7f}, 1.f, 10.f);
+
     // Create an entity for a camera.
     auto camera = scene.createEntity("Camera");
     // Add a transform to the camera.
@@ -80,8 +90,8 @@ public:
 
     dataPass.addToGraph(builder);
     geomPass.addToGraph(builder);
-    pointLightPass.addToGraph(builder);
-
+    lightPass.addToGraph(builder);
+    lightCombinePass.addToGraph(builder);
     // Here we set the backbuffer source for the render graph. This determines which render pass output will be used as the final image to
     // present to the screen. The geometry pass outputs to multiple G-buffers, and we can choose which one to use as the final output.
     //
@@ -89,7 +99,7 @@ public:
     // before running this example to see the normal buffer instead.
     const char* backBufferSourceEnv = std::getenv("KT_SURFACE");
 
-    builder.setBackbufferSource(backBufferSourceEnv ? backBufferSourceEnv : "kt::albedo");
+    builder.setBackbufferSource(backBufferSourceEnv ? backBufferSourceEnv : "kt::lighting");
 
     /// Set the render resolution to the swapchain size. Less efficient but means we can directly copy the backbuffer source to the
     /// swapchain without adding a resize pass. In a more complete example, there would be more than one pass, and the last pass would
@@ -104,7 +114,18 @@ public:
 
   // The `onUpdate` function is called every frame, and is where we update the camera controller. The camera controller will update the
   // camera's transform based on user input, which is handled in the `onEvent` function below.
-  void onUpdate(kt::Timestep ts) final { orbitController.update(ts); }
+  void onUpdate(kt::Timestep ts) final {
+    orbitController.update(ts);
+
+    auto& lightComp = lightEntity.getComponents<kt::components::PointLight>();
+    if (ImGui::Begin("Light Controls")) {
+      ImGui::ColorEdit3("Light Color", &lightComp.color[0]);
+      ImGui::SliderFloat("Light Intensity", &lightComp.intensity, 0.0f, 10.0f);
+      ImGui::SliderFloat("Light Radius", &lightComp.radius, 0.1f, 100.0f);
+
+      ImGui::End();
+    }
+  }
 
   // The `onEvent` function is called every time an event occurs, such as a key press or mouse movement. We pass the event to the camera
   // controller, which will handle it if it is relevant to the camera. If the camera controller handles the event, we return early to
@@ -126,7 +147,9 @@ private:
   kt::cameras::OrbitCameraController orbitController{};
   kt::DataPass dataPass{};
   kt::GeometryPass geomPass{};
-  kt::PointLightPass pointLightPass{};
+  kt::LightPass lightPass{};
+  kt::LightCombinePass lightCombinePass{};
   kt::DebugPass debugPass{};
   kt::RenderGraph* graph;
+  kt::ecs::Entity lightEntity;
 };

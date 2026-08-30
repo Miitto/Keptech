@@ -138,11 +138,15 @@ namespace kt {
     auto& cmd = cmds.front();
 
     std::vector<rhi::CommandBuffer::ImageLayoutTransition> its;
-    for (auto& transition : initialTransitions) {
+    std::vector<rhi::ImageLayout> imageFinalLayouts;
+    imageFinalLayouts.reserve(finalLayouts.size());
+    for (auto& transition : finalLayouts) {
       transition.resourceId = builtResources.nameToImage[physicalResourceInfos[transition.resourceId].name];
       auto& img = builtResources.images[transition.resourceId];
-      its.push_back(
-          CommandBuffer::ImageLayoutTransition{.imageRef = img, .oldLayout = ImageLayout::Undefined, .newLayout = transition.newLayout});
+      if (transition.newLayout != rhi::ImageLayout::Undefined)
+        its.push_back(
+            CommandBuffer::ImageLayoutTransition{.imageRef = img, .oldLayout = ImageLayout::Undefined, .newLayout = transition.newLayout});
+      imageFinalLayouts.push_back(transition.newLayout);
     }
     cmd.transitionImages(its);
 
@@ -152,7 +156,7 @@ namespace kt {
     rhi.waitGraphicsIdle();
 
     RenderGraph res{
-        std::move(passGroups), std::move(bakedPasses), std::move(builtResources), std::move(initialTransitions), std::move(passDescriptors),
+        std::move(passGroups), std::move(bakedPasses), std::move(builtResources), std::move(imageFinalLayouts), std::move(passDescriptors),
     };
 
     res.setBackbufferSource(backbufferSource);
@@ -202,31 +206,6 @@ namespace kt {
         return builtResources.buffers[getBufferIndex(name) + offset];
       };
 
-      for (const auto& texture : pass->getGenericTextureInputs()) {
-        if (texture.texture && texture.texture->getPhysicalId().used()) {
-          uint32_t binding = static_cast<uint32_t>(writes.size());
-          KT_DEBUG("Pass '{}' has texture input '{}' at binding {}", pass->getName(), texture.texture->getName(), binding);
-          writes.push_back(rhi::DescriptorWriteInfo{
-              .binding = binding,
-              .arrayIndex = 0,
-              .type = rhi::DescriptorType::SampledImage,
-              .image = getImage(texture.texture->getName()),
-          });
-
-          builtResources.imageUsedInPass[getImageIndex(texture.texture->getName())].push_back(UsedInPass{
-              .passIndex = idx,
-              .binding = binding,
-              .descriptorType = rhi::DescriptorType::SampledImage,
-              .layout = rhi::ImageLayout::ShaderReadOnly,
-          });
-          infos.push_back(rhi::DescriptorInfo{
-              .type = rhi::DescriptorType::SampledImage,
-              .binding = binding,
-              .count = 1,
-          });
-        }
-      }
-
       auto addBufferWrites = [&](rhi::BufferUsage usage, rhi::DescriptorType descriptorType) {
         for (const auto& buffer : pass->getGenericBufferInputs()) {
           if (buffer.buffer && buffer.buffer->getPhysicalId().used() && buffer.buffer->getBufferUsage().has(usage)) {
@@ -270,6 +249,31 @@ namespace kt {
 
       addBufferWrites(rhi::BufferUsage::Uniform, rhi::DescriptorType::UniformBuffer);
       addBufferWrites(rhi::BufferUsage::Storage, rhi::DescriptorType::StorageBuffer);
+
+      for (const auto& texture : pass->getGenericTextureInputs()) {
+        if (texture.texture && texture.texture->getPhysicalId().used()) {
+          uint32_t binding = static_cast<uint32_t>(writes.size());
+          KT_DEBUG("Pass '{}' has texture input '{}' at binding {}", pass->getName(), texture.texture->getName(), binding);
+          writes.push_back(rhi::DescriptorWriteInfo{
+              .binding = binding,
+              .arrayIndex = 0,
+              .type = rhi::DescriptorType::SampledImage,
+              .image = getImage(texture.texture->getName()),
+          });
+
+          builtResources.imageUsedInPass[getImageIndex(texture.texture->getName())].push_back(UsedInPass{
+              .passIndex = idx,
+              .binding = binding,
+              .descriptorType = rhi::DescriptorType::SampledImage,
+              .layout = rhi::ImageLayout::ShaderReadOnly,
+          });
+          infos.push_back(rhi::DescriptorInfo{
+              .type = rhi::DescriptorType::SampledImage,
+              .binding = binding,
+              .count = 1,
+          });
+        }
+      }
 
       for (const auto& buffer : pass->getStorageOutputs()) {
         if (buffer && buffer->getPhysicalId().used()) {
@@ -395,14 +399,6 @@ namespace kt {
       VERBOSE("");
     }
     VERBOSE("  Barriers:");
-
-    VERBOSE("    Startup Barriers: {}", initialTransitions.size());
-    for (const auto& transition : initialTransitions) {
-      const auto& res = physicalResourceInfos[transition.resourceId];
-      VERBOSE("      Resource: {}", res.name);
-      VERBOSE("        New Layout: {}", transition.newLayout);
-    }
-    VERBOSE("");
 
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       const auto& pass = *passes[passId];
@@ -1347,8 +1343,8 @@ namespace kt {
 
     for (const auto& [idx, resInfo] : resInfos | std::views::enumerate) {
       auto& res = physicalResourceInfos[idx];
-      if (res.isLayoutSensitive() && resInfo.layout != rhi::ImageLayout::Undefined) {
-        initialTransitions.push_back({.resourceId = idx, .newLayout = resInfo.layout});
+      if (res.isLayoutSensitive()) {
+        finalLayouts.push_back({.resourceId = idx, .newLayout = resInfo.layout});
       }
     }
 

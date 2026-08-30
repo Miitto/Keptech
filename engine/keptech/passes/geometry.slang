@@ -54,6 +54,8 @@ kt::DeferredOutput frag(VertexOutput input) {
 
   float3 normalSample = float3(0.f, 0.f, 1.f);
   if (input.materialIndex != ~0u) {
+    discard;
+    /*
     kt::Material mat = (*kt::materials)[input.materialIndex];
 
     float2 uv = float2(input.uvX, input.uvY);
@@ -83,9 +85,10 @@ kt::DeferredOutput frag(VertexOutput input) {
       output.metallicRoughness.r *= metallicRoughnessSample.b;
       output.metallicRoughness.g *= metallicRoughnessSample.g;
     }
+      */
   } else {
     output.albedo = float4(1.f, 1.f, 1.f, 1.f);
-    output.metallicRoughness = float4(05.f, 0.5f, 0.f, 1.f);
+    output.metallicRoughness = float4(0.5f, 0.5f, 0.f, 1.f);
     output.emissiveAo = float4(0.f, 0.f, 0.f, 1.f);
   }
 
