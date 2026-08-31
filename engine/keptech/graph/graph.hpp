@@ -98,7 +98,7 @@ namespace kt {
     const maths::Frustum& getEngineCameraFrustum() const { return engineCameraFrustum; }
 
     [[nodiscard]] const std::vector<RenderPass>& getPasses() const;
-    [[nodiscard]] const std::vector<bool>& getPhysicalImageHasHistory() const;
+    [[nodiscard]] const std::vector<bool>& getImageHasHistory() const;
 
     /// Get the index of the image resource with the given name. Throws if the resource does not exist.
     /// The returned index is safe to store as it will remain constant even if the image is resized. Use getImage() to get the image at the
@@ -114,6 +114,10 @@ namespace kt {
     /// Get the image at the given index. Do not store a reference to the image as it may become invalid if the image is resized. Use the
     /// index to get the image again if needed.
     [[nodiscard]] const rhi::Image& getImage(size_t index) const;
+
+    /// Get the history image at the given index. Do not store a reference to the image as it may become invalid if the image is resized.
+    /// Use the index to get the image again if needed. This will return the image from the previous frame.
+    [[nodiscard]] const rhi::Image& getHistoryImage(size_t index) const;
 
     /// Get the buffer at the given index. Do not store a reference to the buffer as it may become invalid if the buffer is resized. Use the
     /// index to get the buffer again if needed. Use getFrameBuffer() to get the buffer for the current frame, or since per-frame buffers
@@ -196,5 +200,7 @@ namespace kt {
     void debugUi();
 
     static RenderGraph* activeGraph;
+
+    uint32_t historyFrame = 0;
   };
 } // namespace kt

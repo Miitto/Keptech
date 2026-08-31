@@ -4,6 +4,7 @@ CommandBuffer& bindGraphicsPipeline(const Pipeline& pipeline);
 CommandBuffer& bindComputePipeline(const Pipeline& pipeline);
 
 CommandBuffer& clearColorImage(const rhi::ImageRef& image, const std::array<float, 4>& clearColor);
+CommandBuffer& clearDepthStencilImage(const rhi::ImageRef& image, float clearDepth, uint8_t clearStencil);
 
 CommandBuffer& setViewport(const maths::Viewport& viewport);
 CommandBuffer& setScissor(const maths::Rect2D<uint32_t, uint32_t>& rect);

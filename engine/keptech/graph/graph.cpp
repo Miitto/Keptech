@@ -98,6 +98,8 @@ namespace kt {
     cmd.blitImage(backSource, optimalBlitSrc, optimalBlitSrc, swp, ImageLayout::Present, ImageLayout::RenderTarget);
 
     rhi.endFrame(cmd);
+
+    historyFrame ^= 1;
   }
 
   void RenderGraph::debugUi() {
@@ -194,7 +196,11 @@ namespace kt {
       std::vector<CommandBuffer::ImageLayoutTransition> transitions;
       transitions.reserve(barriers.image.size());
       for (const auto& barrier : barriers.image) {
-        auto& img = resources.images[barrier.resourceId];
+        bool hasHistory = resources.imageHasHistory[barrier.resourceId];
+        size_t hisIdxOffset = historyFrame;
+        hisIdxOffset ^= barrier.history;
+        hisIdxOffset *= static_cast<size_t>(hasHistory);
+        auto& img = resources.images[barrier.resourceId + hisIdxOffset];
         transitions.push_back(
             CommandBuffer::ImageLayoutTransition{.imageRef = img, .oldLayout = barrier.oldLayout, .newLayout = barrier.newLayout});
       }
@@ -227,9 +233,9 @@ namespace kt {
     }
 
     for (auto imageIdx : imagesToUpdate[frameIndex]) {
-      auto& img = resources.images[imageIdx];
       auto& usedInPass = resources.imageUsedInPass[imageIdx];
       for (auto& used : usedInPass) {
+        auto& img = resources.images[imageIdx + ((historyFrame & 1) * used.history)];
         writes[used.passIndex].push_back(rhi::DescriptorWriteInfo{
             .binding = used.binding,
             .arrayIndex = 0,
@@ -269,7 +275,7 @@ namespace kt {
   }
 
   [[nodiscard]] const std::vector<RenderPass>& RenderGraph::getPasses() const { return passes; }
-  [[nodiscard]] const std::vector<bool>& RenderGraph::getPhysicalImageHasHistory() const { return resources.physicalImageHasHistory; }
+  [[nodiscard]] const std::vector<bool>& RenderGraph::getImageHasHistory() const { return resources.imageHasHistory; }
   [[nodiscard]] size_t RenderGraph::getImageIndex(const std::string& name) const {
     auto it = resources.nameToImage.find(name);
     KT_ASSERT(it != resources.nameToImage.end(), "Image resource with name '{}' not found in render graph", name);
@@ -282,7 +288,12 @@ namespace kt {
   }
   [[nodiscard]] const Image& RenderGraph::getImage(size_t index) const {
     KT_ASSERT(index < resources.images.size(), "Image index {} is out of bounds (size: {})", index, resources.images.size());
-    return resources.images[index];
+    bool hasHistory = resources.imageHasHistory[index];
+    return resources.images[index + (historyFrame * static_cast<size_t>(hasHistory))];
+  }
+  [[nodiscard]] const Image& RenderGraph::getHistoryImage(size_t index) const {
+    KT_ASSERT(index < resources.images.size(), "Image index {} is out of bounds (size: {})", index, resources.images.size());
+    return resources.images[index + (1 - historyFrame)];
   }
   [[nodiscard]] const Buffer& RenderGraph::getBuffer(size_t index) const {
     KT_ASSERT(index < resources.buffers.size(), "Buffer index {} is out of bounds (size: {})", index, resources.buffers.size());
@@ -431,40 +442,56 @@ namespace kt {
 
     KT_TRACE("RenderGraph::onResolutionChanged() - New Resolution: {}x{}", newResolution.x, newResolution.y);
 
-    std::vector<rhi::CommandBuffer::ImageLayoutTransition> transitions;
+    auto cmd = RHI::get().allocateGraphicsCommandBuffers(1)[0];
 
-    for (auto& resImage : resources.resolutionRelativeImages) {
-      auto& img = resources.images[resImage.index];
-
-      glm::uvec3 newExtent = {static_cast<float>(newResolution.x) * resImage.ratio.x,
-                              static_cast<float>(newResolution.y) * resImage.ratio.y, 1};
-
+    auto resizeImage = [&](size_t index, glm::uvec3 newExtent) {
+      auto& img = resources.images[index];
       auto newImageRes = img.resize(newExtent);
       if (!newImageRes) {
         KT_ABORT("Failed to create resolution relative image '{}': {}", img.getName(), newImageRes.error());
       }
 
       RHI::get().submitImageToDrop(img);
-      resources.images[resImage.index] = std::move(newImageRes.value());
+      resources.images[index] = std::move(newImageRes.value());
 
-      auto layout = finalLayouts[resImage.index];
+      auto layout = finalLayouts[index];
       if (layout != rhi::ImageLayout::Undefined) {
-        transitions.push_back(CommandBuffer::ImageLayoutTransition{
-            .imageRef = resources.images[resImage.index], .oldLayout = rhi::ImageLayout::Undefined, .newLayout = layout});
+        cmd.transitionImage(resources.images[index], rhi::ImageLayout::Undefined, layout);
       }
+    };
+
+    for (auto& resImage : resources.resolutionRelativeImages) {
+      glm::uvec3 newExtent = {static_cast<float>(newResolution.x) * resImage.ratio.x,
+                              static_cast<float>(newResolution.y) * resImage.ratio.y, 1};
+
+      resizeImage(resImage.index, newExtent);
+
+      bool history = resources.imageHasHistory[resImage.index];
 
       for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        imagesToUpdate[i].push_back(resImage.index);
+        imagesToUpdate[i].push_back(resImage.index + ((i & 1) * history));
+      }
+
+      if (history) {
+        resizeImage(resImage.index + 1, newExtent);
+
+        auto& img = resources.images[resImage.index + historyFrame];
+        auto layout = finalLayouts[resImage.index + historyFrame];
+
+        if (img.getUsage().has(rhi::ImageUsage::RenderTarget)) {
+          cmd.transitionImage(img, layout, rhi::ImageLayout::RenderTarget);
+          cmd.clearColorImage(img, {0, 0, 0, 1});
+          cmd.transitionImage(img, rhi::ImageLayout::RenderTarget, layout);
+        } else if (img.getUsage().has(rhi::ImageUsage::DepthStencil)) {
+          cmd.transitionImage(img, layout, rhi::ImageLayout::DepthStencilTarget);
+          cmd.clearDepthStencilImage(img, 1.0f, 0);
+          cmd.transitionImage(img, rhi::ImageLayout::DepthStencilTarget, layout);
+        }
       }
     }
 
-    if (!transitions.empty()) {
-      auto cmds = RHI::get().allocateGraphicsCommandBuffers(1);
-      auto& cmd = cmds.front();
-      cmd.transitionImages(transitions);
-      cmd.end();
-      RHI::get().submitGraphicsCmd(cmd, 0, RHI::get().getTimelineValue() + 1);
-    }
+    cmd.end();
+    RHI::get().submitGraphicsCmd(cmd, 0, RHI::get().getTimelineValue() + 1);
   }
 
   void RenderGraph::onSwapchainSizeChanged(const glm::uvec2& newSize) {
@@ -472,39 +499,55 @@ namespace kt {
 
     KT_TRACE("RenderGraph::onSwapchainSizeChanged() - New Size: {}x{}", newSize.x, newSize.y);
 
-    std::vector<rhi::CommandBuffer::ImageLayoutTransition> transitions;
+    auto cmd = RHI::get().allocateGraphicsCommandBuffers(1)[0];
 
-    for (auto& resImage : resources.swapchainRelativeImages) {
-      auto& img = resources.images[resImage.index];
-
-      glm::uvec3 newExtent = {static_cast<float>(newSize.x) * resImage.ratio.x, static_cast<float>(newSize.y) * resImage.ratio.y, 1};
-
+    auto resizeImage = [&](size_t index, glm::uvec3 newExtent) {
+      auto& img = resources.images[index];
       auto newImageRes = img.resize(newExtent);
       if (!newImageRes) {
         KT_ABORT("Failed to create swapchain relative image '{}': {}", img.getName(), newImageRes.error());
       }
 
       RHI::get().submitImageToDrop(img);
-      resources.images[resImage.index] = std::move(newImageRes.value());
+      resources.images[index] = std::move(newImageRes.value());
 
-      auto layout = finalLayouts[resImage.index];
+      auto layout = finalLayouts[index];
       if (layout != rhi::ImageLayout::Undefined) {
-        transitions.push_back(CommandBuffer::ImageLayoutTransition{
-            .imageRef = resources.images[resImage.index], .oldLayout = rhi::ImageLayout::Undefined, .newLayout = layout});
+        cmd.transitionImage(resources.images[index], rhi::ImageLayout::Undefined, layout);
       }
+    };
+
+    for (auto& resImage : resources.swapchainRelativeImages) {
+      glm::uvec3 newExtent = {static_cast<float>(newSize.x) * resImage.ratio.x, static_cast<float>(newSize.y) * resImage.ratio.y, 1};
+
+      resizeImage(resImage.index, newExtent);
+
+      bool history = resources.imageHasHistory[resImage.index];
 
       for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        imagesToUpdate[i].push_back(resImage.index);
+        imagesToUpdate[i].push_back(resImage.index + ((i & 1) * history));
+      }
+
+      if (history) {
+        resizeImage(resImage.index + 1, newExtent);
+
+        auto& img = resources.images[resImage.index + historyFrame];
+        auto layout = finalLayouts[resImage.index + historyFrame];
+
+        if (img.getUsage().has(rhi::ImageUsage::RenderTarget)) {
+          cmd.transitionImage(img, layout, rhi::ImageLayout::RenderTarget);
+          cmd.clearColorImage(img, {0, 0, 0, 1});
+          cmd.transitionImage(img, rhi::ImageLayout::RenderTarget, layout);
+        } else if (img.getUsage().has(rhi::ImageUsage::DepthStencil)) {
+          cmd.transitionImage(img, layout, rhi::ImageLayout::DepthStencilTarget);
+          cmd.clearDepthStencilImage(img, 1.0f, 0);
+          cmd.transitionImage(img, rhi::ImageLayout::DepthStencilTarget, layout);
+        }
       }
     }
 
-    if (!transitions.empty()) {
-      auto cmds = RHI::get().allocateGraphicsCommandBuffers(1);
-      auto& cmd = cmds.front();
-      cmd.transitionImages(transitions);
-      cmd.end();
-      RHI::get().submitGraphicsCmd(cmd, 0, RHI::get().getTimelineValue() + 1);
-    }
+    cmd.end();
+    RHI::get().submitGraphicsCmd(cmd, 0, RHI::get().getTimelineValue() + 1);
   }
 
   RenderGraph& RenderGraph::getActiveGraph() {

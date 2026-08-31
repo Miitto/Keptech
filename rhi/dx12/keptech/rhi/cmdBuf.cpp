@@ -50,6 +50,22 @@ namespace kt::rhi {
     return *this;
   }
 
+  CommandBuffer& CommandBuffer::clearDepthStencilImage(const rhi::ImageRef& image, float clearDepth, uint8_t clearStencil) {
+    D3D12_CLEAR_FLAGS clearFlags = static_cast<D3D12_CLEAR_FLAGS>(0);
+    switch (image.format()) {
+    // TODO: Other depth formats
+    case ImageFormat::D16_UNORM:
+    case ImageFormat::D32_FLOAT:
+      clearFlags |= D3D12_CLEAR_FLAG_DEPTH;
+      break;
+    default:
+      break;
+    }
+    cmdList->ClearDepthStencilView(image.dxGetRtvDsvHandle(), clearFlags, clearDepth, clearStencil, 0, nullptr);
+
+    return *this;
+  }
+
   CommandBuffer& CommandBuffer::beginRendering(const std::span<ColorAttachmentDesc> colorAttachments,
                                                std::optional<DepthStencilAttachmentDesc> depthStencilAttachment) {
     std::vector<D3D12_RENDER_PASS_RENDER_TARGET_DESC> renderTargetDescs(colorAttachments.size());

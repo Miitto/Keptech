@@ -207,6 +207,7 @@ namespace kt {
     rhi::ImageLayout oldLayout = rhi::ImageLayout::Undefined;
     rhi::ImageLayout newLayout = rhi::ImageLayout::Undefined;
     QueueHandoff handoff = QueueHandoff::No;
+    bool history = false;
   };
 
   struct BufferBarrier {
@@ -243,6 +244,7 @@ namespace kt {
     uint32_t binding = ~0u;
     rhi::DescriptorType descriptorType;
     rhi::ImageLayout layout = rhi::ImageLayout::Undefined;
+    bool history = false;
   };
 
   struct RelativeImage {
@@ -255,7 +257,7 @@ namespace kt {
     std::vector<rhi::Buffer> buffers;
     std::unordered_map<std::string, size_t> nameToImage;
     std::unordered_map<std::string, size_t> nameToBuffer;
-    std::vector<bool> physicalImageHasHistory;
+    std::vector<bool> imageHasHistory;
     std::vector<RelativeImage> swapchainRelativeImages;
     std::vector<RelativeImage> resolutionRelativeImages;
     std::vector<std::vector<UsedInPass>> imageUsedInPass;

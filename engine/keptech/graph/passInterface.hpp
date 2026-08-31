@@ -49,6 +49,7 @@ namespace kt {
     ///   - Constant buffers (CBVs)
     ///   - Read Only storage buffers (SRVs)
     ///   - Textures (SRVs)
+    ///   - History textures (SRVs)
     ///   - Read Write storage buffers (UAVs)
     ///   - Read Write textures (UAVs)
     /// @note The exact layout can be seen in the debug output if `KT_LOG_LEVEL` is set to `DEBUG` or lower.
@@ -67,6 +68,7 @@ namespace kt {
     ///   - Constant buffers (CBVs)
     ///   - Read Only storage buffers (SRVs)
     ///   - Textures (SRVs)
+    ///   - History textures (SRVs)
     ///   - Read Write storage buffers (UAVs)
     ///   - Read Write textures (UAVs)
     /// @note The exact layout can be seen in the debug output if `KT_LOG_LEVEL` is set to `DEBUG` or lower.

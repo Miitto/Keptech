@@ -17,9 +17,12 @@ namespace kt {
   void DebugPass::setup(RenderGraph& graph, const rhi::DescriptorLayout&) {
     debugImageIndex = graph.getImageIndex("kt::debug");
     auto& images = graph.getImages();
+    auto& histories = graph.getImageHasHistory();
 
     for (size_t i = 0; i < images.size(); ++i) {
-      if (images[i].getUsage().has(rhi::ImageUsage::RenderTarget)) {
+      // Get render targets, but only take the index of first image if it has history (the render graph will give the correct image from the
+      // first index).
+      if (images[i].getUsage().has(rhi::ImageUsage::RenderTarget) && (i == 0 || !histories[i - 1])) {
         renderTargets.push_back(i);
       }
     }

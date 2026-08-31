@@ -191,6 +191,7 @@ namespace kt {
       std::vector<rhi::DescriptorInfo> infos;
       std::vector<rhi::DescriptorWriteInfo> writes;
       std::vector<PerFrameWrite> perFrameWrites;
+      std::vector<PerFrameWrite> historyImageWrites;
 
       size_t imgMaxCount = pass->getGenericTextureInputs().size() + pass->getStorageImageOutputs().size();
       size_t bufMaxCount = (pass->getGenericBufferInputs().size() + pass->getStorageOutputs().size()) *
@@ -261,11 +262,40 @@ namespace kt {
               .image = getImage(texture.texture->getName()),
           });
 
+          historyImageWrites.push_back(
+              PerFrameWrite{.writeIndex = writes.size() - 1, .bufferId = getImageIndex(texture.texture->getName())});
+
           builtResources.imageUsedInPass[getImageIndex(texture.texture->getName())].push_back(UsedInPass{
               .passIndex = idx,
               .binding = binding,
               .descriptorType = rhi::DescriptorType::SampledImage,
               .layout = rhi::ImageLayout::ShaderReadOnly,
+          });
+          infos.push_back(rhi::DescriptorInfo{
+              .type = rhi::DescriptorType::SampledImage,
+              .binding = binding,
+              .count = 1,
+          });
+        }
+      }
+
+      for (const auto texture : pass->getHistoryInputs()) {
+        if (texture && texture->getPhysicalId().used()) {
+          uint32_t binding = static_cast<uint32_t>(writes.size());
+          KT_DEBUG("Pass '{}' has history texture input '{}' at binding {}", pass->getName(), texture->getName(), binding);
+          writes.push_back(rhi::DescriptorWriteInfo{
+              .binding = binding,
+              .arrayIndex = 0,
+              .type = rhi::DescriptorType::SampledImage,
+              .image = getImage(texture->getName()),
+          });
+
+          builtResources.imageUsedInPass[getImageIndex(texture->getName())].push_back(UsedInPass{
+              .passIndex = idx,
+              .binding = binding,
+              .descriptorType = rhi::DescriptorType::SampledImage,
+              .layout = rhi::ImageLayout::ShaderReadOnly,
+              .history = true,
           });
           infos.push_back(rhi::DescriptorInfo{
               .type = rhi::DescriptorType::SampledImage,
@@ -345,6 +375,12 @@ namespace kt {
           auto& write = writes[perFrameWrite.writeIndex];
           write.buffer = builtResources.buffers[perFrameWrite.bufferId + frame];
         }
+
+        for (const auto& historyWrite : historyImageWrites) {
+          auto& write = writes[historyWrite.writeIndex];
+          write.image = builtResources.images[historyWrite.bufferId + (frame & 1)];
+        }
+
         sets[frame].write(layout, writes);
       }
 
@@ -715,12 +751,30 @@ namespace kt {
   void RenderGraphBuilder::buildPhysicalResources() {
     PhysResourceId physId{0};
 
+    auto hasHistory = [&](PhysResourceId id) {
+      if (static_cast<size_t>(id) >= physicalImageHasHistory.size())
+        return false;
+      bool history = physicalImageHasHistory[id];
+      return history;
+    };
+
     auto postBufferId = [&](bool host) {
       if (host) {
         for (size_t i = 0; i < (MAX_FRAMES_IN_FLIGHT - 1); ++i) {
           physicalResourceInfos.push_back(physicalResourceInfos.back());
         }
         physId += (MAX_FRAMES_IN_FLIGHT - 1);
+      }
+    };
+
+    auto updateImage = [&](PhysResourceId id, Bitflag<QueueType> queues, Bitflag<ImageUsage> usage, bool history) {
+      auto& info = physicalResourceInfos[id];
+      info.queues |= queues;
+      info.imageUsage |= usage;
+      if (history) {
+        auto& historyInfo = physicalResourceInfos[static_cast<size_t>(id) + 1];
+        historyInfo.queues |= queues;
+        historyInfo.imageUsage |= usage;
       }
     };
 
@@ -757,9 +811,43 @@ namespace kt {
           physicalResourceInfos.push_back(getResourceInfo(*input.texture));
           input.texture->setPhysicalId(physId++);
         } else {
-          physicalResourceInfos[input.texture->getPhysicalId()].queues |= input.texture->getUsedQueues();
-          physicalResourceInfos[input.texture->getPhysicalId()].imageUsage |= input.texture->getImageUsage();
+          updateImage(input.texture->getPhysicalId(), input.texture->getUsedQueues(), input.texture->getImageUsage(), false);
         }
+      }
+
+      for (auto input : pass.getHistoryInputs()) {
+        if (!input->getPhysicalId().used()) {
+          physicalResourceInfos.push_back(getResourceInfo(*input));
+          physicalResourceInfos.push_back(physicalResourceInfos.back()); // Duplicate for history.
+          input->setPhysicalId(physId++);
+          ++physId;
+        } else {
+          // If the image already has info, but is not set as history we need to duplicate it and insert it in place
+          bool hasHistoryAlready = hasHistory(input->getPhysicalId());
+          if (!hasHistoryAlready) {
+            physicalResourceInfos.insert(physicalResourceInfos.begin() +
+                                             static_cast<ptrdiff_t>(static_cast<size_t>(input->getPhysicalId())) + 1,
+                                         physicalResourceInfos[static_cast<size_t>(input->getPhysicalId())]); // Duplicate for history.
+            ++physId;
+
+            // Then correct the affected IDs
+            for (auto& resource : resources) {
+              if (resource->getPhysicalId().used() &&
+                  static_cast<size_t>(resource->getPhysicalId()) > static_cast<size_t>(input->getPhysicalId())) {
+                auto id = resource->getPhysicalId();
+                ++id;
+                resource->setPhysicalId(id);
+              }
+            }
+          }
+
+          updateImage(input->getPhysicalId(), input->getUsedQueues(), input->getImageUsage(), true);
+        }
+
+        if (physicalImageHasHistory.size() < static_cast<size_t>(input->getPhysicalId()) + 1)
+          physicalImageHasHistory.resize(static_cast<size_t>(input->getPhysicalId()) + 1, false);
+
+        physicalImageHasHistory[static_cast<size_t>(input->getPhysicalId())] = true;
       }
 
       for (auto& input : pass.getGenericBufferInputs()) {
@@ -783,8 +871,7 @@ namespace kt {
           physicalResourceInfos.push_back(getResourceInfo(input));
           input.setPhysicalId(physId++);
         } else {
-          physicalResourceInfos[input.getPhysicalId()].queues |= input.getUsedQueues();
-          physicalResourceInfos[input.getPhysicalId()].imageUsage |= input.getImageUsage();
+          updateImage(input.getPhysicalId(), input.getUsedQueues(), input.getImageUsage(), hasHistory(input.getPhysicalId()));
         }
 
         KT_REQUIRE(!pass.getColorOutputs()[jdx]->getPhysicalId().used(),
@@ -805,8 +892,7 @@ namespace kt {
           physicalResourceInfos.push_back(getResourceInfo(input));
           input.setPhysicalId(physId++);
         } else {
-          physicalResourceInfos[input.getPhysicalId()].queues |= input.getUsedQueues();
-          physicalResourceInfos[input.getPhysicalId()].imageUsage |= input.getImageUsage();
+          updateImage(input.getPhysicalId(), input.getUsedQueues(), input.getImageUsage(), hasHistory(input.getPhysicalId()));
         }
 
         KT_REQUIRE(!pass.getStorageImageOutputs()[jdx]->getPhysicalId().used(),
@@ -842,29 +928,26 @@ namespace kt {
       }
 
       for (auto* output : pass.getColorOutputs()) {
+        if (renderTargetsBlitable) {
+          output->addImageUsage(rhi::CommandBuffer::getBlitSrcUsage());
+        }
         if (!output->getPhysicalId().used()) {
           physicalResourceInfos.push_back(getResourceInfo(*output));
           output->setPhysicalId(physId++);
         } else {
-          physicalResourceInfos[output->getPhysicalId()].queues |= output->getUsedQueues();
-          physicalResourceInfos[output->getPhysicalId()].imageUsage |= output->getImageUsage();
-        }
-
-        if (renderTargetsBlitable) {
-          physicalResourceInfos[output->getPhysicalId()].imageUsage |= rhi::CommandBuffer::getBlitSrcUsage();
+          updateImage(output->getPhysicalId(), output->getUsedQueues(), output->getImageUsage(), hasHistory(output->getPhysicalId()));
         }
       }
 
       for (auto* output : pass.getStorageImageOutputs()) {
+        if (renderTargetsBlitable) {
+          output->addImageUsage(rhi::CommandBuffer::getBlitSrcUsage());
+        }
         if (!output->getPhysicalId().used()) {
           physicalResourceInfos.push_back(getResourceInfo(*output));
           output->setPhysicalId(physId++);
         } else {
-          physicalResourceInfos[output->getPhysicalId()].queues |= output->getUsedQueues();
-          physicalResourceInfos[output->getPhysicalId()].imageUsage |= output->getImageUsage();
-        }
-        if (renderTargetsBlitable) {
-          physicalResourceInfos[output->getPhysicalId()].imageUsage |= rhi::CommandBuffer::getBlitSrcUsage();
+          updateImage(output->getPhysicalId(), output->getUsedQueues(), output->getImageUsage(), hasHistory(output->getPhysicalId()));
         }
       }
 
@@ -908,8 +991,7 @@ namespace kt {
           physicalResourceInfos.push_back(getResourceInfo(*dsInput));
           dsInput->setPhysicalId(physId++);
         } else {
-          physicalResourceInfos[dsInput->getPhysicalId()].queues |= dsInput->getUsedQueues();
-          physicalResourceInfos[dsInput->getPhysicalId()].imageUsage |= dsInput->getImageUsage();
+          updateImage(dsInput->getPhysicalId(), dsInput->getUsedQueues(), dsInput->getImageUsage(), hasHistory(dsInput->getPhysicalId()));
         }
 
         if (dsOutput) {
@@ -918,16 +1000,15 @@ namespace kt {
           KT_DEBUG("Pass '{}': Aliasing depth-stencil output '{}' to input '{}'.", pass.getName(), dsOutput->getName(), dsInput->getName());
           dsOutput->setPhysicalId(dsInput->getPhysicalId());
 
-          physicalResourceInfos[dsInput->getPhysicalId()].queues |= dsOutput->getUsedQueues();
-          physicalResourceInfos[dsInput->getPhysicalId()].imageUsage |= dsOutput->getImageUsage();
+          updateImage(dsInput->getPhysicalId(), dsOutput->getUsedQueues(), dsOutput->getImageUsage(), hasHistory(dsInput->getPhysicalId()));
         }
       } else if (dsOutput) {
         if (!dsOutput->getPhysicalId().used()) {
           physicalResourceInfos.push_back(getResourceInfo(*dsOutput));
           dsOutput->setPhysicalId(physId++);
         } else {
-          physicalResourceInfos[dsOutput->getPhysicalId()].queues |= dsOutput->getUsedQueues();
-          physicalResourceInfos[dsOutput->getPhysicalId()].imageUsage |= dsOutput->getImageUsage();
+          updateImage(dsOutput->getPhysicalId(), dsOutput->getUsedQueues(), dsOutput->getImageUsage(),
+                      hasHistory(dsOutput->getPhysicalId()));
         }
       }
     }
@@ -1370,6 +1451,7 @@ namespace kt {
 #endif
               .oldLayout = resInfo.layout,
               .newLayout = req.layout,
+              .history = req.history,
           };
 
           if (resInfo.layout != req.layout
@@ -1444,12 +1526,16 @@ namespace kt {
   }
 
   Resources RenderGraphBuilder::buildResources() {
+    auto& rhi = rhi::RHI::get();
+    auto cmd = rhi.allocateGraphicsCommandBuffers(1)[0];
+
     std::vector<Buffer> buffers;
     std::vector<Image> images;
     std::unordered_map<std::string, size_t> nameToBuffer;
     std::unordered_map<std::string, size_t> nameToImage;
     std::vector<RelativeImage> swapchainRelativeImages;
     std::vector<RelativeImage> resolutionRelativeImages;
+    std::vector<bool> imageHistory;
     for (const auto& [idx, res] : physicalResourceInfos | std::views::enumerate) {
       if (res.isBufferLike()) {
         auto result = Buffer::create({res.bufferInfo.size, res.bufferInfo.usage, res.bufferInfo.type, res.name.c_str()});
@@ -1464,7 +1550,23 @@ namespace kt {
         KT_REQUIRE(result.isOk(), "Failed to create image for resource '{}': {}", res.name, result.error());
         auto& img = result.value();
         images.push_back(std::move(img));
-        nameToImage[res.name] = images.size() - 1;
+        if (physicalImageHasHistory[idx]) {
+          imageHistory.push_back(true);
+
+          if (res.imageUsage.has(rhi::ImageUsage::RenderTarget)) {
+            cmd.transitionImage(images.back(), rhi::ImageLayout::Undefined, rhi::ImageLayout::RenderTarget);
+            cmd.clearColorImage(images.back(), {0, 0, 0, 1});
+            cmd.transitionImage(images.back(), rhi::ImageLayout::RenderTarget, rhi::ImageLayout::Undefined);
+          } else if (res.imageUsage.has(rhi::ImageUsage::DepthStencil)) {
+            cmd.transitionImage(images.back(), rhi::ImageLayout::Undefined, rhi::ImageLayout::DepthStencilTarget);
+            cmd.clearDepthStencilImage(images.back(), 1.0f, 0);
+            cmd.transitionImage(images.back(), rhi::ImageLayout::DepthStencilTarget, rhi::ImageLayout::Undefined);
+          }
+        } else {
+          imageHistory.push_back(false);
+        }
+        if (!nameToImage.contains(res.name))
+          nameToImage[res.name] = images.size() - 1;
         KT_DEBUG("Created image {} in slot {}", res.name, images.size() - 1);
         switch (res.sizeType) {
         case AttachmentSize::SwapchainRelative:
@@ -1479,12 +1581,16 @@ namespace kt {
       }
     }
 
+    cmd.end();
+
+    rhi.submitGraphicsCmd(cmd, 0, rhi.getTimelineValue() + 1);
+
     return Resources{
         .images = std::move(images),
         .buffers = std::move(buffers),
         .nameToImage = std::move(nameToImage),
         .nameToBuffer = std::move(nameToBuffer),
-        .physicalImageHasHistory = std::move(physicalImageHasHistory),
+        .imageHasHistory = std::move(imageHistory),
         .swapchainRelativeImages = std::move(swapchainRelativeImages),
         .resolutionRelativeImages = std::move(resolutionRelativeImages),
     };
