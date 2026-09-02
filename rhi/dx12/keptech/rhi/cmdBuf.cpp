@@ -384,16 +384,28 @@ namespace kt::rhi {
   }
 
   CommandBuffer& CommandBuffer::copyBufferToImage(const rhi::BufferRef& buffer, const rhi::ImageRef& image, size_t width, size_t height,
-                                                  size_t mipLevel, size_t bufferOffset, size_t offsetX, size_t offsetY) {
+                                                  size_t layer, size_t mipLevel, size_t bufferOffset, size_t offsetX, size_t offsetY) {
     DX_ASSERT(width > 0 && height > 0, "Width and height must be greater than 0");
     DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
     DX_ASSERT(image.dxGetResource() != nullptr, "Image resource is null");
 
+    auto& rhi = RHI::get();
+    auto device = rhi.dxGetDevice();
+
     D3D12_TEXTURE_COPY_LOCATION dstLocation{
         .pResource = image.dxGetResource(),
         .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-        .SubresourceIndex = static_cast<UINT>(mipLevel),
+        .SubresourceIndex = static_cast<UINT>(mipLevel + (layer * image.mips())),
     };
+
+    size_t bytesPerPixel = 0;
+    switch (image.format()) {
+    case ImageFormat::R8G8B8A8_UNORM:
+      bytesPerPixel = 4;
+      break;
+    default:
+      DX_ABORT("Unsupported image format for buffer to image copy");
+    }
 
     D3D12_TEXTURE_COPY_LOCATION srcLocation{
         .pResource = buffer.dxGetResource(),
@@ -407,7 +419,7 @@ namespace kt::rhi {
                         .Width = static_cast<UINT>(width),
                         .Height = static_cast<UINT>(height),
                         .Depth = 1,
-                        .RowPitch = static_cast<UINT>(buffer.size()), // Assuming the buffer is tightly packed
+                        .RowPitch = static_cast<UINT>(bytesPerPixel * width), // Assuming the buffer is tightly packed
                     },
             },
     };

@@ -9,6 +9,10 @@ target_sources(Keptech
     TYPE HEADERS
   PRIVATE
     buffers.cpp
-    main.cpp
+    imageFile.cpp
     input.cpp
+    ktxImageFile.cpp
+    main.cpp
+    stbCubeImageFile.cpp
+    stbImageFile.cpp
 )

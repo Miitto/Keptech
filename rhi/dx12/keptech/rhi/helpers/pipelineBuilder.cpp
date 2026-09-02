@@ -202,7 +202,7 @@ namespace kt::rhi {
 
     size_t tableOffset = ranges.empty() ? 0 : 1;
 
-    DX_DEBUG("Building pipeline with:");
+    DX_DEBUG("Building {} pipeline with:", shader->info.name);
     if (!ranges.empty()) {
       DX_DEBUG("  Table:");
       for (const auto& range : ranges) {
@@ -241,8 +241,7 @@ namespace kt::rhi {
     }
 
     if (shader->info.globalResources.pushConstants.size > 0) {
-      rootParameters.back().InitAsConstants(static_cast<UINT>(shader->info.globalResources.pushConstants.size / sizeof(uint32_t)),
-                                            static_cast<UINT>(maxCbvBinding) + 1, 0);
+      rootParameters.back().InitAsConstants(static_cast<UINT>(shader->info.globalResources.pushConstants.size / sizeof(uint32_t)), 0, 0);
       pipeline.constantSlot = static_cast<uint32_t>(rootParameters.size() - 1);
     }
 

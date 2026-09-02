@@ -12,10 +12,10 @@ namespace kt {
   void LightCombinePass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&) {
     self.addColorOutput("kt::lighting", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
 
+    self.addTextureInput("kt::albedo");
     self.addTextureInput("kt::emissive");
     self.addTextureInput("kt::diffuse");
     self.addTextureInput("kt::specular");
-    self.addHistoryInput("kt::albedo");
   }
 
   void LightCombinePass::setup(RenderGraph& graph, const rhi::DescriptorLayout&) {

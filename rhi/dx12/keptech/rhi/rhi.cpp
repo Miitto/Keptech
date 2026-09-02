@@ -56,7 +56,7 @@ namespace kt::rhi {
       return imageRes.error();
     }
 
-    size_t index = m.loadedTextures.size();
+    size_t index = m.cbvSrvUavHeap.count++;
 
     m.loadedTextures.push_back(std::move(imageRes.value()));
 
@@ -282,6 +282,10 @@ namespace kt::rhi {
       for (auto* alloc : frame.allocsToDrop) {
         alloc->Release();
       }
+    }
+
+    for (auto& tex : m.loadedTextures) {
+      tex.destroy();
     }
 
     if (m.allocator) {

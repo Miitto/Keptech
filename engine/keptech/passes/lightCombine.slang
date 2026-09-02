@@ -13,10 +13,10 @@ v2f vert(uint vid: SV_VertexID) {
   return output;
 }
 
+Texture2D<float4> albedoTex;
 Texture2D<float4> emissiveTex;
 Texture2D<float4> diffuseTex;
 Texture2D<float4> specularTex;
-Texture2D<float4> albedoTex;
 
 [shader("pixel")]
 float4 frag(v2f input) : SV_Target {

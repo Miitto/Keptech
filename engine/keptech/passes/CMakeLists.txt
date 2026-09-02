@@ -5,6 +5,7 @@ target_sources(Keptech
     geometry.cpp
     lightCombine.cpp
     lights.cpp
+    skybox.cpp
 )
 
 compile_shader(Keptech
@@ -18,4 +19,5 @@ compile_shader(Keptech
     geometry
     pointLight
     lightCombine
+    skybox
 )

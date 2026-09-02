@@ -20,6 +20,7 @@ namespace kt {
 
     graph.setUserData("kt::data::writtenObjects", &objects);
     graph.setUserData("kt::data::cameraFrustum", &cameraFrustum);
+    graph.setUserData("kt::data::envMapIndex", &envMapIndex);
   }
 
   void DataPass::prepare(RenderGraph& graph) {
@@ -48,7 +49,7 @@ namespace kt {
     camUniforms.invProjectionMatrix = glm::inverse(camUniforms.projectionMatrix);
     camUniforms.viewProjectionMatrix = camUniforms.projectionMatrix * camUniforms.viewMatrix;
     camUniforms.invViewProjectionMatrix = glm::inverse(camUniforms.viewProjectionMatrix);
-    camUniforms.viewportSize = {camC.getViewport().width, camC.getViewport().height};
+    camUniforms.envMapIndex = envMapIndex;
 
     camUniforms.frustum = maths::Frustum::fromViewProjectionMatrix(camUniforms.viewProjectionMatrix);
 

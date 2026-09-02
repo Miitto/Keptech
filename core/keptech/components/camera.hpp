@@ -34,7 +34,7 @@ namespace kt::components {
       glm::mat4 invViewMatrix;
       glm::mat4 invViewProjectionMatrix;
       maths::Frustum frustum;
-      glm::vec2 viewportSize;
+      uint64_t envMapIndex = ~0ull;
     };
 
     struct Params {

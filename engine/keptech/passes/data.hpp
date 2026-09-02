@@ -27,10 +27,13 @@ namespace kt {
 
     void addToGraph(RenderGraphBuilder& graph);
 
+    void setEnvironmentMapIndex(uint32_t index) { envMapIndex = index; }
+
   private:
     size_t camIndex = 0;
     size_t objectsIndex = 0;
     std::vector<Object> objects{};
     maths::Frustum cameraFrustum{};
+    uint32_t envMapIndex = ~0u;
   };
 } // namespace kt

@@ -18,7 +18,11 @@
 #include "keptech/passes/geometry.hpp"
 #include "keptech/passes/lightCombine.hpp"
 #include "keptech/passes/lights.hpp"
+#include "keptech/passes/skybox.hpp"
+#include "keptech/rhi/bufferCreateInfo.hpp"
 #include "keptech/rhi/rhi.hpp"
+#include "keptech/rhi/rhi_impl.hpp"
+#include "keptech/stbCubeImageFile.hpp"
 
 class ExampleLayer : public kt::Layer {
 public:
@@ -39,6 +43,50 @@ public:
     }
     auto& monkeyUpload = monkeyUploadRes.value();
     KT_DEBUG("Uploading monkey mesh to GPU with fence value {}", monkeyUpload.copyFenceValue);
+
+    auto envMapFileRes = kt::StbCubeImageFile::fromFile(
+        "Rusted_EnvMap", ASSET_DIR "textures/cubemaps/rusted/+X.jpg", ASSET_DIR "textures/cubemaps/rusted/-X.jpg",
+        ASSET_DIR "textures/cubemaps/rusted/+Y.jpg", ASSET_DIR "textures/cubemaps/rusted/-Y.jpg",
+        ASSET_DIR "textures/cubemaps/rusted/+Z.jpg", ASSET_DIR "textures/cubemaps/rusted/-Z.jpg", 4);
+    if (!envMapFileRes) {
+      KT_ABORT("Failed to load environment map: {}", envMapFileRes.error());
+    }
+    auto& envMapFile = envMapFileRes.value();
+
+    auto envMapImgRes =
+        rhi.createTexture(kt::rhi::ImageCreateInfo{kt::rhi::ImageDim::eCube, kt::rhi::ImageFormat::R8G8B8A8_UNORM, envMapFile.getExtent(),
+                                                   kt::rhi::ImageUsage::Sampled | kt::rhi::ImageUsage::TransferDst, 1, 6, "Rusted_EnvMap"});
+    if (!envMapImgRes) {
+      KT_ABORT("Failed to create environment map image: {}", envMapImgRes.error());
+    }
+    dataPass.setEnvironmentMapIndex(envMapImgRes.value().getTextureIndex());
+
+    {
+      auto stagingBufferRes = kt::rhi::Buffer::create(
+          kt::rhi::BufferCreateInfo(envMapFile.getTotalByteSize(), kt::rhi::BufferUsage::TransferSrc, kt::rhi::BufferType::Staging));
+      if (!stagingBufferRes) {
+        KT_ABORT("Failed to create staging buffer for environment map: {}", stagingBufferRes.error());
+      }
+      auto& stagingBuffer = stagingBufferRes.value();
+      uint8_t* dst = stagingBuffer.mapping<uint8_t>();
+      for (size_t i = 0; i < 6; ++i) {
+        memcpy(dst, envMapFile.getLayerData(i), envMapFile.getLayerSize());
+        dst += envMapFile.getLayerSize();
+      }
+      rhi.oneshotCopy([&](kt::rhi::CommandBuffer& cmd) {
+        uint32_t width = envMapFile.getWidth();
+        uint32_t height = envMapFile.getHeight();
+        size_t layerSize = envMapFile.getLayerSize();
+        for (size_t i = 0; i < 6; ++i) {
+          cmd.copyBufferToImage(stagingBuffer, envMapImgRes.value(), width, height, i, 0, i * layerSize);
+        }
+
+        std::vector<kt::rhi::Buffer> buffers;
+        buffers.push_back(std::move(stagingBuffer));
+        return buffers;
+      });
+    }
+
     rhi.waitCopyIdle();
     KT_DEBUG("Upload done");
 
@@ -92,6 +140,7 @@ public:
     geomPass.addToGraph(builder);
     lightPass.addToGraph(builder);
     lightCombinePass.addToGraph(builder);
+    skyboxPass.addToGraph(builder, "kt::lighting");
     // Here we set the backbuffer source for the render graph. This determines which render pass output will be used as the final image to
     // present to the screen. The geometry pass outputs to multiple G-buffers, and we can choose which one to use as the final output.
     //
@@ -99,7 +148,7 @@ public:
     // before running this example to see the normal buffer instead.
     const char* backBufferSourceEnv = std::getenv("KT_SURFACE");
 
-    builder.setBackbufferSource(backBufferSourceEnv ? backBufferSourceEnv : "kt::lighting");
+    builder.setBackbufferSource(backBufferSourceEnv ? backBufferSourceEnv : "kt::skybox");
 
     /// Set the render resolution to the swapchain size. Less efficient but means we can directly copy the backbuffer source to the
     /// swapchain without adding a resize pass. In a more complete example, there would be more than one pass, and the last pass would
@@ -149,7 +198,7 @@ private:
   kt::GeometryPass geomPass{};
   kt::LightPass lightPass{};
   kt::LightCombinePass lightCombinePass{};
+  kt::SkyboxPass skyboxPass{};
   kt::DebugPass debugPass{};
-  kt::RenderGraph* graph;
   kt::ecs::Entity lightEntity;
 };

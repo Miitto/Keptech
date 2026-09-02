@@ -21,6 +21,8 @@ Texture2D<float4> normalTex;
 Texture2D<float4> metallicRoughnessTex;
 Texture2D<float> depthTex;
 
+uniform float2 invViewportSize;
+
 [shader("vertex")]
 [cull(kt::CullMode::Front)]
 v2f vert(uint vid: SV_VertexID, uint iid: SV_InstanceID, uint bid: SV_StartInstanceLocation) {
@@ -51,7 +53,7 @@ kt::DeferredLightingOutput frag(v2f input) {
 
   kt::PointLight light = input.light;
 
-  float2 uv = fragCoord.xy / camera.viewportSize;
+  float2 uv = fragCoord.xy * invViewportSize;
 
   let albedoSample = albedoTex.Sample(kt::samplers::linearClamp, uv);
   let metallicRoughnessSample = metallicRoughnessTex.Sample(kt::samplers::linearClamp, uv);

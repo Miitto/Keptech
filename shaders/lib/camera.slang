@@ -10,7 +10,7 @@ public struct Camera {
   float4x4 inverseViewMatrix;
   float4x4 inverseViewProjectionMatrix;
   Frustum _frustum;
-  float2 viewportSizeV;
+  TextureCube.Handle environmentMap;
 
   public float4 worldToCamera(float4 worldPosition) { return mul(worldPosition, viewMatrix); }
 
@@ -28,12 +28,16 @@ public struct Camera {
     get { return inverseViewMatrix[3].xyz; }
   }
 
-  public property float2 viewportSize {
-    get { return viewportSizeV; }
+  public property TextureCube.Handle envMap {
+    get { return environmentMap; }
   }
 
   public property float4x4 projection {
     get { return projectionMatrix; }
+  }
+
+  public property float4x4 inverseView {
+    get { return inverseViewMatrix; }
   }
 
   public float3 forward() { return normalize(-inverseViewMatrix[2].xyz); }

@@ -147,6 +147,9 @@ namespace kt {
 
     cmd.bindGraphicsDescriptorSet(set);
 
+    glm::vec2 invViewportSize = glm::vec2(1.0f) / glm::vec2(framebufferSize);
+    cmd.writeGraphicsPushConstants(invViewportSize);
+
     for (uint32_t i = 0; i < lightCount; ++i) {
       cmd.draw(36, 1, 0, i);
     }

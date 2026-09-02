@@ -47,7 +47,7 @@ namespace kt::rhi {
         SUCCEEDED(RHI::get().dxGetAllocator()->CreateResource(&allocDesc, &desc, initialState, nullptr, &allocation, IID_NULL, NULL)),
         "Failed to create buffer resource");
 
-    return Buffer(info.getName(), info.getSize(), info.getUsage(), info.getType(), allocation);
+    return Buffer(info.getName() == nullptr ? "" : info.getName(), info.getSize(), info.getUsage(), info.getType(), allocation);
   }
 
   kt::Result<Buffer, HRESULT, S_OK> Buffer::reallocate(size_t newSize) { return Buffer::create({newSize, usage, type, name.c_str()}); }
