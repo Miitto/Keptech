@@ -24,6 +24,8 @@ if (RHI_BACKEND STREQUAL "Vulkan")
     add_subdirectory(vulkan)
 elseif(RHI_BACKEND STREQUAL "DX12")
     add_subdirectory(dx12)
+else()
+    message(FATAL_ERROR "Unsupported RHI backend: ${RHI_BACKEND}")
 endif()
 
 target_compile_definitions(Keptech_RHI
