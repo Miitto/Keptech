@@ -15,8 +15,7 @@ v2f vert(uint vid: SV_VertexID) {
 
 Texture2D<float4> albedoTex;
 Texture2D<float4> emissiveTex;
-Texture2D<float4> diffuseTex;
-Texture2D<float4> specularTex;
+Texture2D<float4> lightingTex;
 
 [shader("pixel")]
 float4 frag(v2f input) : SV_Target {
@@ -25,23 +24,8 @@ float4 frag(v2f input) : SV_Target {
   let sampler = kt::samplers::linearClamp;
 
   float3 albedo = albedoTex.Sample(sampler, uv).rgb;
-  float4 emissive = emissiveTex.Sample(sampler, uv);
-  float3 diffuseLight = diffuseTex.Sample(sampler, uv).rgb;
-  float3 specularLight = specularTex.Sample(sampler, uv).rgb;
+  float3 emissive = emissiveTex.Sample(sampler, uv).rgb;
+  float3 lighting = lightingTex.Sample(sampler, uv).rgb;
 
-  static const float3 ambientLight = float3(0.1, 0.1, 0.1);
-
-  float combinedAo = 1.f; // TODO: This is where we would add in SSAO.
-
-  float3 ambient = albedo * ambientLight;
-
-  float3 color = diffuseLight + specularLight;
-
-  color = ambient + color;
-
-  color *= combinedAo;
-
-  color += emissive.rgb;
-
-  return float4(color, 1.0);
+  return float4((albedo * lighting) + emissive, 1.0);
 }

@@ -40,6 +40,8 @@ namespace kt::rhi {
   };
 
   RawImageFormat raw(ImageFormat format);
+
+  size_t size(ImageFormat format);
 } // namespace kt::rhi
 
 #undef F

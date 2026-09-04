@@ -50,6 +50,7 @@ namespace kt {
     camUniforms.viewProjectionMatrix = camUniforms.projectionMatrix * camUniforms.viewMatrix;
     camUniforms.invViewProjectionMatrix = glm::inverse(camUniforms.viewProjectionMatrix);
     camUniforms.envMapIndex = envMapIndex;
+    camUniforms.envMapIrrIndex = envMapIrrIndex;
 
     camUniforms.frustum = maths::Frustum::fromViewProjectionMatrix(camUniforms.viewProjectionMatrix);
 

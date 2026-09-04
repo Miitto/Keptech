@@ -2,6 +2,42 @@
 
 namespace kt::rhi {
   RawImageFormat raw(ImageFormat format) { return static_cast<RawImageFormat>(format); }
+
+  size_t size(ImageFormat format) {
+    switch (format) {
+    case ImageFormat::R8_UNORM:
+      return 1;
+    case ImageFormat::R8G8_UNORM:
+      return 2;
+    case ImageFormat::R8G8B8_UNORM:
+      return 3;
+    case ImageFormat::R8G8B8A8_UNORM:
+      return 4;
+    case ImageFormat::R16G16B16A16_FLOAT:
+      return 8;
+    case ImageFormat::R11G11B10_FLOAT:
+      return 4;
+    case ImageFormat::D16_UNORM:
+      return 2;
+    case ImageFormat::D32_FLOAT:
+      return 4;
+    case ImageFormat::BC3_UNORM:
+      return 16;
+    case ImageFormat::BC4_UNORM:
+      return 8;
+    case ImageFormat::BC5_UNORM:
+    case ImageFormat::BC7_UNORM:
+      return 16;
+    case ImageFormat::R32_FLOAT:
+      return 4;
+    case ImageFormat::R32G32_FLOAT:
+      return 8;
+    case ImageFormat::R32G32B32_FLOAT:
+      return 12;
+    case ImageFormat::R32G32B32A32_FLOAT:
+      return 16;
+    }
+  }
 } // namespace kt::rhi
 
 fmt::format_context::iterator fmt::formatter<kt::rhi::ImageFormat>::format(const kt::rhi::ImageFormat& format,

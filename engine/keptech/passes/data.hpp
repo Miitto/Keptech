@@ -28,6 +28,7 @@ namespace kt {
     void addToGraph(RenderGraphBuilder& graph);
 
     void setEnvironmentMapIndex(uint32_t index) { envMapIndex = index; }
+    void setEnvironmentIrradianceMapIndex(uint32_t index) { envMapIrrIndex = index; }
 
   private:
     size_t camIndex = 0;
@@ -35,5 +36,6 @@ namespace kt {
     std::vector<Object> objects{};
     maths::Frustum cameraFrustum{};
     uint32_t envMapIndex = ~0u;
+    uint32_t envMapIrrIndex = ~0u;
   };
 } // namespace kt

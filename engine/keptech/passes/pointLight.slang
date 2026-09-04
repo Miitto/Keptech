@@ -46,14 +46,14 @@ v2f vert(uint vid: SV_VertexID, uint iid: SV_InstanceID, uint bid: SV_StartInsta
 }
 
 [shader("pixel")]
-kt::DeferredLightingOutput frag(v2f input) {
-  kt::DeferredLightingOutput output;
-
+float4 frag(v2f input) : SV_Target {
   let fragCoord = input.position;
 
   kt::PointLight light = input.light;
 
   float2 uv = fragCoord.xy * invViewportSize;
+
+  float3 irradiance = float3(0.1);
 
   let albedoSample = albedoTex.Sample(kt::samplers::linearClamp, uv);
   let metallicRoughnessSample = metallicRoughnessTex.Sample(kt::samplers::linearClamp, uv);
@@ -84,6 +84,10 @@ kt::DeferredLightingOutput frag(v2f input) {
 
   let normal = normalize(normalSample.xyz * 2.0 - 1.0);
 
+  if (kt::valid(camera.envMapIrradiance)) {
+    irradiance = camera.envMapIrradiance.Sample(kt::samplers::linearClamp, normal).rgb;
+  }
+
   let incident = normalize(toLight);
   let viewDir = normalize(camera.position - world);
   let halfDir = normalize(incident + viewDir);
@@ -96,7 +100,7 @@ kt::DeferredLightingOutput frag(v2f input) {
 
   float NDF = kt::DistributionGGX(normal, halfDir, roughness);
   float G = kt::GeometrySmith(normal, viewDir, incident, roughness);
-  float3 F = kt::fresnelSchlick(max(dot(halfDir, viewDir), 0.0), F0);
+  float3 F = kt::fresnelSchlickRoughness(max(dot(halfDir, viewDir), 0.0), F0, roughness);
 
   float3 kS = F;
   float3 kD = float3(1.0) - kS;
@@ -109,11 +113,10 @@ kt::DeferredLightingOutput frag(v2f input) {
 
   float NdotL = clamp(dot(normal, incident), 0.0, 1.0);
 
-  output.specular = float4(specular * radiance * NdotL, 1.0);
+  float3 lum = (kD * albedoSample.rgb / PI + specular) * radiance * NdotL;
 
-  float3 adjusted = kD * (albedoSample.rgb / PI + specular) * radiance * NdotL;
+  let diffuse = irradiance * albedoSample.rgb;
+  let ambient = (diffuse * kD) /* * ao */;
 
-  output.diffuse = float4(adjusted, 1.0);
-
-  return output;
+  return float4(lum + ambient, 1.0);
 }

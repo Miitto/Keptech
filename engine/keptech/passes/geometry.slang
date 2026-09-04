@@ -88,7 +88,7 @@ kt::DeferredOutput frag(VertexOutput input) {
       */
   } else {
     output.albedo = float4(1.f, 1.f, 1.f, 1.f);
-    output.metallicRoughness = float4(0.5f, 0.5f, 0.f, 1.f);
+    output.metallicRoughness = float4(0.0f, 0.5f, 0.f, 1.f);
     output.emissiveAo = float4(0.f, 0.f, 0.f, 1.f);
   }
 

@@ -26,8 +26,7 @@ namespace kt {
     };
 
   private:
-    size_t diffuseIndex = 0;
-    size_t specularIndex = 0;
+    size_t lightingIndex = 0;
     size_t lightBufferIndex = 0;
 
     size_t lightCount = 0;

@@ -66,8 +66,9 @@ namespace kt::rhi {
       break;
     case ImageDim::eCube:
 #ifndef NDEBUG
-      if (info.getArrayLayers() != 6) {
-        DX_WARN("Creating a cube map with {} array layers, expected 6", info.getArrayLayers());
+      if (info.getArrayLayers() % 6 != 0) {
+        DX_ERROR("Creating a cube map with {} array layers, which is not a multiple of 6. This will cause problems.",
+                 info.getArrayLayers());
       }
 #endif
       desc = CD3DX12_RESOURCE_DESC::Tex2D(format, info.getWidth(), info.getHeight(), info.getArrayLayers(), info.getMipLevels(), 1, 0,
@@ -99,6 +100,10 @@ namespace kt::rhi {
       RHI::get().dxRegisterDepthStencilImage(i);
     }
 
+    if (info.getUsage().has(kt::rhi::ImageUsage::Sampled)) {
+      RHI::get().dxRegisterSampledImage(i);
+    }
+
     return std::move(i);
   }
 
@@ -116,7 +121,7 @@ namespace kt::rhi {
         RHI::get().dxUpdateDepthStencilImage(i.value());
       }
       if (usage.has(kt::rhi::ImageUsage::Sampled)) {
-        RHI::get().dxRegisterSampledImage(i.value());
+        RHI::get().dxUpdateSampledImage(i.value());
       }
     }
     return i;

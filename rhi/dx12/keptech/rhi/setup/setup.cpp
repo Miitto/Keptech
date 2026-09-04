@@ -150,6 +150,13 @@ namespace kt::rhi {
     DX_MAKE(m.device->CreateCommandSignature(&drawIndexedIndirectSignatureDesc, nullptr, IID_PPV_ARGS(&m.drawIndexedIndirectSignature)),
             "Failed to create draw indexed indirect command signature");
 
+    {
+      auto res = initPipelines();
+      if (!res) {
+        return std::unexpected(res.error());
+      }
+    }
+
     return {};
   }
 

@@ -15,8 +15,7 @@
 namespace kt {
 
   void LightPass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&) {
-    self.addColorOutput("kt::diffuse", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
-    self.addColorOutput("kt::specular", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
+    self.addColorOutput("kt::lighting", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
 
     self.addUniformInput("kt::camera");
 
@@ -72,13 +71,11 @@ namespace kt {
   }
 
   void LightPass::setup(RenderGraph& graph, const rhi::DescriptorLayout&) {
-    diffuseIndex = graph.getImageIndex("kt::diffuse");
-    specularIndex = graph.getImageIndex("kt::specular");
+    lightingIndex = graph.getImageIndex("kt::lighting");
     lightBufferIndex = graph.getBufferIndex("kt::lights");
 
     kt::rhi::PipelineBuilder pipelineBuilder{};
     pipelineBuilder.setShader(::shaders::kt::pointLight)
-        .addColorAttachment(kt::rhi::ImageFormat::R11G11B10_FLOAT)
         .addColorAttachment(kt::rhi::ImageFormat::R11G11B10_FLOAT)
         .setDepthCompareOp(rhi::DepthCompareOp::Greater);
 
@@ -127,11 +124,9 @@ namespace kt {
 
   void LightPass::execute(RenderGraph& graph, rhi::CommandBuffer& cmd, const rhi::DescriptorSet& set, glm::uvec2 framebufferSize) {
 
-    auto& diffuse = graph.getImage(diffuseIndex);
-    auto& specular = graph.getImage(specularIndex);
+    auto& texture = graph.getImage(lightingIndex);
     if (lightCount == 0) {
-      cmd.clearColorImage(diffuse, {0.0f, 0.0f, 0.0f, 1.0f});
-      cmd.clearColorImage(specular, {0.0f, 0.0f, 0.0f, 1.0f});
+      cmd.clearColorImage(texture, {0.0f, 0.0f, 0.0f, 1.0f});
       return;
     }
 
@@ -139,11 +134,9 @@ namespace kt {
     cmd.setViewport({static_cast<float>(framebufferSize.x), static_cast<float>(framebufferSize.y)});
     cmd.setScissor({framebufferSize.x, framebufferSize.y});
 
-    std::array<rhi::CommandBuffer::ColorAttachmentDesc, 2> colorAttachments = {
-        rhi::CommandBuffer::ColorAttachmentDesc{.imageRef = diffuse, .loadOp = rhi::LoadOp::Clear, .clearColor = {0.0f, 0.0f, 0.0f, 1.0f}},
-        rhi::CommandBuffer::ColorAttachmentDesc{.imageRef = specular, .loadOp = rhi::LoadOp::Clear, .clearColor = {0.0f, 0.0f, 0.0f, 1.0f}},
-    };
-    cmd.beginRendering(colorAttachments);
+    rhi::CommandBuffer::ColorAttachmentDesc colorAttachment = {
+        .imageRef = texture, .loadOp = rhi::LoadOp::Clear, .clearColor = {0.0f, 0.0f, 0.0f, 1.0f}};
+    cmd.beginRendering({&colorAttachment, 1});
 
     cmd.bindGraphicsDescriptorSet(set);
 

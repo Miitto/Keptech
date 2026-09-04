@@ -25,6 +25,11 @@ float4 frag(v2f input) : SV_Target {
   let sampler = kt::samplers::linearClamp;
 
   float4 srcColor = srcTex.Sample(sampler, input.uv);
+
+  if (!kt::valid(camera.envMap)) {
+    return srcColor;
+  }
+
   float depth = depthTex.Sample(sampler, input.uv);
 
   float3 direction = normalize(input.direction);
@@ -32,6 +37,6 @@ float4 frag(v2f input) : SV_Target {
   if (depth < 1.0) {
     return srcColor;
   } else {
-    return camera.envMap.Sample(sampler, direction);
+    return linearToSrgb(camera.envMap.Sample(sampler, direction));
   }
 }

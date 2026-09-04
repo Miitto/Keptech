@@ -56,8 +56,8 @@ namespace kt {
   }
 
   uint32_t StbImageFile::getLayerCount() const { return 1; }
-  void* StbImageFile::getLayerData(uint32_t level) const {
-    KT_ASSERT(level == 0, "Invalid level");
+  void* StbImageFile::getLayerData(uint32_t layer) const {
+    KT_ASSERT(layer == 0, "Invalid layer index {} for image with only 1 layer", layer);
     return data;
   }
   size_t StbImageFile::getLayerSize() const {

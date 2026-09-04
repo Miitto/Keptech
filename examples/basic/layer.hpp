@@ -20,9 +20,10 @@
 #include "keptech/passes/lights.hpp"
 #include "keptech/passes/skybox.hpp"
 #include "keptech/rhi/bufferCreateInfo.hpp"
+#include "keptech/rhi/cmdBuf.hpp"
 #include "keptech/rhi/rhi.hpp"
 #include "keptech/rhi/rhi_impl.hpp"
-#include "keptech/stbCubeImageFile.hpp"
+#include "keptech/stbImageFile.hpp"
 
 class ExampleLayer : public kt::Layer {
 public:
@@ -44,41 +45,61 @@ public:
     auto& monkeyUpload = monkeyUploadRes.value();
     KT_DEBUG("Uploading monkey mesh to GPU with fence value {}", monkeyUpload.copyFenceValue);
 
-    auto envMapFileRes = kt::StbCubeImageFile::fromFile(
-        "Rusted_EnvMap", ASSET_DIR "textures/cubemaps/rusted/+X.jpg", ASSET_DIR "textures/cubemaps/rusted/-X.jpg",
-        ASSET_DIR "textures/cubemaps/rusted/+Y.jpg", ASSET_DIR "textures/cubemaps/rusted/-Y.jpg",
-        ASSET_DIR "textures/cubemaps/rusted/+Z.jpg", ASSET_DIR "textures/cubemaps/rusted/-Z.jpg", 4);
-    if (!envMapFileRes) {
-      KT_ABORT("Failed to load environment map: {}", envMapFileRes.error());
+    auto envMapEqFileRes = kt::StbImageFile::fromFile("Driveway_EnvMapEq", ASSET_DIR "textures/tree_lined_driveway_4k.hdr", 4);
+    if (!envMapEqFileRes) {
+      KT_ABORT("Failed to load environment map: {}", envMapEqFileRes.error());
     }
-    auto& envMapFile = envMapFileRes.value();
+    auto& envMapEqFile = envMapEqFileRes.value();
 
-    auto envMapImgRes =
-        rhi.createTexture(kt::rhi::ImageCreateInfo{kt::rhi::ImageDim::eCube, kt::rhi::ImageFormat::R8G8B8A8_UNORM, envMapFile.getExtent(),
-                                                   kt::rhi::ImageUsage::Sampled | kt::rhi::ImageUsage::TransferDst, 1, 6, "Rusted_EnvMap"});
+    auto envMapEqImgRes =
+        kt::rhi::Image::create({kt::rhi::ImageDim::e2D, kt::rhi::ImageFormat::R32G32B32A32_FLOAT, envMapEqFile.getExtent(),
+                                kt::rhi::ImageUsage::Sampled | kt::rhi::ImageUsage::TransferDst, 1, 1, "Driveway_EquiRectangular"});
+    if (!envMapEqImgRes) {
+      KT_ABORT("Failed to create environment equirectangular image: {}", envMapEqImgRes.error());
+    }
+
+    envMapEqImage = std::move(envMapEqImgRes.value());
+
+    auto envMapImgRes = rhi.createTexture({kt::rhi::ImageDim::eCube,
+                                           kt::rhi::ImageFormat::R32G32B32A32_FLOAT,
+                                           {4096, 4096, 1},
+                                           kt::rhi::ImageUsage::Sampled | kt::rhi::ImageUsage::RenderTarget,
+                                           1,
+                                           6,
+                                           "Driveway_Cube"});
     if (!envMapImgRes) {
       KT_ABORT("Failed to create environment map image: {}", envMapImgRes.error());
     }
-    dataPass.setEnvironmentMapIndex(envMapImgRes.value().getTextureIndex());
+
+    auto envMapIrrRes = rhi.createTexture({kt::rhi::ImageDim::eCube,
+                                           kt::rhi::ImageFormat::R32G32B32A32_FLOAT,
+                                           {32, 32, 1},
+                                           kt::rhi::ImageUsage::Sampled | kt::rhi::ImageUsage::RenderTarget,
+                                           1,
+                                           6,
+                                           "Driveway_Irradiance"});
+    if (!envMapIrrRes) {
+      KT_ABORT("Failed to create environment irradiance map image: {}", envMapIrrRes.error());
+    }
 
     {
       auto stagingBufferRes = kt::rhi::Buffer::create(
-          kt::rhi::BufferCreateInfo(envMapFile.getTotalByteSize(), kt::rhi::BufferUsage::TransferSrc, kt::rhi::BufferType::Staging));
+          kt::rhi::BufferCreateInfo(envMapEqFile.getTotalByteSize(), kt::rhi::BufferUsage::TransferSrc, kt::rhi::BufferType::Staging));
       if (!stagingBufferRes) {
         KT_ABORT("Failed to create staging buffer for environment map: {}", stagingBufferRes.error());
       }
       auto& stagingBuffer = stagingBufferRes.value();
       uint8_t* dst = stagingBuffer.mapping<uint8_t>();
-      for (size_t i = 0; i < 6; ++i) {
-        memcpy(dst, envMapFile.getLayerData(i), envMapFile.getLayerSize());
-        dst += envMapFile.getLayerSize();
+      for (size_t i = 0; i < envMapEqFile.getLayerCount(); ++i) {
+        memcpy(dst, envMapEqFile.getLayerData(i), envMapEqFile.getLayerSize());
+        dst += envMapEqFile.getLayerSize();
       }
       rhi.oneshotCopy([&](kt::rhi::CommandBuffer& cmd) {
-        uint32_t width = envMapFile.getWidth();
-        uint32_t height = envMapFile.getHeight();
-        size_t layerSize = envMapFile.getLayerSize();
-        for (size_t i = 0; i < 6; ++i) {
-          cmd.copyBufferToImage(stagingBuffer, envMapImgRes.value(), width, height, i, 0, i * layerSize);
+        uint32_t width = envMapEqFile.getWidth();
+        uint32_t height = envMapEqFile.getHeight();
+        size_t layerSize = envMapEqFile.getLayerSize();
+        for (size_t i = 0; i < envMapEqFile.getLayerCount(); ++i) {
+          cmd.copyBufferToImage(stagingBuffer, envMapEqImage, width, height, i, 0, i * layerSize);
         }
 
         std::vector<kt::rhi::Buffer> buffers;
@@ -90,14 +111,52 @@ public:
     rhi.waitCopyIdle();
     KT_DEBUG("Upload done");
 
+    {
+      auto cmd = rhi.allocateGraphicsCommandBuffers(1)[0];
+      cmd.bindGraphicsPipeline(rhi.getCubeFromEquirectangularPipeline());
+      cmd.writeGraphicsPushConstants(envMapEqImage.getTextureIndex());
+      auto ext = envMapImgRes.value().extent();
+      auto extf = glm::vec2(ext);
+      cmd.setViewport({extf.x, extf.y});
+      cmd.setScissor({ext.x, ext.y});
+
+      cmd.transitionImage(envMapImgRes.value(), kt::rhi::ImageLayout::Undefined, kt::rhi::ImageLayout::RenderTarget);
+      kt::rhi::CommandBuffer::ColorAttachmentDesc colorAttachmentDesc{
+          .imageRef = envMapImgRes.value(), .loadOp = kt::rhi::LoadOp::DontCare, .storeOp = kt::rhi::StoreOp::Store};
+      cmd.beginRendering({&colorAttachmentDesc, 1});
+      cmd.draw(3);
+      cmd.endRendering();
+      cmd.transitionImage(envMapImgRes.value(), kt::rhi::ImageLayout::RenderTarget, kt::rhi::ImageLayout::ShaderReadOnly);
+
+      cmd.transitionImage(envMapIrrRes.value(), kt::rhi::ImageLayout::Undefined, kt::rhi::ImageLayout::RenderTarget);
+      cmd.bindGraphicsPipeline(rhi.getConvoluteIrradiancePipeline());
+      cmd.writeGraphicsPushConstants(envMapImgRes.value().getTextureIndex());
+      auto extIrr = envMapIrrRes.value().extent();
+      auto extIrrf = glm::vec2(extIrr);
+      cmd.setViewport({extIrrf.x, extIrrf.y});
+      cmd.setScissor({extIrr.x, extIrr.y});
+      kt::rhi::CommandBuffer::ColorAttachmentDesc colorAttachmentDescIrr{
+          .imageRef = envMapIrrRes.value(), .loadOp = kt::rhi::LoadOp::DontCare, .storeOp = kt::rhi::StoreOp::Store};
+      cmd.beginRendering({&colorAttachmentDescIrr, 1});
+      cmd.draw(3);
+      cmd.endRendering();
+
+      cmd.end();
+      rhi.submitGraphicsCmd(cmd);
+    }
+
+    rhi.waitGraphicsIdle();
+
+    dataPass.setEnvironmentMapIndex(envMapImgRes.value().getTextureIndex());
+    dataPass.setEnvironmentIrradianceMapIndex(envMapIrrRes.value().getTextureIndex());
+
     // Create an entity for the monkey mesh and add it to the ECS scene.
     auto monkey = scene.createEntity("Monkey");
 
-    // The loaded monkey mesh is technically the entire glTF scene, which may contain multiple nodes. We can add the entire scene to the ECS
-    // like this, using a given root entity.
-    // In this case, we simply end up with "Monkey -> Suzanne" in the ECS, where "Monkey" is the entity we created above, and "Suzanne" came
-    // from the glTF scene. "Suzanne" was created with a `Transform` and `Mesh` component since that is what the corresponding glTF node
-    // had.
+    // The loaded monkey mesh is technically the entire glTF scene, which may contain multiple nodes. We can add the entire scene to the
+    // ECS like this, using a given root entity. In this case, we simply end up with "Monkey -> Suzanne" in the ECS, where "Monkey" is the
+    // entity we created above, and "Suzanne" came from the glTF scene. "Suzanne" was created with a `Transform` and `Mesh` component
+    // since that is what the corresponding glTF node had.
     monkeyUpload.scene.addToEcsScene(scene, monkey.getHandle());
 
     // Create an entity for a point light.
@@ -140,7 +199,7 @@ public:
     geomPass.addToGraph(builder);
     lightPass.addToGraph(builder);
     lightCombinePass.addToGraph(builder);
-    skyboxPass.addToGraph(builder, "kt::lighting");
+    skyboxPass.addToGraph(builder, "kt::lit");
     // Here we set the backbuffer source for the render graph. This determines which render pass output will be used as the final image to
     // present to the screen. The geometry pass outputs to multiple G-buffers, and we can choose which one to use as the final output.
     //
@@ -152,8 +211,8 @@ public:
 
     /// Set the render resolution to the swapchain size. Less efficient but means we can directly copy the backbuffer source to the
     /// swapchain without adding a resize pass. In a more complete example, there would be more than one pass, and the last pass would
-    /// output to a swapchain relative image. In normal usage, having a seperate variable for the render resolution means that every render
-    /// target does not need to be recreated when the window is resized.
+    /// output to a swapchain relative image. In normal usage, having a seperate variable for the render resolution means that every
+    /// render target does not need to be recreated when the window is resized.
     builder.setRenderResolution(rhi.getSwapchainSize());
 
     // Debug pass should always be added last so it can read from all the other passes. It uses the backbuffer source at the time it was
@@ -201,4 +260,6 @@ private:
   kt::SkyboxPass skyboxPass{};
   kt::DebugPass debugPass{};
   kt::ecs::Entity lightEntity;
+
+  kt::rhi::Image envMapEqImage{};
 };

@@ -115,6 +115,8 @@ namespace kt::rhi {
     std::array<std::vector<ComPtr<ID3D12CommandAllocator>>, MAX_FRAMES_IN_FLIGHT> runningAllocs;
 
     std::unordered_map<ImageFormat, Pipeline> blitPipelines;
+    Pipeline cubeFromEquirectangularPipeline;
+    Pipeline convoluteIrradiancePipeline;
   };
 
   using VertexBufferView = D3D12_VERTEX_BUFFER_VIEW;
@@ -138,8 +140,12 @@ namespace kt::rhi {
     void dxRegisterSampledImage(rhi::Image& image);
     void dxUpdateRenderTargetImage(rhi::Image& image);
     void dxUpdateDepthStencilImage(rhi::Image& image);
+    void dxUpdateSampledImage(rhi::Image& image);
 
     Pipeline& dxGetBlitPipeline(ImageFormat format);
+
+    Pipeline& getCubeFromEquirectangularPipeline() { return m.cubeFromEquirectangularPipeline; }
+    Pipeline& getConvoluteIrradiancePipeline() { return m.convoluteIrradiancePipeline; }
 
   private:
     std::expected<void, std::string> initInternal(const RendererCreateInfo& createInfo, const Window& window);
@@ -153,6 +159,7 @@ namespace kt::rhi {
     std::expected<void, std::string> initImGui();
     std::expected<void, std::string> initDescriptorHeaps();
     std::expected<void, std::string> initSamplers();
+    std::expected<void, std::string> initPipelines();
 
     Members m;
   };

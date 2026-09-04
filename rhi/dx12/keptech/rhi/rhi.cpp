@@ -342,7 +342,98 @@ namespace kt::rhi {
       return;
     }
 
-    auto index = m.cbvSrvUavHeap.count++;
+    img.setTextureIndex(m.cbvSrvUavHeap.count++);
+
+    dxUpdateSampledImage(img);
+  }
+
+  Pipeline& RHI::dxGetBlitPipeline(ImageFormat format) {
+    auto it = m.blitPipelines.find(format);
+    if (it != m.blitPipelines.end()) {
+      return it->second;
+    }
+
+    PipelineBuilder pipelineBuilder{};
+    pipelineBuilder.setShader(::shaders::kt::blit).addColorAttachment(format);
+    auto pipelineRes = pipelineBuilder.build();
+    if (!pipelineRes) {
+      DX_ABORT("Failed to create blit pipeline for format {}: {}", format, pipelineRes.error());
+    }
+
+    m.blitPipelines[format] = std::move(pipelineRes.value());
+    return m.blitPipelines[format];
+  }
+
+  void RHI::dxRegisterDepthStencilImage(rhi::Image& image) {
+    if (image.dxGetRtvDsvIndex() != 65535) {
+      DX_WARN("Image {} is already registered as a depth stencil", image.getName());
+      return;
+    }
+
+    image.dxSetRtvDsvIndex(m.dsvHeap.count++);
+    dxUpdateDepthStencilImage(image);
+  }
+
+  void RHI::dxUpdateRenderTargetImage(rhi::Image& image) {
+    DX_ASSERT(image.dxGetRtvDsvIndex() != 65535, "Image {} is not registered as a render target", image.getName());
+    DX_ASSERT(image.getUsage().has(kt::rhi::ImageUsage::RenderTarget), "Image {} is not a render target", image.getName());
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m.rtvHeap.heap->GetCPUDescriptorHandleForHeapStart(),
+                                            static_cast<INT>(image.dxGetRtvDsvIndex()), static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
+
+    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{
+        .Format = raw(image.format()),
+    };
+
+    switch (image.dim()) {
+    case ImageDim::e1D:
+      rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE1D;
+      rtvDesc.Texture1D.MipSlice = 0;
+      break;
+    case ImageDim::e2D:
+      rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+      rtvDesc.Texture2D.MipSlice = 0;
+      rtvDesc.Texture2D.PlaneSlice = 0;
+      break;
+    case ImageDim::e3D:
+      rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE3D;
+      rtvDesc.Texture3D.MipSlice = 0;
+      rtvDesc.Texture3D.FirstWSlice = 0;
+      rtvDesc.Texture3D.WSize = image.getExtent().z;
+      break;
+    case ImageDim::eCube:
+      rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+      rtvDesc.Texture2DArray.MipSlice = 0;
+      rtvDesc.Texture2DArray.FirstArraySlice = 0;
+      rtvDesc.Texture2DArray.ArraySize = 6;
+      rtvDesc.Texture2DArray.PlaneSlice = 0;
+      break;
+    }
+
+    m.device->CreateRenderTargetView(image.dxresource().Get(), &rtvDesc, rtvHandle);
+  }
+
+  void RHI::dxUpdateDepthStencilImage(rhi::Image& image) {
+    DX_ASSERT(image.getUsage().has(kt::rhi::ImageUsage::DepthStencil), "Image {} is not a depth stencil", image.getName());
+    DX_ASSERT(image.dxGetRtvDsvIndex() != 65535, "Image {} is not registered as a depth stencil", image.getName());
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m.dsvHeap.heap->GetCPUDescriptorHandleForHeapStart(),
+                                            static_cast<INT>(image.dxGetRtvDsvIndex()), static_cast<UINT>(DSV_DESCRIPTOR_SIZE));
+
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
+    dsvDesc.Format = raw(image.format());
+    dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
+    dsvDesc.Texture2D.MipSlice = 0;
+
+    m.device->CreateDepthStencilView(image.dxresource().Get(), &dsvDesc, dsvHandle);
+  }
+
+  void RHI::dxUpdateSampledImage(rhi::Image& img) {
+    DX_ASSERT(img.getUsage().has(kt::rhi::ImageUsage::Sampled), "Image {} is not a sampled img", img.getName());
+    DX_ASSERT(img.getTextureIndex() != UINT64_MAX, "Image {} is not registered as a sampled img", img.getName());
+
+    auto index = img.getTextureIndex();
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle =
         CD3DX12_CPU_DESCRIPTOR_HANDLE(m.cbvSrvUavHeap.heap->GetCPUDescriptorHandleForHeapStart(), static_cast<INT>(index),
@@ -391,67 +482,6 @@ namespace kt::rhi {
     }
 
     m.device->CreateShaderResourceView(img.dxresource().Get(), &srvDesc, srvHandle);
-
-    img.setTextureIndex(index);
-  }
-
-  Pipeline& RHI::dxGetBlitPipeline(ImageFormat format) {
-    auto it = m.blitPipelines.find(format);
-    if (it != m.blitPipelines.end()) {
-      return it->second;
-    }
-
-    PipelineBuilder pipelineBuilder{};
-    pipelineBuilder.setShader(::shaders::kt::blit).addColorAttachment(format);
-    auto pipelineRes = pipelineBuilder.build();
-    if (!pipelineRes) {
-      DX_ABORT("Failed to create blit pipeline for format {}: {}", format, pipelineRes.error());
-    }
-
-    m.blitPipelines[format] = std::move(pipelineRes.value());
-    return m.blitPipelines[format];
-  }
-
-  void RHI::dxRegisterDepthStencilImage(rhi::Image& image) {
-    if (image.dxGetRtvDsvIndex() != 65535) {
-      DX_WARN("Image {} is already registered as a depth stencil", image.getName());
-      return;
-    }
-
-    image.dxSetRtvDsvIndex(m.dsvHeap.count++);
-    dxUpdateDepthStencilImage(image);
-  }
-
-  void RHI::dxUpdateRenderTargetImage(rhi::Image& image) {
-    DX_ASSERT(image.dxGetRtvDsvIndex() != 65535, "Image {} is not registered as a render target", image.getName());
-    DX_ASSERT(image.getUsage().has(kt::rhi::ImageUsage::RenderTarget), "Image {} is not a render target", image.getName());
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m.rtvHeap.heap->GetCPUDescriptorHandleForHeapStart(),
-                                            static_cast<INT>(image.dxGetRtvDsvIndex()), static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
-
-    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
-    rtvDesc.Format = raw(image.format());
-    rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-    rtvDesc.Texture2D.MipSlice = 0;
-    rtvDesc.Texture2D.PlaneSlice = 0;
-
-    m.device->CreateRenderTargetView(image.dxresource().Get(), &rtvDesc, rtvHandle);
-  }
-
-  void RHI::dxUpdateDepthStencilImage(rhi::Image& image) {
-    DX_ASSERT(image.getUsage().has(kt::rhi::ImageUsage::DepthStencil), "Image {} is not a depth stencil", image.getName());
-    DX_ASSERT(image.dxGetRtvDsvIndex() != 65535, "Image {} is not registered as a depth stencil", image.getName());
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m.dsvHeap.heap->GetCPUDescriptorHandleForHeapStart(),
-                                            static_cast<INT>(image.dxGetRtvDsvIndex()), static_cast<UINT>(DSV_DESCRIPTOR_SIZE));
-
-    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
-    dsvDesc.Format = raw(image.format());
-    dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-    dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
-    dsvDesc.Texture2D.MipSlice = 0;
-
-    m.device->CreateDepthStencilView(image.dxresource().Get(), &dsvDesc, dsvHandle);
   }
 
   void RHI::submitGraphicsCmd(CommandBuffer& cmd, uint64_t waitFor, uint64_t signalTo, uint64_t waitForCopy) {

@@ -10,16 +10,15 @@
 namespace kt {
 
   void LightCombinePass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&) {
-    self.addColorOutput("kt::lighting", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
+    self.addColorOutput("kt::lit", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
 
     self.addTextureInput("kt::albedo");
     self.addTextureInput("kt::emissive");
-    self.addTextureInput("kt::diffuse");
-    self.addTextureInput("kt::specular");
+    self.addTextureInput("kt::lighting");
   }
 
   void LightCombinePass::setup(RenderGraph& graph, const rhi::DescriptorLayout&) {
-    lightTexIndex = graph.getImageIndex("kt::lighting");
+    lightTexIndex = graph.getImageIndex("kt::lit");
 
     kt::rhi::PipelineBuilder pipelineBuilder{};
     pipelineBuilder.setShader(::shaders::kt::lightCombine).addColorAttachment(kt::rhi::ImageFormat::R11G11B10_FLOAT);

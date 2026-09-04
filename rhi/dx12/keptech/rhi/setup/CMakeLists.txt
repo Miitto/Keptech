@@ -1,6 +1,7 @@
 target_sources(Keptech_RHI
   PRIVATE
     imgui.cpp
+    pipelines.cpp
     setup.cpp
 )
 
@@ -13,4 +14,6 @@ compile_shader(Keptech_RHI
   LINK PRIVATE
   SOURCES
     blit
+    cubeFromEquirectangular
+    convoluteIrradiance
 )

@@ -398,14 +398,7 @@ namespace kt::rhi {
         .SubresourceIndex = static_cast<UINT>(mipLevel + (layer * image.mips())),
     };
 
-    size_t bytesPerPixel = 0;
-    switch (image.format()) {
-    case ImageFormat::R8G8B8A8_UNORM:
-      bytesPerPixel = 4;
-      break;
-    default:
-      DX_ABORT("Unsupported image format for buffer to image copy");
-    }
+    size_t bytesPerPixel = size(image.format());
 
     D3D12_TEXTURE_COPY_LOCATION srcLocation{
         .pResource = buffer.dxGetResource(),

@@ -52,8 +52,5 @@ struct vertexBufferAttribute {
   uint value;
 };
 
-[__AttributeUsage(_AttributeTargets.Struct)]
-struct instanceAttribute {};
-
 [__AttributeUsage(_AttributeTargets.Var)]
 struct pushAttribute {};

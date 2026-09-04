@@ -35,6 +35,7 @@ namespace kt::components {
       glm::mat4 invViewProjectionMatrix;
       maths::Frustum frustum;
       uint64_t envMapIndex = ~0ull;
+      uint64_t envMapIrrIndex = ~0ull;
     };
 
     struct Params {
