@@ -127,6 +127,13 @@ int main(int argc, char** argv) {
   const char* outputHeader = argv[POS_OUTPUT_HEADER];
   const char* outputSource = argv[POS_OUTPUT_SOURCE];
 
+  std::filesystem::path inputPath(inputFile);
+
+  if (!std::filesystem::exists(inputPath)) {
+    SHDR_ERROR("Input file does not exist: {}", inputFile);
+    return -1;
+  }
+
   kt::shader_processor::init();
 
   SessionConfig config;
@@ -146,16 +153,14 @@ int main(int argc, char** argv) {
     }
   }
 
+  auto inputFolder = inputPath.parent_path();
+  config.includePaths.push_back(inputFolder.string());
+
   if (argc > POS_DEBUG_INFO) {
     config.debugInfo = argv[POS_DEBUG_INFO][0] == 'd';
   }
 
   CompilerSession session(config);
-
-  if (!std::filesystem::exists(inputFile)) {
-    SHDR_ERROR("Input file does not exist: {}", inputFile);
-    return -1;
-  }
 
   std::ifstream inputStream(inputFile);
 

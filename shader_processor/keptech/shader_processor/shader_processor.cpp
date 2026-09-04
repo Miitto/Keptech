@@ -66,6 +66,10 @@ namespace kt::shader_processor {
     }
 
     std::vector<const char*> searchPaths{KEPTECH_SHADER_DIR "/lib"};
+    searchPaths.reserve(searchPaths.size() + config.includePaths.size());
+    for (const auto& path : config.includePaths) {
+      searchPaths.push_back(path.c_str());
+    }
 
     sessionDesc.compilerOptionEntries = compilerOptionEntries.data();
     sessionDesc.compilerOptionEntryCount = static_cast<uint32_t>(compilerOptionEntries.size());

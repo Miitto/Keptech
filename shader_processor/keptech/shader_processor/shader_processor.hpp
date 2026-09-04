@@ -30,6 +30,8 @@ namespace kt::shader_processor {
     OptimizationLevel optimizationLevel = OptimizationLevel::Aggressive;
     bool debugInfo = false;
 #endif
+
+    std::vector<std::string> includePaths{};
   };
 
   class CompilerSession;
