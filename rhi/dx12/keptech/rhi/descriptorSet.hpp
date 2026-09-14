@@ -52,6 +52,8 @@ namespace kt::rhi {
     {
     }
 
+    constexpr operator bool() const { return cpuHandle.ptr != 0; }
+
     void write(const DescriptorLayout& layout, uint32_t binding, uint32_t arrayIndex, DescriptorWriteBufferType bufferType,
                BufferRef buffer, size_t offset, size_t range, size_t stride);
     void write(const DescriptorLayout& layout, uint32_t binding, uint32_t arrayIndex, DescriptorWriteImageType imageType, ImageRef image);

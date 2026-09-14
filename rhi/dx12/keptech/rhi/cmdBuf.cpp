@@ -75,6 +75,7 @@ namespace kt::rhi {
           .BeginningAccess = {},
           .EndingAccess = {},
       };
+      renderTargetDescs[i].cpuDescriptor.ptr += (colorAttachments[i].mipLevel * RTV_DESCRIPTOR_SIZE);
 
       switch (colorAttachments[i].loadOp) {
       case LoadOp::Load:
@@ -342,9 +343,22 @@ namespace kt::rhi {
 
   CommandBuffer& CommandBuffer::copyBufferRegion(const rhi::BufferRef& dst, const rhi::BufferRef& src, size_t dstOffset, size_t srcOffset,
                                                  size_t size) {
-    DX_ASSERT(size > 0, "Size must be greater than 0");
-    DX_ASSERT(dstOffset + size <= dst.size(), "Destination buffer overflow");
-    DX_ASSERT(srcOffset + size <= src.size(), "Source buffer overflow");
+    DX_ASSERT(
+        size > 0,
+        "Size must be greater than 0. Attempted to copy 0 bytes from src (\"{}\") to dst (\"{}\") with dstOffset {} and srcOffset {}.",
+        src.getName(), dst.getName(), dstOffset, srcOffset);
+    DX_ASSERT(dstOffset + size <= dst.size(),
+              "Destination buffer overflow. Dst (\"{}\") has size {} bytes, but the copy operation would write up to {} bytes ({} "
+              "overflow). Cannot copy "
+              "from src (\"{}\") to dst (\"{}\") with dstOffset {} and size {}.",
+              dst.getName(), dst.size(), dstOffset + size, dstOffset + size - dst.size(), src.getName(), dst.getName(), dst.size(),
+              dstOffset + size);
+    DX_ASSERT(srcOffset + size <= src.size(),
+              "Source buffer overflow. Src (\"{}\") has size {} bytes, but the copy operation would read up to {} bytes ({} overflow). "
+              "Cannot copy "
+              "from src (\"{}\") to dst (\"{}\") with srcOffset {} and size {}.",
+              src.getName(), src.size(), srcOffset + size, srcOffset + size - src.size(), src.getName(), dst.getName(), src.size(),
+              srcOffset + size);
     DX_ASSERT(dst.dxGetResource() != nullptr, "Destination buffer resource is null");
     DX_ASSERT(src.dxGetResource() != nullptr, "Source buffer resource is null");
     cmdList->CopyBufferRegion(dst, dstOffset, src, srcOffset, size);

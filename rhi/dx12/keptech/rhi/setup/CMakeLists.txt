@@ -16,4 +16,6 @@ compile_shader(Keptech_RHI
     blit
     cubeFromEquirectangular
     convoluteIrradiance
+    preFilterEnvMap
+    integrateBrdf
 )

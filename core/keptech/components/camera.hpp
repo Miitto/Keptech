@@ -36,6 +36,8 @@ namespace kt::components {
       maths::Frustum frustum;
       uint64_t envMapIndex = ~0ull;
       uint64_t envMapIrrIndex = ~0ull;
+      uint64_t envMapPreFilterIndex = ~0ull;
+      uint64_t integratedBrdfIndex = ~0ull; // TODO: Make this per-material.
     };
 
     struct Params {

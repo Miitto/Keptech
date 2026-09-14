@@ -460,73 +460,75 @@ namespace kt::gltf {
     std::optional<rhi::Buffer> oldMeshletTrianglesBuf;
 
     if (!bufs.positions.hasSpaceFor(counts.positions)) {
-      auto newPosBufRes =
-          rhi::Buffer::create({bufs.positions.occupied() + totalSize.positions, rhi::BufferUsage::Vertex | rhi::BufferUsage::TransferDst,
-                               rhi::BufferType::Default, "GLTF Positions Buffer"});
-      KT_ASSERT(newPosBufRes.isOk(), "Failed to reallocate positions buffer: {}", newPosBufRes.error());
-      if (bufs.positions->isValid())
+      bool valid = bufs.positions->isValid();
+      auto oldBufRes = bufs.reallocatePositions(bufs.positions.count() + counts.positions);
+      if (!oldBufRes)
+        return std::unexpected(fmt::format("Failed to reallocate positions buffer: {}", oldBufRes.error()));
+
+      if (valid)
         oldPosBuf = std::move(bufs.positions.getBuffer());
-      bufs.positions.getBuffer() = std::move(newPosBufRes.value());
+
+      bufs.positions.registerWrites(oldBufRes.value().count());
     }
 
     if (!bufs.vertexAttribs.hasSpaceFor(counts.vertexAttribs)) {
-      auto newVertexAttribsBufRes = rhi::Buffer::create({bufs.vertexAttribs.occupied() + totalSize.vertexAttribs,
-                                                         rhi::BufferUsage::Vertex | rhi::BufferUsage::TransferDst, rhi::BufferType::Default,
-                                                         "GLTF Vertex Attributes Buffer"});
-      KT_ASSERT(newVertexAttribsBufRes.isOk(), "Failed to reallocate vertex attributes buffer: {}", newVertexAttribsBufRes.error());
-      if (bufs.vertexAttribs->isValid())
+      bool valid = bufs.vertexAttribs->isValid();
+      auto oldBufRes = bufs.reallocateVertexAttribs(bufs.vertexAttribs.count() + counts.vertexAttribs);
+      if (!oldBufRes)
+        return std::unexpected(fmt::format("Failed to reallocate vertex attribs buffer: {}", oldBufRes.error()));
+      if (valid)
         oldVertexAttribsBuf = std::move(bufs.vertexAttribs.getBuffer());
-      bufs.vertexAttribs.getBuffer() = std::move(newVertexAttribsBufRes.value());
+      bufs.vertexAttribs.registerWrites(oldBufRes.value().count());
     }
 
     if (!bufs.indices.hasSpaceFor(counts.indices)) {
-      auto newIndicesBufRes =
-          rhi::Buffer::create({bufs.indices.occupied() + totalSize.indices, rhi::BufferUsage::Index | rhi::BufferUsage::TransferDst,
-                               rhi::BufferType::Default, "GLTF Indices Buffer"});
-      KT_ASSERT(newIndicesBufRes.isOk(), "Failed to reallocate indices buffer: {}", newIndicesBufRes.error());
-      if (bufs.indices->isValid())
+      bool valid = bufs.indices->isValid();
+      auto oldBufRes = bufs.reallocateIndices(bufs.indices.count() + counts.indices);
+      if (!oldBufRes)
+        return std::unexpected(fmt::format("Failed to reallocate indices buffer: {}", oldBufRes.error()));
+      if (valid)
         oldIndicesBuf = std::move(bufs.indices.getBuffer());
-      bufs.indices.getBuffer() = std::move(newIndicesBufRes.value());
+      bufs.indices.registerWrites(oldBufRes.value().count());
     }
 
     if (!bufs.submeshes.hasSpaceFor(counts.submeshes)) {
-      auto newSubmeshesBufRes =
-          rhi::Buffer::create({bufs.submeshes.occupied() + totalSize.submeshes, rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
-                               rhi::BufferType::Default, "GLTF Submeshes Buffer"});
-      KT_ASSERT(newSubmeshesBufRes.isOk(), "Failed to reallocate submeshes buffer: {}", newSubmeshesBufRes.error());
-      if (bufs.submeshes->isValid())
+      bool valid = bufs.submeshes->isValid();
+      auto oldBufRes = bufs.reallocateSubmeshes(bufs.submeshes.count() + counts.submeshes);
+      if (!oldBufRes)
+        return std::unexpected(fmt::format("Failed to reallocate submeshes buffer: {}", oldBufRes.error()));
+      if (valid)
         oldSubmeshesBuf = std::move(bufs.submeshes.getBuffer());
-      bufs.submeshes.getBuffer() = std::move(newSubmeshesBufRes.value());
+      bufs.submeshes.registerWrites(oldBufRes.value().count());
     }
 
     if (!bufs.meshlets.hasSpaceFor(counts.meshlets)) {
-      auto newMeshletsBufRes =
-          rhi::Buffer::create({bufs.meshlets.occupied() + totalSize.meshlets, rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
-                               rhi::BufferType::Default, "GLTF Meshlets Buffer"});
-      KT_ASSERT(newMeshletsBufRes.isOk(), "Failed to reallocate meshlets buffer: {}", newMeshletsBufRes.error());
-      if (bufs.meshlets->isValid())
+      bool valid = bufs.meshlets->isValid();
+      auto oldBufRes = bufs.reallocateMeshlets(bufs.meshlets.count() + counts.meshlets);
+      if (!oldBufRes)
+        return std::unexpected(fmt::format("Failed to reallocate meshlets buffer: {}", oldBufRes.error()));
+      if (valid)
         oldMeshletsBuf = std::move(bufs.meshlets.getBuffer());
-      bufs.meshlets.getBuffer() = std::move(newMeshletsBufRes.value());
+      bufs.meshlets.registerWrites(oldBufRes.value().count());
     }
 
     if (!bufs.meshletVertices.hasSpaceFor(counts.meshletVertices)) {
-      auto newMeshletVerticesBufRes = rhi::Buffer::create({bufs.meshletVertices.occupied() + totalSize.meshletVertices,
-                                                           rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
-                                                           rhi::BufferType::Default, "GLTF Meshlet Vertices Buffer"});
-      KT_ASSERT(newMeshletVerticesBufRes.isOk(), "Failed to reallocate meshlet vertices buffer: {}", newMeshletVerticesBufRes.error());
-      if (bufs.meshletVertices->isValid())
+      bool valid = bufs.meshletVertices->isValid();
+      auto oldBufRes = bufs.reallocateMeshletVertices(bufs.meshletVertices.count() + counts.meshletVertices);
+      if (!oldBufRes)
+        return std::unexpected(fmt::format("Failed to reallocate meshlet vertices buffer: {}", oldBufRes.error()));
+      if (valid)
         oldMeshletVerticesBuf = std::move(bufs.meshletVertices.getBuffer());
-      bufs.meshletVertices.getBuffer() = std::move(newMeshletVerticesBufRes.value());
+      bufs.meshletVertices.registerWrites(oldBufRes.value().count());
     }
 
     if (!bufs.meshletTriangles.hasSpaceFor(counts.meshletTriangles)) {
-      auto newMeshletTrianglesBufRes = rhi::Buffer::create({bufs.meshletTriangles.occupied() + totalSize.meshletTriangles,
-                                                            rhi::BufferUsage::Storage | rhi::BufferUsage::TransferDst,
-                                                            rhi::BufferType::Default, "GLTF Meshlet Triangles Buffer"});
-      KT_ASSERT(newMeshletTrianglesBufRes.isOk(), "Failed to reallocate meshlet triangles buffer: {}", newMeshletTrianglesBufRes.error());
-      if (bufs.meshletTriangles->isValid())
+      bool valid = bufs.meshletTriangles->isValid();
+      auto oldBufRes = bufs.reallocateMeshletTriangles(bufs.meshletTriangles.count() + counts.meshletTriangles);
+      if (!oldBufRes)
+        return std::unexpected(fmt::format("Failed to reallocate meshlet triangles buffer: {}", oldBufRes.error()));
+      if (valid)
         oldMeshletTrianglesBuf = std::move(bufs.meshletTriangles.getBuffer());
-      bufs.meshletTriangles.getBuffer() = std::move(newMeshletTrianglesBufRes.value());
+      bufs.meshletTriangles.registerWrites(oldBufRes.value().count());
     }
 
     constexpr size_t positionsOffset = 0;

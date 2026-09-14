@@ -331,7 +331,8 @@ namespace kt::rhi {
       return;
     }
 
-    image.dxSetRtvDsvIndex(m.rtvHeap.count++);
+    image.dxSetRtvDsvIndex(m.rtvHeap.count);
+    m.rtvHeap.count += image.mips();
 
     dxUpdateRenderTargetImage(image);
   }
@@ -385,32 +386,35 @@ namespace kt::rhi {
         .Format = raw(image.format()),
     };
 
-    switch (image.dim()) {
-    case ImageDim::e1D:
-      rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE1D;
-      rtvDesc.Texture1D.MipSlice = 0;
-      break;
-    case ImageDim::e2D:
-      rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-      rtvDesc.Texture2D.MipSlice = 0;
-      rtvDesc.Texture2D.PlaneSlice = 0;
-      break;
-    case ImageDim::e3D:
-      rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE3D;
-      rtvDesc.Texture3D.MipSlice = 0;
-      rtvDesc.Texture3D.FirstWSlice = 0;
-      rtvDesc.Texture3D.WSize = image.getExtent().z;
-      break;
-    case ImageDim::eCube:
-      rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
-      rtvDesc.Texture2DArray.MipSlice = 0;
-      rtvDesc.Texture2DArray.FirstArraySlice = 0;
-      rtvDesc.Texture2DArray.ArraySize = 6;
-      rtvDesc.Texture2DArray.PlaneSlice = 0;
-      break;
-    }
+    for (auto mip = 0u; mip < image.mips(); ++mip) {
+      switch (image.dim()) {
+      case ImageDim::e1D:
+        rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE1D;
+        rtvDesc.Texture1D.MipSlice = mip;
+        break;
+      case ImageDim::e2D:
+        rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+        rtvDesc.Texture2D.MipSlice = mip;
+        rtvDesc.Texture2D.PlaneSlice = 0;
+        break;
+      case ImageDim::e3D:
+        rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE3D;
+        rtvDesc.Texture3D.MipSlice = mip;
+        rtvDesc.Texture3D.FirstWSlice = 0;
+        rtvDesc.Texture3D.WSize = image.getExtent().z;
+        break;
+      case ImageDim::eCube:
+        rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+        rtvDesc.Texture2DArray.MipSlice = mip;
+        rtvDesc.Texture2DArray.FirstArraySlice = 0;
+        rtvDesc.Texture2DArray.ArraySize = 6;
+        rtvDesc.Texture2DArray.PlaneSlice = 0;
+        break;
+      }
 
-    m.device->CreateRenderTargetView(image.dxresource().Get(), &rtvDesc, rtvHandle);
+      m.device->CreateRenderTargetView(image.dxresource().Get(), &rtvDesc, rtvHandle);
+      rtvHandle.Offset(1, static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
+    }
   }
 
   void RHI::dxUpdateDepthStencilImage(rhi::Image& image) {

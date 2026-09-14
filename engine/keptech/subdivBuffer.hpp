@@ -6,6 +6,9 @@
 namespace kt {
   template <typename T> class SubdivBuffer {
   public:
+    SubdivBuffer() = default;
+    SubdivBuffer(rhi::Buffer&& buffer, size_t count = 0) : buffer(std::move(buffer)), _count(count) {}
+
     consteval static size_t sElementSize() { return sizeof(T); }
     consteval size_t elementSize() const { return sizeof(T); }
 

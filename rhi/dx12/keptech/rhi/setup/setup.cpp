@@ -4,6 +4,7 @@
 #include "keptech/core/window.hpp"
 #include "pipelineBuilder.hpp"
 #include "rhi.hpp"
+#include <d3d12.h>
 #include <expected>
 #include <string>
 #include <synchapi.h>
@@ -372,7 +373,7 @@ namespace kt::rhi {
         .AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
         .MipLODBias = 0.0f,
         .MaxAnisotropy = 1,
-        .ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS,
+        .ComparisonFunc = D3D12_COMPARISON_FUNC_NONE,
         .BorderColor = {D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK, D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
                         D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK, D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK},
         .MinLOD = 0.0f,
@@ -396,12 +397,11 @@ namespace kt::rhi {
       makeSampler(filter, D3D12_TEXTURE_ADDRESS_MODE_MIRROR);
     };
 
-    makeSet(D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR);
-    makeSet(D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR);
-    makeSet(D3D12_FILTER_MIN_MAG_MIP_POINT);
+    makeSet(D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT);
+    makeSet(D3D12_FILTER_MIN_MAG_MIP_LINEAR);
     makeSet(D3D12_FILTER_MIN_MAG_MIP_POINT);
 
-    m.samplerHeap.count += 12; // 4 filters * 3 address modes
+    m.samplerHeap.count += 9; // 3 filters * 3 address modes
 
     return {};
   }

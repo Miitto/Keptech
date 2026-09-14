@@ -2,6 +2,7 @@
 #include "d3dx12.h"
 #include "dx/dx-logger.hpp"
 #include "imageRef.hpp"
+#include "keptech/maths/maths.hpp"
 #include "keptech/rhi/imageCreateInfo.hpp"
 #include "rhi.hpp"
 #include <D3D12MemAlloc.h>
@@ -51,17 +52,22 @@ namespace kt::rhi {
         format = DXGI_FORMAT_R16_TYPELESS;
     }
 
+    uint16_t mipLevels = static_cast<uint16_t>(info.getMipLevels());
+    if (mipLevels == 0) {
+      mipLevels = static_cast<uint16_t>(kt::calcMipLevels(info.getExtent()));
+    }
+
     switch (info.getImageDim()) {
     case ImageDim::e1D:
-      desc =
-          CD3DX12_RESOURCE_DESC::Tex1D(format, info.getWidth(), info.getArrayLayers(), info.getMipLevels(), raw(info.getUsage().as_enum()));
-      break;
-    case ImageDim::e2D:
-      desc = CD3DX12_RESOURCE_DESC::Tex2D(format, info.getWidth(), info.getHeight(), info.getArrayLayers(), info.getMipLevels(), 1, 0,
+      desc = CD3DX12_RESOURCE_DESC::Tex1D(format, info.getWidth(), static_cast<uint16_t>(info.getArrayLayers()), mipLevels,
                                           raw(info.getUsage().as_enum()));
       break;
+    case ImageDim::e2D:
+      desc = CD3DX12_RESOURCE_DESC::Tex2D(format, info.getWidth(), info.getHeight(), static_cast<uint16_t>(info.getArrayLayers()),
+                                          mipLevels, 1, 0, raw(info.getUsage().as_enum()));
+      break;
     case ImageDim::e3D:
-      desc = CD3DX12_RESOURCE_DESC::Tex3D(format, info.getWidth(), info.getHeight(), info.getDepth(), info.getMipLevels(),
+      desc = CD3DX12_RESOURCE_DESC::Tex3D(format, info.getWidth(), info.getHeight(), static_cast<uint16_t>(info.getDepth()), mipLevels,
                                           raw(info.getUsage().as_enum()));
       break;
     case ImageDim::eCube:
@@ -71,8 +77,8 @@ namespace kt::rhi {
                  info.getArrayLayers());
       }
 #endif
-      desc = CD3DX12_RESOURCE_DESC::Tex2D(format, info.getWidth(), info.getHeight(), info.getArrayLayers(), info.getMipLevels(), 1, 0,
-                                          raw(info.getUsage().as_enum()));
+      desc = CD3DX12_RESOURCE_DESC::Tex2D(format, info.getWidth(), info.getHeight(), static_cast<uint16_t>(info.getArrayLayers()),
+                                          mipLevels, 1, 0, raw(info.getUsage().as_enum()));
     }
 
     D3D12MA::ALLOCATION_DESC allocDesc{
@@ -88,7 +94,7 @@ namespace kt::rhi {
     std::string debugName = {info.getName()};
     std::wstring wDebugName(debugName.begin(), debugName.end());
     allocation->SetName(wDebugName.c_str());
-    allocation->GetResource()->SetPrivateData(WKPDID_D3DDebugObjectName, debugName.length(), debugName.c_str());
+    allocation->GetResource()->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<uint32_t>(debugName.length()), debugName.c_str());
 #endif
 
     Image i(info.getName(), info.getImageDim(), info.getFormat(), info.getExtent(), info.getUsage(), info.getMipLevels(),

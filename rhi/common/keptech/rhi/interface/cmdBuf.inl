@@ -13,6 +13,7 @@ struct ColorAttachmentDesc {
   ImageRef imageRef;
   LoadOp loadOp = LoadOp::DontCare;
   StoreOp storeOp = StoreOp::Store;
+  uint32_t mipLevel = 0;
   std::array<float, 4> clearColor{};
 };
 struct DepthStencilAttachmentDesc {

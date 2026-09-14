@@ -1,16 +1,17 @@
 module keptech;
 
-__include camera;
-__include lighting;
-__include maths;
-__include vertex;
-__include material;
-__include sphere;
-__include frustum;
-__include struct;
-__include mesh;
 __include attribs;
+__include buffers;
+__include camera;
+__include frustum;
+__include lighting;
+__include material;
+__include maths;
+__include mesh;
 __include samplers;
+__include sphere;
+__include struct;
+__include vertex;
 
 public namespace kt {
 
@@ -19,11 +20,6 @@ public struct DeferredOutput {
   public float4 normal : SV_Target1;
   public float4 metallicRoughness : SV_Target2;
   public float4 emissiveAo : SV_Target3;
-};
-
-public struct DeferredLightingOutput {
-  public float4 diffuse : SV_Target0;
-  public float4 specular : SV_Target1;
 };
 
 public bool valid<T>(DescriptorHandle<T> handle)
@@ -42,6 +38,17 @@ public bool valid<T>(DescriptorHandle<T> handle)
     return false;
   }
   }
+}
+
+public struct PosUv {
+  public float4 position : SV_Position;
+  public float2 uv : TEXCOORD0;
+};
+
+public PosUv fullscreenTri(uint vid) {
+  float2 coord = float2((vid << 1) & 2, vid & 2);
+  PosUv output = { float4(float2(-1.0, 1.0) + coord * float2(2.0, -2.0), 0.0, 1.0), coord };
+  return output;
 }
 }
 

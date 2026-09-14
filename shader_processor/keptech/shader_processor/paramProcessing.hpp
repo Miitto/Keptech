@@ -169,7 +169,12 @@ namespace kt::shader_processor {
           AccessPath bufferAccessPath{};
           bufferAccessPath.leaf = accessPath.deepestBuffer;
           auto [byteOffset, _s, varName] = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
-          auto [binding, space, bufName] = calculateCumulativeOffset(bufferVar->getCategory(), bufferAccessPath);
+          auto [_b, _bs, bufName] = calculateCumulativeOffset(bufferVar->getCategory(), bufferAccessPath);
+          auto [binding, space, _] = calculateCumulativeOffset(variableLayout, bufferVar->getCategory(), accessPath);
+
+          SHDR_DEBUG("Field {} has offset {} in space {}", fmt::join(varName, "."), byteOffset, _s);
+          SHDR_DEBUG("Buffer variable {} has binding {} in space {} with offset {} and size/stride {}", fmt::join(bufName, "."), binding,
+                     space, byteOffset, sizeOrStride);
 
           std::vector<std::string> name = bufName;
           name.append_range(varName);

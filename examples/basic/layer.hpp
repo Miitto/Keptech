@@ -31,19 +31,19 @@ public:
     // Get a quick reference to the active scene.
     auto& scene = kt::Scene::active();
 
-    // Load the monkey mesh onto the GPU.
-    auto monkeyDataRes = kt::gltf::Data::fromFile(ASSET_DIR "meshes/monkey.glb");
-    if (!monkeyDataRes) {
-      KT_ABORT("Failed to load monkey mesh: {}", monkeyDataRes.error());
+    // Load the sphere mesh onto the GPU.
+    auto sphereDataRes = kt::gltf::Data::fromFile(ASSET_DIR "meshes/Sphere.glb");
+    if (!sphereDataRes) {
+      KT_ABORT("Failed to load sphere mesh: {}", sphereDataRes.error());
     }
-    auto& monkeyData = monkeyDataRes.value();
+    auto& sphereData = sphereDataRes.value();
 
-    auto monkeyUploadRes = monkeyData.upload();
-    if (!monkeyUploadRes) {
-      KT_ABORT("Failed to upload monkey mesh: {}", monkeyUploadRes.error());
+    auto sphereUploadRes = sphereData.upload();
+    if (!sphereUploadRes) {
+      KT_ABORT("Failed to upload sphere mesh: {}", sphereUploadRes.error());
     }
-    auto& monkeyUpload = monkeyUploadRes.value();
-    KT_DEBUG("Uploading monkey mesh to GPU with fence value {}", monkeyUpload.copyFenceValue);
+    auto& sphereUpload = sphereUploadRes.value();
+    KT_DEBUG("Uploading sphere mesh to GPU with fence value {}", sphereUpload.copyFenceValue);
 
     auto envMapEqFileRes = kt::StbImageFile::fromFile("Driveway_EnvMapEq", ASSET_DIR "textures/tree_lined_driveway_4k.hdr", 4);
     if (!envMapEqFileRes) {
@@ -80,6 +80,28 @@ public:
                                            "Driveway_Irradiance"});
     if (!envMapIrrRes) {
       KT_ABORT("Failed to create environment irradiance map image: {}", envMapIrrRes.error());
+    }
+
+    auto envMapPreFilterRes = rhi.createTexture({kt::rhi::ImageDim::eCube,
+                                                 kt::rhi::ImageFormat::R32G32B32A32_FLOAT,
+                                                 {128, 128, 1},
+                                                 kt::rhi::ImageUsage::Sampled | kt::rhi::ImageUsage::RenderTarget,
+                                                 5,
+                                                 6,
+                                                 "Driveway_PreFilter"});
+    if (!envMapPreFilterRes) {
+      KT_ABORT("Failed to create environment pre-filter map image: {}", envMapPreFilterRes.error());
+    }
+
+    auto integratedBrdfRes = rhi.createTexture({kt::rhi::ImageDim::e2D,
+                                                kt::rhi::ImageFormat::R16G16_FLOAT,
+                                                {512, 512, 1},
+                                                kt::rhi::ImageUsage::Sampled | kt::rhi::ImageUsage::RenderTarget,
+                                                1,
+                                                1,
+                                                "IntegratedBRDF"});
+    if (!integratedBrdfRes) {
+      KT_ABORT("Failed to create integrated BRDF image: {}", integratedBrdfRes.error());
     }
 
     {
@@ -140,6 +162,43 @@ public:
       cmd.beginRendering({&colorAttachmentDescIrr, 1});
       cmd.draw(3);
       cmd.endRendering();
+      cmd.transitionImage(envMapIrrRes.value(), kt::rhi::ImageLayout::RenderTarget, kt::rhi::ImageLayout::ShaderReadOnly);
+
+      cmd.transitionImage(envMapPreFilterRes.value(), kt::rhi::ImageLayout::Undefined, kt::rhi::ImageLayout::RenderTarget);
+      cmd.bindGraphicsPipeline(rhi.getPreFilterPipeline());
+      cmd.writeGraphicsPushConstants(envMapImgRes.value().getTextureIndex());
+      for (uint32_t mip = 0; mip < envMapPreFilterRes.value().mips(); ++mip) {
+        auto mipWidth = envMapPreFilterRes.value().extent().x >> mip;
+        auto mipHeight = envMapPreFilterRes.value().extent().y >> mip;
+        auto extPre = glm::uvec2(mipWidth, mipHeight);
+        auto extPref = glm::vec2(extPre);
+        cmd.setViewport({extPref.x, extPref.y});
+        cmd.setScissor({extPre.x, extPre.y});
+        kt::rhi::CommandBuffer::ColorAttachmentDesc colorAttachmentDescPre{.imageRef = envMapPreFilterRes.value(),
+                                                                           .loadOp = kt::rhi::LoadOp::DontCare,
+                                                                           .storeOp = kt::rhi::StoreOp::Store,
+                                                                           .mipLevel = mip};
+        float roughness = static_cast<float>(mip) / static_cast<float>(envMapPreFilterRes.value().mips() - 1);
+        cmd.writeGraphicsPushConstants(roughness, sizeof(uint64_t));
+
+        cmd.beginRendering({&colorAttachmentDescPre, 1});
+        cmd.draw(3);
+        cmd.endRendering();
+      }
+      cmd.transitionImage(envMapPreFilterRes.value(), kt::rhi::ImageLayout::RenderTarget, kt::rhi::ImageLayout::ShaderReadOnly);
+
+      cmd.transitionImage(integratedBrdfRes.value(), kt::rhi::ImageLayout::Undefined, kt::rhi::ImageLayout::RenderTarget);
+      cmd.bindGraphicsPipeline(rhi.getIntegrateBRDFPipeline());
+      auto extBrdf = integratedBrdfRes.value().extent();
+      auto extBrdff = glm::vec2(extBrdf);
+      cmd.setViewport({extBrdff.x, extBrdff.y});
+      cmd.setScissor({extBrdf.x, extBrdf.y});
+      kt::rhi::CommandBuffer::ColorAttachmentDesc colorAttachmentDescBrdf{
+          .imageRef = integratedBrdfRes.value(), .loadOp = kt::rhi::LoadOp::DontCare, .storeOp = kt::rhi::StoreOp::Store};
+      cmd.beginRendering({&colorAttachmentDescBrdf, 1});
+      cmd.draw(3);
+      cmd.endRendering();
+      cmd.transitionImage(integratedBrdfRes.value(), kt::rhi::ImageLayout::RenderTarget, kt::rhi::ImageLayout::ShaderReadOnly);
 
       cmd.end();
       rhi.submitGraphicsCmd(cmd);
@@ -149,15 +208,12 @@ public:
 
     dataPass.setEnvironmentMapIndex(envMapImgRes.value().getTextureIndex());
     dataPass.setEnvironmentIrradianceMapIndex(envMapIrrRes.value().getTextureIndex());
+    dataPass.setEnvironmentPreFilterMapIndex(envMapPreFilterRes.value().getTextureIndex());
+    dataPass.setIntegratedBrdfMapIndex(integratedBrdfRes.value().getTextureIndex());
 
-    // Create an entity for the monkey mesh and add it to the ECS scene.
-    auto monkey = scene.createEntity("Monkey");
+    auto sphere = scene.createEntity("Sphere");
 
-    // The loaded monkey mesh is technically the entire glTF scene, which may contain multiple nodes. We can add the entire scene to the
-    // ECS like this, using a given root entity. In this case, we simply end up with "Monkey -> Suzanne" in the ECS, where "Monkey" is the
-    // entity we created above, and "Suzanne" came from the glTF scene. "Suzanne" was created with a `Transform` and `Mesh` component
-    // since that is what the corresponding glTF node had.
-    monkeyUpload.scene.addToEcsScene(scene, monkey.getHandle());
+    sphereUpload.scene.addToEcsScene(scene, sphere.getHandle());
 
     // Create an entity for a point light.
     lightEntity = scene.createEntity("Point Light");

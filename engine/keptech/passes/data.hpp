@@ -29,6 +29,8 @@ namespace kt {
 
     void setEnvironmentMapIndex(uint32_t index) { envMapIndex = index; }
     void setEnvironmentIrradianceMapIndex(uint32_t index) { envMapIrrIndex = index; }
+    void setEnvironmentPreFilterMapIndex(uint32_t index) { envMapPreFilterIndex = index; }
+    void setIntegratedBrdfMapIndex(uint32_t index) { integratedBrdfIndex = index; }
 
   private:
     size_t camIndex = 0;
@@ -37,5 +39,7 @@ namespace kt {
     maths::Frustum cameraFrustum{};
     uint32_t envMapIndex = ~0u;
     uint32_t envMapIrrIndex = ~0u;
+    uint32_t envMapPreFilterIndex = ~0u;
+    uint32_t integratedBrdfIndex = ~0u;
   };
 } // namespace kt

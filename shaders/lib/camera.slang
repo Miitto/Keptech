@@ -12,6 +12,8 @@ public struct Camera {
   Frustum _frustum;
   TextureCube.Handle environmentMap;
   TextureCube.Handle environmentMapIrradiance;
+  TextureCube.Handle environmentMapPreFilter;
+  Texture2D.Handle integratedBrdfHandle;
 
   public float4 worldToCamera(float4 worldPosition) { return mul(worldPosition, viewMatrix); }
 
@@ -35,6 +37,14 @@ public struct Camera {
 
   public property TextureCube.Handle envMapIrradiance {
     get { return environmentMapIrradiance; }
+  }
+
+  public property TextureCube.Handle envMapPreFilter {
+    get { return environmentMapPreFilter; }
+  }
+
+  public property Texture2D.Handle integratedBrdf {
+    get { return integratedBrdfHandle; }
   }
 
   public property float4x4 projection {

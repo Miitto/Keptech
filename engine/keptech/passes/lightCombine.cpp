@@ -12,8 +12,12 @@ namespace kt {
   void LightCombinePass::setupDependencies(RenderPassBuilder& self, RenderGraphBuilder&) {
     self.addColorOutput("kt::lit", {.format = rhi::ImageFormat::R11G11B10_FLOAT});
 
+    self.addUniformInput("kt::camera");
     self.addTextureInput("kt::albedo");
+    self.addTextureInput("kt::normal");
     self.addTextureInput("kt::emissive");
+    self.addTextureInput("kt::material");
+    self.addTextureInput("kt::depth");
     self.addTextureInput("kt::lighting");
   }
 
@@ -36,6 +40,9 @@ namespace kt {
     cmd.bindGraphicsPipeline(pipeline);
     cmd.setViewport({static_cast<float>(framebufferSize.x), static_cast<float>(framebufferSize.y)});
     cmd.setScissor({framebufferSize.x, framebufferSize.y});
+
+    glm::vec2 invViewportSize = glm::vec2(1.0f) / glm::vec2(framebufferSize);
+    cmd.writeGraphicsPushConstants(invViewportSize);
 
     std::array<rhi::CommandBuffer::ColorAttachmentDesc, 1> colorAttachments = {
         rhi::CommandBuffer::ColorAttachmentDesc{.imageRef = lightTex, .loadOp = rhi::LoadOp::DontCare},

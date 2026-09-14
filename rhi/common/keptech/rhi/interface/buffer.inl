@@ -1,7 +1,8 @@
 public:
-static kt::Result<Buffer, HRESULT, 0> create(const BufferCreateInfo& info);
+static kt::Result<Buffer, RawRhiResult, RawRhiResultOk> create(const BufferCreateInfo& info);
 
 const std::string& getName() const;
+void setName(const std::string& newName);
 BufferType getType() const;
 size_t size() const;
 bool isMapped() const;
@@ -21,7 +22,7 @@ void destroy();
 /// @note Data is not copied from the old buffer to the new buffer. The caller is responsible for copying any necessary data after the
 /// reallocation.
 /// @note The old buffer may need to be submitted to the RHI for destruction next frame, as it may still be in use by the GPU.
-kt::Result<Buffer, HRESULT, S_OK> reallocate(size_t newSize);
+kt::Result<Buffer, RawRhiResult, RawRhiResultOk> reallocate(size_t newSize);
 
 operator BufferRef() const;
 

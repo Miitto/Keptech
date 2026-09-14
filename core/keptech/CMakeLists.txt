@@ -6,6 +6,7 @@ target_sources(Keptech_Core
     components/camera.cpp
     components/transform.cpp
     core/layers/layerStack.cpp
+    maths/maths.cpp
     maths/transform.cpp
     core/events/events.cpp
     core/fastgltf_formatting.cpp

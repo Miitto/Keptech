@@ -38,7 +38,8 @@ float4 frag(CubeG2F input) : SV_Target {
       sampleVec = -sampleVec; // Sample vec is backwards. // TODO: the maths to figure out why.
 
       let sample = src.Sample(sampler, sampleVec).rgb * cTheta * sTheta;
-      irradiance += (sample / (sample + 1)); // Tonemap it, otherwise the sun blows it all out of proportion. // TODO: this is a hack.
+      irradiance +=
+          (sample / (sample + 0.5)); // Tonemap it just a bit, otherwise the sun blows it all out of proportion. // TODO: this is a hack.
       nrSamples++;
     }
   }

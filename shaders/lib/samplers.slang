@@ -36,16 +36,4 @@ public property SamplerState.Handle nearestRepeat {
 public property SamplerState.Handle nearestMirror {
   get { return SamplerState.Handle(uint2(8, 0)); }
 }
-
-public property SamplerState.Handle nearestMipmapClamp {
-  get { return SamplerState.Handle(uint2(9, 0)); }
-}
-
-public property SamplerState.Handle nearestMipmapRepeat {
-  get { return SamplerState.Handle(uint2(10, 0)); }
-}
-
-public property SamplerState.Handle nearestMipmapMirror {
-  get { return SamplerState.Handle(uint2(11, 0)); }
-}
 }

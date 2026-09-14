@@ -9,6 +9,15 @@
 
 namespace kt::rhi {
   const std::string& Buffer::getName() const { return name; }
+  void Buffer::setName(const std::string& newName) {
+    name = newName;
+#ifndef NDEBUG
+    if (allocation) {
+      auto* resource = allocation->GetResource();
+      resource->SetName(std::wstring(name.begin(), name.end()).c_str());
+    }
+#endif
+  }
   size_t Buffer::size() const { return _size; }
   bool Buffer::isMapped() const { return mapPtr != nullptr; }
   BufferType Buffer::getType() const { return type; }
@@ -17,12 +26,11 @@ namespace kt::rhi {
 
   bool Buffer::isValid() const { return allocation != nullptr; }
 
-  kt::Result<Buffer, HRESULT, 0> Buffer::create(const BufferCreateInfo& info) {
+  kt::Result<Buffer, RawRhiResult, RawRhiResultOk> Buffer::create(const BufferCreateInfo& info) {
     DX_ASSERT(info.getSize() > 0, "Buffer {}: size must be greater than 0", info.getName());
     CD3DX12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(info.getSize());
 
     D3D12MA::ALLOCATION_DESC allocDesc{};
-    D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
 
     switch (info.getType()) {
     case BufferType::Default:
@@ -30,27 +38,26 @@ namespace kt::rhi {
       break;
     case BufferType::GpuMapped:
       allocDesc.HeapType = D3D12_HEAP_TYPE_GPU_UPLOAD;
-      initialState = D3D12_RESOURCE_STATE_GENERIC_READ;
       break;
     case BufferType::Staging:
       allocDesc.HeapType = D3D12_HEAP_TYPE_UPLOAD;
-      initialState = D3D12_RESOURCE_STATE_GENERIC_READ;
       break;
     case BufferType::Readback:
       allocDesc.HeapType = D3D12_HEAP_TYPE_READBACK;
-      initialState = D3D12_RESOURCE_STATE_COPY_DEST;
       break;
     }
 
     D3D12MA::Allocation* allocation = nullptr;
-    DX_REQUIRE(
-        SUCCEEDED(RHI::get().dxGetAllocator()->CreateResource(&allocDesc, &desc, initialState, nullptr, &allocation, IID_NULL, NULL)),
-        "Failed to create buffer resource");
+    DX_REQUIRE(SUCCEEDED(RHI::get().dxGetAllocator()->CreateResource(&allocDesc, &desc, D3D12_RESOURCE_STATE_COMMON, nullptr, &allocation,
+                                                                     IID_NULL, NULL)),
+               "Failed to create buffer resource");
 
-    return Buffer(info.getName() == nullptr ? "" : info.getName(), info.getSize(), info.getUsage(), info.getType(), allocation);
+    return Buffer(info.getName() == nullptr ? "<unnamed>" : info.getName(), info.getSize(), info.getUsage(), info.getType(), allocation);
   }
 
-  kt::Result<Buffer, HRESULT, S_OK> Buffer::reallocate(size_t newSize) { return Buffer::create({newSize, usage, type, name.c_str()}); }
+  kt::Result<Buffer, RawRhiResult, RawRhiResultOk> Buffer::reallocate(size_t newSize) {
+    return Buffer::create({newSize, usage, type, name.c_str()});
+  }
 
   void Buffer::destroy() {
     if (allocation) {

@@ -8,6 +8,8 @@ namespace kt::rhi {
 
     [[nodiscard]] auto& dxGetRanges(this auto& self) { return self.ranges; }
 
+    operator bool() const { return !ranges.empty(); }
+
   private:
     std::vector<D3D12_DESCRIPTOR_RANGE1> ranges;
   };

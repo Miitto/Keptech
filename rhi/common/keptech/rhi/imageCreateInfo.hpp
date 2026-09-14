@@ -15,6 +15,14 @@ namespace kt::rhi {
 
   class ImageCreateInfo {
   public:
+    /// Creates an ImageCreateInfo object with the specified parameters.
+    /// @param imageDim The dimension of the image (1D, 2D, 3D, or Cube).
+    /// @param format The format of the image (e.g., R8G8B8A8_UNORM).
+    /// @param extent The size of the image in pixels (width, height, depth).
+    /// @param usage The intended usage of the image (e.g., RenderTarget, DepthStencil, Sampled).
+    /// @param mipLevels The number of mipmap levels for the image. Set to 0 to automatically calculate.
+    /// @param arrayLayers The number of array layers for the image. Must be at least 1.
+    /// @param name An optional name for the image, useful for debugging and profiling.
     constexpr ImageCreateInfo(ImageDim imageDim, ImageFormat format, glm::uvec3 extent, Bitflag<ImageUsage> usage, uint32_t mipLevels = 1,
                               uint32_t arrayLayers = 1, const char* name = nullptr) noexcept
         : imageDim(imageDim), format(format), extent(extent), usage(usage), mipLevels(mipLevels), arrayLayers(arrayLayers), name(name) {}

@@ -657,7 +657,7 @@ namespace kt {
 
   void RenderGraphBuilder::dependPassesRecursive(const RenderPassBuilder& self, const std::unordered_set<PassId>& writtenPasses,
                                                  size_t stackCount, bool noCheck, bool ignoreSelf) {
-    KT_REQUIRE(noCheck || !writtenPasses.empty(), "Pass '{}': No passes found that write to the input resource", self.getName());
+    KT_REQUIRE(noCheck || !writtenPasses.empty(), "Pass '{}': No passes found that write to an input resource", self.getName());
 
     KT_REQUIRE(stackCount <= passes.size(), "Pass '{}': Circular dependency detected in render graph", self.getName());
 
@@ -793,7 +793,7 @@ namespace kt {
 #ifdef KT_DX12
             KT_WARN("DX12 requires uniform buffer sizes to be a multiple of 256 bytes. Buffer '{}' has size {}. Padding to 256 bytes.",
                     input.buffer->getName(), info.size);
-            info.size = maths::roundToAlignment(info.size, 256);
+            info.size = roundToAlignment(info.size, 256);
             input.buffer->setBufferInfo(info);
 #else
             KT_WARN("Buffer '{}' has size {} which is not a multiple of 256 bytes. This may cause issues on some platforms.",

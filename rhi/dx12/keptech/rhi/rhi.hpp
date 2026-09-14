@@ -117,6 +117,8 @@ namespace kt::rhi {
     std::unordered_map<ImageFormat, Pipeline> blitPipelines;
     Pipeline cubeFromEquirectangularPipeline;
     Pipeline convoluteIrradiancePipeline;
+    Pipeline preFilterPipeline;
+    Pipeline integrateBRDFPipeline;
   };
 
   using VertexBufferView = D3D12_VERTEX_BUFFER_VIEW;
@@ -141,11 +143,15 @@ namespace kt::rhi {
     void dxUpdateRenderTargetImage(rhi::Image& image);
     void dxUpdateDepthStencilImage(rhi::Image& image);
     void dxUpdateSampledImage(rhi::Image& image);
+    void dxRegisterBuffer(rhi::Buffer& buffer);
+    void dxUpdateBuffer(rhi::Buffer& buffer);
 
     Pipeline& dxGetBlitPipeline(ImageFormat format);
 
     Pipeline& getCubeFromEquirectangularPipeline() { return m.cubeFromEquirectangularPipeline; }
     Pipeline& getConvoluteIrradiancePipeline() { return m.convoluteIrradiancePipeline; }
+    Pipeline& getPreFilterPipeline() { return m.preFilterPipeline; }
+    Pipeline& getIntegrateBRDFPipeline() { return m.integrateBRDFPipeline; }
 
   private:
     std::expected<void, std::string> initInternal(const RendererCreateInfo& createInfo, const Window& window);

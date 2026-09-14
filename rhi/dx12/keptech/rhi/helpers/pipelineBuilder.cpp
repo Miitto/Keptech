@@ -110,7 +110,7 @@ namespace kt::rhi {
       }
     };
 
-    std::vector<D3D12_DESCRIPTOR_RANGE1> ranges;
+    std::vector<std::vector<D3D12_DESCRIPTOR_RANGE1>> ranges(shader->info.globalResources.sets.size());
 
     struct BindingSpace {
       uint32_t binding;
@@ -123,12 +123,18 @@ namespace kt::rhi {
     std::vector<BindingSpace> directSamplers;
 
     if (!shader->info.globalResources.sets.empty()) {
-      std::vector<D3D12_DESCRIPTOR_RANGE1> cbvRanges;
-      std::vector<D3D12_DESCRIPTOR_RANGE1> srvRanges;
-      std::vector<D3D12_DESCRIPTOR_RANGE1> uavRanges;
+      struct Ranges {
+        std::vector<D3D12_DESCRIPTOR_RANGE1> cbvRanges;
+        std::vector<D3D12_DESCRIPTOR_RANGE1> srvRanges;
+        std::vector<D3D12_DESCRIPTOR_RANGE1> uavRanges;
+      };
+
+      std::vector<Ranges> rangesPerSpace(shader->info.globalResources.sets.size());
 
       for (uint32_t space = 0; space < shader->info.globalResources.sets.size(); ++space) {
         const auto& resourceSet = shader->info.globalResources.sets[space];
+        auto& [cbvRanges, srvRanges, uavRanges] = rangesPerSpace[space];
+
         for (const auto& resource : resourceSet.resources) {
           auto rangeType = rangeTypeFromResourceType(resource.type);
 
@@ -193,39 +199,26 @@ namespace kt::rhi {
             break;
           }
         }
-      }
-
-      ranges.append_range(cbvRanges);
-      ranges.append_range(srvRanges);
-      ranges.append_range(uavRanges);
-    }
-
-    size_t tableOffset = ranges.empty() ? 0 : 1;
-
-    DX_DEBUG("Building {} pipeline with:", shader->info.name);
-    if (!ranges.empty()) {
-      DX_DEBUG("  Table:");
-      for (const auto& range : ranges) {
-        switch (range.RangeType) {
-        case D3D12_DESCRIPTOR_RANGE_TYPE_CBV:
-          DX_DEBUG("    {}-{} CBV", range.BaseShaderRegister, range.BaseShaderRegister + range.NumDescriptors - 1);
-          break;
-        case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
-          DX_DEBUG("    {}-{} SRV", range.BaseShaderRegister, range.BaseShaderRegister + range.NumDescriptors - 1);
-          break;
-        case D3D12_DESCRIPTOR_RANGE_TYPE_UAV:
-          DX_DEBUG("    {}-{} UAV", range.BaseShaderRegister, range.BaseShaderRegister + range.NumDescriptors - 1);
-          break;
-        }
+        ranges[space].append_range(cbvRanges);
+        ranges[space].append_range(srvRanges);
+        ranges[space].append_range(uavRanges);
       }
     }
+
+    size_t tableOffset = ranges.size();
 
     std::vector<CD3DX12_ROOT_PARAMETER1> rootParameters{tableOffset + directCbvs.size() + directSrvs.size() + directUavs.size() +
                                                         directSamplers.size() +
                                                         (shader->info.globalResources.pushConstants.size > 0u ? 1u : 0u)};
 
-    if (!ranges.empty()) {
-      rootParameters[0].InitAsDescriptorTable(static_cast<UINT>(ranges.size()), ranges.data(), D3D12_SHADER_VISIBILITY_ALL);
+    for (size_t space = 0; space < ranges.size(); ++space) {
+      if (ranges[space].empty()) {
+        DX_ERROR("No resources found in space {} for shader '{}'. This is likely a bug in the shader compiler.", space, shader->info.name);
+        continue;
+      }
+
+      rootParameters[space].InitAsDescriptorTable(static_cast<UINT>(ranges[space].size()), ranges[space].data(),
+                                                  D3D12_SHADER_VISIBILITY_ALL);
     }
 
     for (size_t i = 0; i < directCbvs.size(); ++i) {

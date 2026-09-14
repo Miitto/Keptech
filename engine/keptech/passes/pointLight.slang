@@ -84,10 +84,6 @@ float4 frag(v2f input) : SV_Target {
 
   let normal = normalize(normalSample.xyz * 2.0 - 1.0);
 
-  if (kt::valid(camera.envMapIrradiance)) {
-    irradiance = camera.envMapIrradiance.Sample(kt::samplers::linearClamp, normal).rgb;
-  }
-
   let incident = normalize(toLight);
   let viewDir = normalize(camera.position - world);
   let halfDir = normalize(incident + viewDir);
@@ -98,25 +94,21 @@ float4 frag(v2f input) : SV_Target {
   float3 F0 = float3(0.04);
   F0 = lerp(F0, albedoSample.rgb, metallic);
 
-  float NDF = kt::DistributionGGX(normal, halfDir, roughness);
-  float G = kt::GeometrySmith(normal, viewDir, incident, roughness);
+  float NDF = kt::distributionGGX(normal, halfDir, roughness);
+  float G = kt::geometrySmith(normal, viewDir, incident, roughness);
   float3 F = kt::fresnelSchlickRoughness(max(dot(halfDir, viewDir), 0.0), F0, roughness);
+
+  float3 numerator = NDF * G * F;
+  float denominator = 4.0 * max(dot(normal, viewDir), 0.0) * max(dot(normal, incident), 0.0) + 0.001;
+  float3 specular = numerator / denominator;
 
   float3 kS = F;
   float3 kD = float3(1.0) - kS;
   kD *= 1.0 - metallic;
 
-  float3 numerator = NDF * G * F;
-
-  float denominator = 4.0 * max(dot(normal, viewDir), 0.0) * max(dot(normal, incident), 0.0) + 0.001;
-  float3 specular = numerator / denominator;
-
   float NdotL = clamp(dot(normal, incident), 0.0, 1.0);
 
   float3 lum = (kD * albedoSample.rgb / PI + specular) * radiance * NdotL;
 
-  let diffuse = irradiance * albedoSample.rgb;
-  let ambient = (diffuse * kD) /* * ao */;
-
-  return float4(lum + ambient, 1.0);
+  return float4(lum, 1.0);
 }
