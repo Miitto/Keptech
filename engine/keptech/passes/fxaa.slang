@@ -11,6 +11,22 @@ ConstantBuffer<kt::Camera> camera;
 Texture2D<float4> srcTex;
 Options options;
 
+#if defined(FXAA_QUALITY_LOW)
+#define EXTRA_EDGE_STEPS 3
+#define EDGE_STEP_SIZES 1.5, 2.0, 2.0
+#define LAST_EDGE_STEP_GUESS 8.0
+#elif defined(FXAA_QUALITY_MEDIUM)
+#define EXTRA_EDGE_STEPS 8
+#define EDGE_STEP_SIZES 1.5, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 4.0
+#define LAST_EDGE_STEP_GUESS 8.0
+#else
+#define EXTRA_EDGE_STEPS 10
+#define EDGE_STEP_SIZES 1.0, 1.0, 1.0, 1.0, 1.5, 2.0, 2.0, 2.0, 2.0, 4.0
+#define LAST_EDGE_STEP_GUESS 8.0
+#endif
+
+static const float edgeStepSizes[EXTRA_EDGE_STEPS] = { EDGE_STEP_SIZES };
+
 struct Options {
   float fixedLumaThreshold;
   float relativeLumaThreshold;
@@ -43,6 +59,7 @@ struct LumaNeighborhood {
 struct Edge {
   bool horizontal;
   float pixelStep;
+  float gradient, other;
 
   __init(LumaNeighborhood n, float2 texelSize) {
     float horizontal = 2.0 * abs(n.n + n.s - 2.0 * n.m) + abs(n.ne + n.se - 2.0 * n.e) + abs(n.nw + n.sw - 2.0 * n.w);
@@ -62,8 +79,83 @@ struct Edge {
     float gp = abs(lp - n.m);
     float gn = abs(ln - n.m);
 
-    if (gp > gn) {
+    if (gp < gn) {
       this.pixelStep = -this.pixelStep;
+      this.gradient = gn;
+      this.other = ln;
+    } else {
+      this.gradient = gp;
+      this.other = lp;
+    }
+  }
+
+  float edgeBlendFactor(LumaNeighborhood n, float2 uv, float2 texelSize) {
+    var edgeUv = uv;
+    float2 uvStep = 0.0;
+    if (horizontal) {
+      edgeUv.y += 0.5 * pixelStep;
+      uvStep.x = texelSize.x;
+    } else {
+      edgeUv.x += 0.5 * pixelStep;
+      uvStep.y = texelSize.y;
+    }
+
+    float edgeLuma = 0.5 * (n.m + other);
+    float gradThreshold = 0.25 * gradient;
+
+    let sampler = kt::samplers::linearClamp;
+
+    float2 uvP = edgeUv + uvStep;
+    float deltaP = (options.lumaInAlpha ? srcTex.SampleLevel(sampler, uvP, 0).a : srcTex.SampleLevel(sampler, uvP, 0).g) - edgeLuma;
+    bool atEdgeP = abs(deltaP) >= gradThreshold;
+
+    [[ForceUnroll]]
+    for (int i = 0; i < EXTRA_EDGE_STEPS && !atEdgeP; i++) {
+      uvP += uvStep * edgeStepSizes[i];
+      deltaP = (options.lumaInAlpha ? srcTex.SampleLevel(sampler, uvP, 0).a : srcTex.SampleLevel(sampler, uvP, 0).g) - edgeLuma;
+      atEdgeP = abs(deltaP) >= gradThreshold;
+    }
+    if (!atEdgeP) {
+      uvP += uvStep * LAST_EDGE_STEP_GUESS;
+    }
+
+    float2 uvN = edgeUv - uvStep;
+    float deltaN = (options.lumaInAlpha ? srcTex.SampleLevel(sampler, uvN, 0).a : srcTex.SampleLevel(sampler, uvN, 0).g) - edgeLuma;
+    bool atEdgeN = abs(deltaN) >= gradThreshold;
+
+    [[ForceUnroll]]
+    for (int i = 0; i < EXTRA_EDGE_STEPS && !atEdgeN; i++) {
+      uvN -= uvStep * edgeStepSizes[i];
+      deltaN = (options.lumaInAlpha ? srcTex.SampleLevel(sampler, uvN, 0).a : srcTex.SampleLevel(sampler, uvN, 0).g) - edgeLuma;
+      atEdgeN = abs(deltaN) >= gradThreshold;
+    }
+    if (!atEdgeN) {
+      uvN -= uvStep * LAST_EDGE_STEP_GUESS;
+    }
+
+    float distanceToEndP, distanceToEndN;
+    if (horizontal) {
+      distanceToEndP = uvP.x - uv.x;
+      distanceToEndN = uv.x - uvN.x;
+    } else {
+      distanceToEndP = uvP.y - uv.y;
+      distanceToEndN = uv.y - uvN.y;
+    }
+
+    float distanceToEnd;
+    bool deltaSign;
+    if (distanceToEndP <= distanceToEndN) {
+      distanceToEnd = distanceToEndP;
+      deltaSign = deltaP >= 0.0;
+    } else {
+      distanceToEnd = distanceToEndN;
+      deltaSign = deltaN >= 0.0;
+    }
+
+    if (deltaSign == (n.m - edgeLuma >= 0)) {
+      return 0.0;
+    } else {
+      return 0.5 - distanceToEnd / (distanceToEndP + distanceToEndN);
     }
   }
 };
@@ -91,8 +183,8 @@ float4 frag(kt::PosUv input) : SV_Target {
     return srcTex.SampleLevel(sampler, input.uv, 0);
   }
 
-  let filter = subpixelBlendFactor(lumaNeighborhood);
   let edge = Edge(lumaNeighborhood, texelSize);
+  let filter = max(subpixelBlendFactor(lumaNeighborhood), edge.edgeBlendFactor(lumaNeighborhood, input.uv, texelSize));
 
   var bUv = input.uv;
   bUv += filter * (edge.horizontal ? float2(0.0, edge.pixelStep) : float2(edge.pixelStep, 0.0));
