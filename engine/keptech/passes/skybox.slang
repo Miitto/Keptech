@@ -35,11 +35,8 @@ float4 frag(v2f input) : SV_Target {
   float3 direction = normalize(input.direction);
 
   if (depth < 1.0) {
-    let tonemapped = srcColor.rgb / (srcColor.rgb + 1.0);
-    return linearToSrgb(float4(tonemapped, srcColor.a));
+    return srcColor;
   } else {
-    let envColor = camera.envMap.Sample(sampler, direction).rgb;
-    let tonemapped = envColor / (envColor + 1.0);
-    return linearToSrgb(float4(tonemapped, 1.0));
+    return camera.envMap.Sample(sampler, direction);
   }
 }

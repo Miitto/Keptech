@@ -14,7 +14,9 @@
 #include "keptech/gltf/scene.hpp"
 #include "keptech/graph/builder.hpp"
 #include "keptech/graph/graph.hpp"
+#include "keptech/passes/colorGrade.hpp"
 #include "keptech/passes/debug.hpp"
+#include "keptech/passes/fxaa.hpp"
 #include "keptech/passes/geometry.hpp"
 #include "keptech/passes/lightCombine.hpp"
 #include "keptech/passes/lights.hpp"
@@ -256,6 +258,12 @@ public:
     lightPass.addToGraph(builder);
     lightCombinePass.addToGraph(builder);
     skyboxPass.addToGraph(builder, "kt::lit");
+    colorGradePass.addToGraph(builder, "kt::skybox");
+
+    auto& fxaaOptions = fxaaPass.getOptions();
+    fxaaOptions.lumaInAlpha = true;
+
+    fxaaPass.addToGraph(builder, "kt::colorGraded");
     // Here we set the backbuffer source for the render graph. This determines which render pass output will be used as the final image to
     // present to the screen. The geometry pass outputs to multiple G-buffers, and we can choose which one to use as the final output.
     //
@@ -263,7 +271,7 @@ public:
     // before running this example to see the normal buffer instead.
     const char* backBufferSourceEnv = std::getenv("KT_SURFACE");
 
-    builder.setBackbufferSource(backBufferSourceEnv ? backBufferSourceEnv : "kt::skybox");
+    builder.setBackbufferSource(backBufferSourceEnv ? backBufferSourceEnv : "kt::antialiased");
 
     /// Set the render resolution to the swapchain size. Less efficient but means we can directly copy the backbuffer source to the
     /// swapchain without adding a resize pass. In a more complete example, there would be more than one pass, and the last pass would
@@ -314,6 +322,8 @@ private:
   kt::LightPass lightPass{};
   kt::LightCombinePass lightCombinePass{};
   kt::SkyboxPass skyboxPass{};
+  kt::ColorGradePass colorGradePass{};
+  kt::FxaaPass fxaaPass{};
   kt::DebugPass debugPass{};
   kt::ecs::Entity lightEntity;
 

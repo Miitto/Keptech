@@ -12,6 +12,8 @@ public static const float3 FORWARD = float3(0, 0, 1);
 public float4 srgbToLinear(float4 color) { return float4(pow(color.rgb, float3(SRGB_TO_LINEAR_FACTOR)), color.a); }
 
 public float4 linearToSrgb(float4 color) { return float4(pow(color.rgb, float3(LINEAR_TO_SRGB_FACTOR)), color.a); }
+public float3 srgbToLinear(float3 color) { return pow(color, float3(SRGB_TO_LINEAR_FACTOR)); }
+public float3 linearToSrgb(float3 color) { return pow(color, float3(LINEAR_TO_SRGB_FACTOR)); }
 
 static const float2 INVERSE_ATAN = float2(0.1591, 0.3183);
 
@@ -32,3 +34,5 @@ public float radicalInverseVdC(uint bits) {
 }
 
 public float2 hammersley(uint i, uint N) { return float2(float(i) / float(N), radicalInverseVdC(i)); }
+
+public float luminance(float3 color) { return dot(color, float3(0.299, 0.587, 0.114)); }

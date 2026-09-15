@@ -1,7 +1,9 @@
 target_sources(Keptech
   PRIVATE
+    colorGrade.cpp
     data.cpp
     debug.cpp
+    fxaa.cpp
     geometry.cpp
     lightCombine.cpp
     lights.cpp
@@ -16,6 +18,8 @@ compile_shader(Keptech
     keptech
   LINK PRIVATE
   SOURCES
+    colorGrade
+    fxaa
     geometry
     pointLight
     lightCombine
