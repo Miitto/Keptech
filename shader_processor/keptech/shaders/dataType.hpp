@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <spdlog/fmt/bundled/format.h>
+#include <string_view>
 
 namespace kt::shaders {
   enum class DataType : uint8_t {
@@ -58,5 +59,5 @@ namespace kt::shaders {
 }
 
 template <> struct fmt::formatter<kt::shaders::DataType> : fmt::formatter<std::string_view> {
-  fmt::format_context::iterator format(const kt::shaders::DataType& dt, fmt::format_context& ctx) const;
+  fmt::format_context::iterator format(kt::shaders::DataType dt, fmt::format_context& ctx) const;
 };

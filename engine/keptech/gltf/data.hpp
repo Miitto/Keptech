@@ -24,7 +24,6 @@ namespace kt::rhi {
   class ImageRef;
 }
 namespace kt::gltf {
-  class Scene;
 
   struct Submesh {
     struct BaseInfo {
@@ -114,7 +113,7 @@ namespace kt::gltf {
 
     struct UploadResult {
       Scene scene;
-      uint64_t copyFenceValue;
+      uint64_t copyFenceValue = 0;
     };
 
     std::expected<UploadResult, std::string> upload() const;
@@ -123,7 +122,7 @@ namespace kt::gltf {
 
   private:
     template <typename T> struct PartialUploadResult {
-      uint64_t copyFenceValue;
+      uint64_t copyFenceValue = 0;
       T result;
     };
 

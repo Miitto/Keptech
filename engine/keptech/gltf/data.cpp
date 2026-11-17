@@ -10,7 +10,6 @@
 #include "keptech/rhi/rhi_impl.hpp"
 #include "mesh.hpp"
 #include "scene.hpp"
-#include <__msvc_ostream.hpp>
 #include <algorithm>
 #include <execution>
 #include <fastgltf/core.hpp>
@@ -798,7 +797,7 @@ namespace kt::gltf {
   std::expected<Data::PartialUploadResult<std::vector<rhi::ImageRef>>, std::string> Data::uploadTextureData() const {
     // Alias map to map image indices to which image to load - for example we prefer to load the KTX2 image if it exists rather than the PNG
     // image.
-    std::map<size_t, size_t> imageIndexMap;
+    std::unordered_map<size_t, size_t> imageIndexMap;
     for (auto& material : materials) {
       if (material.pbrData.baseColorTexture.has_value()) {
         auto& tex = textures[material.pbrData.baseColorTexture->textureIndex];

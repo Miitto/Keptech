@@ -1,10 +1,18 @@
-#include "shader.hpp"
+#include "dataType.hpp"
+#include "keptech/shaders/vertex.hpp"
+#include "resources.hpp"
+#include "stages.hpp"
 
 #include <spdlog/fmt/bundled/ranges.h>
 
-using namespace kt::shaders;
+using kt::shaders::CullMode;
+using kt::shaders::DataType;
+using kt::shaders::InputRate;
+using kt::shaders::PrimitiveTopology;
+using kt::shaders::ShaderResourceType;
+using kt::shaders::ShaderStages;
 
-fmt::format_context::iterator fmt::formatter<ShaderStages>::format(const ShaderStages& stage, fmt::format_context& ctx) const {
+fmt::format_context::iterator fmt::formatter<ShaderStages>::format(ShaderStages stage, fmt::format_context& ctx) const {
   std::vector<std::string_view> stages;
 
   if (static_cast<uint8_t>(stage) & static_cast<uint8_t>(ShaderStages::Vertex)) {
@@ -34,7 +42,7 @@ fmt::format_context::iterator fmt::formatter<ShaderStages>::format(const ShaderS
   return fmt::format_to(ctx.out(), "{}", fmt::join(stages, " | "));
 }
 
-fmt::format_context::iterator fmt::formatter<DataType>::format(const DataType& dt, fmt::format_context& ctx) const {
+fmt::format_context::iterator fmt::formatter<DataType>::format(DataType dt, fmt::format_context& ctx) const {
 #define C(x)                                                                                                                               \
   case DataType::x:                                                                                                                        \
     return fmt::format_to(ctx.out(), #x);
@@ -122,7 +130,7 @@ fmt::format_context::iterator fmt::formatter<InputRate>::format(const InputRate&
   }
 }
 
-fmt::format_context::iterator fmt::formatter<ShaderResourceType>::format(const ShaderResourceType& srt, fmt::format_context& ctx) const {
+fmt::format_context::iterator fmt::formatter<ShaderResourceType>::format(ShaderResourceType srt, fmt::format_context& ctx) const {
   switch (srt) {
   case ShaderResourceType::UniformBuffer:
     return fmt::format_to(ctx.out(), "UniformBuffer");

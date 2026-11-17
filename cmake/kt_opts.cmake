@@ -4,6 +4,9 @@ option(KT_PROFILE "Enable profiling with Tracy" OFF)
 option(PIPED_BUILD "Compiler output is piped, disabled colored output" OFF)
 option(KT_USE_SCCACHE "Enable sccache for compilation if available" ON)
 
+set(KIT_LIB_TYPE_OPTIONS "STATIC;SHARED")
+set(KT_LIB_TYPE SHARED CACHE STRING "Set the library type to build (STATIC or SHARED)")
+
 set(LOG_LEVEL_OPTIONS "TRACE;DEBUG;INFO;WARN;ERROR;CRITICAL")
 set(RHI_BACKEND_OPTIONS "Vulkan;DX12")
 
@@ -16,6 +19,7 @@ set(SHADER_DEBUG_LOG_LEVEL DEBUG CACHE STRING "Set the log level for the shader 
 set(SHADER_RELEASE_LOG_LEVEL ERROR CACHE STRING "Set the log level for the shader processor in release mode")
 
 # Properties for options
+set_property(CACHE KT_LIB_TYPE PROPERTY STRINGS ${KIT_LIB_TYPE_OPTIONS})
 set_property(CACHE RHI_BACKEND PROPERTY STRINGS ${RHI_BACKEND_OPTIONS})
 set_property(CACHE RHI_DEBUG_LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
 set_property(CACHE RHI_RELEASE_LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})

@@ -3,7 +3,7 @@ FetchContent_Declare(
   GIT_REPOSITORY
   https://github.com/spnda/fastgltf.git
   GIT_TAG
-  main
+  v0.9.1 # TODO: Investigate getting v1 to work with clang. Linker error for `__extendhfsf2` due to attempting to use native 16 bit floats.
   SYSTEM
 )
 

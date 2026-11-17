@@ -3,9 +3,8 @@
 #include <cstdint>
 #include <spdlog/fmt/bundled/format.h>
 
-
 #ifndef BIT
-#define BIT(x) (1 << (x))
+#define BIT(x) (1u << (x))
 #endif
 
 namespace kt::shaders {
@@ -25,5 +24,5 @@ namespace kt::shaders {
 } // namespace kt::shaders
 
 template <> struct fmt::formatter<kt::shaders::ShaderStages> : fmt::formatter<std::string_view> {
-  fmt::format_context::iterator format(const kt::shaders::ShaderStages& stage, fmt::format_context& ctx) const;
+  fmt::format_context::iterator format(kt::shaders::ShaderStages stage, fmt::format_context& ctx) const;
 };

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15..4.0)
 
 project(Keptech_shader_processor)
 
-add_library(keptech_shaders)
+add_library(keptech_shaders STATIC)
 add_library(keptech::shaders ALIAS keptech_shaders)
 KT_SETUP_TARGET(keptech_shaders)
 
@@ -29,7 +29,7 @@ target_sources(keptech_shaders
 
 project(Keptech_shader_processor)
 
-add_library(keptech_shader_processor)
+add_library(keptech_shader_processor STATIC)
 add_library(keptech::shader_processor ALIAS keptech_shader_processor)
 KT_SETUP_TARGET(keptech_shader_processor)
 

@@ -1,46 +1,47 @@
 {
-  "version": 3,
-  "cmakeMinimumRequired": {
-    "major": 3,
-    "minor": 20,
-    "patch": 0
-  },
-  "configurePresets": [
-    {
-      "name": "clang",
-      "hidden": true,
-      "generator": "Ninja Multi-Config",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "cmake/toolchain/clang.toolchain.cmake",
-        "CLANG_TIDY_CHECKS": "clang-analyzer-*,cppcoreguidelines-*,bugprone-*,-bugprone-easily-swappable-parameters,-cppcoreguidelines-pro-type-union-access,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-bounds-constant-array-index,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-pro-type-reinterpret-cast,-cppcoreguidelines-pro-bounds-array-to-pointer-decay,-cppcoreguidelines-macro-usage,-cppcoreguidelines-pro-type-vararg,-modernize-use-ranges",
-        "KT_BUILD_EXAMPLES": "ON"
-      }
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 20,
+        "patch": 0
     },
-    {
-      "name": "clang-x64",
-      "inherits": "clang",
-      "binaryDir": "${sourceDir}/__output/clang-x64",
-      "cacheVariables": {
-        "CMAKE_SYSTEM_PROCESSOR": "x86_64"
-      }
-    },
-    {
-      "name": "clang-x64-dx12",
-      "inherits": "clang-x64",
-      "binaryDir": "${sourceDir}/__output/clang-x64-dx12",
-      "cacheVariables": {
-        "RHI_BACKEND": "DX12"
-      }
-    }
-  ],
-  "buildPresets": [
-    {
-      "name": "clang-x64",
-      "configurePreset": "clang-x64"
-    },
-    {
-      "name": "clang-x64-dx12",
-      "configurePreset": "clang-x64-dx12"
-    }
-  ]
+    "configurePresets": [
+        {
+            "name": "clang",
+            "hidden": true,
+            "generator": "Ninja Multi-Config",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "cmake/toolchain/clang.toolchain.cmake",
+                "CLANG_TIDY_CHECKS": "clang-analyzer-*,cppcoreguidelines-*,bugprone-*,-bugprone-easily-swappable-parameters,-cppcoreguidelines-pro-type-union-access,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-bounds-constant-array-index,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-pro-type-reinterpret-cast,-cppcoreguidelines-pro-bounds-array-to-pointer-decay,-cppcoreguidelines-macro-usage,-cppcoreguidelines-pro-type-vararg,-modernize-use-ranges,-cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,-modernize-use-nodiscard,-cppcoreguidelines-explicit-constructor,-cppcoreguidelines-macro-usage",
+                "KT_BUILD_EXAMPLES": "ON",
+                "KT_LIB_TYPE": "STATIC"
+            }
+        },
+        {
+            "name": "clang-x64",
+            "inherits": "clang",
+            "binaryDir": "${sourceDir}/__output/clang-x64",
+            "cacheVariables": {
+                "CMAKE_SYSTEM_PROCESSOR": "x86_64"
+            }
+        },
+        {
+            "name": "clang-x64-dx12",
+            "inherits": "clang-x64",
+            "binaryDir": "${sourceDir}/__output/clang-x64-dx12",
+            "cacheVariables": {
+                "RHI_BACKEND": "DX12"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "clang-x64",
+            "configurePreset": "clang-x64"
+        },
+        {
+            "name": "clang-x64-dx12",
+            "configurePreset": "clang-x64-dx12"
+        }
+    ]
 }

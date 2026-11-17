@@ -16,6 +16,7 @@ set(KT_GNU_WARNINGS
   -Wno-old-style-cast
   -Wno-missing-designated-field-initializers
   -Wno-nullability-extension
+  -Wno-overriding-option
 )
 
 set(KT_MSVC_WARNINGS
@@ -63,10 +64,8 @@ function(KT_ENABLE_SCCACHE)
 endfunction()
 
 function(KT_BINARY_TARGET target)
-  if (NOT SDL3_FOUND)
     add_custom_command(TARGET ${target} POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:${target}> $<TARGET_RUNTIME_DLLS:${target}>
       COMMAND_EXPAND_LISTS
     )
-  endif()
 endfunction()

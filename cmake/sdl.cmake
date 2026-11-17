@@ -9,7 +9,7 @@ if (NOT SDL3_FOUND)
     sdl
     GIT_REPOSITORY
     https://github.com/libsdl-org/SDL
-    GIT_TAG release-3.2.28
+    GIT_TAG release-3.4.20
     SYSTEM
     QUIET
   )

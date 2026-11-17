@@ -1,5 +1,3 @@
-find_program(SLANGC_EXECUTABLE NAMES slangc REQUIRED)
-
 set(KT_SHADERS "${KT_SHADER_DIR}/lib/camera.slang" "${KT_SHADER_DIR}/lib/keptech.slang")
 
 set(KT_SHADER_OPT_LEVELS "0" "1" "3")

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <d3d12.h>
 #include <imgui/imgui.h>
 
 struct ImGuiDescriptorHeapAllocator {
@@ -18,8 +19,8 @@ struct ImGuiDescriptorHeapAllocator {
     HeapStartCpu = Heap->GetCPUDescriptorHandleForHeapStart();
     HeapStartGpu = Heap->GetGPUDescriptorHandleForHeapStart();
     HeapHandleIncrement = device->GetDescriptorHandleIncrementSize(HeapType);
-    FreeIndices.reserve((int)desc.NumDescriptors);
-    for (int n = desc.NumDescriptors; n > 0; n--)
+    FreeIndices.reserve(static_cast<int>(desc.NumDescriptors));
+    for (int n = static_cast<int>(desc.NumDescriptors); n > 0; n--)
       FreeIndices.push_back(n - 1);
   }
   void Destroy() {
@@ -30,8 +31,8 @@ struct ImGuiDescriptorHeapAllocator {
     IM_ASSERT(FreeIndices.Size > 0);
     int idx = FreeIndices.back();
     FreeIndices.pop_back();
-    out_cpu_desc_handle->ptr = HeapStartCpu.ptr + (idx * HeapHandleIncrement);
-    out_gpu_desc_handle->ptr = HeapStartGpu.ptr + (idx * HeapHandleIncrement);
+    out_cpu_desc_handle->ptr = HeapStartCpu.ptr + (static_cast<size_t>(idx) * HeapHandleIncrement);
+    out_gpu_desc_handle->ptr = HeapStartGpu.ptr + (static_cast<size_t>(idx) * HeapHandleIncrement);
   }
   void Free(D3D12_CPU_DESCRIPTOR_HANDLE out_cpu_desc_handle, D3D12_GPU_DESCRIPTOR_HANDLE out_gpu_desc_handle) {
     int cpu_idx = (int)((out_cpu_desc_handle.ptr - HeapStartCpu.ptr) / HeapHandleIncrement);

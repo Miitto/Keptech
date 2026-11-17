@@ -117,8 +117,9 @@ void writeResources(std::ofstream& file, const kt::shaders::Resources& resources
 int main(int argc, char** argv) {
   if (argc < 6 || argc > 8) {
     SHDR_ERROR("Usage: shader_embedder <var_name> <namespace> <input_file> <output_header> <output_source> "
-               "[optimization_level (0|1|3)] [debug_info d]");
-    return -1;
+               "[optimization_level (0|1|3)] [debug_info d]\n");
+    spdlog::shutdown();
+    return 1;
   }
 
   const char* name = argv[POS_VAR_NAME];
@@ -131,7 +132,8 @@ int main(int argc, char** argv) {
 
   if (!std::filesystem::exists(inputPath)) {
     SHDR_ERROR("Input file does not exist: {}", inputFile);
-    return -1;
+    spdlog::shutdown();
+    return 2;
   }
 
   kt::shader_processor::init();
@@ -171,49 +173,53 @@ int main(int argc, char** argv) {
   try {
     auto [inputModule, inputDiag] = session.loadModule(name, source);
     if (inputDiag)
-      SHDR_WARN("Input diagnostic: {}", (char*)inputDiag->getBufferPointer());
+      SHDR_WARN("Input diagnostic: {}\n", (char*)inputDiag->getBufferPointer());
     if (!inputModule) {
-      SHDR_ERROR("Failed to load input module.");
-      return -1;
+      SHDR_ERROR("Failed to load input module.\n");
+      spdlog::shutdown();
+      return 3;
     }
   } catch (const std::exception& e) {
-    SHDR_ERROR("Shader load error: {}", e.what());
-    return -1;
+    SHDR_ERROR("Shader load error: {}\n", e.what());
+    spdlog::shutdown();
+    return 4;
   }
 
   auto link = [&]() -> std::expected<Program, int> {
     try {
       auto [program, diag] = session.link();
       if (diag)
-        SHDR_WARN("Link diagnostic: {}", (char*)diag->getBufferPointer());
+        SHDR_WARN("Link diagnostic: {}\n", (char*)diag->getBufferPointer());
       if (!program.valid()) {
-        SHDR_ERROR("Failed to link program.");
-        return std::unexpected(-1);
+        SHDR_ERROR("Failed to link program.\n");
+        return std::unexpected(5);
       }
 
       return program;
     } catch (const std::exception& e) {
-      SHDR_ERROR("Shader link error: {}", e.what());
-      return std::unexpected(-1);
+      SHDR_ERROR("Shader link error: {}\n", e.what());
+      return std::unexpected(6);
     };
   };
 
   auto programRes = link();
   if (!programRes) {
+    spdlog::shutdown();
     return programRes.error();
   }
   auto& program = programRes.value();
 
   auto res = program.toShader(name, inputFile);
   if (!res) {
-    SHDR_ERROR("Failed to convert program to shader: {}", res.error());
-    return -1;
+    SHDR_ERROR("Failed to convert program to shader: {}\n", res.error());
+    spdlog::shutdown();
+    return 7;
   }
 
   auto& [shader, shaderDiag] = res.value();
 
   if (shaderDiag) {
-    SHDR_WARN("Shader diagnostic: {}", (char*)shaderDiag->getBufferPointer());
+    SHDR_WARN("Shader diagnostic: {}\n", (char*)shaderDiag->getBufferPointer());
   }
 
   shader.file = inputFile;

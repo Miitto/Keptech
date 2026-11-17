@@ -25,9 +25,6 @@ fmt::format_context::iterator fmt::formatter<fastgltf::Error>::format(const fast
   case Error::InvalidGltf:
     msg = "The glTF is either missing something or has invalid data.";
     break;
-  case Error::InvalidOrMissingAssetField:
-    msg = "The glTF asset object is missing or invalid.";
-    break;
   case Error::InvalidGLB:
     msg = "The GLB container is invalid.";
     break;
@@ -37,10 +34,6 @@ fmt::format_context::iterator fmt::formatter<fastgltf::Error>::format(const fast
      */
   case Error::MissingField:
     msg = "A field is missieng in the JSON";
-    break;
-  case Error::MissingExternalBuffer:
-    msg = "With Options::LoadExternalBuffers, an external buffer was not "
-          "found.";
     break;
   case Error::UnsupportedVersion:
     msg = "The glTF version is not supported by fastgltf.";

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "keptech/rhi/constants.hpp"
+#include <d3d12.h>
+
 
 namespace kt::rhi {
   constexpr size_t SWAPCHAIN_IMAGE_COUNT = 3;

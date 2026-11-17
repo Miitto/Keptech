@@ -60,5 +60,5 @@ namespace kt::shaders {
 } // namespace kt::shaders
 
 template <> struct fmt::formatter<kt::shaders::ShaderResourceType> : fmt::formatter<std::string_view> {
-  fmt::format_context::iterator format(const kt::shaders::ShaderResourceType& type, fmt::format_context& ctx) const;
+  fmt::format_context::iterator format(kt::shaders::ShaderResourceType type, fmt::format_context& ctx) const;
 };

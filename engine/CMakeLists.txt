@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15..4.0)
 
-add_library(Keptech)
+add_library(Keptech ${KT_LIB_TYPE})
 add_library(keptech::keptech ALIAS Keptech)
 
 KT_SETUP_TARGET(Keptech)

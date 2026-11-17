@@ -1,3 +1,8 @@
+foreach (lang IN ITEMS C CXX)
+  set("CMAKE_${lang}_CLANG_TIDY_save" "${CMAKE_${lang}_CLANG_TIDY}")
+  set("CMAKE_${lang}_CLANG_TIDY" "")
+endforeach ()
+
 include(ktx)
 include(glm)
 include(sdl)
@@ -27,8 +32,8 @@ elseif(RHI_BACKEND STREQUAL "DX12")
   target_compile_definitions(Keptech_Deps INTERFACE KT_DX12=1 KT_RHI_STRING="DX12")
 endif()
 
-add_subdirectory(vendor/imgui imgui)
-add_subdirectory(vendor/stb stb)
+add_subdirectory(vendor/imgui imgui SYSTEM)
+add_subdirectory(vendor/stb stb SYSTEM)
 
 target_link_libraries(Keptech_Deps INTERFACE
   imgui::imgui
@@ -41,3 +46,7 @@ target_link_libraries(Keptech_Deps INTERFACE
   fastgltf::fastgltf
 )
 target_compile_definitions(Keptech_Deps INTERFACE GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE GLM_FORCE_LEFT_HANDED)
+
+foreach (lang IN ITEMS C CXX)
+  set("CMAKE_${lang}_CLANG_TIDY" "${CMAKE_${lang}_CLANG_TIDY_save}")
+endforeach ()
