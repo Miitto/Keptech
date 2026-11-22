@@ -16,10 +16,10 @@ public struct VertexAttribs {
 
 [endType]
 public struct Meshlet {
-  public uint vertexOffset;
   public uint vertexCount;
-  public uint triangleOffset;
+  public uint vertexOffset;
   public uint triangleCount;
+  public uint triangleOffset;
   public Sphere bounds;
 };
 }

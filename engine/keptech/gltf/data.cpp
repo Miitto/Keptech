@@ -2,12 +2,12 @@
 
 #include "keptech/rhi/bufferUsage.hpp"
 #include "keptech/rhi/rhi.hpp"
+#include "keptech/rhi/rhi_impl.hpp"
 
 #include "buffers.hpp"
 #include "keptech/core/kt-logger.hpp"
 #include "keptech/rhi/bufferCreateInfo.hpp"
 #include "keptech/rhi/image.hpp"
-#include "keptech/rhi/rhi_impl.hpp"
 #include "mesh.hpp"
 #include "scene.hpp"
 #include <algorithm>
@@ -128,13 +128,13 @@ namespace kt::gltf {
       }
     }
 
-    struct OptimisedMeshData {
+    struct OptimizedMeshData {
       Vec<Vertex> vertices;
       Vec<uint32_t> indices;
     };
 
-    OptimisedMeshData optimiseMeshData(const Vec<Vertex>& vertices, const Vec<uint32_t>& indices) {
-      OptimisedMeshData result;
+    OptimizedMeshData optimizeMeshData(const Vec<Vertex>& vertices, const Vec<uint32_t>& indices) {
+      OptimizedMeshData result;
 
       Vec<uint32_t> remap(vertices.size());
       size_t uniqueVertexCount =
@@ -180,6 +180,8 @@ namespace kt::gltf {
       result.triangles.resize(last.triangle_offset + last.triangle_count * 3);
       meshlets.resize(meshletCount);
 
+      result.meshlets.reserve(meshletCount);
+
       for (const auto& meshlet : meshlets) {
         meshopt_optimizeMeshlet(&result.vertices[meshlet.vertex_offset], &result.triangles[meshlet.triangle_offset], meshlet.triangle_count,
                                 meshlet.vertex_count);
@@ -188,10 +190,10 @@ namespace kt::gltf {
                                                    meshlet.triangle_count, &vertices[0].position.x, vertices.size(), sizeof(Vertex));
 
         Meshlet m{
-            .vertexOffset = static_cast<uint32_t>(meshlet.vertex_offset),
             .vertexCount = meshlet.vertex_count,
-            .triangleOffset = static_cast<uint32_t>(meshlet.triangle_offset),
+            .vertexOffset = static_cast<uint32_t>(meshlet.vertex_offset),
             .triangleCount = meshlet.triangle_count,
+            .triangleOffset = static_cast<uint32_t>(meshlet.triangle_offset),
             .boundingSphere = {.center = {bounds.center[0], bounds.center[1], bounds.center[2]}, .radius = bounds.radius},
         };
 
@@ -201,13 +203,13 @@ namespace kt::gltf {
       return result;
     }
 
-    struct PrimativeData {
+    struct PrimitiveData {
       Submesh submesh{};
-      OptimisedMeshData mesh{};
+      OptimizedMeshData mesh{};
       MeshletData meshlet{};
     };
 
-    PrimativeData processPrimitive(const fastgltf::Asset& asset, const fastgltf::Primitive& primitive, const MeshData& data) {
+    PrimitiveData processPrimitive(const fastgltf::Asset& asset, const fastgltf::Primitive& primitive, const MeshData& data) {
       Vec<Vertex> vertices;
       Vec<uint32_t> indices;
 
@@ -242,19 +244,19 @@ namespace kt::gltf {
 
       size_t baseColorTexIndex = findBaseColorTexIndex(asset, primitive);
 
-      parseVertices(asset, primitive, indices, vertices, submesh, baseColorTexIndex);
+      parseVertices(asset, primitive, indices, vertices, submesh, static_cast<uint32_t>(baseColorTexIndex));
 
-      auto optimisedData = optimiseMeshData(vertices, indices);
+      auto optimizedData = optimizeMeshData(vertices, indices);
 
-      auto meshletData = generateMeshlets(optimisedData.vertices, optimisedData.indices);
+      auto meshletData = generateMeshlets(optimizedData.vertices, optimizedData.indices);
 
       submesh.meshlet.count = static_cast<uint32_t>(meshletData.meshlets.size());
       submesh.meshlet.vertexCount = static_cast<uint32_t>(meshletData.vertices.size());
       submesh.meshlet.triangleCount = static_cast<uint32_t>(meshletData.triangles.size());
 
-      return PrimativeData{
+      return PrimitiveData{
           .submesh = submesh,
-          .mesh = std::move(optimisedData),
+          .mesh = std::move(optimizedData),
           .meshlet = std::move(meshletData),
       };
     }
@@ -424,7 +426,7 @@ namespace kt::gltf {
     };
   }
 
-  std::expected<Data::PartialUploadResult<Vec<Mesh>>, std::string> Data::uploadMeshData(const Vec<Material>& materials) const {
+  std::expected<Data::PartialUploadResult<Vec<Mesh>>, std::string> Data::uploadMeshData(const Vec<Material>& mats) const {
     auto& bufs = kt::Buffers::get();
     MeshSize totalSize{};
     MeshSize counts{};
@@ -449,13 +451,13 @@ namespace kt::gltf {
       };
     }
 
-    std::optional<rhi::Buffer> oldPosBuf;
-    std::optional<rhi::Buffer> oldVertexAttribsBuf;
-    std::optional<rhi::Buffer> oldIndicesBuf;
-    std::optional<rhi::Buffer> oldSubmeshesBuf;
-    std::optional<rhi::Buffer> oldMeshletsBuf;
-    std::optional<rhi::Buffer> oldMeshletVerticesBuf;
-    std::optional<rhi::Buffer> oldMeshletTrianglesBuf;
+    std::optional<SubdivBuffer<glm::vec3>> oldPosBuf;
+    std::optional<SubdivBuffer<VertexAttribs>> oldVertexAttribsBuf;
+    std::optional<SubdivBuffer<uint32_t>> oldIndicesBuf;
+    std::optional<SubdivBuffer<GpuSubmesh>> oldSubmeshesBuf;
+    std::optional<SubdivBuffer<Meshlet>> oldMeshletsBuf;
+    std::optional<SubdivBuffer<uint32_t>> oldMeshletVerticesBuf;
+    std::optional<SubdivBuffer<uint32_t>> oldMeshletTrianglesBuf;
 
     if (!bufs.positions.hasSpaceFor(counts.positions)) {
       bool valid = bufs.positions->isValid();
@@ -464,7 +466,7 @@ namespace kt::gltf {
         return std::unexpected(fmt::format("Failed to reallocate positions buffer: {}", oldBufRes.error()));
 
       if (valid)
-        oldPosBuf = std::move(oldBufRes.value().getBuffer());
+        oldPosBuf = std::move(oldBufRes.value());
 
       bufs.positions.registerWrites(oldBufRes.value().count());
     }
@@ -475,7 +477,7 @@ namespace kt::gltf {
       if (!oldBufRes)
         return std::unexpected(fmt::format("Failed to reallocate vertex attribs buffer: {}", oldBufRes.error()));
       if (valid)
-        oldVertexAttribsBuf = std::move(oldBufRes.value().getBuffer());
+        oldVertexAttribsBuf = std::move(oldBufRes.value());
       bufs.vertexAttribs.registerWrites(oldBufRes.value().count());
     }
 
@@ -485,7 +487,7 @@ namespace kt::gltf {
       if (!oldBufRes)
         return std::unexpected(fmt::format("Failed to reallocate indices buffer: {}", oldBufRes.error()));
       if (valid)
-        oldIndicesBuf = std::move(oldBufRes.value().getBuffer());
+        oldIndicesBuf = std::move(oldBufRes.value());
       bufs.indices.registerWrites(oldBufRes.value().count());
     }
 
@@ -495,7 +497,7 @@ namespace kt::gltf {
       if (!oldBufRes)
         return std::unexpected(fmt::format("Failed to reallocate submeshes buffer: {}", oldBufRes.error()));
       if (valid)
-        oldSubmeshesBuf = std::move(oldBufRes.value().getBuffer());
+        oldSubmeshesBuf = std::move(oldBufRes.value());
       bufs.submeshes.registerWrites(oldBufRes.value().count());
     }
 
@@ -505,7 +507,7 @@ namespace kt::gltf {
       if (!oldBufRes)
         return std::unexpected(fmt::format("Failed to reallocate meshlets buffer: {}", oldBufRes.error()));
       if (valid)
-        oldMeshletsBuf = std::move(oldBufRes.value().getBuffer());
+        oldMeshletsBuf = std::move(oldBufRes.value());
       bufs.meshlets.registerWrites(oldBufRes.value().count());
     }
 
@@ -515,7 +517,7 @@ namespace kt::gltf {
       if (!oldBufRes)
         return std::unexpected(fmt::format("Failed to reallocate meshlet vertices buffer: {}", oldBufRes.error()));
       if (valid)
-        oldMeshletVerticesBuf = std::move(oldBufRes.value().getBuffer());
+        oldMeshletVerticesBuf = std::move(oldBufRes.value());
       bufs.meshletVertices.registerWrites(oldBufRes.value().count());
     }
 
@@ -525,7 +527,7 @@ namespace kt::gltf {
       if (!oldBufRes)
         return std::unexpected(fmt::format("Failed to reallocate meshlet triangles buffer: {}", oldBufRes.error()));
       if (valid)
-        oldMeshletTrianglesBuf = std::move(oldBufRes.value().getBuffer());
+        oldMeshletTrianglesBuf = std::move(oldBufRes.value());
       bufs.meshletTriangles.registerWrites(oldBufRes.value().count());
     }
 
@@ -576,20 +578,19 @@ namespace kt::gltf {
 
       Vec<GpuSubmesh> submeshes(mesh.submeshes.size());
       std::ranges::transform(mesh.submeshes, submeshes.begin(), [&](const Submesh& submesh) {
-        GpuSubmesh gpuSubmesh{};
-        gpuSubmesh.vertexOffset = submesh.vertex.offset;
-        gpuSubmesh.vertexCount = submesh.vertex.count;
-        gpuSubmesh.indexOffset = submesh.index.offset;
-        gpuSubmesh.indexCount = submesh.index.count;
-        gpuSubmesh.meshletOffset = submesh.meshlet.offset;
-        gpuSubmesh.meshletCount = submesh.meshlet.count;
-        gpuSubmesh.meshletVertexOffset = submesh.meshlet.vertexOffset;
-        gpuSubmesh.meshletVertexCount = submesh.meshlet.vertexCount;
-        gpuSubmesh.meshletTriangleOffset = submesh.meshlet.triangleOffset;
-        gpuSubmesh.meshletTriangleCount = submesh.meshlet.triangleCount;
-        gpuSubmesh.materialIndex = submesh.materialIndex;
-        gpuSubmesh.boundingSphere = submesh.boundingSphere;
-        gpuSubmesh.materialIndex = submesh.materialIndex == ~0u ? ~0u : materials[submesh.materialIndex].id;
+        GpuSubmesh gpuSubmesh{
+            .indexCount = submesh.index.count,
+            .indexOffset = submesh.index.offset,
+            .vertexCount = submesh.vertex.count,
+            .vertexOffset = static_cast<int32_t>(submesh.vertex.offset),
+            .meshletCount = submesh.meshlet.count,
+            .meshletOffset = submesh.meshlet.offset,
+            .meshletVertexCount = submesh.meshlet.vertexCount,
+            .meshletVertexOffset = submesh.meshlet.vertexOffset,
+            .meshletTriangleCount = submesh.meshlet.triangleCount,
+            .meshletTriangleOffset = submesh.meshlet.triangleOffset,
+            .boundingSphere = submesh.boundingSphere,
+        };
         return gpuSubmesh;
       });
       std::copy(submeshes.begin(), submeshes.end(), submeshesPtr);
@@ -607,7 +608,7 @@ namespace kt::gltf {
             .meshletVertexOffset = static_cast<uint32_t>(in.meshlet.vertexOffset + bufs.meshletVertices.count()),
             .meshletTriangleOffset = static_cast<uint32_t>(in.meshlet.triangleOffset + bufs.meshletTriangles.count()),
             .vertexCount = in.vertex.count,
-            .material = in.materialIndex == ~0u ? Material{} : materials[in.materialIndex],
+            .material = in.materialIndex == ~0u ? Material{} : mats[in.materialIndex],
             .boundingSphere = in.boundingSphere,
             .id = meshId++,
         };
@@ -646,33 +647,33 @@ namespace kt::gltf {
       Vec<rhi::Buffer> buffersToDrop;
       buffersToDrop.emplace_back(std::move(staging));
 
-      if (oldPosBuf.has_value()) {
-        cmd.copyBufferRegion(bufs.positions, *oldPosBuf, 0, 0, oldPosBuf->size());
-        buffersToDrop.emplace_back(std::move(*oldPosBuf));
+      if (oldPosBuf.has_value() && oldPosBuf->count() > 0) {
+        cmd.copyBufferRegion(bufs.positions, *oldPosBuf, 0, 0, oldPosBuf->occupied());
+        buffersToDrop.emplace_back(std::move(oldPosBuf->getBuffer()));
       }
-      if (oldVertexAttribsBuf.has_value()) {
-        cmd.copyBufferRegion(bufs.vertexAttribs, *oldVertexAttribsBuf, 0, 0, oldVertexAttribsBuf->size());
-        buffersToDrop.emplace_back(std::move(*oldVertexAttribsBuf));
+      if (oldVertexAttribsBuf.has_value() && oldVertexAttribsBuf->count() > 0) {
+        cmd.copyBufferRegion(bufs.vertexAttribs, *oldVertexAttribsBuf, 0, 0, oldVertexAttribsBuf->occupied());
+        buffersToDrop.emplace_back(std::move(oldVertexAttribsBuf->getBuffer()));
       }
-      if (oldIndicesBuf.has_value()) {
-        cmd.copyBufferRegion(bufs.indices, *oldIndicesBuf, 0, 0, oldIndicesBuf->size());
-        buffersToDrop.emplace_back(std::move(*oldIndicesBuf));
+      if (oldIndicesBuf.has_value() && oldIndicesBuf->count() > 0) {
+        cmd.copyBufferRegion(bufs.indices, *oldIndicesBuf, 0, 0, oldIndicesBuf->occupied());
+        buffersToDrop.emplace_back(std::move(oldIndicesBuf->getBuffer()));
       }
-      if (oldSubmeshesBuf.has_value()) {
-        cmd.copyBufferRegion(bufs.submeshes, *oldSubmeshesBuf, 0, 0, oldSubmeshesBuf->size());
-        buffersToDrop.emplace_back(std::move(*oldSubmeshesBuf));
+      if (oldSubmeshesBuf.has_value() && oldSubmeshesBuf->count() > 0) {
+        cmd.copyBufferRegion(bufs.submeshes, *oldSubmeshesBuf, 0, 0, oldSubmeshesBuf->occupied());
+        buffersToDrop.emplace_back(std::move(oldSubmeshesBuf->getBuffer()));
       }
-      if (oldMeshletsBuf.has_value()) {
-        cmd.copyBufferRegion(bufs.meshlets, *oldMeshletsBuf, 0, 0, oldMeshletsBuf->size());
-        buffersToDrop.emplace_back(std::move(*oldMeshletsBuf));
+      if (oldMeshletsBuf.has_value() && oldMeshletsBuf->count() > 0) {
+        cmd.copyBufferRegion(bufs.meshlets, *oldMeshletsBuf, 0, 0, oldMeshletsBuf->occupied());
+        buffersToDrop.emplace_back(std::move(oldMeshletsBuf->getBuffer()));
       }
-      if (oldMeshletVerticesBuf.has_value()) {
-        cmd.copyBufferRegion(bufs.meshletVertices, *oldMeshletVerticesBuf, 0, 0, oldMeshletVerticesBuf->size());
-        buffersToDrop.emplace_back(std::move(*oldMeshletVerticesBuf));
+      if (oldMeshletVerticesBuf.has_value() && oldMeshletVerticesBuf->count() > 0) {
+        cmd.copyBufferRegion(bufs.meshletVertices, *oldMeshletVerticesBuf, 0, 0, oldMeshletVerticesBuf->occupied());
+        buffersToDrop.emplace_back(std::move(oldMeshletVerticesBuf->getBuffer()));
       }
-      if (oldMeshletTrianglesBuf.has_value()) {
-        cmd.copyBufferRegion(bufs.meshletTriangles, *oldMeshletTrianglesBuf, 0, 0, oldMeshletTrianglesBuf->size());
-        buffersToDrop.emplace_back(std::move(*oldMeshletTrianglesBuf));
+      if (oldMeshletTrianglesBuf.has_value() && oldMeshletTrianglesBuf->count() > 0) {
+        cmd.copyBufferRegion(bufs.meshletTriangles, *oldMeshletTrianglesBuf, 0, 0, oldMeshletTrianglesBuf->occupied());
+        buffersToDrop.emplace_back(std::move(oldMeshletTrianglesBuf->getBuffer()));
       }
 
       return buffersToDrop;
@@ -686,7 +687,8 @@ namespace kt::gltf {
     };
   }
 
-  std::expected<Data::PartialUploadResult<Vec<Material>>, std::string> Data::uploadMaterialData(const Vec<rhi::ImageRef>& textures) const {
+  std::expected<Data::PartialUploadResult<Vec<Material>>, std::string>
+  Data::uploadMaterialData(const Vec<rhi::ImageRef>& uploadTextures) const {
     auto& bufs = kt::Buffers::get();
     size_t totalSize = sizeof(GpuMaterial) * materials.size();
 
@@ -720,20 +722,20 @@ namespace kt::gltf {
       if (!texInfo.has_value()) {
         return {};
       }
-      return textures[this->textures[texInfo->textureIndex].imageIndex.value()];
+      return uploadTextures[this->textures[texInfo->textureIndex].imageIndex.value()];
     };
 
     auto getNormalImage = [&](const std::optional<fastgltf::NormalTextureInfo>& texInfo) -> rhi::ImageRef {
       if (!texInfo.has_value()) {
         return {};
       }
-      return textures[this->textures[texInfo->textureIndex].imageIndex.value()];
+      return uploadTextures[this->textures[texInfo->textureIndex].imageIndex.value()];
     };
     auto getOcclusionImage = [&](const std::optional<fastgltf::OcclusionTextureInfo>& texInfo) -> rhi::ImageRef {
       if (!texInfo.has_value()) {
         return {};
       }
-      return textures[this->textures[texInfo->textureIndex].imageIndex.value()];
+      return uploadTextures[this->textures[texInfo->textureIndex].imageIndex.value()];
     };
 
     GpuMaterial* materialsPtr = staging.mapping<GpuMaterial>(0);

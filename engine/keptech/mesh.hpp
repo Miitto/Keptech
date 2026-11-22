@@ -28,10 +28,10 @@ namespace kt {
   };
 
   struct Meshlet {
-    uint32_t vertexOffset;
     uint32_t vertexCount;
-    uint32_t triangleOffset;
+    uint32_t vertexOffset;
     uint32_t triangleCount;
+    uint32_t triangleOffset;
     kt::maths::Sphere boundingSphere;
   };
 
@@ -78,17 +78,19 @@ namespace kt {
   struct GpuSubmesh {
     uint32_t indexCount;
     uint32_t indexOffset;
-    int32_t vertexOffset;
-    uint32_t meshletOffset;
-    uint32_t meshletCount;
-    uint32_t meshletVertexOffset;
-    uint32_t meshletTriangleOffset;
 
     uint32_t vertexCount;
-    uint32_t meshletVertexCount;
-    uint32_t meshletTriangleCount;
+    int32_t vertexOffset;
 
-    uint32_t materialIndex = ~0u;
+    uint32_t meshletCount;
+    uint32_t meshletOffset;
+
+    uint32_t meshletVertexCount;
+    uint32_t meshletVertexOffset;
+
+    uint32_t meshletTriangleCount;
+    uint32_t meshletTriangleOffset;
+
     kt::maths::Sphere boundingSphere;
   };
 } // namespace kt
