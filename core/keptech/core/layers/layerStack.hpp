@@ -2,13 +2,14 @@
 
 #include "keptech/core/base.hpp"
 #include "keptech/core/layers/layer.hpp"
+#include "keptech/std/vec.hpp"
 #include <memory>
-#include <vector>
+
 
 namespace kt {
   class LayerStack {
     using LayerPtr = std::unique_ptr<Layer>;
-    using Vec = std::vector<LayerPtr>;
+    using Vec = kt::Vec<LayerPtr>;
     using Iter = Vec::iterator;
 
   public:

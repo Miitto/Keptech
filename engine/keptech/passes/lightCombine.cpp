@@ -25,7 +25,9 @@ namespace kt {
     lightTexIndex = graph.getImageIndex("kt::lit");
 
     kt::rhi::PipelineBuilder pipelineBuilder{};
-    pipelineBuilder.setShader(::shaders::kt::lightCombine).addColorAttachment(kt::rhi::ImageFormat::R11G11B10_FLOAT);
+    pipelineBuilder.setShader(::shaders::kt::lightCombine)
+        .addColorAttachment(kt::rhi::ImageFormat::R11G11B10_FLOAT)
+        .setName("Light Combine");
 
     auto pipeline_res = pipelineBuilder.build();
     if (!pipeline_res.has_value()) {

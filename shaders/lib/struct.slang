@@ -1,5 +1,6 @@
 implementing keptech;
 
+[endType]
 public struct IndirectDrawCommand {
   public uint vertexCount;
   public uint instanceCount;
@@ -7,6 +8,7 @@ public struct IndirectDrawCommand {
   public uint firstInstance;
 }
 
+[endType]
 public struct IndirectDrawIndexedCommand {
   public uint indexCount;
   public uint instanceCount;

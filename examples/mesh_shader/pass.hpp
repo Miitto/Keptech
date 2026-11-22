@@ -1,127 +1,104 @@
 #pragma once
 
 #include "keptech/graph/builder.hpp"
-#include "keptech/rhi/helpers/pipeline.hpp"
+#include "keptech/graph/pass.hpp"
+#include "keptech/passes/data.hpp"
 #include "keptech/rhi/rhi.hpp"
-#include "shaders/examples/monkey/mesh.h"
-#include <keptech/components.hpp>
+#include "shaders/examples/mesh/mesh.h"
+#include <keptech/buffers.hpp>
 #include <keptech/core/kt-logger.hpp>
+#include <keptech/graph/graph.hpp>
 #include <keptech/graph/passInterface.hpp>
+#include <keptech/rhi/pipeline.hpp>
+#include <keptech/rhi/pipelineBuilder.hpp>
 
-class TrianglePass : public kt::rhi::RenderPassInterface {
+class MeshPass : public kt::RenderPassInterface {
 public:
-  TrianglePass() = default;
+  MeshPass() = default;
 
-  void setupDependencies(kt::rhi::RenderPassBuilder& self, kt::rhi::RenderGraphBuilder& graph, const kt::rhi::Renderer& renderer) override {
-    auto& formats = renderer.getFormats();
-    self.addColorOutput("kt::albedo", {.format = formats.render.albedo});
-    self.setDepthStencilOutput("kt::depth", {.format = formats.render.depth});
+  void setupDependencies(kt::RenderPassBuilder& self, kt::RenderGraphBuilder& graph) override {
+    self.addColorOutput("color", {
+                                     .sizeType = kt::AttachmentSize::SwapchainRelative,
+                                     .format = kt::rhi::ImageFormat::R8G8B8A8_UNORM,
+                                 });
+    self.setDepthStencilOutput("depth", {
+                                            .sizeType = kt::AttachmentSize::SwapchainRelative,
+                                            .format = kt::rhi::ImageFormat::D32_FLOAT,
+                                        });
+
+    self.addUniformInput("kt::camera");
+    self.addStorageReadOnlyInput("kt::objects", sizeof(kt::Object));
   }
 
-  void setup(kt::rhi::RenderGraph&, kt::rhi::Renderer& renderer, VkDescriptorSetLayout descriptorSetLayout) override {
-    auto& device = renderer.getMembers().vkcore.device;
-    auto shaderRes = renderer.createShader(::shaders::mesh);
-    if (!shaderRes.isOk()) {
-      KT_ABORT("Failed to create mesh shader: {}", shaderRes.error());
+  void setup(kt::RenderGraph& g, const kt::rhi::DescriptorLayout& layout) override {
+    kt::rhi::PipelineBuilder pipelineBuilder{};
+    pipelineBuilder.setShader(::shaders::mesh)
+        .addColorAttachment(kt::rhi::ImageFormat::R8G8B8A8_UNORM)
+        .setDepthAttachment(kt::rhi::ImageFormat::D32_FLOAT)
+        .setName("Mesh");
+
+    auto pipeline_res = pipelineBuilder.build();
+    if (!pipeline_res.has_value()) {
+      KT_ABORT("Failed to create graphics pipeline: {}", pipeline_res.error());
     }
-    kt::rhi::PipelineLayoutBuilder layoutBuilder{};
-    layoutBuilder.addDescriptorSetLayout(renderer.getGlobalDescriptorSetLayout())
-        .addDescriptorSetLayout(descriptorSetLayout)
-        .addPushConstantRange<glm::mat4, uint32_t>(
-            VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT, 0);
+    pipeline = pipeline_res.value();
 
-    auto layoutRes = renderer.createPipelineLayout(layoutBuilder);
-    if (!layoutRes.isOk()) {
-      shaderRes.value().destroy();
-      KT_ABORT("Failed to create pipeline layout: {}", layoutRes.error());
-    }
+    colorImageIndex = g.getImageIndex("color");
+    depthImageIndex = g.getImageIndex("depth");
+    cameraIndex = g.getBufferIndex("kt::camera");
 
-    auto& formats = renderer.getFormats();
-
-    kt::rhi::GraphicsPipelineBuilder pipelineBuilder{};
-    pipelineBuilder.layout(layoutRes.value())
-        .addShaderStages(shaderRes.value().stages)
-        .addColorAttachment(formats.render.albedo)
-        .depthAttachment(formats.render.depth)
-        .cullMode(kt::rhi::CullMode::Back)
-        .depthWrite()
-        .depthTest(kt::rhi::DepthCompareOp::LessOrEqual);
-    auto pipelineRes = renderer.createPipeline(pipelineBuilder);
-    if (!pipelineRes.isOk()) {
-      shaderRes.value().destroy();
-      vkDestroyPipelineLayout(device, layoutRes.value(), nullptr);
-      KT_ABORT("Failed to create graphics pipeline: {}", pipelineRes.error());
-    }
-
-    pipeline = pipelineRes.value();
-
-    shaderRes.value().destroy();
+    writtenObjects = g.getUserData<kt::Vec<kt::Object>>("kt::data::writtenObjects");
   }
 
-  void prepare(kt::rhi::RenderGraph& graph, kt::rhi::Renderer& renderer) override { KT_TRACE("Preparing geometry pass"); }
+  void execute(kt::RenderGraph& g, kt::rhi::CommandBuffer& cmd, const kt::rhi::DescriptorSet& set, glm::uvec2 framebufferSize) override {
+    auto& color = g.getImage(colorImageIndex);
+    auto& depth = g.getImage(depthImageIndex);
+    auto& camera = g.getBuffer(cameraIndex);
 
-  void execute(kt::rhi::RenderGraph&, const kt::rhi::CommandBuffer& cmd, VkDescriptorSet descriptorSet,
-               glm::uvec2 framebufferSize) override {
-    KT_TRACE("Executing geometry pass");
-    auto& r = kt::rhi::RHI::get();
+    auto& buffers = kt::Buffers::get();
 
-    std::array<VkDescriptorSet, 2> descriptorSets = {r.getGlobalDescriptorSet(), descriptorSet};
-    constexpr std::array<VkDeviceSize, 2> vertexOffsets = {0, 0};
+    cmd.bindGraphicsPipeline(pipeline);
+    cmd.bindGraphicsDescriptorSet(set, 1);
+    cmd.bindGraphicsDescriptorSet(buffers.descriptor, 2);
+    cmd.setViewport({static_cast<float>(framebufferSize.x), static_cast<float>(framebufferSize.y)});
+    cmd.setScissor({framebufferSize.x, framebufferSize.y});
 
-    cmd.bindPipeline(pipeline)
-        .setViewportScissor(framebufferSize)
-        .bindDescriptorSets(pipeline, VK_PIPELINE_BIND_POINT_GRAPHICS, 0, descriptorSets);
+    kt::rhi::CommandBuffer::ColorAttachmentDesc colorAttachmentDesc{
+        .imageRef = color,
+        .loadOp = kt::rhi::LoadOp::Clear,
+        .clearColor = {0.05f, 0.05f, 0.05f, 1.0f},
+    };
 
-    auto meshView = kt::Scene::active().view<kt::components::Mesh, kt::components::Transform>();
+    cmd.beginRendering({&colorAttachmentDesc, 1}, kt::rhi::CommandBuffer::DepthStencilAttachmentDesc{
+                                                      .imageRef = depth,
+                                                      .loadOp = kt::rhi::LoadOp::Clear,
+                                                      .clearDepth = 1.0f,
+                                                      .clearStencil = 0,
+                                                  });
 
-    for (const auto& [entity, mesh, transform] : meshView.each()) {
-      const glm::mat4 modelMatrix = transform.getGlobal();
-      vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                         0, sizeof(glm::mat4), &modelMatrix);
+    uint32_t index = 0;
+    for (auto& object : *writtenObjects) {
+      cmd.writeGraphicsPushConstants(index++);
 
-      for (const auto& submesh : mesh.getSubmeshes()) {
-        if (submesh.meshletCount == 0) {
-          continue;
-        }
-
-        vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                           sizeof(glm::mat4), sizeof(uint32_t), &submesh.id);
-
-        uint32_t taskShaderDispatches = (submesh.meshletCount + 63) / 64;
-        vkCmdDrawMeshTasksEXT(cmd, taskShaderDispatches, 1, 1);
-
-        r.registerMeshletDrawCall(submesh.meshletCount, submesh.meshletTriangleCount,
-                                  static_cast<size_t>(submesh.meshletTriangleCount) * 3);
-      }
+      uint32_t taskShaderDispatches = (object.submesh.meshletCount + 63) / 64;
+      cmd.drawMeshTasks(taskShaderDispatches, 1, 1);
     }
+
+    cmd.endRendering();
   }
 
-  bool getClearColor(size_t attachmentIndex, VkClearColorValue* value) const override {
-    if (value) {
-      *value = {
-          .float32 = {0.0f, 0.0f, 0.0f, 1.0f},
-      };
-    }
-    return true;
-  }
+  bool getClearColor(size_t attachmentIndex, kt::rhi::ColorClearValue* value) const override { return true; }
 
-  bool getClearDepthStencil(VkClearDepthStencilValue* value) const override {
-    if (value) {
-      *value = {
-          .depth = 1.0f,
-          .stencil = 0,
-      };
-    }
-    return true;
-  }
+  bool getClearDepthStencil(kt::rhi::DepthClearValue* value) const override { return true; }
 
-  void shutdown(kt::rhi::RenderGraph&, kt::rhi::Renderer& renderer) override {
-    KT_TRACE("Shutting down geometry pass");
-    auto device = renderer.getMembers().vkcore.device;
-    vkDestroyPipeline(device, pipeline.pipeline, nullptr);
-    vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
-  }
+  void shutdown(kt::RenderGraph&) override {}
 
 private:
   kt::rhi::Pipeline pipeline{};
+  size_t colorImageIndex = 0;
+  size_t depthImageIndex = 0;
+  size_t objectsIndex = 0;
+  size_t cameraIndex = 0;
+
+  const kt::Vec<kt::Object>* writtenObjects = nullptr;
 };

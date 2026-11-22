@@ -91,10 +91,10 @@ namespace kt::rhi {
                "Failed to create image resource");
 
 #ifndef NDEBUG
-    std::string debugName = {info.getName()};
+    std::string debugName = fmt::format("Image {}", info.getName());
     std::wstring wDebugName(debugName.begin(), debugName.end());
     allocation->SetName(wDebugName.c_str());
-    allocation->GetResource()->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<uint32_t>(debugName.length()), debugName.c_str());
+    allocation->GetResource()->SetName(wDebugName.c_str());
 #endif
 
     Image i(info.getName(), info.getImageDim(), info.getFormat(), info.getExtent(), info.getUsage(), info.getMipLevels(),

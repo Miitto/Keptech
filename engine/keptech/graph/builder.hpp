@@ -2,11 +2,10 @@
 
 #include "keptech/graph/pass.hpp"
 #include "keptech/graph/renderResources.hpp"
-#include "keptech/rhi/descriptorPool.hpp"
+#include "keptech/std/vec.hpp"
 #include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_uint2.hpp>
 #include <memory>
-#include <vector>
 
 namespace kt {
   namespace rhi {
@@ -76,14 +75,14 @@ namespace kt {
     glm::uvec2 swapchainSize{0, 0};
     rhi::ImageFormat swapchainFormat = rhi::ImageFormat::Undefined;
 
-    std::vector<std::unique_ptr<RenderPassBuilder>> passes;
-    std::vector<std::unique_ptr<RenderResource>> resources;
+    Vec<std::unique_ptr<RenderPassBuilder>> passes;
+    Vec<std::unique_ptr<RenderResource>> resources;
     std::unordered_map<std::string, PassId> passNameToId;
     std::unordered_map<std::string, ResourceId> resourceNameToId;
 
     std::string backbufferSource = "";
 
-    std::vector<PassId> passStack;
+    Vec<PassId> passStack;
 
     struct Requirement {
       PhysResourceId resourceId;
@@ -105,22 +104,22 @@ namespace kt {
 
     struct Requirements {
       /// Barriers for resources we read from
-      std::vector<Requirement> invalidate;
+      Vec<Requirement> invalidate;
       /// Barriers for resources we write to
-      std::vector<Requirement> flush;
+      Vec<Requirement> flush;
     };
 
     /// Defines the format and access stages/mask a render pass needs to access a resource with.
-    std::vector<Requirements> passRequirements;
+    Vec<Requirements> passRequirements;
 
-    std::vector<PrePostBarriers> passBarriers;
+    Vec<PrePostBarriers> passBarriers;
 
-    std::vector<std::unordered_set<PassId>> passDependencies;
+    Vec<std::unordered_set<PassId>> passDependencies;
 
-    std::vector<ResourceInfo> physicalResourceInfos;
-    std::vector<bool> physicalImageHasHistory;
+    Vec<ResourceInfo> physicalResourceInfos;
+    Vec<bool> physicalImageHasHistory;
 
-    std::vector<ImageTransition> finalLayouts;
+    Vec<ImageTransition> finalLayouts;
 
     /// Validate the registered passes. Aborts if any pass has invalid inputs or outputs.
     void validatePasses() const;
@@ -133,11 +132,11 @@ namespace kt {
     [[nodiscard]] bool dependsOnPass(PassId dst, PassId src) const;
 
     /// Deduplicate passOrder. The order of the passes is preserved.
-    void filterPasses(std::vector<PassId>& passOrder);
+    void filterPasses(Vec<PassId>& passOrder);
     /// Reorder the passes in `passOrder` based on their dependencies.
     /// After this function completes, the passes in `passOrder` can be run in the order they appear in the vector without violating any
     /// dependencies.
-    void reorderPasses(std::vector<PassId>& passOrder);
+    void reorderPasses(Vec<PassId>& passOrder);
 
     /// Create the actual resources described by the render graph.
     void buildPhysicalResources();
@@ -153,9 +152,9 @@ namespace kt {
 
     Resources buildResources();
 
-    std::vector<Descriptors> buildDescriptors(rhi::RHI& rhi, Resources& resources);
+    Vec<Descriptors> buildDescriptors(rhi::RHI& rhi, Resources& resources);
 
-    std::vector<RenderPass> bakePasses(const Resources& resources);
+    Vec<RenderPass> bakePasses(const Resources& resources);
 
     ResourceInfo getResourceInfo(RenderTextureResource& resource) const;
 

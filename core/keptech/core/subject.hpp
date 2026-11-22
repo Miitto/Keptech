@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/std/vec.hpp"
 #include <functional>
 
 namespace kt {
@@ -18,6 +19,6 @@ namespace kt {
     }
 
   private:
-    std::vector<Fn> observers;
+    Vec<Fn> observers;
   };
 } // namespace kt

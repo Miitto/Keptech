@@ -77,7 +77,8 @@ namespace kt {
     kt::rhi::PipelineBuilder pipelineBuilder{};
     pipelineBuilder.setShader(::shaders::kt::pointLight)
         .addColorAttachment(kt::rhi::ImageFormat::R11G11B10_FLOAT)
-        .setDepthCompareOp(rhi::DepthCompareOp::Greater);
+        .setDepthCompareOp(rhi::DepthCompareOp::Greater)
+        .setName("Point Lights");
 
     auto pipeline_res = pipelineBuilder.build();
     if (!pipeline_res.has_value()) {
@@ -98,7 +99,7 @@ namespace kt {
   void LightPass::prepare(RenderGraph& graph) {
     auto frustum = *cameraFrustum;
 
-    std::vector<GpuPointLight> lights;
+    Vec<GpuPointLight> lights;
 
     auto view = Scene::active().view<components::PointLight, components::Transform>();
 

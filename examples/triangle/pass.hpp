@@ -23,7 +23,7 @@ public:
 
   void setup(kt::RenderGraph& g, const kt::rhi::DescriptorLayout& layout) override {
     kt::rhi::PipelineBuilder pipelineBuilder{};
-    pipelineBuilder.setShader(::shaders::triangle).addColorAttachment(kt::rhi::ImageFormat::R8G8B8A8_UNORM);
+    pipelineBuilder.setShader(::shaders::triangle).addColorAttachment(kt::rhi::ImageFormat::R8G8B8A8_UNORM).setName("Triangle");
 
     auto pipeline_res = pipelineBuilder.build();
     if (!pipeline_res.has_value()) {

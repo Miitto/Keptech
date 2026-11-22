@@ -3,6 +3,7 @@
 #include "keptech/graph/passInterface.hpp"
 #include "keptech/maths/frustum.hpp"
 #include "keptech/mesh.hpp"
+#include "keptech/std/vec.hpp"
 
 namespace kt {
   struct GpuObject {
@@ -12,7 +13,7 @@ namespace kt {
   };
 
   struct Object {
-    glm::mat4 modelMatrix;
+    glm::mat4 modelMatrix{};
     Submesh submesh;
   };
 
@@ -35,7 +36,7 @@ namespace kt {
   private:
     size_t camIndex = 0;
     size_t objectsIndex = 0;
-    std::vector<Object> objects{};
+    Vec<Object> objects{};
     maths::Frustum cameraFrustum{};
     uint32_t envMapIndex = ~0u;
     uint32_t envMapIrrIndex = ~0u;

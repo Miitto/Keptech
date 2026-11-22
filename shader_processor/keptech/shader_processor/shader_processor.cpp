@@ -375,22 +375,12 @@ namespace kt::shader_processor {
 
     auto printResources = [&](const shaders::Resources& resources, size_t indent) {
       auto indentStr = std::string(indent, ' ');
+      if (resources.pushConstants.size > 0) {
+        SHDR_INFO("{}Push Constants: {}B", indentStr, resources.pushConstants.size);
+      }
       for (size_t space = 0; space < resources.sets.size(); ++space) {
         auto& resourceSet = resources.sets[space];
         SHDR_INFO("{}Space {}: {} resources", indentStr, space, resourceSet.resources.size());
-        for (const auto& resource : resourceSet.resources) {
-          // SHDR_INFO("{}  Binding {}: {} {} (count: {}, push: {}, size/stride: {})", indentStr, resource.binding, resource.type,
-          // resource.name, resource.count, resource.isPush, resource.bufferInfo.sizeOrStride);
-          for (const auto& [fieldName, offset] : resource.bufferInfo.fieldOffsets) {
-            // SHDR_INFO("{}    Field {}: offset {}, size {}, stride {}", indentStr, fieldName, offset.offset, offset.size, offset.stride);
-          }
-        }
-      }
-      if (resources.pushConstants.size > 0) {
-        // SHDR_INFO("{}Push Constants: {} bytes, space {}", indentStr, resources.pushConstants.size, resources.pushConstants.space);
-        for (const auto& [fieldName, offset] : resources.pushConstants.fieldOffsets) {
-          // SHDR_INFO("{}  Field {}: offset {}, size {}, stride {}", indentStr, fieldName, offset.offset, offset.size, offset.stride);
-        }
       }
     };
 
@@ -434,7 +424,7 @@ namespace kt::shader_processor {
     SHDR_INFO("  Entry Points:");
     for (size_t i = 0; i < shader.info.entryPointResources.size(); ++i) {
       auto& resources = shader.info.entryPointResources[i];
-      // SHDR_INFO("    {}) {} \"{}\":", i, shader.stages[i].stage, shader.stages[i].name);
+      SHDR_INFO("    {} \"{}\":", shader.stages[i].stage, shader.stages[i].name);
       printResources(shader.info.entryPointResources[i], 6);
 
       auto stage = shader.stages[i].stage;
@@ -445,9 +435,6 @@ namespace kt::shader_processor {
       case shaders::ShaderStages::Mesh:
       case shaders::ShaderStages::Task: {
         if (resources.pushConstants.size > 0 || !resources.sets.empty()) {
-          // SHDR_ERROR("Shader \"{}\" has a {} entry point (\"{}\") with entry point resources. Per-entry resources are not supported for "
-          //  "multi-stage programs (vertex/fragment/geometry/mesh/task).",
-          //  name, stage, shader.stages[i].name);
           return std::unexpected<std::string>(
               "Per-entry resources are not supported for multi-stage programs (vertex/fragment/geometry/mesh/task).");
         }

@@ -24,9 +24,9 @@
         },
         {
             "type": "lldb",
-            "name": "Launch Monkey (VS Debug, Clang x64, Windows)",
+            "name": "Launch Mesh Shader DX12 (VS Debug, Clang x64, Windows)",
             "request": "launch",
-            "program": "${workspaceFolder}/__output/clang-x64/examples/monkey/Debug/monkey.exe",
+            "program": "${workspaceFolder}/__output/clang-x64-dx12/examples/mesh_shader/Debug/mesh_shader_example.exe",
             "cwd": "${workspaceFolder}"
         },
         {

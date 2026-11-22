@@ -8,7 +8,7 @@ target_sources(Keptech_Core
     core/layers/layerStack.cpp
     maths/maths.cpp
     maths/transform.cpp
-    core/events/events.cpp
+    core/events/event.cpp
     core/fastgltf_formatting.cpp
     core/gui.cpp
     core/imgui.cpp

@@ -54,3 +54,6 @@ struct vertexBufferAttribute {
 
 [__AttributeUsage(_AttributeTargets.Var)]
 struct pushAttribute {};
+
+[__AttributeUsage(_AttributeTargets.Struct)]
+struct endTypeAttribute {};

@@ -11,6 +11,7 @@ include(spdlog)
 include(mesh_optimizer)
 include(fastgltf)
 include(entt)
+include(jolt)
 
 add_library(Keptech_Deps INTERFACE)
 add_library(keptech::deps ALIAS Keptech_Deps)
@@ -44,6 +45,7 @@ target_link_libraries(Keptech_Deps INTERFACE
   kt::ktx
   meshoptimizer
   fastgltf::fastgltf
+  kt::jolt
 )
 target_compile_definitions(Keptech_Deps INTERFACE GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE GLM_FORCE_LEFT_HANDED)
 

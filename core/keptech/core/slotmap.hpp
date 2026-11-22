@@ -1,19 +1,18 @@
 #pragma once
 
-#include <atomic>
+#include "keptech/std/vec.hpp"
 #include <cstddef>
 #include <functional>
 #include <optional>
-#include <stdexcept>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
 namespace kt {
   template <typename T> class SlotMap;
 
   class SlotMapHandle {
   public:
+    friend struct std::hash<SlotMapHandle>;
     template <typename T> friend class SlotMap;
     SlotMapHandle() = default;
 
@@ -28,6 +27,13 @@ namespace kt {
 
     size_t value = ~0u;
   };
+} // namespace kt
+
+template <> struct std::hash<kt::SlotMapHandle> {
+  size_t operator()(const kt::SlotMapHandle& handle) const noexcept { return std::hash<size_t>{}(handle.value); }
+};
+
+namespace kt {
 
   template <typename T> class SlotMap {
   public:
@@ -173,8 +179,8 @@ namespace kt {
 
     /// @brief Returns a vector of all valid handles in the SlotMap.
     /// @return A vector of all valid handles.
-    [[nodiscard]] std::vector<SlotMapHandle> handles() const {
-      std::vector<SlotMapHandle> handles;
+    [[nodiscard]] Vec<SlotMapHandle> handles() const {
+      Vec<SlotMapHandle> handles;
       handles.reserve(indexMap.size());
       for (const auto& [handle, index] : indexMap) {
         handles.push_back(handle);
@@ -184,8 +190,8 @@ namespace kt {
 
     /// @brief Returns a vector of all valid values in the SlotMap.
     /// @return A vector of all valid values.
-    std::vector<T*> values() {
-      std::vector<T*> vals;
+    Vec<T*> values() {
+      Vec<T*> vals;
       for (auto& opt : data) {
         if (opt.has_value()) {
           vals.push_back(&opt.value());
@@ -194,7 +200,7 @@ namespace kt {
       return vals;
     }
 
-    std::vector<std::optional<T>>& rawData() { return data; }
+    Vec<std::optional<T>>& rawData() { return data; }
 
     [[nodiscard]] size_t size() const { return indexMap.size(); }
 
@@ -212,7 +218,7 @@ namespace kt {
   private:
     size_t nextFree = 0;
     Handle nextHandle = 0;
-    std::vector<std::optional<T>> data;
+    Vec<std::optional<T>> data;
     std::unordered_map<Handle, size_t> indexMap;
   };
 } // namespace kt

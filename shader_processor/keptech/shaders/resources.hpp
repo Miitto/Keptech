@@ -22,40 +22,40 @@ namespace kt::shaders {
 
   struct FieldInfo {
     /// Offset of the field within the buffer or push constant block.
-    size_t offset;
+    size_t offset = 0;
     /// Size of the field in bytes.
-    size_t size;
+    size_t size = 0;
     /// Stride of the fields elements in bytes, if the field is an array.
-    size_t stride;
+    size_t stride = 0;
   };
 
   struct BufferInfo {
-    size_t sizeOrStride;
-    std::unordered_map<std::string, FieldInfo> fieldOffsets;
+    size_t sizeOrStride = 0;
+    std::unordered_map<std::string, FieldInfo> fieldOffsets{};
   };
 
   struct ResourceBinding {
-    std::string name;
-    ShaderResourceType type;
-    uint32_t binding;
-    uint32_t count;
+    std::string name{};
+    ShaderResourceType type{};
+    uint32_t binding = ~0u;
+    uint32_t count = 0;
     bool isPush = false;
-    BufferInfo bufferInfo;
+    BufferInfo bufferInfo{};
   };
 
   struct ResourceSet {
-    std::vector<ResourceBinding> resources;
+    std::vector<ResourceBinding> resources{};
   };
 
   struct PushConstantInfo {
     size_t size = 0;
     size_t space = 0;
-    std::unordered_map<std::string, FieldInfo> fieldOffsets;
+    std::unordered_map<std::string, FieldInfo> fieldOffsets{};
   };
 
   struct Resources {
-    std::vector<ResourceSet> sets;
-    PushConstantInfo pushConstants;
+    std::vector<ResourceSet> sets{};
+    PushConstantInfo pushConstants{};
   };
 } // namespace kt::shaders
 

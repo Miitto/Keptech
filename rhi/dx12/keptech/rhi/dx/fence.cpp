@@ -54,6 +54,8 @@ namespace kt::rhi {
     wait(fenceValue);
   }
   Microsoft::WRL::ComPtr<ID3D12Fence>& Fence::operator*() { return m_fence; }
+  Microsoft::WRL::ComPtr<ID3D12Fence>& Fence::operator->() { return m_fence; }
+
   [[nodiscard]] HANDLE Fence::getEvent() const { return event; }
 
   Fence::Fence(Fence&& o) noexcept : m_fence(std::move(o.m_fence)), m_fenceValue(o.m_fenceValue), event(o.event) { o.event = nullptr; }

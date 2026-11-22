@@ -126,7 +126,7 @@ public:
           cmd.copyBufferToImage(stagingBuffer, envMapEqImage, width, height, i, 0, i * layerSize);
         }
 
-        std::vector<kt::rhi::Buffer> buffers;
+        kt::Vec<kt::rhi::Buffer> buffers;
         buffers.push_back(std::move(stagingBuffer));
         return buffers;
       });

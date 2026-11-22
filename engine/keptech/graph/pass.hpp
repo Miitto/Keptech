@@ -1,8 +1,10 @@
 #pragma once
 
+#include "keptech/std/vec.hpp"
 #include "renderResources.hpp"
 #include <functional>
 #include <glm/ext/vector_uint2.hpp>
+
 
 #ifdef KT_VULKAN
 #include <volk.h>
@@ -124,19 +126,19 @@ namespace kt {
 
     bool getClearDepthStencil(rhi::DepthClearValue* value = nullptr) const;
 
-    [[nodiscard]] const std::vector<RenderTextureResource*>& getColorOutputs() const;
-    [[nodiscard]] const std::vector<RenderTextureResource*>& getColorInputs() const;
-    [[nodiscard]] const std::vector<RenderTextureResource*>& getHistoryInputs() const;
-    [[nodiscard]] const std::vector<RenderTextureResource*>& getStorageImageOutputs() const;
-    [[nodiscard]] const std::vector<RenderTextureResource*>& getStorageImageInputs() const;
-    [[nodiscard]] const std::vector<RenderBufferResource*>& getStorageOutputs() const;
-    [[nodiscard]] const std::vector<RenderBufferResource*>& getStorageInputs() const;
-    [[nodiscard]] const std::vector<RenderBufferResource*>& getTransferOutputs() const;
-    [[nodiscard]] const std::vector<RenderBufferResource*>& getMappedBuffers() const;
+    [[nodiscard]] const Vec<RenderTextureResource*>& getColorOutputs() const;
+    [[nodiscard]] const Vec<RenderTextureResource*>& getColorInputs() const;
+    [[nodiscard]] const Vec<RenderTextureResource*>& getHistoryInputs() const;
+    [[nodiscard]] const Vec<RenderTextureResource*>& getStorageImageOutputs() const;
+    [[nodiscard]] const Vec<RenderTextureResource*>& getStorageImageInputs() const;
+    [[nodiscard]] const Vec<RenderBufferResource*>& getStorageOutputs() const;
+    [[nodiscard]] const Vec<RenderBufferResource*>& getStorageInputs() const;
+    [[nodiscard]] const Vec<RenderBufferResource*>& getTransferOutputs() const;
+    [[nodiscard]] const Vec<RenderBufferResource*>& getMappedBuffers() const;
     [[nodiscard]] RenderTextureResource* getDepthStencilInput() const;
     [[nodiscard]] RenderTextureResource* getDepthStencilOutput() const;
-    [[nodiscard]] const std::vector<AccessedTextureResource>& getGenericTextureInputs() const;
-    [[nodiscard]] const std::vector<AccessedBufferResource>& getGenericBufferInputs() const;
+    [[nodiscard]] const Vec<AccessedTextureResource>& getGenericTextureInputs() const;
+    [[nodiscard]] const Vec<AccessedBufferResource>& getGenericBufferInputs() const;
     const std::unordered_set<PassId>& getProxyPasses() const;
 
     bool getAutoBeingRendering() const;
@@ -160,19 +162,19 @@ namespace kt {
     std::function<bool(rhi::DepthClearValue*)> getClearDepthStencilCb = nullptr;
     std::function<bool(unsigned, rhi::ColorClearValue*)> getClearColorCb = nullptr;
 
-    std::vector<RenderTextureResource*> colorOutputs;
-    std::vector<RenderTextureResource*> resolveOutputs;
-    std::vector<RenderTextureResource*> colorInputs;
-    std::vector<RenderTextureResource*> historyInputs;
-    std::vector<RenderTextureResource*> attachmentInputs;
-    std::vector<RenderTextureResource*> storageImageOutputs;
-    std::vector<RenderTextureResource*> storageImageInputs;
-    std::vector<RenderBufferResource*> storageOutputs;
-    std::vector<RenderBufferResource*> storageInputs;
-    std::vector<RenderBufferResource*> transferOutputs;
-    std::vector<RenderBufferResource*> mappedBuffers;
-    std::vector<AccessedTextureResource> genericTexutre;
-    std::vector<AccessedBufferResource> genericBuffers;
+    Vec<RenderTextureResource*> colorOutputs;
+    Vec<RenderTextureResource*> resolveOutputs;
+    Vec<RenderTextureResource*> colorInputs;
+    Vec<RenderTextureResource*> historyInputs;
+    Vec<RenderTextureResource*> attachmentInputs;
+    Vec<RenderTextureResource*> storageImageOutputs;
+    Vec<RenderTextureResource*> storageImageInputs;
+    Vec<RenderBufferResource*> storageOutputs;
+    Vec<RenderBufferResource*> storageInputs;
+    Vec<RenderBufferResource*> transferOutputs;
+    Vec<RenderBufferResource*> mappedBuffers;
+    Vec<AccessedTextureResource> genericTexutre;
+    Vec<AccessedBufferResource> genericBuffers;
     RenderTextureResource* depthStencilInput = nullptr;
     RenderTextureResource* depthStencilOutput = nullptr;
     std::unordered_set<PassId> proxyPasses;

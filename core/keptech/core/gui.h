@@ -2,11 +2,11 @@
 
 #include "imgui_internal.h"
 #include "keptech/core/compiler.hpp"
+#include "keptech/std/vec.hpp"
 #include <cstdint>
 #include <imgui/imgui.h>
 #include <keptech/core/moveGuard.hpp>
 #include <type_traits>
-#include <vector>
 
 namespace kt::gui {
   class GuiCore;
@@ -182,7 +182,7 @@ namespace kt::gui {
     void static processInputPassthrough();
 
   private:
-    static std::vector<const char*> framesToVoid;
+    static Vec<const char*> framesToVoid;
     bool open;
   };
 

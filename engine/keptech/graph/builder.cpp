@@ -10,7 +10,9 @@
 #include "keptech/rhi/descriptorInfo.hpp"
 #include "keptech/rhi/descriptorSet.hpp"
 #include "keptech/rhi/descriptorTypes.hpp"
+#ifdef KT_VULKAN
 #include "keptech/rhi/helpers/formatting.hpp"
+#endif
 #include "keptech/rhi/imageCreateInfo.hpp"
 #include "keptech/rhi/imageRef.hpp"
 #include "keptech/rhi/rhi.hpp"
@@ -60,6 +62,8 @@ namespace kt {
       KT_REQUIRE(pass->validate(), "Pass '{}' failed validation. Check that all required resources are present.", pass->getName());
     }
 
+    KT_REQUIRE(!backbufferSource.empty(), "Backbuffer source must be set before baking the render graph.");
+
     validatePasses();
 
     auto it = resourceNameToId.find(backbufferSource);
@@ -75,7 +79,7 @@ namespace kt {
 
     passStack.append_range(backbuffer.getWritePasses());
 
-    auto tmp = passStack;
+    auto tmp = passStack.clone();
     for (auto& pushed : tmp) {
       auto& pass = *passes[pushed];
       traverseDependencies(pass, 0);
@@ -94,9 +98,9 @@ namespace kt {
 
   namespace {
 
-    std::vector<PassGroup> buildPassGroups(const std::vector<RenderPass>& passes) {
+    Vec<PassGroup> buildPassGroups(const Vec<RenderPass>& passes) {
       QueueType queue = getRawQueue(passes.front().getQueue());
-      std::vector<PassGroup> passGroups;
+      Vec<PassGroup> passGroups;
       PassGroup currentGroup{.queue = queue};
       for (const auto& pass : passes) {
         // If we changed queue, or pass in a different queue depends on a resource from this pass, or we depend on a resource from a pass in
@@ -137,8 +141,8 @@ namespace kt {
     auto cmds = rhi.allocateGraphicsCommandBuffers(1);
     auto& cmd = cmds.front();
 
-    std::vector<rhi::CommandBuffer::ImageLayoutTransition> its;
-    std::vector<rhi::ImageLayout> imageFinalLayouts;
+    Vec<rhi::CommandBuffer::ImageLayoutTransition> its;
+    Vec<rhi::ImageLayout> imageFinalLayouts;
     imageFinalLayouts.reserve(finalLayouts.size());
     for (auto& transition : finalLayouts) {
       transition.resourceId = builtResources.nameToImage[physicalResourceInfos[transition.resourceId].name];
@@ -171,9 +175,9 @@ namespace kt {
     return res;
   }
 
-  std::vector<Descriptors> RenderGraphBuilder::buildDescriptors(rhi::RHI& rhi, Resources& builtResources) {
+  Vec<Descriptors> RenderGraphBuilder::buildDescriptors(rhi::RHI& rhi, Resources& builtResources) {
 
-    std::vector<Descriptors> passDescriptors;
+    Vec<Descriptors> passDescriptors;
     passDescriptors.reserve(passStack.size());
 
     builtResources.imageUsedInPass.resize(builtResources.images.size());
@@ -188,10 +192,10 @@ namespace kt {
         PhysResourceId bufferId;
       };
 
-      std::vector<rhi::DescriptorInfo> infos;
-      std::vector<rhi::DescriptorWriteInfo> writes;
-      std::vector<PerFrameWrite> perFrameWrites;
-      std::vector<PerFrameWrite> historyImageWrites;
+      Vec<rhi::DescriptorInfo> infos;
+      Vec<rhi::DescriptorWriteInfo> writes;
+      Vec<PerFrameWrite> perFrameWrites;
+      Vec<PerFrameWrite> historyImageWrites;
 
       size_t imgMaxCount = pass->getGenericTextureInputs().size() + pass->getStorageImageOutputs().size();
       size_t bufMaxCount = (pass->getGenericBufferInputs().size() + pass->getStorageOutputs().size()) *
@@ -409,7 +413,7 @@ namespace kt {
     VERBOSE("  Requirements:");
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       const auto& pass = *passes[passId];
-      const auto& reqs = passRequirements[idx];
+      const auto& reqs = passRequirements[static_cast<size_t>(idx)];
 
       VERBOSE("    {}: {} ({})", idx, pass.getName(), *passId);
       VERBOSE("      Read Requirements: {}", reqs.invalidate.size());
@@ -438,7 +442,7 @@ namespace kt {
 
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       const auto& pass = *passes[passId];
-      const auto& barriers = passBarriers[idx];
+      const auto& barriers = passBarriers[static_cast<size_t>(idx)];
 
       VERBOSE("    {}: {} ({})", idx, pass.getName(), *passId);
       VERBOSE("      Pre-pass Image Barriers: {}", barriers.pre.image.size());
@@ -680,7 +684,7 @@ namespace kt {
     }
   }
 
-  void RenderGraphBuilder::filterPasses(std::vector<PassId>& passOrder) {
+  void RenderGraphBuilder::filterPasses(Vec<PassId>& passOrder) {
     std::unordered_set<PassId> seen;
 
     auto [first, last] = std::ranges::remove_if(passOrder, [&](PassId id) {
@@ -693,18 +697,18 @@ namespace kt {
     passOrder.erase(first, last);
   }
 
-  void RenderGraphBuilder::reorderPasses(std::vector<PassId>& passOrder) {
+  void RenderGraphBuilder::reorderPasses(Vec<PassId>& passOrder) {
     if (passOrder.size() <= 2)
       return;
 
-    std::vector<PassId> unscheduled;
+    Vec<PassId> unscheduled;
     unscheduled.reserve(passOrder.size());
     std::swap(passOrder, unscheduled);
 
     const auto& schedule = [&](size_t i) {
       passOrder.push_back(unscheduled[i]);
-      std::move(unscheduled.begin() + static_cast<std::vector<PassId>::iterator::difference_type>(i) + 1, unscheduled.end(),
-                unscheduled.begin() + static_cast<std::vector<PassId>::iterator::difference_type>(i));
+      std::move(unscheduled.begin() + static_cast<Vec<PassId>::iterator::difference_type>(i) + 1, unscheduled.end(),
+                unscheduled.begin() + static_cast<Vec<PassId>::iterator::difference_type>(i));
       unscheduled.pop_back();
     };
 
@@ -1040,7 +1044,7 @@ namespace kt {
     passRequirements.clear();
     passRequirements.reserve(passStack.size());
 
-    const auto getAccess = [&](std::vector<Requirement>& req, PhysResourceId id, bool history) -> Requirement& {
+    const auto getAccess = [&](Vec<Requirement>& req, PhysResourceId id, bool history) -> Requirement& {
       auto it = std::ranges::find_if(req, [&](const Requirement& b) { return b.resourceId == id && history == b.history; });
       if (it != req.end())
         return *it;
@@ -1380,12 +1384,11 @@ namespace kt {
     passBarriers.clear();
     passBarriers.reserve(passStack.size());
 
-    std::vector<ResInfo> resInfos;
+    Vec<ResInfo> resInfos;
     resInfos.resize(physicalResourceInfos.size());
 
     // Find the last layout/access/stage for each resource.
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
-      auto& pass = *passes[passId];
       auto& reqs = passRequirements[static_cast<size_t>(idx)];
 
       for (auto& req : reqs.invalidate) {
@@ -1423,9 +1426,9 @@ namespace kt {
     backbufferResInfo.layout = optimalBlitSrc;
 
     for (const auto& [idx, resInfo] : resInfos | std::views::enumerate) {
-      auto& res = physicalResourceInfos[idx];
+      auto& res = physicalResourceInfos[static_cast<size_t>(idx)];
       if (res.isLayoutSensitive()) {
-        finalLayouts.push_back({.resourceId = idx, .newLayout = resInfo.layout});
+        finalLayouts.push_back({.resourceId = static_cast<size_t>(idx), .newLayout = resInfo.layout});
       }
     }
 
@@ -1529,13 +1532,13 @@ namespace kt {
     auto& rhi = rhi::RHI::get();
     auto cmd = rhi.allocateGraphicsCommandBuffers(1)[0];
 
-    std::vector<Buffer> buffers;
-    std::vector<Image> images;
+    Vec<Buffer> buffers;
+    Vec<Image> images;
     std::unordered_map<std::string, size_t> nameToBuffer;
     std::unordered_map<std::string, size_t> nameToImage;
-    std::vector<RelativeImage> swapchainRelativeImages;
-    std::vector<RelativeImage> resolutionRelativeImages;
-    std::vector<bool> imageHistory;
+    Vec<RelativeImage> swapchainRelativeImages;
+    Vec<RelativeImage> resolutionRelativeImages;
+    Vec<bool> imageHistory;
     for (const auto& [idx, res] : physicalResourceInfos | std::views::enumerate) {
       if (res.isBufferLike()) {
         auto result = Buffer::create({res.bufferInfo.size, res.bufferInfo.usage, res.bufferInfo.type, res.name.c_str()});
@@ -1550,7 +1553,7 @@ namespace kt {
         KT_REQUIRE(result.isOk(), "Failed to create image for resource '{}': {}", res.name, result.error());
         auto& img = result.value();
         images.push_back(std::move(img));
-        if (physicalImageHasHistory[idx]) {
+        if (physicalImageHasHistory[static_cast<size_t>(idx)]) {
           imageHistory.push_back(true);
 
           if (res.imageUsage.has(rhi::ImageUsage::RenderTarget)) {
@@ -1596,8 +1599,8 @@ namespace kt {
     };
   }
 
-  std::vector<RenderPass> RenderGraphBuilder::bakePasses(const Resources& createdResources) {
-    std::vector<RenderPass> bakedPasses;
+  Vec<RenderPass> RenderGraphBuilder::bakePasses(const Resources& createdResources) {
+    Vec<RenderPass> bakedPasses;
     bakedPasses.reserve(passStack.size());
     for (const auto& [idx, passId] : passStack | std::views::enumerate) {
       auto& pass = *passes[passId];
@@ -1628,7 +1631,7 @@ namespace kt {
         return PhysResourceId{createdResources.nameToImage.at(physicalResourceInfos[id].name)};
       };
 
-      std::vector<RenderAttachment> colorAttachments;
+      Vec<RenderAttachment> colorAttachments;
       colorAttachments.reserve(pass.getColorOutputs().size());
       for (uint32_t i = 0; i < pass.getColorOutputs().size(); ++i) {
         auto* output = pass.getColorOutputs()[i];

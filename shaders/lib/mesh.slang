@@ -1,6 +1,7 @@
 implementing keptech;
 
 public namespace kt {
+[endType]
 public struct Mesh {
   public uint32_t indexOffset;
   public uint32_t indexCount;

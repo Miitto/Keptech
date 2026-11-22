@@ -3,6 +3,7 @@
 #include "keptech/graph/passInterface.hpp"
 #include "keptech/passes/data.hpp"
 #include "keptech/rhi/pipeline.hpp"
+#include "keptech/std/vec.hpp"
 
 namespace kt {
   class GeometryPass : public RenderPassInterface {
@@ -29,7 +30,7 @@ namespace kt {
     size_t objectsIndex = 0;
     size_t cameraIndex = 0;
 
-    const std::vector<Object>* writtenObjects = nullptr;
+    const Vec<Object>* writtenObjects = nullptr;
     const maths::Frustum* cameraFrustum = nullptr;
     uint32_t drawCommandCount = 0;
 

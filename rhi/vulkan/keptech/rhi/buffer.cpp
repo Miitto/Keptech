@@ -94,7 +94,7 @@ namespace kt::rhi {
     bool deviceLocal = (props & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0;
     bool mapped = aInfo.pMappedData != nullptr;
 
-    std::vector<std::string> flags;
+    Vec<std::string> flags;
     if (isHostVisible)
       flags.emplace_back("Host Visible");
     if (deviceLocal)

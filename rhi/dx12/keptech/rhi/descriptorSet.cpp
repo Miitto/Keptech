@@ -1,5 +1,6 @@
 #include "descriptorSet.hpp"
 #include "descriptorLayout.hpp"
+#include "dx/dx-logger.hpp"
 #include "rhi.hpp"
 
 namespace kt::rhi {
@@ -7,6 +8,12 @@ namespace kt::rhi {
                             BufferRef buffer, size_t offset, size_t r, size_t stride) {
     const auto& ranges = layout.dxGetRanges();
     auto device = RHI::get().dxGetDevice();
+
+#ifndef NDEBUG
+    if (ranges.size() == 0) {
+      DX_WARN("Descriptor layout used for write has no ranges.");
+    }
+#endif
 
     uint32_t descriptorIndex = 0;
     for (const auto& range : ranges) {

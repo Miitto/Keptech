@@ -1,7 +1,6 @@
 #include "keptech/core/gui.h"
-
 namespace kt::gui {
-  std::vector<const char*> Frame::framesToVoid{};
+  Vec<const char*> Frame::framesToVoid{};
 
   namespace {
     // https://github.com/ocornut/imgui/issues/8360
@@ -37,8 +36,7 @@ namespace kt::gui {
     bool MakeWindowVoidInputPassthroughTestKeyboard(ImGuiWindow* window) {
       ImGuiContext& g = *GImGui;
 
-      if (g.NavWindow == nullptr ||
-          g.NavWindow->RootWindow != window->RootWindow)
+      if (g.NavWindow == nullptr || g.NavWindow->RootWindow != window->RootWindow)
         return false;
 
       // If any item is active in the window (e.g. an InputText, or a Button) we

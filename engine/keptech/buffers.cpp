@@ -22,6 +22,7 @@ namespace kt {
     void ensureDescriptor(rhi::DescriptorSet& set) {
       Buffers::ensureDescriptorLayout();
       if (!set) {
+        KT_DEBUG("Allocating descriptor set for engine buffers");
         auto& rhi = rhi::RHI::get();
         set = rhi.allocateDescriptorSet(Buffers::getLayout());
       }
@@ -36,14 +37,17 @@ namespace kt {
       if (!result) {
         return result.error();
       }
+      KT_ASSERT(buffer->isValid(), "Buffer {} is invalid after reallocation", name);
       ensureDescriptor(set);
-      set.write(Buffers::getLayout(), binding, 0, rhi::DescriptorWriteBufferType::Storage, buffer, 0, newSize * sizeof(T), sizeof(T));
+      auto& layout = Buffers::getLayout();
+      set.write(layout, binding, 0, rhi::DescriptorWriteBufferType::Storage, buffer, 0, newSize * sizeof(T), sizeof(T));
       return result;
     }
   } // namespace
 
   void Buffers::ensureDescriptorLayout() {
     if (!layout) {
+      KT_DEBUG("Creating descriptor layout for engine buffers");
       auto& rhi = rhi::RHI::get();
       std::array<kt::rhi::DescriptorInfo, 8> descriptorInfos = {{
           {rhi::DescriptorType::StorageBuffer, 0, 1},
@@ -59,35 +63,58 @@ namespace kt {
     }
   }
 
+  void Buffers::init() {
+    ensureDescriptorLayout();
+    auto& rhi = rhi::RHI::get();
+    descriptor = rhi.allocateDescriptorSet(layout);
+
+    reallocatePositions(1000);
+    reallocateVertexAttribs(1000);
+    reallocateIndices(1000);
+    reallocateMeshlets(1000);
+    reallocateMeshletVertices(1000);
+    reallocateMeshletTriangles(1000);
+    reallocateSubmeshes(1000);
+    reallocateMaterials(100);
+  }
+
   R<glm::vec3> Buffers::reallocatePositions(size_t newSize) {
+    KT_TRACE("Reallocating positions buffer to {} elements", newSize);
     return reallocAndWriteDescriptor(positions, newSize, descriptor, 0, "KT Vertex Positions");
   }
 
   R<VertexAttribs> Buffers::reallocateVertexAttribs(size_t newSize) {
+    KT_TRACE("Reallocating vertex attribs buffer to {} elements", newSize);
     return reallocAndWriteDescriptor(vertexAttribs, newSize, descriptor, 1, "KT Vertex Attributes");
   }
 
   R<uint32_t> Buffers::reallocateIndices(size_t newSize) {
+    KT_TRACE("Reallocating indices buffer to {} elements", newSize);
     return reallocAndWriteDescriptor(indices, newSize, descriptor, 2, "KT Indices");
   }
 
   R<Meshlet> Buffers::reallocateMeshlets(size_t newSize) {
+    KT_TRACE("Reallocating meshlets buffer to {} elements", newSize);
     return reallocAndWriteDescriptor(meshlets, newSize, descriptor, 3, "KT Meshlets");
   }
 
   R<uint32_t> Buffers::reallocateMeshletVertices(size_t newSize) {
+    KT_TRACE("Reallocating meshlet vertices buffer to {} elements", newSize);
     return reallocAndWriteDescriptor(meshletVertices, newSize, descriptor, 4, "KT Meshlet Vertices");
   }
 
   R<uint32_t> Buffers::reallocateMeshletTriangles(size_t newSize) {
+    KT_TRACE("Reallocating meshlet triangles buffer to {} elements", newSize);
     return reallocAndWriteDescriptor(meshletTriangles, newSize, descriptor, 5, "KT Meshlet Triangles");
   }
 
   R<GpuSubmesh> Buffers::reallocateSubmeshes(size_t newSize) {
+    KT_TRACE("Reallocating submeshes buffer to {} elements", newSize);
     return reallocAndWriteDescriptor(submeshes, newSize, descriptor, 6, "KT Submeshes");
   }
 
   R<GpuMaterial> Buffers::reallocateMaterials(size_t newSize) {
+    KT_TRACE("Reallocating materials buffer to {} elements", newSize);
     return reallocAndWriteDescriptor(materials, newSize, descriptor, 7, "KT Materials");
   }
 

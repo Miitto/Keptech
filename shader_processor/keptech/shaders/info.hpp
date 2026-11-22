@@ -12,11 +12,11 @@ namespace kt::shaders {
   };
 
   struct ShaderInfo {
-    const char* name;
-    Vertex vertex;
-    Fragment fragment;
-    uint32_t bindlessIndex;
-    Resources globalResources;
-    std::vector<Resources> entryPointResources;
+    const char* name = nullptr;
+    Vertex vertex{};
+    Fragment fragment{};
+    uint32_t bindlessIndex = ~0u;
+    Resources globalResources{};
+    std::vector<Resources> entryPointResources{};
   };
 } // namespace kt::shaders

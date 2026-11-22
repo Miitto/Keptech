@@ -10,4 +10,5 @@ target_sources(Keptech_RHI
     imageUsage.cpp
     imgui.cpp
     pipelineBuilder.cpp
+    interface/rhi_base.cpp
 )

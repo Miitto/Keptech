@@ -5,17 +5,14 @@
 #include <wrl.h>
 
 #include "d3dx12.h"
-#include "dx/dx-logger.hpp"
 #include "helpers/imGuiDescriptorAlloc.hpp"
-#include "keptech/core/result.hpp"
 #include "keptech/rhi/cmdBuf.hpp"
-#include "keptech/rhi/descriptorPool.hpp"
 #include "keptech/rhi/dx/constants.hpp"
 #include "keptech/rhi/dx/fence.hpp"
 #include "keptech/rhi/imageFormat.hpp"
+#include "keptech/rhi/interface/rhi_base.hpp"
 #include "keptech/rhi/pipeline.hpp"
-#include "keptech/rhi/rendererCreateInfo.hpp"
-#include "keptech/rhi/result.hpp"
+#include "keptech/std/vec.hpp"
 #include <D3D12MemAlloc.h>
 #include <array>
 #include <expected>
@@ -40,7 +37,7 @@ namespace kt::rhi {
   class DescriptorLayout;
   struct DescriptorInfo;
   struct DescriptorPoolInfo;
-  class DescriptorWriteInfo;
+  struct DescriptorWriteInfo;
 
   struct DxImGui {
     ComPtr<ID3D12DescriptorHeap> srvHeap;
@@ -54,11 +51,13 @@ namespace kt::rhi {
     bool tearingSupport = false;
     bool vSync = true;
     glm::uvec2 size{0, 0};
+
+    void destroy();
   };
 
   struct Frame {
     uint64_t fenceValue = 0;
-    std::vector<D3D12MA::Allocation*> allocsToDrop;
+    Vec<D3D12MA::Allocation*> allocsToDrop;
   };
 
   struct Queues {
@@ -87,7 +86,7 @@ namespace kt::rhi {
 
     Fence fence;
 
-    ComPtr<ID3D12GraphicsCommandList4> copyCmdList;
+    ComPtr<ID3D12GraphicsCommandList10> copyCmdList;
     Fence copyFence;
 
     DxImGui imGui;
@@ -100,36 +99,36 @@ namespace kt::rhi {
     ComPtr<ID3D12CommandSignature> drawIndirectSignature;
     ComPtr<ID3D12CommandSignature> drawIndexedIndirectSignature;
 
-    std::vector<rhi::Image> loadedTextures;
+    Vec<rhi::Image> loadedTextures;
 
     struct OngoingCopy {
-      ComPtr<ID3D12CommandAllocator> cmdAlloc;
+      ComPtr<ID3D12CommandAllocator> cmdAlloc{};
       uint64_t fenceValue = 0;
-      std::vector<D3D12MA::Allocation*> allocsToDrop;
+      Vec<D3D12MA::Allocation*> allocsToDrop{};
     };
-    std::vector<OngoingCopy> ongoingCopies;
+    Vec<OngoingCopy> ongoingCopies{};
 
     uint8_t frameIndex = 0;
     uint8_t imageIndex = 0;
 
-    std::array<std::vector<ComPtr<ID3D12CommandAllocator>>, MAX_FRAMES_IN_FLIGHT> runningAllocs;
+    std::array<Vec<ComPtr<ID3D12CommandAllocator>>, MAX_FRAMES_IN_FLIGHT> runningAllocs{};
 
-    std::unordered_map<ImageFormat, Pipeline> blitPipelines;
-    Pipeline cubeFromEquirectangularPipeline;
-    Pipeline convoluteIrradiancePipeline;
-    Pipeline preFilterPipeline;
-    Pipeline integrateBRDFPipeline;
+    std::unordered_map<ImageFormat, Pipeline> blitPipelines{};
+    Pipeline cubeFromEquirectangularPipeline{};
+    Pipeline convoluteIrradiancePipeline{};
+    Pipeline preFilterPipeline{};
+    Pipeline integrateBRDFPipeline{};
   };
 
   using VertexBufferView = D3D12_VERTEX_BUFFER_VIEW;
   class ImageCreateInfo;
 
-  class RHI {
+  class RHI : public RhiBase {
     template <typename T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 
-#include "keptech/rhi/interface/rhi.inl"
-
   public:
+    friend class RhiBase;
+
     CD3DX12_CPU_DESCRIPTOR_HANDLE dxGetRtvHandle(uint16_t index) const;
     CD3DX12_CPU_DESCRIPTOR_HANDLE dxGetDsvHandle(uint16_t index) const;
 
@@ -152,6 +151,13 @@ namespace kt::rhi {
     Pipeline& getConvoluteIrradiancePipeline() { return m.convoluteIrradiancePipeline; }
     Pipeline& getPreFilterPipeline() { return m.preFilterPipeline; }
     Pipeline& getIntegrateBRDFPipeline() { return m.integrateBRDFPipeline; }
+
+    RHI() = default;
+    RHI(const RHI&) = delete;
+    RHI& operator=(const RHI&) = delete;
+    RHI(RHI&&) = delete;
+    RHI& operator=(RHI&&) = delete;
+    ~RHI() = default;
 
   private:
     std::expected<void, std::string> initInternal(const RendererCreateInfo& createInfo, const Window& window);

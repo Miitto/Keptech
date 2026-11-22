@@ -21,7 +21,7 @@ namespace kt {
     resultIndex = graph.getImageIndex("kt::colorGraded");
 
     kt::rhi::PipelineBuilder pipelineBuilder{};
-    pipelineBuilder.setShader(::shaders::kt::colorGrade).addColorAttachment(kt::rhi::ImageFormat::R8G8B8A8_UNORM);
+    pipelineBuilder.setShader(::shaders::kt::colorGrade).addColorAttachment(kt::rhi::ImageFormat::R8G8B8A8_UNORM).setName("Color Grade");
 
     auto pipeline_res = pipelineBuilder.build();
     if (!pipeline_res.has_value()) {

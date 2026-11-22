@@ -6,7 +6,7 @@
 
 namespace kt::gltf {
   namespace {
-    void addNodeToEcsScene(const Scene::Node& node, kt::Scene& scene, const std::vector<Mesh>& meshes, ecs::EntityHandle parent) {
+    void addNodeToEcsScene(const Scene::Node& node, kt::Scene& scene, const Vec<Mesh>& meshes, ecs::EntityHandle parent) {
       auto entity = scene.createEntity(node.name);
       auto& transformComp = entity.addComponent<components::Transform>();
       transformComp.getLocalMut().setPosition(node.transform.pos()).setRotation(node.transform.rot()).setScale(node.transform.scale());
@@ -24,7 +24,7 @@ namespace kt::gltf {
       }
     }
 
-    gltf::Scene::Node createNode(const Data::Node& node, const std::vector<Mesh>& meshes) {
+    gltf::Scene::Node createNode(const Data::Node& node, const Vec<Mesh>& meshes) {
       gltf::Scene::Node result{
           .name = std::string(node.node.name),
           .transform = node.transform,
@@ -38,8 +38,7 @@ namespace kt::gltf {
     }
   } // namespace
 
-  Scene::Scene(const gltf::Data& data, const std::vector<Mesh>& meshes, uint64_t copyFenceValue)
-      : meshes(meshes), copyFenceValue(copyFenceValue) {
+  Scene::Scene(const gltf::Data& data, const Vec<Mesh>& meshes, uint64_t copyFenceValue) : meshes(meshes), copyFenceValue(copyFenceValue) {
     roots.reserve(data.roots.size());
     for (auto& node : data.roots) {
       roots.push_back(createNode(node, meshes));

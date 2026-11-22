@@ -1,6 +1,8 @@
 implementing keptech;
 
 public namespace kt {
+
+[endType]
 public struct Sphere {
   public float3 center;
   public float radius;

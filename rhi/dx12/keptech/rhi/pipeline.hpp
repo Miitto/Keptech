@@ -6,12 +6,17 @@
 
 namespace kt::rhi {
   struct Pipeline {
-    Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState;
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature{};
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState{};
     D3D12_PRIMITIVE_TOPOLOGY primitiveTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
     uint32_t constantSlot = 0;
     uint32_t cbvOffset = 0;
     uint32_t srvOffset = 0;
-    shaders::ShaderInfo info;
+    shaders::ShaderInfo info{};
+
+    void destroy() {
+      pipelineState.Reset();
+      rootSignature.Reset();
+    }
   };
 } // namespace kt::rhi

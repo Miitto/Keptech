@@ -68,7 +68,7 @@ namespace kt::rhi {
 
   CommandBuffer& CommandBuffer::beginRendering(const std::span<ColorAttachmentDesc> colorAttachments,
                                                std::optional<DepthStencilAttachmentDesc> depthStencilAttachment) {
-    std::vector<D3D12_RENDER_PASS_RENDER_TARGET_DESC> renderTargetDescs(colorAttachments.size());
+    Vec<D3D12_RENDER_PASS_RENDER_TARGET_DESC> renderTargetDescs(colorAttachments.size());
     for (size_t i = 0; i < colorAttachments.size(); ++i) {
       renderTargetDescs[i] = {
           .cpuDescriptor = colorAttachments[i].imageRef.dxGetRtvDsvHandle(),
@@ -164,7 +164,7 @@ namespace kt::rhi {
     return *this;
   }
   CommandBuffer& CommandBuffer::bindVertexBuffers(size_t firstSlot, const std::span<const VertexBufferBinding> bindings) {
-    std::vector<D3D12_VERTEX_BUFFER_VIEW> views;
+    Vec<D3D12_VERTEX_BUFFER_VIEW> views;
     views.reserve(bindings.size());
     for (const auto& binding : bindings) {
       D3D12_VERTEX_BUFFER_VIEW view{
@@ -291,6 +291,12 @@ namespace kt::rhi {
     return *this;
   }
 
+  CommandBuffer& CommandBuffer::drawMeshTasks(uint32_t taskGroupCountX, uint32_t taskGroupCountY, uint32_t taskGroupCountZ) {
+    cmdList->DispatchMesh(taskGroupCountX, taskGroupCountY, taskGroupCountZ);
+    STATS_INC(drawCalls);
+    return *this;
+  }
+
   CommandBuffer& CommandBuffer::endRendering() {
     cmdList->EndRenderPass();
     return *this;
@@ -331,7 +337,7 @@ namespace kt::rhi {
   }
 
   CommandBuffer& CommandBuffer::transitionImages(std::span<const ImageLayoutTransition> transitions) {
-    std::vector<D3D12_RESOURCE_BARRIER> barriers;
+    Vec<D3D12_RESOURCE_BARRIER> barriers;
     barriers.reserve(transitions.size());
 
     for (const auto& transition : transitions) {
@@ -359,8 +365,13 @@ namespace kt::rhi {
               "from src (\"{}\") to dst (\"{}\") with srcOffset {} and size {}.",
               src.getName(), src.size(), srcOffset + size, srcOffset + size - src.size(), src.getName(), dst.getName(), src.size(),
               srcOffset + size);
-    DX_ASSERT(dst.dxGetResource() != nullptr, "Destination buffer resource is null");
-    DX_ASSERT(src.dxGetResource() != nullptr, "Source buffer resource is null");
+    DX_ASSERT(
+        dst.dxGetResource() != nullptr,
+        "Destination buffer resource is null. Attempted to copy from src (\"{}\") to dst (\"{}\") with dstOffset {} and srcOffset {}.",
+        src.getName(), dst.getName(), dstOffset, srcOffset);
+    DX_ASSERT(src.dxGetResource() != nullptr,
+              "Source buffer resource is null. Attempted to copy from src (\"{}\") to dst (\"{}\") with dstOffset {} and srcOffset {}.",
+              src.getName(), dst.getName(), dstOffset, srcOffset);
     cmdList->CopyBufferRegion(dst, dstOffset, src, srcOffset, size);
     return *this;
   }
@@ -535,11 +546,11 @@ namespace kt::rhi {
     cmdList->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(name.size()), name.data());
   }
   CommandBuffer::CommandBuffer(Microsoft::WRL::ComPtr<ID3D12CommandAllocator> allocator,
-                               Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> cmdList)
+                               Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList10> cmdList)
       : allocator(std::move(allocator)), cmdList(std::move(cmdList)) {}
   ID3D12GraphicsCommandList* CommandBuffer::operator->() const { return cmdList.Get(); }
   CommandBuffer::operator ID3D12GraphicsCommandList*() const { return cmdList.Get(); }
   CommandBuffer::operator ID3D12CommandList* const*() { return reinterpret_cast<ID3D12CommandList* const*>(cmdList.GetAddressOf()); }
-  Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4>& CommandBuffer::ComPtr() { return cmdList; }
+  Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList10>& CommandBuffer::ComPtr() { return cmdList; }
 
 } // namespace kt::rhi

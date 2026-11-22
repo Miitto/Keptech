@@ -21,17 +21,17 @@ namespace kt::rhi {
   public:
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator>& dxGetAlloc() { return allocator; }
 
-    CommandBuffer(Microsoft::WRL::ComPtr<ID3D12CommandAllocator> allocator, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> cmdList);
+    CommandBuffer(Microsoft::WRL::ComPtr<ID3D12CommandAllocator> allocator, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList10> cmdList);
 
     ID3D12GraphicsCommandList* operator->() const;
     operator ID3D12GraphicsCommandList*() const;
     operator ID3D12CommandList* const*();
 
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4>& ComPtr();
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList10>& ComPtr();
 
   private:
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator> allocator;
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> cmdList;
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList10> cmdList;
     const rhi::Pipeline* gPipeline = nullptr;
     const rhi::Pipeline* cPipeline = nullptr;
   };

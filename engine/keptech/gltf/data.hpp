@@ -19,7 +19,7 @@
 #include "keptech/maths/sphere.hpp"
 #include "keptech/maths/transform.hpp"
 #include "keptech/mesh.hpp"
-
+#include "keptech/std/vec.hpp"
 namespace kt::rhi {
   class ImageRef;
 }
@@ -79,13 +79,13 @@ namespace kt::gltf {
 
   struct MeshData {
     std::string name;
-    std::vector<uint32_t> indices;
-    std::vector<glm::vec3> positions;
-    std::vector<kt::VertexAttribs> vertexAttribs;
-    std::vector<Submesh> submeshes;
-    std::vector<Meshlet> meshlets;
-    std::vector<uint32_t> meshletVertices;
-    std::vector<uint32_t> meshletTriangles;
+    Vec<uint32_t> indices;
+    Vec<glm::vec3> positions;
+    Vec<kt::VertexAttribs> vertexAttribs;
+    Vec<Submesh> submeshes;
+    Vec<Meshlet> meshlets;
+    Vec<uint32_t> meshletVertices;
+    Vec<uint32_t> meshletTriangles;
 
     MeshSize getSize() const;
   };
@@ -95,21 +95,21 @@ namespace kt::gltf {
       fastgltf::Node node;
       maths::Transform transform;
       uint32_t meshIndex = ~0u;
-      std::vector<Node> children{};
+      Vec<Node> children{};
     };
 
     std::filesystem::path basePath;
 
-    std::vector<MeshData> meshes;
-    std::vector<fastgltf::Material> materials;
-    std::vector<fastgltf::Texture> textures;
-    std::vector<fastgltf::Image> images;
-    std::vector<fastgltf::Sampler> samplers;
+    Vec<MeshData> meshes;
+    Vec<fastgltf::Material> materials;
+    Vec<fastgltf::Texture> textures;
+    Vec<fastgltf::Image> images;
+    Vec<fastgltf::Sampler> samplers;
 
-    std::vector<fastgltf::BufferView> bufferViews;
-    std::vector<fastgltf::Buffer> buffers;
+    Vec<fastgltf::BufferView> bufferViews;
+    Vec<fastgltf::Buffer> buffers;
 
-    std::vector<Node> roots;
+    Vec<Node> roots;
 
     struct UploadResult {
       Scene scene;
@@ -126,9 +126,8 @@ namespace kt::gltf {
       T result;
     };
 
-    std::expected<PartialUploadResult<std::vector<rhi::ImageRef>>, std::string> uploadTextureData() const;
-    std::expected<PartialUploadResult<std::vector<Material>>, std::string>
-    uploadMaterialData(const std::vector<rhi::ImageRef>& textures) const;
-    std::expected<PartialUploadResult<std::vector<Mesh>>, std::string> uploadMeshData(const std::vector<Material>& materials) const;
+    std::expected<PartialUploadResult<Vec<rhi::ImageRef>>, std::string> uploadTextureData() const;
+    std::expected<PartialUploadResult<Vec<Material>>, std::string> uploadMaterialData(const Vec<rhi::ImageRef>& textures) const;
+    std::expected<PartialUploadResult<Vec<Mesh>>, std::string> uploadMeshData(const Vec<Material>& materials) const;
   };
 } // namespace kt::gltf

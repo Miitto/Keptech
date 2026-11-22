@@ -1,5 +1,6 @@
 #include "keptech/app.hpp"
 
+#include "keptech/buffers.hpp"
 #include "keptech/components/transform.hpp"
 #include "keptech/core/gui.h"
 #include "keptech/core/layers/layerStack.hpp"
@@ -7,6 +8,7 @@
 #include "keptech/graph/builder.hpp"
 #include "keptech/graph/graph.hpp"
 #include "keptech/input.hpp"
+#include "keptech/physics/system.hpp"
 #include "keptech/rhi/rhi.hpp"
 #include <expected>
 #include <imgui/backends/imgui_impl_sdl3.h>
@@ -28,6 +30,9 @@ int main() {
 
   bool exitCleanly = false;
   {
+    KT_DEBUG("Initializing physics system");
+    kt::phys::PhysicsSystem::initialize();
+
     KT_DEBUG("Creating renderer");
     std::expected<void, std::string> rhiRes = rhi::RHI::init(info.renderer, window);
     if (!rhiRes) {
@@ -35,6 +40,8 @@ int main() {
       return -1;
     }
     KT_DEBUG("RHI created successfully");
+
+    kt::Buffers::get().init();
 
     RenderGraphBuilder rgBuilder{};
 
@@ -181,7 +188,9 @@ int main() {
 
     KT_INFO("Starting shutdown");
     rg.destroy();
+    kt::Buffers::get().~Buffers();
   }
+  kt::rhi::RHI::get().shutdown();
   Window::shutdown();
 
   return exitCleanly;

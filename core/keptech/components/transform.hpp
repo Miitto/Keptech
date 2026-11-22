@@ -4,6 +4,7 @@
 #include "keptech/core/macros.hpp"
 #include "keptech/ecs/entity.hpp"
 #include "keptech/maths/transform.hpp"
+#include "keptech/std/vec.hpp"
 
 namespace kt::gui {
   class Frame;
@@ -47,7 +48,7 @@ namespace kt::components {
     maths::Transform local;
     glm::mat4 global;
     ecs::Entity parent = ecs::Entity{};
-    std::vector<ecs::Entity> children{};
+    Vec<ecs::Entity> children{};
     uint32_t depth = 0;
     Bitflag<Flags> flags = Flags::TransformDirty;
   };

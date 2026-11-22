@@ -57,7 +57,8 @@ namespace kt {
         .addColorAttachment(kt::rhi::ImageFormat::R11G11B10_FLOAT)
         .addColorAttachment(kt::rhi::ImageFormat::R8G8_UNORM)
         .addColorAttachment(kt::rhi::ImageFormat::R11G11B10_FLOAT)
-        .setDepthAttachment(kt::rhi::ImageFormat::D32_FLOAT);
+        .setDepthAttachment(kt::rhi::ImageFormat::D32_FLOAT)
+        .setName("Geometry");
 
     auto pipeline_res = pipelineBuilder.build();
     if (!pipeline_res.has_value()) {
@@ -65,7 +66,7 @@ namespace kt {
     }
     pipeline = pipeline_res.value();
 
-    writtenObjects = graph.getUserData<std::vector<Object>>("kt::data::writtenObjects");
+    writtenObjects = graph.getUserData<Vec<Object>>("kt::data::writtenObjects");
     cameraFrustum = graph.getUserData<maths::Frustum>("kt::data::cameraFrustum");
 
     KT_ASSERT(writtenObjects != nullptr,
@@ -83,7 +84,7 @@ namespace kt {
   void GeometryPass::prepare(RenderGraph& graph) {
     auto frustum = *cameraFrustum;
 
-    std::vector<kt::rhi::DrawIndexedCommand> drawCommands;
+    Vec<kt::rhi::DrawIndexedCommand> drawCommands;
     drawCommands.reserve(writtenObjects->size());
     for (uint32_t i = 0; i < writtenObjects->size(); ++i) {
       auto& obj = (*writtenObjects)[i];

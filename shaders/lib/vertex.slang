@@ -14,6 +14,7 @@ public struct VertexAttribs {
   }
 };
 
+[endType]
 public struct Meshlet {
   public uint vertexOffset;
   public uint vertexCount;

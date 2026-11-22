@@ -90,6 +90,11 @@ namespace kt {
       return *this;
     }
 
+    constexpr inline Bitflag& clear(Bitflag<T> flag) {
+      flags &= ~flag.flags;
+      return *this;
+    }
+
     constexpr inline Bitflag& invert() {
       flags = ~flags;
       return *this;

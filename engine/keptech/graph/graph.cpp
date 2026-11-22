@@ -193,7 +193,7 @@ namespace kt {
 
   void RenderGraph::passBarriers(rhi::CommandBuffer& cmd, const Barriers& barriers) {
     if (!barriers.image.empty()) {
-      std::vector<CommandBuffer::ImageLayoutTransition> transitions;
+      Vec<CommandBuffer::ImageLayoutTransition> transitions;
       transitions.reserve(barriers.image.size());
       for (const auto& barrier : barriers.image) {
         bool hasHistory = resources.imageHasHistory[barrier.resourceId];
@@ -216,7 +216,7 @@ namespace kt {
     auto& rhi = RHI::get();
     auto frameIndex = rhi.getFrameIndex();
 
-    std::vector<std::vector<rhi::DescriptorWriteInfo>> writes;
+    Vec<Vec<rhi::DescriptorWriteInfo>> writes;
     writes.resize(passes.size());
 
     for (auto bufIdx : buffersToUpdate[frameIndex]) {
@@ -257,8 +257,8 @@ namespace kt {
     imagesToUpdate[frameIndex].clear();
   }
 
-  RenderGraph::RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
-                           std::vector<rhi::ImageLayout>&& finalLayouts, std::vector<Descriptors>&& descriptors)
+  RenderGraph::RenderGraph(Vec<PassGroup>&& passGroups, Vec<RenderPass>&& passes, Resources&& resources,
+                           Vec<rhi::ImageLayout>&& finalLayouts, Vec<Descriptors>&& descriptors)
       : passGroups(std::move(passGroups)), passes(std::move(passes)), resources(std::move(resources)),
         passDescriptors(std::move(descriptors)), finalLayouts(std::move(finalLayouts)) {
     for (const auto& group : this->passGroups) {
@@ -274,8 +274,8 @@ namespace kt {
     }
   }
 
-  [[nodiscard]] const std::vector<RenderPass>& RenderGraph::getPasses() const { return passes; }
-  [[nodiscard]] const std::vector<bool>& RenderGraph::getImageHasHistory() const { return resources.imageHasHistory; }
+  [[nodiscard]] const Vec<RenderPass>& RenderGraph::getPasses() const { return passes; }
+  [[nodiscard]] const Vec<bool>& RenderGraph::getImageHasHistory() const { return resources.imageHasHistory; }
   [[nodiscard]] size_t RenderGraph::getImageIndex(const std::string& name) const {
     auto it = resources.nameToImage.find(name);
     KT_ASSERT(it != resources.nameToImage.end(), "Image resource with name '{}' not found in render graph", name);
@@ -419,7 +419,7 @@ namespace kt {
   [[nodiscard]] const PrePostBarriers& RenderPass::getBarriers() const { return barriers; }
   [[nodiscard]] const std::string& RenderPass::getName() const { return name; }
   [[nodiscard]] QueueType RenderPass::getQueue() const { return queue; }
-  [[nodiscard]] const std::vector<RenderAttachment>& RenderPass::getColorAttachments() const { return colorAttachments; }
+  [[nodiscard]] const Vec<RenderAttachment>& RenderPass::getColorAttachments() const { return colorAttachments; }
 
   void RenderGraph::setUserData(const std::string& key, void* data) { userData[key] = data; }
 
@@ -431,7 +431,7 @@ namespace kt {
     return nullptr;
   }
 
-  const std::vector<rhi::Image>& RenderGraph::getImages() const { return resources.images; }
+  const Vec<rhi::Image>& RenderGraph::getImages() const { return resources.images; }
   rhi::ImageLayout RenderGraph::getFinalLayout(size_t imageIndex) const {
     KT_ASSERT(imageIndex < finalLayouts.size(), "Image index {} is out of bounds (size: {})", imageIndex, finalLayouts.size());
     return finalLayouts[imageIndex];

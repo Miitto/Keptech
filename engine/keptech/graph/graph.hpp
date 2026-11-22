@@ -6,11 +6,11 @@
 #include "keptech/rhi/descriptorPool.hpp"
 #include "keptech/rhi/image.hpp"
 #include "keptech/rhi/loadStoreOps.hpp"
+#include "keptech/std/vec.hpp"
 #include "pass.hpp"
 #include <array>
 #include <glm/ext/vector_uint2.hpp>
 #include <string>
-#include <vector>
 
 namespace kt {
   namespace rhi {
@@ -55,7 +55,7 @@ namespace kt {
     [[nodiscard]] const std::string& getName() const;
     [[nodiscard]] QueueType getQueue() const;
 
-    [[nodiscard]] const std::vector<RenderAttachment>& getColorAttachments() const;
+    [[nodiscard]] const Vec<RenderAttachment>& getColorAttachments() const;
     [[nodiscard]] const RenderAttachment& getDepthStencilAttachment() const;
 
     void setExtentSourceId(PhysResourceId id);
@@ -65,7 +65,7 @@ namespace kt {
     [[nodiscard]] rhi::ImageLayout getDepthStencilLayout() const;
 
   private:
-    RenderPass(std::string&& name, QueueType queue, PrePostBarriers&& barriers, std::vector<RenderAttachment>&& colorAttachments,
+    RenderPass(std::string&& name, QueueType queue, PrePostBarriers&& barriers, Vec<RenderAttachment>&& colorAttachments,
                RenderAttachment depthStencilAttachment, bool autoBeginRendering)
         : name(std::move(name)), queue(queue), autoBeginRendering(autoBeginRendering), barriers(std::move(barriers)),
           colorAttachments(std::move(colorAttachments)), depthStencilAttachment(depthStencilAttachment) {}
@@ -83,7 +83,7 @@ namespace kt {
     std::function<bool(unsigned, rhi::ColorClearValue*)> getClearColorCb = nullptr;
 
     PrePostBarriers barriers;
-    std::vector<RenderAttachment> colorAttachments;
+    Vec<RenderAttachment> colorAttachments;
     RenderAttachment depthStencilAttachment;
     rhi::ImageLayout depthStencilLayout = rhi::ImageLayout::Undefined;
   };
@@ -97,8 +97,8 @@ namespace kt {
 
     const maths::Frustum& getEngineCameraFrustum() const { return engineCameraFrustum; }
 
-    [[nodiscard]] const std::vector<RenderPass>& getPasses() const;
-    [[nodiscard]] const std::vector<bool>& getImageHasHistory() const;
+    [[nodiscard]] const Vec<RenderPass>& getPasses() const;
+    [[nodiscard]] const Vec<bool>& getImageHasHistory() const;
 
     /// Get the index of the image resource with the given name. Throws if the resource does not exist.
     /// The returned index is safe to store as it will remain constant even if the image is resized. Use getImage() to get the image at the
@@ -166,12 +166,12 @@ namespace kt {
     /// For internal use only.
     static void setActiveGraph(RenderGraph* graph) { activeGraph = graph; }
 
-    const std::vector<rhi::Image>& getImages() const;
+    const Vec<rhi::Image>& getImages() const;
     rhi::ImageLayout getFinalLayout(size_t imageIndex) const;
 
   private:
-    RenderGraph(std::vector<PassGroup>&& passGroups, std::vector<RenderPass>&& passes, Resources&& resources,
-                std::vector<rhi::ImageLayout>&& finalLayouts, std::vector<Descriptors>&& descriptors);
+    RenderGraph(Vec<PassGroup>&& passGroups, Vec<RenderPass>&& passes, Resources&& resources, Vec<rhi::ImageLayout>&& finalLayouts,
+                Vec<Descriptors>&& descriptors);
 
     std::unordered_map<std::string, void*> userData;
 
@@ -179,20 +179,20 @@ namespace kt {
 
     size_t graphicsQueuePassCount = 0;
     size_t computeQueuePassCount = 0;
-    std::vector<PassGroup> passGroups;
-    std::vector<RenderPass> passes;
+    Vec<PassGroup> passGroups;
+    Vec<RenderPass> passes;
 
     Resources resources;
 
-    std::vector<Descriptors> passDescriptors;
+    Vec<Descriptors> passDescriptors;
 
     size_t backbufferSourceIndex = 0;
 
-    std::vector<rhi::ImageLayout> finalLayouts;
+    Vec<rhi::ImageLayout> finalLayouts;
 
-    std::array<std::vector<rhi::Buffer>, MAX_FRAMES_IN_FLIGHT> buffersToDrop;
-    std::array<std::vector<size_t>, MAX_FRAMES_IN_FLIGHT> imagesToUpdate;
-    std::array<std::vector<size_t>, MAX_FRAMES_IN_FLIGHT> buffersToUpdate;
+    std::array<Vec<rhi::Buffer>, MAX_FRAMES_IN_FLIGHT> buffersToDrop;
+    std::array<Vec<size_t>, MAX_FRAMES_IN_FLIGHT> imagesToUpdate;
+    std::array<Vec<size_t>, MAX_FRAMES_IN_FLIGHT> buffersToUpdate;
 
     void updateDescriptors();
     void passBarriers(rhi::CommandBuffer& cmd, const Barriers& barriers);

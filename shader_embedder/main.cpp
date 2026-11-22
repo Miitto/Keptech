@@ -91,8 +91,9 @@ void writeResources(std::ofstream& file, const kt::shaders::Resources& resources
 
     file << "         ::kt::shaders::ResourceSet(std::move(std::vector<::kt::shaders::ResourceBinding>{\n";
     for (const auto& res : resource.resources) {
-      file << "             ::kt::shaders::ResourceBinding{.type = static_cast<::kt::shaders::ShaderResourceType>(" << std::dec
-           << static_cast<uint32_t>(res.type) << "),\n"
+      file << "             ::kt::shaders::ResourceBinding{"
+           << "              .name = \"" << res.name << "\",\n"
+           << "              .type = static_cast<::kt::shaders::ShaderResourceType>(" << static_cast<uint32_t>(res.type) << "),\n"
            << "              .binding = " << res.binding << ",\n"
            << "              .count = " << res.count << ",\n"
            << "              .isPush = " << (res.isPush ? "true" : "false") << ",\n"

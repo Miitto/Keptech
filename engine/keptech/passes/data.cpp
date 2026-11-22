@@ -27,7 +27,7 @@ namespace kt {
     auto& scene = Scene::active();
     auto view = scene.view<Mesh, components::Transform>();
     objects.clear();
-    std::vector<GpuObject> gpuObjects;
+    Vec<GpuObject> gpuObjects;
     gpuObjects.reserve(view.size_hint());
     objects.reserve(view.size_hint());
     for (const auto& [entity, mesh, transform] : view.each()) {

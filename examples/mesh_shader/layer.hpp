@@ -8,19 +8,28 @@
 #include "keptech/core/window.hpp"
 #include "keptech/rhi/rhi.hpp"
 #include "pass.hpp"
+#include <keptech/gltf/data.hpp>
 
 class ExampleLayer : public kt::Layer {
 public:
-  ExampleLayer(kt::Window& window, kt::rhi::RenderGraphBuilder& builder, kt::rhi::Renderer& renderer) : kt::Layer("Example Mesh Shader") {
+  ExampleLayer(kt::Window& window, kt::RenderGraphBuilder& builder, kt::rhi::RHI& rhi) : kt::Layer("Example Mesh Shader") {
     auto& scene = kt::Scene::active();
 
-    auto monkeyMeshRes = renderer.loadMesh(ASSET_DIR "meshes/monkey.glb");
-    if (!monkeyMeshRes) {
-      KT_ABORT("Failed to load monkey mesh: {}", monkeyMeshRes.error());
+    auto monkeyMeshDataRes = kt::gltf::Data::fromFile(ASSET_DIR "meshes/monkey.glb");
+    if (!monkeyMeshDataRes) {
+      KT_ABORT("Failed to load monkey mesh: {}", monkeyMeshDataRes.error());
     }
-    auto monkey = scene.createEntity("Monkey");
 
-    monkeyMeshRes->addToEcsScene(scene, monkey.getHandle());
+    auto monkeyUploadRes = monkeyMeshDataRes.value().upload();
+    if (!monkeyUploadRes) {
+      KT_ABORT("Failed to upload monkey mesh: {}", monkeyUploadRes.error());
+    }
+    auto& monkeyUpload = monkeyUploadRes.value();
+
+    rhi.waitCopyIdle();
+
+    auto monkey = scene.createEntity("Monkey");
+    monkeyUpload.scene.addToEcsScene(scene, monkey.getHandle());
 
     auto camera = scene.createEntity("Camera");
     camera.addComponent<kt::components::Transform>()
@@ -39,8 +48,12 @@ public:
 
     orbitController = kt::cameras::OrbitCameraController(camera, 3, true);
 
-    auto& meshPass = builder.addPass("Mesh Shader");
-    meshPass.setInterface(&geometryPass);
+    dataPass.addToGraph(builder);
+
+    auto& meshPassB = builder.addPass("Mesh Shader");
+    meshPassB.setInterface(&meshPass);
+
+    builder.setBackbufferSource("color");
   }
 
   void onUpdate(kt::Timestep ts) final { orbitController.update(ts); }
@@ -53,5 +66,6 @@ public:
 private:
   kt::cameras::OrbitCameraController orbitController{};
 
-  GeometryPass geometryPass{};
+  kt::DataPass dataPass{};
+  MeshPass meshPass{};
 };

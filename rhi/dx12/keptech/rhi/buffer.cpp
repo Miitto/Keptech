@@ -5,6 +5,7 @@
 #include "d3dx12.h"
 #include "dx/dx-logger.hpp"
 #include "keptech/rhi/bufferCreateInfo.hpp"
+#include "keptech/rhi/bufferTypes.hpp"
 #include "rhi.hpp"
 
 namespace kt::rhi {
@@ -13,8 +14,9 @@ namespace kt::rhi {
     name = newName;
 #ifndef NDEBUG
     if (allocation) {
-      auto* resource = allocation->GetResource();
-      resource->SetName(std::wstring(name.begin(), name.end()).c_str());
+      std::wstring wname(name.begin(), name.end());
+      allocation->SetName(wname.c_str());
+      allocation->GetResource()->SetName(wname.c_str());
     }
 #endif
   }
@@ -24,7 +26,7 @@ namespace kt::rhi {
   void* Buffer::mapping(size_t offset) const { return static_cast<uint8_t*>(mapPtr) + offset; }
   Bitflag<BufferUsage> Buffer::getUsage() const { return usage; }
 
-  bool Buffer::isValid() const { return allocation != nullptr; }
+  bool Buffer::isValid() const { return allocation != nullptr && allocation->GetResource() != nullptr; }
 
   kt::Result<Buffer, RawRhiResult, RawRhiResultOk> Buffer::create(const BufferCreateInfo& info) {
     DX_ASSERT(info.getSize() > 0, "Buffer {}: size must be greater than 0", info.getName());
@@ -52,6 +54,18 @@ namespace kt::rhi {
                                                                      IID_NULL, NULL)),
                "Failed to create buffer resource");
 
+    DX_REQUIRE(allocation != nullptr, "Failed to create buffer resource: allocation is null");
+
+#ifndef NDEBUG
+    if (info.getName() != nullptr) {
+      auto usage = info.getUsage();
+      auto name = fmt::format("Buffer {} [{}]", usage.clear(BufferUsage::TransferDst | BufferUsage::TransferSrc), info.getName());
+      std::wstring wname(name.begin(), name.end());
+      allocation->SetName(wname.c_str());
+      allocation->GetResource()->SetName(wname.c_str());
+    }
+#endif
+
     return Buffer(info.getName() == nullptr ? "<unnamed>" : info.getName(), info.getSize(), info.getUsage(), info.getType(), allocation);
   }
 
@@ -70,11 +84,23 @@ namespace kt::rhi {
   Buffer::Buffer(Buffer&& other) noexcept
       : name(std::move(other.name)), _size(other._size), usage(other.usage), type(other.type), mapPtr(other.mapPtr),
         allocation(other.allocation) {
+#ifndef NDEBUG
+    if (other.allocation == nullptr && other._size > 0) {
+      DX_WARN("Moving from a moved from buffer: {}", name);
+    }
+#endif
+
     other.allocation = nullptr;
     other.mapPtr = nullptr;
   }
   Buffer& Buffer::operator=(Buffer&& other) noexcept {
     if (this != &other) {
+#ifndef NDEBUG
+      if (other.allocation == nullptr && other._size > 0) {
+        DX_WARN("Moving from a moved from buffer: {}", name);
+      }
+#endif
+
       name = std::move(other.name);
       _size = other._size;
       type = other.type;
@@ -111,5 +137,5 @@ namespace kt::rhi {
 
   ID3D12Resource* Buffer::operator->() const { return allocation->GetResource(); }
 
-  Buffer::operator BufferRef() const { return BufferRef(name.c_str(), *this, _size, mapPtr); }
+  Buffer::operator BufferRef() const { return BufferRef(name.c_str(), allocation ? allocation->GetResource() : nullptr, _size, mapPtr); }
 } // namespace kt::rhi

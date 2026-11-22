@@ -1,6 +1,7 @@
 implementing keptech;
 
 public namespace kt {
+[endType]
 public struct Plane {
   float3 _normal;
   float _distance;
@@ -24,6 +25,7 @@ public struct Plane {
   }
 }
 
+[endType]
 public struct Frustum {
   Plane planes[6]; // Left, Right, Bottom, Top, Near, Far
 

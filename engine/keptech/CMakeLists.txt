@@ -1,6 +1,7 @@
 add_subdirectory(gltf)
 add_subdirectory(graph)
 add_subdirectory(passes)
+add_subdirectory(physics)
 add_subdirectory(render)
 
 target_sources(Keptech

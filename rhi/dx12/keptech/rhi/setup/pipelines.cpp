@@ -11,7 +11,9 @@ namespace kt::rhi {
     {
       PipelineBuilder builder{};
 
-      builder.setShader(::shaders::kt::cubeFromEquirectangular).addColorAttachment(ImageFormat::R32G32B32A32_FLOAT);
+      builder.setShader(::shaders::kt::cubeFromEquirectangular)
+          .addColorAttachment(ImageFormat::R32G32B32A32_FLOAT)
+          .setName("KT Cube From Equirectangular");
 
       auto pipelineRes = builder.build();
       if (!pipelineRes) {
@@ -24,7 +26,9 @@ namespace kt::rhi {
     {
       PipelineBuilder builder{};
 
-      builder.setShader(::shaders::kt::convoluteIrradiance).addColorAttachment(ImageFormat::R32G32B32A32_FLOAT);
+      builder.setShader(::shaders::kt::convoluteIrradiance)
+          .addColorAttachment(ImageFormat::R32G32B32A32_FLOAT)
+          .setName("KT Convolute Irradiance");
 
       auto pipelineRes = builder.build();
       if (!pipelineRes) {
@@ -37,7 +41,9 @@ namespace kt::rhi {
     {
       PipelineBuilder builder{};
 
-      builder.setShader(::shaders::kt::preFilterEnvMap).addColorAttachment(ImageFormat::R32G32B32A32_FLOAT);
+      builder.setShader(::shaders::kt::preFilterEnvMap)
+          .addColorAttachment(ImageFormat::R32G32B32A32_FLOAT)
+          .setName("KT Pre-Filter Environment Map");
       auto pipelineRes = builder.build();
       if (!pipelineRes) {
         return std::unexpected(fmt::format("Failed to create pre-filter environment map pipeline: {}", pipelineRes.error()));
@@ -49,7 +55,7 @@ namespace kt::rhi {
     {
       PipelineBuilder builder{};
 
-      builder.setShader(::shaders::kt::integrateBrdf).addColorAttachment(ImageFormat::R16G16_FLOAT);
+      builder.setShader(::shaders::kt::integrateBrdf).addColorAttachment(ImageFormat::R16G16_FLOAT).setName("KT Integrate BRDF");
       auto pipelineRes = builder.build();
       if (!pipelineRes) {
         return std::unexpected(fmt::format("Failed to create integrate BRDF pipeline: {}", pipelineRes.error()));

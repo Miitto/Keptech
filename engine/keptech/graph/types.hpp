@@ -12,11 +12,13 @@
 #include "keptech/rhi/descriptorTypes.hpp"
 #include "keptech/rhi/image.hpp"
 #include "keptech/rhi/imageLayout.hpp"
+#include "keptech/std/vec.hpp"
 #include <array>
 #include <cstdint>
 #include <glm/ext/vector_float3.hpp>
 #include <spdlog/fmt/bundled/format.h>
 #include <string>
+
 
 namespace kt::rhi {
   struct ResourceSet;
@@ -222,8 +224,8 @@ namespace kt {
   };
 
   struct Barriers {
-    std::vector<ImageBarrier> image;
-    std::vector<BufferBarrier> buffer;
+    Vec<ImageBarrier> image;
+    Vec<BufferBarrier> buffer;
   };
 
   struct PrePostBarriers {
@@ -253,15 +255,15 @@ namespace kt {
   };
 
   struct Resources {
-    std::vector<rhi::Image> images;
-    std::vector<rhi::Buffer> buffers;
+    Vec<rhi::Image> images;
+    Vec<rhi::Buffer> buffers;
     std::unordered_map<std::string, size_t> nameToImage;
     std::unordered_map<std::string, size_t> nameToBuffer;
-    std::vector<bool> imageHasHistory;
-    std::vector<RelativeImage> swapchainRelativeImages;
-    std::vector<RelativeImage> resolutionRelativeImages;
-    std::vector<std::vector<UsedInPass>> imageUsedInPass;
-    std::vector<std::vector<UsedInPass>> bufferUsedInPass;
+    Vec<bool> imageHasHistory;
+    Vec<RelativeImage> swapchainRelativeImages;
+    Vec<RelativeImage> resolutionRelativeImages;
+    Vec<Vec<UsedInPass>> imageUsedInPass;
+    Vec<Vec<UsedInPass>> bufferUsedInPass;
   };
 
   struct Descriptors {

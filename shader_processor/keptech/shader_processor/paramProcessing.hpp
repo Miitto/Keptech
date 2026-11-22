@@ -15,12 +15,112 @@ namespace kt::shader_processor {
   struct LayoutManager {
     struct AccessPath;
 
+    void addVariable(AccessPath& accessPath, slang::VariableLayoutReflection* variableLayout) {
+      if (accessPath.deepestBuffer == nullptr) {
+        if (variableLayout->getCategory() == slang::ParameterCategory::Uniform) {
+          auto offset = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
+          if (resources->pushConstants.size < offset.value + variableLayout->getTypeLayout()->getSize()) {
+            resources->pushConstants.size = offset.value + variableLayout->getTypeLayout()->getSize();
+          }
+          resources->pushConstants.space = offset.space;
+          resources->pushConstants
+              .fieldOffsets[fmt::format("{}{}", fmt::join(offset.name, "."),
+                                        variableLayout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::Array ? "[]" : "")] =
+              shaders::FieldInfo{offset.value, variableLayout->getTypeLayout()->getSize(), variableLayout->getTypeLayout()->getStride()};
+          SHDR_DEBUG("Push constant {} has offset {} and size {}", fmt::join(offset.name, "."), offset.value,
+                     variableLayout->getTypeLayout()->getSize());
+        }
+      } else {
+        auto bufferVar = accessPath.deepestBuffer->variableLayout;
+
+        size_t sizeOrStride = 0;
+        shaders::ShaderResourceType type = shaders::ShaderResourceType::UniformBuffer;
+        switch (bufferVar->getTypeLayout()->getKind()) {
+        case slang::TypeReflection::Kind::ParameterBlock:
+        case slang::TypeReflection::Kind::ConstantBuffer:
+          sizeOrStride = bufferVar->getTypeLayout()->getElementTypeLayout()->getSize();
+          break;
+        case slang::TypeReflection::Kind::Resource: {
+          auto shape = bufferVar->getTypeLayout()->getResourceShape();
+          if ((shape & SLANG_RESOURCE_BASE_SHAPE_MASK) == SLANG_STRUCTURED_BUFFER) {
+            auto access = bufferVar->getTypeLayout()->getResourceAccess();
+            bool writable = (access == SLANG_RESOURCE_ACCESS_WRITE || access == SLANG_RESOURCE_ACCESS_READ_WRITE);
+            if (writable) {
+              type = shaders::ShaderResourceType::RWStorageBuffer;
+            } else {
+              type = shaders::ShaderResourceType::StorageBuffer;
+            }
+            sizeOrStride = bufferVar->getTypeLayout()->getElementTypeLayout()->getStride();
+          } else {
+            SHDR_ABORT("Unexpected resource type for buffer variable: {}", shape);
+          }
+        } break;
+        default:
+          SHDR_ABORT("Unexpected type for buffer variable: {}", bufferVar->getTypeLayout()->getKind());
+        }
+
+        AccessPath bufferAccessPath{};
+        bufferAccessPath.leaf = accessPath.deepestBuffer;
+        auto [byteOffset, _s, varName] = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
+        auto [_b, _bs, bufName] = calculateCumulativeOffset(bufferVar->getCategory(), bufferAccessPath);
+        auto [binding, space, _] = calculateCumulativeOffset(variableLayout, bufferVar->getCategory(), accessPath);
+
+        // If the current variable is a buffer and the element type is an end type, the variable name needs to be cleared to avoid
+        // duplicating the buffers var name.
+        slang::TypeReflection* t = variableLayout->getType()->getKind() == slang::TypeReflection::Kind::Resource ||
+                                           variableLayout->getType()->getKind() == slang::TypeReflection::Kind::ConstantBuffer
+                                       ? variableLayout->getType()->getElementType()
+                                       : variableLayout->getType();
+        if (t && t->getKind() == slang::TypeReflection::Kind::Struct) {
+          for (uint32_t i = 0; i < t->getUserAttributeCount(); ++i) {
+            auto attr = t->getUserAttributeByIndex(i);
+            if (strcmp(attr->getName(), "endType") == 0) {
+              if (t == variableLayout->getType()) {
+                varName.pop_back(); // The var is the struct var, pop once to remove the final duplicate var name.
+              } else {
+                varName.clear(); // The var is the buffer, clear all otherwise the entire name would be repeated.
+              }
+              break;
+            }
+          }
+        }
+
+        std::vector<std::string> name = bufName;
+        name.append_range(varName);
+
+        if (resources->sets.size() <= space) {
+          resources->sets.resize(space + 1);
+        }
+        auto bindingIt =
+            std::find_if(resources->sets[space].resources.begin(), resources->sets[space].resources.end(),
+                         [binding, type](const shaders::ResourceBinding& b) { return b.binding == binding && b.type == type; });
+        if (bindingIt == resources->sets[space].resources.end()) {
+          shaders::ResourceBinding bindingInfo{
+              .name = fmt::format("{}", fmt::join(bufName, ".")),
+              .type = type,
+              .binding = static_cast<uint32_t>(binding),
+              .count = 1,
+              .isPush = false,
+              .bufferInfo = {.sizeOrStride = sizeOrStride},
+          };
+          resources->sets[space].resources.push_back(bindingInfo);
+          bindingIt = std::prev(resources->sets[space].resources.end());
+
+          SHDR_DEBUG("{} {} has binding {} in space {} and size/stride {}", type, fmt::join(bufName, "."), binding, space, sizeOrStride);
+        }
+        if (!varName.empty()) {
+          SHDR_DEBUG("> {}{}{} has offset {}", fmt::join(bufName, "."), varName.empty() ? "" : ".", fmt::join(varName, "."), byteOffset);
+          bindingIt->bufferInfo.fieldOffsets[fmt::format(
+              "{}{}", fmt::join(name, "."), variableLayout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::Array ? "[]" : "")] =
+              shaders::FieldInfo{byteOffset, variableLayout->getTypeLayout()->getSize(), variableLayout->getTypeLayout()->getStride()};
+        }
+      }
+    }
+
     void printVariableLayout(slang::VariableLayoutReflection* variableLayout, AccessPath accessPath) {
       printVaryingParameterInfo(variableLayout, accessPath);
 
       ExtendedAccessPath variablePath(accessPath, variableLayout);
-
-      printTypeLayout(variableLayout->getTypeLayout(), variablePath);
 
       auto typeLayout = variableLayout->getTypeLayout();
       switch (typeLayout->getKind()) {
@@ -47,8 +147,9 @@ namespace kt::shader_processor {
               resources->sets[offset.space].resources.begin(), resources->sets[offset.space].resources.end(),
               [resourceType, offset](const shaders::ResourceBinding& b) { return b.binding == offset.value && b.type == resourceType; });
           if (bindingIt == resources->sets[offset.space].resources.end()) {
+            auto bufName = fmt::format("{}", fmt::join(offset.name, "."));
             shaders::ResourceBinding bindingInfo{
-                .name = fmt::format("{}", fmt::join(offset.name, ".")),
+                .name = bufName,
                 .type = resourceType,
                 .binding = static_cast<uint32_t>(offset.value),
                 .count = 1,
@@ -57,6 +158,7 @@ namespace kt::shader_processor {
             };
             resources->sets[offset.space].resources.push_back(bindingInfo);
             bindingIt = std::prev(resources->sets[offset.space].resources.end());
+            SHDR_DEBUG("{} {} has binding {} in space {} and size/stride {}", resourceType, bufName, offset.value, offset.space, stride);
           }
         } break;
         case SLANG_TEXTURE_1D: {
@@ -125,84 +227,10 @@ namespace kt::shader_processor {
       case slang::TypeReflection::Kind::Vector:
       case slang::TypeReflection::Kind::Matrix:
       case slang::TypeReflection::Kind::Scalar: {
-        if (accessPath.deepestBuffer == nullptr) {
-          if (variableLayout->getCategory() == slang::ParameterCategory::Uniform) {
-            auto offset = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
-            if (resources->pushConstants.size < offset.value + variableLayout->getTypeLayout()->getSize()) {
-              resources->pushConstants.size = offset.value + variableLayout->getTypeLayout()->getSize();
-            }
-            resources->pushConstants.space = offset.space;
-            resources->pushConstants
-                .fieldOffsets[fmt::format("{}{}", fmt::join(offset.name, "."),
-                                          variableLayout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::Array ? "[]" : "")] =
-                shaders::FieldInfo{offset.value, variableLayout->getTypeLayout()->getSize(), variableLayout->getTypeLayout()->getStride()};
-          }
-        } else {
-          auto bufferVar = accessPath.deepestBuffer->variableLayout;
-
-          size_t sizeOrStride = 0;
-          shaders::ShaderResourceType type = shaders::ShaderResourceType::UniformBuffer;
-          switch (bufferVar->getTypeLayout()->getKind()) {
-          case slang::TypeReflection::Kind::ParameterBlock:
-          case slang::TypeReflection::Kind::ConstantBuffer:
-            sizeOrStride = bufferVar->getTypeLayout()->getElementTypeLayout()->getSize();
-            break;
-          case slang::TypeReflection::Kind::Resource: {
-            auto shape = bufferVar->getTypeLayout()->getResourceShape();
-            if ((shape & SLANG_RESOURCE_BASE_SHAPE_MASK) == SLANG_STRUCTURED_BUFFER) {
-              auto access = bufferVar->getTypeLayout()->getResourceAccess();
-              bool writable = (access == SLANG_RESOURCE_ACCESS_WRITE || access == SLANG_RESOURCE_ACCESS_READ_WRITE);
-              if (writable) {
-                type = shaders::ShaderResourceType::RWStorageBuffer;
-              } else {
-                type = shaders::ShaderResourceType::StorageBuffer;
-              }
-              sizeOrStride = bufferVar->getTypeLayout()->getElementTypeLayout()->getStride();
-            } else {
-              SHDR_ABORT("Unexpected resource type for buffer variable: {}", shape);
-            }
-          } break;
-          default:
-            SHDR_ABORT("Unexpected type for buffer variable: {}", bufferVar->getTypeLayout()->getKind());
-          }
-
-          AccessPath bufferAccessPath{};
-          bufferAccessPath.leaf = accessPath.deepestBuffer;
-          auto [byteOffset, _s, varName] = calculateCumulativeOffset(variableLayout, variableLayout->getCategory(), accessPath);
-          auto [_b, _bs, bufName] = calculateCumulativeOffset(bufferVar->getCategory(), bufferAccessPath);
-          auto [binding, space, _] = calculateCumulativeOffset(variableLayout, bufferVar->getCategory(), accessPath);
-
-          SHDR_DEBUG("Field {} has offset {} in space {}", fmt::join(varName, "."), byteOffset, _s);
-          SHDR_DEBUG("Buffer variable {} has binding {} in space {} with offset {} and size/stride {}", fmt::join(bufName, "."), binding,
-                     space, byteOffset, sizeOrStride);
-
-          std::vector<std::string> name = bufName;
-          name.append_range(varName);
-
-          if (resources->sets.size() <= space) {
-            resources->sets.resize(space + 1);
-          }
-          auto bindingIt =
-              std::find_if(resources->sets[space].resources.begin(), resources->sets[space].resources.end(),
-                           [binding, type](const shaders::ResourceBinding& b) { return b.binding == binding && b.type == type; });
-          if (bindingIt == resources->sets[space].resources.end()) {
-            shaders::ResourceBinding bindingInfo{
-                .name = fmt::format("{}", fmt::join(bufName, ".")),
-                .type = type,
-                .binding = static_cast<uint32_t>(binding),
-                .count = 1,
-                .isPush = false,
-                .bufferInfo = {.sizeOrStride = sizeOrStride},
-            };
-            resources->sets[space].resources.push_back(bindingInfo);
-            bindingIt = std::prev(resources->sets[space].resources.end());
-          }
-          bindingIt->bufferInfo.fieldOffsets[fmt::format(
-              "{}{}", fmt::join(name, "."), variableLayout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::Array ? "[]" : "")] =
-              shaders::FieldInfo{byteOffset, variableLayout->getTypeLayout()->getSize(), variableLayout->getTypeLayout()->getStride()};
-        }
+        addVariable(accessPath, variableLayout);
       }
       default:
+        printTypeLayout(variableLayout->getTypeLayout(), variablePath);
         break;
       }
     }
@@ -216,10 +244,23 @@ namespace kt::shader_processor {
     void printKindSpecificInfo(slang::TypeLayoutReflection* typeLayout, AccessPath accessPath) {
       switch (typeLayout->getKind()) {
       case slang::TypeReflection::Kind::Struct: {
-        int fieldCount = typeLayout->getFieldCount();
-        for (int f = 0; f < fieldCount; f++) {
-          auto field = typeLayout->getFieldByIndex(f);
-          printVariableLayout(field, accessPath);
+        bool isEndType = false;
+        for (uint32_t i = 0; i < typeLayout->getType()->getUserAttributeCount(); ++i) {
+          auto attr = typeLayout->getType()->getUserAttributeByIndex(i);
+          if (strcmp(attr->getName(), "endType") == 0) {
+            isEndType = true;
+            break;
+          }
+        }
+
+        if (isEndType) {
+          addVariable(accessPath, accessPath.leaf->variableLayout);
+        } else {
+          uint32_t fieldCount = typeLayout->getFieldCount();
+          for (uint32_t f = 0; f < fieldCount; f++) {
+            auto field = typeLayout->getFieldByIndex(f);
+            printVariableLayout(field, accessPath);
+          }
         }
       } break;
 

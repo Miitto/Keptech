@@ -1,6 +1,11 @@
 #include "pipelineBuilder.hpp"
 
 namespace kt::rhi {
+  PipelineBuilder& PipelineBuilder::setName(std::string n) {
+    name = std::move(n);
+    return *this;
+  }
+
   PipelineBuilder& PipelineBuilder::setShader(const shaders::Shader& s) {
     shader = &s;
     return *this;

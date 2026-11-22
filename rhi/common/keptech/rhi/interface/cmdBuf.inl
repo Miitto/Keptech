@@ -67,6 +67,8 @@ CommandBuffer& drawIndirectCount(const BufferRef& buffer, const BufferRef& count
 CommandBuffer& drawIndexedIndirectCount(const BufferRef& buffer, const BufferRef& countBuffer, uint32_t maxDrawCount,
                                         uint32_t drawOffset = 0, uint32_t countBufferOffset = 0);
 
+CommandBuffer& drawMeshTasks(uint32_t taskGroupCountX, uint32_t taskGroupCountY = 1, uint32_t taskGroupCountZ = 1);
+
 CommandBuffer& endRendering();
 
 CommandBuffer& transitionImage(const rhi::ImageRef& image, ImageLayout oldLayout, ImageLayout newLayout);

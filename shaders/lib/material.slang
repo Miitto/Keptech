@@ -3,6 +3,7 @@ implementing keptech;
 public namespace kt {
 public enum AlphaMode : uint32_t { Opaque = 0, Mask = 1, Blend = 2 };
 
+[endType]
 public struct Material {
   public DescriptorHandle<Texture2D> albedo;
   public DescriptorHandle<Texture2D> bump;

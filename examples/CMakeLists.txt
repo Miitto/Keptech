@@ -22,7 +22,4 @@ endmacro()
 add_subdirectory(clear_screen)
 add_subdirectory(triangle)
 add_subdirectory(basic)
-
-if (RENDERER STREQUAL "Vulkan")
-    add_subdirectory(mesh_shader)
-endif()
+add_subdirectory(mesh_shader)

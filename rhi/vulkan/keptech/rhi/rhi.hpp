@@ -2,13 +2,14 @@
 
 #include "keptech/rhi/helpers/descriptorPoolSet.hpp"
 #include "keptech/rhi/imageFormat.hpp"
+#include "keptech/rhi/result.hpp"
 #include "keptech/rhi/vk/constants.hpp"
 #include "keptech/rhi/vk/core.hpp"
 #include <Volk/volk.h>
 #include <expected>
 #include <set>
 #include <vma/vk_mem_alloc.h>
-#include "keptech/rhi/result.hpp"
+
 
 #ifdef KT_PROFILE
 #include <tracy/TracyVulkan.hpp>
@@ -58,7 +59,7 @@ namespace kt::rhi {
 
     bool swapchainSuboptimal = false;
 
-    std::vector<LoadedImage> loadedTextures{};
+    Vec<LoadedImage> loadedTextures{};
 
 #ifdef KT_PROFILE
     TracyVkCtx tracyGraphicsContext;

@@ -4,6 +4,7 @@
 #include "glm/ext/vector_float4.hpp"
 #include "keptech/material.hpp"
 #include "keptech/maths/sphere.hpp"
+#include "keptech/std/vec.hpp"
 
 namespace kt {
   namespace constants {
@@ -63,15 +64,15 @@ namespace kt {
   class Mesh {
   public:
     [[nodiscard]] bool isValid() const { return !submeshes.empty(); }
-    [[nodiscard]] const std::vector<Submesh>& getSubmeshes() const { return submeshes; }
+    [[nodiscard]] const Vec<Submesh>& getSubmeshes() const { return submeshes; }
     [[nodiscard]] const std::string& getName() const { return name; }
 
     Mesh() = default;
-    Mesh(std::string name, std::vector<Submesh> submeshes) : name(std::move(name)), submeshes(std::move(submeshes)) {}
+    Mesh(std::string name, Vec<Submesh> submeshes) : name(std::move(name)), submeshes(std::move(submeshes)) {}
 
   private:
     std::string name;
-    std::vector<Submesh> submeshes;
+    Vec<Submesh> submeshes;
   };
 
   struct GpuSubmesh {

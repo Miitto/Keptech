@@ -36,7 +36,7 @@ namespace kt::rhi {
     }
   } // namespace
 
-  std::expected<void, std::string> RHI::init(const RendererCreateInfo& createInfo, const Window& window) {
+  std::expected<void, std::string> RhiBase::init(const RendererCreateInfo& createInfo, const Window& window) {
     if (isInitialized) {
       return std::unexpected("Renderer is already initialized");
     }
@@ -157,6 +157,25 @@ namespace kt::rhi {
         return std::unexpected(res.error());
       }
     }
+
+#ifndef NDEBUG
+    m.queues.graphics->SetName(L"Graphics Queue");
+    m.queues.compute->SetName(L"Compute Queue");
+    m.queues.copy->SetName(L"Copy Queue");
+
+    m.copyCmdList->SetName(L"Copy Command List");
+    m.copyFence->SetName(L"Copy Fence");
+    m.fence->SetName(L"Graphics-Compute Fence");
+
+    m.drawIndirectSignature->SetName(L"Draw Indirect Command Signature");
+    m.drawIndexedIndirectSignature->SetName(L"Draw Indexed Indirect Command Signature");
+
+    m.dsvHeap.heap->SetName(L"DSV Descriptor Heap");
+    m.rtvHeap.heap->SetName(L"RTV Descriptor Heap");
+    m.samplerHeap.heap->SetName(L"Sampler Descriptor Heap");
+    m.cbvSrvUavHeap.heap->SetName(L"CBV/SRV/UAV Descriptor Heap");
+    m.imGui.srvHeap->SetName(L"ImGui SRV Descriptor Heap");
+#endif
 
     return {};
   }

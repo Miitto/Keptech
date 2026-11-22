@@ -1,34 +1,39 @@
 #pragma once
 
+#include "keptech/rhi/buffer.hpp"
+#include "keptech/rhi/cmdBuf.hpp"
+#include "keptech/rhi/dx/dx-logger.hpp"
 #include "keptech/rhi/rhi.hpp"
+#include "keptech/std/vec.hpp"
+
 
 namespace kt::rhi {
   template <typename F>
-    requires(std::is_invocable_v<F, CommandBuffer&> && std::is_same_v<std::invoke_result_t<F, CommandBuffer&>, std::vector<Buffer>>)
-  uint64_t RHI::oneshotCopy(const F& copyFunc) {
+    requires(std::is_invocable_v<F, CommandBuffer&> && std::is_same_v<std::invoke_result_t<F, CommandBuffer&>, Vec<Buffer>>)
+  uint64_t RhiBase::oneshotCopy(this RHI& self, const F& copyFunc) {
     ComPtr<ID3D12CommandAllocator> cmdAlloc;
-    DX_REQUIRE(SUCCEEDED(m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&cmdAlloc))),
+    DX_REQUIRE(SUCCEEDED(self.m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&cmdAlloc))),
                "Failed to create copy command allocator");
 
-    m.copyCmdList->Reset(cmdAlloc.Get(), nullptr);
+    self.m.copyCmdList->Reset(cmdAlloc.Get(), nullptr);
 
-    CommandBuffer cmdBuf(std::move(cmdAlloc), m.copyCmdList);
+    CommandBuffer cmdBuf(std::move(cmdAlloc), self.m.copyCmdList);
 
-    auto buffers = copyFunc(cmdBuf);
+    Vec<Buffer> buffers = copyFunc(cmdBuf);
 
     cmdBuf.end();
 
-    m.queues.copy->ExecuteCommandLists(1, cmdBuf);
+    self.m.queues.copy->ExecuteCommandLists(1, cmdBuf);
 
-    uint64_t fenceValue = m.copyFence.signal(m.queues.copy);
+    uint64_t fenceValue = self.m.copyFence.signal(self.m.queues.copy);
 
-    std::vector<D3D12MA::Allocation*> allocsToDrop;
+    Vec<D3D12MA::Allocation*> allocsToDrop;
     allocsToDrop.reserve(buffers.size());
     for (auto& buffer : buffers) {
       allocsToDrop.push_back(buffer.dxTakeAllocation());
     }
 
-    m.ongoingCopies.push_back({.cmdAlloc = cmdBuf.dxGetAlloc(), .fenceValue = fenceValue, .allocsToDrop = std::move(allocsToDrop)});
+    self.m.ongoingCopies.push_back({.cmdAlloc = cmdBuf.dxGetAlloc(), .fenceValue = fenceValue, .allocsToDrop = std::move(allocsToDrop)});
 
     return fenceValue;
   }

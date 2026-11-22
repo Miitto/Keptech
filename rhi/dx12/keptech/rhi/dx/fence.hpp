@@ -21,6 +21,7 @@ namespace kt::rhi {
     void flush(const Microsoft::WRL::ComPtr<ID3D12CommandQueue>& commandQueue);
 
     Microsoft::WRL::ComPtr<ID3D12Fence>& operator*();
+    Microsoft::WRL::ComPtr<ID3D12Fence>& operator->();
     [[nodiscard]] HANDLE getEvent() const;
 
     Fence(const Fence&) = delete;
@@ -31,6 +32,14 @@ namespace kt::rhi {
     operator ID3D12Fence*() const { return m_fence.Get(); }
 
     void makeEvent();
+
+    void destroy() {
+      m_fence.Reset();
+      if (event) {
+        CloseHandle(event);
+        event = nullptr;
+      }
+    }
 
   private:
     Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;

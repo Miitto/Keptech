@@ -59,14 +59,14 @@ namespace kt::rhi {
     Pipeline pipeline;
     pipeline.info = shader->info;
 
-    std::vector<ComPtr<ID3DBlob>> code;
+    Vec<ComPtr<ID3DBlob>> code;
     code.reserve(shader->code.size());
     for (auto& entryPointCode : shader->code) {
       D3DCreateBlob(entryPointCode.size(), code.emplace_back().GetAddressOf());
       memcpy(code.back()->GetBufferPointer(), entryPointCode.data(), entryPointCode.size());
     }
 
-    std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout;
+    Vec<D3D12_INPUT_ELEMENT_DESC> inputLayout;
     for (const auto& [bufIdx, buffer] : shader->info.vertex.layout | std::views::enumerate) {
       for (const auto& entry : buffer.layout) {
         inputLayout.push_back({
@@ -110,26 +110,26 @@ namespace kt::rhi {
       }
     };
 
-    std::vector<std::vector<D3D12_DESCRIPTOR_RANGE1>> ranges(shader->info.globalResources.sets.size());
+    Vec<Vec<D3D12_DESCRIPTOR_RANGE1>> ranges(shader->info.globalResources.sets.size());
 
     struct BindingSpace {
       uint32_t binding;
       uint32_t space;
     };
 
-    std::vector<BindingSpace> directCbvs;
-    std::vector<BindingSpace> directSrvs;
-    std::vector<BindingSpace> directUavs;
-    std::vector<BindingSpace> directSamplers;
+    Vec<BindingSpace> directCbvs;
+    Vec<BindingSpace> directSrvs;
+    Vec<BindingSpace> directUavs;
+    Vec<BindingSpace> directSamplers;
 
     if (!shader->info.globalResources.sets.empty()) {
       struct Ranges {
-        std::vector<D3D12_DESCRIPTOR_RANGE1> cbvRanges;
-        std::vector<D3D12_DESCRIPTOR_RANGE1> srvRanges;
-        std::vector<D3D12_DESCRIPTOR_RANGE1> uavRanges;
+        Vec<D3D12_DESCRIPTOR_RANGE1> cbvRanges;
+        Vec<D3D12_DESCRIPTOR_RANGE1> srvRanges;
+        Vec<D3D12_DESCRIPTOR_RANGE1> uavRanges;
       };
 
-      std::vector<Ranges> rangesPerSpace(shader->info.globalResources.sets.size());
+      Vec<Ranges> rangesPerSpace(shader->info.globalResources.sets.size());
 
       for (uint32_t space = 0; space < shader->info.globalResources.sets.size(); ++space) {
         const auto& resourceSet = shader->info.globalResources.sets[space];
@@ -207,13 +207,12 @@ namespace kt::rhi {
 
     size_t tableOffset = ranges.size();
 
-    std::vector<CD3DX12_ROOT_PARAMETER1> rootParameters{tableOffset + directCbvs.size() + directSrvs.size() + directUavs.size() +
-                                                        directSamplers.size() +
-                                                        (shader->info.globalResources.pushConstants.size > 0u ? 1u : 0u)};
+    Vec<CD3DX12_ROOT_PARAMETER1> rootParameters{tableOffset + directCbvs.size() + directSrvs.size() + directUavs.size() +
+                                                directSamplers.size() + (shader->info.globalResources.pushConstants.size > 0u ? 1u : 0u)};
 
     for (size_t space = 0; space < ranges.size(); ++space) {
       if (ranges[space].empty()) {
-        DX_ERROR("No resources found in space {} for shader '{}'. This is likely a bug in the shader compiler.", space, shader->info.name);
+        DX_WARN("No resources found in space {} for shader '{}'.", space, shader->info.name);
         continue;
       }
 
@@ -316,7 +315,7 @@ namespace kt::rhi {
 #define MAKE_PSO(_T, _PTR)                                                                                                                 \
   D3D12_PIPELINE_STATE_STREAM_DESC psoDesc{                                                                                                \
       .SizeInBytes = sizeof(_T),                                                                                                           \
-      .pPipelineStateSubobjectStream = _PTR,                                                                                               \
+      .pPipelineStateSubobjectStream = (_PTR),                                                                                             \
   };                                                                                                                                       \
   DX_MAKE(RHI::get().dxGetDevice()->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&pipeline.pipelineState)),                                  \
           "Failed to create pipeline state");
@@ -499,6 +498,15 @@ namespace kt::rhi {
       }
       DX_ABORT("Unsupported shader stage combination for pipeline creation");
     }
+
+#ifndef NDEBUG
+    if (!name.empty()) {
+      auto rsoName = fmt::format("{} Root Signature", name);
+      auto psoName = fmt::format("{} Pipeline State", name);
+      pipeline.rootSignature->SetName(std::wstring(rsoName.begin(), rsoName.end()).c_str());
+      pipeline.pipelineState->SetName(std::wstring(psoName.begin(), psoName.end()).c_str());
+    }
+#endif
 
     return pipeline;
   }

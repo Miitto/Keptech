@@ -21,7 +21,7 @@ namespace kt {
     resultIndex = graph.getImageIndex("kt::skybox");
 
     kt::rhi::PipelineBuilder pipelineBuilder{};
-    pipelineBuilder.setShader(::shaders::kt::skybox).addColorAttachment(kt::rhi::ImageFormat::R8G8B8A8_UNORM);
+    pipelineBuilder.setShader(::shaders::kt::skybox).addColorAttachment(kt::rhi::ImageFormat::R8G8B8A8_UNORM).setName("Skybox");
 
     auto pipeline_res = pipelineBuilder.build();
     if (!pipeline_res.has_value()) {

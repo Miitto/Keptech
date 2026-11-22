@@ -15,6 +15,8 @@ namespace kt {
     static void ensureDescriptorLayout();
     static rhi::DescriptorLayout& getLayout() { return layout; }
 
+    void init();
+
     SB<glm::vec3> positions;
     SB<kt::VertexAttribs> vertexAttribs;
     SB<uint32_t> indices;

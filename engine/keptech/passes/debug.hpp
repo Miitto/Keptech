@@ -1,7 +1,9 @@
 #pragma once
 
 #include "keptech/graph/passInterface.hpp"
+#include "keptech/std/vec.hpp"
 #include <string>
+
 
 namespace kt {
   class DebugPass : public RenderPassInterface {
@@ -14,7 +16,7 @@ namespace kt {
     void addToGraph(RenderGraphBuilder& graph);
 
   private:
-    std::vector<size_t> renderTargets;
+    Vec<size_t> renderTargets;
     size_t debugImageIndex = 0;
     size_t debugView = 0;
     std::string backbufferSource;

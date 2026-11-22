@@ -2,9 +2,9 @@
 
 #include "keptech/rhi/imageFormat.hpp"
 #include "keptech/shaders/shader.hpp"
+#include "keptech/std/vec.hpp"
 #include "pipelineTypes.hpp"
 #include <expected>
-
 
 namespace kt::rhi {
 
@@ -18,15 +18,17 @@ namespace kt::rhi {
     PipelineBuilder& setDepthCompareOp(DepthCompareOp op);
     PipelineBuilder& addColorAttachment(ImageFormat format);
     PipelineBuilder& setDepthAttachment(ImageFormat format);
+    PipelineBuilder& setName(std::string name);
 
     std::expected<Pipeline, std::string> build();
 
   private:
+    std::string name;
     const shaders::Shader* shader = nullptr;
     PolygonMode polygonMode = PolygonMode::Fill;
     FrontFace frontFace = FrontFace::CounterClockwise;
     DepthCompareOp depthCompareOp = DepthCompareOp::Always;
-    std::vector<ImageFormat> colorAttachmentFormats{};
+    Vec<ImageFormat> colorAttachmentFormats{};
     ImageFormat depthAttachmentFormat = ImageFormat::Undefined;
   };
 } // namespace kt::rhi

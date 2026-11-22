@@ -174,19 +174,19 @@ namespace kt {
 
     return false;
   }
-  [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getColorOutputs() const { return colorOutputs; }
-  [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getColorInputs() const { return colorInputs; }
-  [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getHistoryInputs() const { return historyInputs; }
-  [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getStorageImageOutputs() const { return storageImageOutputs; }
-  [[nodiscard]] const std::vector<RenderTextureResource*>& RenderPassBuilder::getStorageImageInputs() const { return storageImageInputs; }
-  [[nodiscard]] const std::vector<RenderBufferResource*>& RenderPassBuilder::getStorageOutputs() const { return storageOutputs; }
-  [[nodiscard]] const std::vector<RenderBufferResource*>& RenderPassBuilder::getStorageInputs() const { return storageInputs; }
-  [[nodiscard]] const std::vector<RenderBufferResource*>& RenderPassBuilder::getTransferOutputs() const { return transferOutputs; }
-  const std::vector<RenderBufferResource*>& RenderPassBuilder::getMappedBuffers() const { return mappedBuffers; }
+  [[nodiscard]] const Vec<RenderTextureResource*>& RenderPassBuilder::getColorOutputs() const { return colorOutputs; }
+  [[nodiscard]] const Vec<RenderTextureResource*>& RenderPassBuilder::getColorInputs() const { return colorInputs; }
+  [[nodiscard]] const Vec<RenderTextureResource*>& RenderPassBuilder::getHistoryInputs() const { return historyInputs; }
+  [[nodiscard]] const Vec<RenderTextureResource*>& RenderPassBuilder::getStorageImageOutputs() const { return storageImageOutputs; }
+  [[nodiscard]] const Vec<RenderTextureResource*>& RenderPassBuilder::getStorageImageInputs() const { return storageImageInputs; }
+  [[nodiscard]] const Vec<RenderBufferResource*>& RenderPassBuilder::getStorageOutputs() const { return storageOutputs; }
+  [[nodiscard]] const Vec<RenderBufferResource*>& RenderPassBuilder::getStorageInputs() const { return storageInputs; }
+  [[nodiscard]] const Vec<RenderBufferResource*>& RenderPassBuilder::getTransferOutputs() const { return transferOutputs; }
+  const Vec<RenderBufferResource*>& RenderPassBuilder::getMappedBuffers() const { return mappedBuffers; }
   [[nodiscard]] RenderTextureResource* RenderPassBuilder::getDepthStencilInput() const { return depthStencilInput; }
   [[nodiscard]] RenderTextureResource* RenderPassBuilder::getDepthStencilOutput() const { return depthStencilOutput; }
-  [[nodiscard]] const std::vector<AccessedTextureResource>& RenderPassBuilder::getGenericTextureInputs() const { return genericTexutre; }
-  [[nodiscard]] const std::vector<AccessedBufferResource>& RenderPassBuilder::getGenericBufferInputs() const { return genericBuffers; }
+  [[nodiscard]] const Vec<AccessedTextureResource>& RenderPassBuilder::getGenericTextureInputs() const { return genericTexutre; }
+  [[nodiscard]] const Vec<AccessedBufferResource>& RenderPassBuilder::getGenericBufferInputs() const { return genericBuffers; }
   const std::unordered_set<PassId>& RenderPassBuilder::getProxyPasses() const { return proxyPasses; }
 
   RenderPassBuilder& RenderPassBuilder::setIndex(size_t idx) {

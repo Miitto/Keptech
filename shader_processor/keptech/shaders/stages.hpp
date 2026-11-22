@@ -4,7 +4,7 @@
 #include <spdlog/fmt/bundled/format.h>
 
 #ifndef BIT
-#define BIT(x) (1u << (x))
+#define BIT(x) (1u << (x##u))
 #endif
 
 namespace kt::shaders {

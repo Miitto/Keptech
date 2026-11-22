@@ -8,62 +8,66 @@
 #include "image.hpp"
 #include "imageRef.hpp"
 #include "imgui.h"
-#include "keptech/components/transform.hpp"
-#include "keptech/core/scene.hpp"
 #include "keptech/core/window.hpp"
 #include "keptech/rhi/descriptorInfo.hpp"
 #include "keptech/rhi/descriptorSet.hpp"
 #include "keptech/rhi/imgui.hpp"
 #include "pipelineBuilder.hpp"
 #include "shaders/keptech/rhi/blit.h"
+#include <codecvt>
 #include <d3d12.h>
+#include <iostream>
+#ifndef NDEBUG
+#include <dxgidebug.h>
+#include <spdlog/fmt/bundled/xchar.h>
+#endif
 #include <utility>
 
 namespace kt::rhi {
 
-  RHI RHI::singleton{};
-  bool RHI::isInitialized = false;
+  RHI RhiBase::singleton{};
+  bool RhiBase::isInitialized = false;
 
-  RHI& RHI::get() { return singleton; }
-  bool RHI::isInit() { return isInitialized; }
-  uint64_t RHI::getTimelineValue() const { return m.fence.currentValue(); }
+  RHI& RhiBase::get() { return singleton; }
+  bool RhiBase::isInit() { return isInitialized; }
+  uint64_t RhiBase::getTimelineValue(this const RHI& self) { return self.m.fence.currentValue(); }
 
-  bool RHI::canRenderToFormat(ImageFormat format) const {
+  bool RhiBase::canRenderToFormat(this const RHI& self, ImageFormat format) {
     D3D12_FEATURE_DATA_FORMAT_SUPPORT formatSupport{.Format = raw(format)};
-    m.device->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT, &formatSupport, sizeof(formatSupport));
+    self.m.device->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT, &formatSupport, sizeof(formatSupport));
     return (formatSupport.Support1 & (D3D12_FORMAT_SUPPORT1_RENDER_TARGET | D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL)) != 0;
   }
 
-  bool RHI::canSampleFromFormat(ImageFormat format) const {
+  bool RhiBase::canSampleFromFormat(this const RHI& self, ImageFormat format) {
     D3D12_FEATURE_DATA_FORMAT_SUPPORT formatSupport{.Format = raw(format)};
-    m.device->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT, &formatSupport, sizeof(formatSupport));
+    self.m.device->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT, &formatSupport, sizeof(formatSupport));
     return (formatSupport.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE) != 0;
   }
-  ImageFormat RHI::getSwapchainFormat() const { return static_cast<ImageFormat>(ImageFormat::R8G8B8A8_UNORM); }
+  ImageFormat RhiBase::getSwapchainFormat(this const RHI&) { return static_cast<ImageFormat>(ImageFormat::R8G8B8A8_UNORM); }
 
-  void RHI::waitGraphicsIdle() { m.fence.flush(m.queues.graphics); }
-  void RHI::waitComputeIdle() { m.fence.flush(m.queues.compute); }
-  void RHI::waitCopyIdle() { m.copyFence.flush(m.queues.copy); }
-  void RHI::waitIdle() {
-    waitGraphicsIdle();
-    waitComputeIdle();
-    waitCopyIdle();
+  void RhiBase::waitGraphicsIdle(this RHI& self) { self.m.fence.flush(self.m.queues.graphics); }
+  void RhiBase::waitComputeIdle(this RHI& self) { self.m.fence.flush(self.m.queues.compute); }
+  void RhiBase::waitCopyIdle(this RHI& self) { self.m.copyFence.flush(self.m.queues.copy); }
+  void RhiBase::waitIdle(this RHI& self) {
+    self.waitGraphicsIdle();
+    self.waitComputeIdle();
+    self.waitCopyIdle();
   }
 
-  kt::Result<ImageRef, HRESULT, S_OK> RHI::createTexture(const ImageCreateInfo& createInfo) {
+  kt::Result<ImageRef, HRESULT, S_OK> RhiBase::createTexture(this RHI& self, const ImageCreateInfo& createInfo) {
     auto imageRes = Image::create(createInfo);
     if (imageRes.isError()) {
       return imageRes.error();
     }
 
-    size_t index = m.cbvSrvUavHeap.count++;
+    size_t index = self.m.cbvSrvUavHeap.count++;
 
-    m.loadedTextures.push_back(std::move(imageRes.value()));
+    self.m.loadedTextures.push_back(std::move(imageRes.value()));
 
-    auto& img = m.loadedTextures.back();
+    auto& img = self.m.loadedTextures.back();
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle =
-        CD3DX12_CPU_DESCRIPTOR_HANDLE(m.cbvSrvUavHeap.heap->GetCPUDescriptorHandleForHeapStart(), static_cast<INT>(index),
+        CD3DX12_CPU_DESCRIPTOR_HANDLE(self.m.cbvSrvUavHeap.heap->GetCPUDescriptorHandleForHeapStart(), static_cast<INT>(index),
                                       static_cast<UINT>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{
@@ -90,14 +94,14 @@ namespace kt::rhi {
       break;
     }
 
-    m.device->CreateShaderResourceView(img.dxresource().Get(), &srvDesc, srvHandle);
+    self.m.device->CreateShaderResourceView(img.dxresource().Get(), &srvDesc, srvHandle);
 
     img.setTextureIndex(index);
 
     return static_cast<ImageRef>(img);
   }
 
-  DescriptorLayout RHI::createDescriptorLayout(std::span<const DescriptorInfo> descriptorInfos) {
+  DescriptorLayout RhiBase::createDescriptorLayout(this RHI& self, std::span<const DescriptorInfo> descriptorInfos) {
     DescriptorLayout layout{};
     auto& ranges = layout.dxGetRanges();
     ranges.reserve(descriptorInfos.size());
@@ -111,26 +115,27 @@ namespace kt::rhi {
     return layout;
   }
 
-  DescriptorSet RHI::allocateDescriptorSet(const DescriptorLayout& layout) {
+  DescriptorSet RhiBase::allocateDescriptorSet(this RHI& self, const DescriptorLayout& layout) {
     auto cpuHandle =
-        CD3DX12_CPU_DESCRIPTOR_HANDLE(m.cbvSrvUavHeap.heap->GetCPUDescriptorHandleForHeapStart(), static_cast<INT>(m.cbvSrvUavHeap.count),
-                                      static_cast<uint32_t>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
+        CD3DX12_CPU_DESCRIPTOR_HANDLE(self.m.cbvSrvUavHeap.heap->GetCPUDescriptorHandleForHeapStart(),
+                                      static_cast<INT>(self.m.cbvSrvUavHeap.count), static_cast<uint32_t>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
     auto gpuHandle =
-        CD3DX12_GPU_DESCRIPTOR_HANDLE(m.cbvSrvUavHeap.heap->GetGPUDescriptorHandleForHeapStart(), static_cast<INT>(m.cbvSrvUavHeap.count),
-                                      static_cast<uint32_t>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
+        CD3DX12_GPU_DESCRIPTOR_HANDLE(self.m.cbvSrvUavHeap.heap->GetGPUDescriptorHandleForHeapStart(),
+                                      static_cast<INT>(self.m.cbvSrvUavHeap.count), static_cast<uint32_t>(CBV_SRV_UAV_DESCRIPTOR_SIZE));
 
     uint32_t c = 0;
     for (const auto& range : layout.dxGetRanges()) {
       c += range.NumDescriptors;
     }
-    m.cbvSrvUavHeap.count += c;
+    self.m.cbvSrvUavHeap.count += c;
 
     // TODO: Reallocate heap.
-    DX_ASSERT(m.cbvSrvUavHeap.count <= m.cbvSrvUavHeap.capacity, "Descriptor pool overflow: allocated {} descriptors, but capacity is {}",
-              m.cbvSrvUavHeap.count, m.cbvSrvUavHeap.capacity);
+    DX_ASSERT(self.m.cbvSrvUavHeap.count <= self.m.cbvSrvUavHeap.capacity,
+              "Descriptor pool overflow: allocated {} descriptors, but capacity is {}", self.m.cbvSrvUavHeap.count,
+              self.m.cbvSrvUavHeap.capacity);
 
-    DX_DEBUG("Allocated {} descriptors from descriptor pool ({} used, {} remaining)", c, m.cbvSrvUavHeap.count,
-             m.cbvSrvUavHeap.capacity - m.cbvSrvUavHeap.count);
+    DX_DEBUG("Allocated {} descriptors from descriptor pool ({} used, {} remaining)", c, self.m.cbvSrvUavHeap.count,
+             self.m.cbvSrvUavHeap.capacity - self.m.cbvSrvUavHeap.count);
 
 #ifndef NDEBUG
     if (c == 0) {
@@ -146,170 +151,236 @@ namespace kt::rhi {
     };
   }
 
-  void RHI::newFrame() {
+  void RhiBase::newFrame(this RHI& self) {
 
     ImGui_ImplDX12_NewFrame();
     imgui::newFrame();
 
-    resetStats();
+    self.resetStats();
   }
 
-  void RHI::startFrame() {
-    auto& frame = m.frames[m.frameIndex];
+  void RhiBase::startFrame(this RHI& self) {
+    auto& frame = self.m.frames[self.m.frameIndex];
 
     // Work gets queued up at some pretty random points occasionally (looking at you window resize), so just quickly wait for pre frame
     // submitted work before dropping things.
-    m.fence.wait(m.fence.getValue());
+    self.m.fence.wait(self.m.fence.getValue());
 
     for (auto* alloc : frame.allocsToDrop) {
       alloc->Release();
     }
     frame.allocsToDrop.clear();
 
-    uint64_t fenceValue = m.fence.currentValue();
+    uint64_t fenceValue = self.m.fence.currentValue();
 
-    for (auto& copy : m.ongoingCopies) {
+    for (auto& copy : self.m.ongoingCopies) {
       if (copy.fenceValue <= fenceValue) {
         for (auto* alloc : copy.allocsToDrop) {
           alloc->Release();
         }
       }
     }
-    m.ongoingCopies.erase(std::remove_if(m.ongoingCopies.begin(), m.ongoingCopies.end(),
-                                         [fenceValue](const Members::OngoingCopy& copy) { return copy.fenceValue <= fenceValue; }),
-                          m.ongoingCopies.end());
+    self.m.ongoingCopies.erase(std::remove_if(self.m.ongoingCopies.begin(), self.m.ongoingCopies.end(),
+                                              [fenceValue](const Members::OngoingCopy& copy) { return copy.fenceValue <= fenceValue; }),
+                               self.m.ongoingCopies.end());
 
-    m.runningAllocs[m.frameIndex].clear();
+    self.m.runningAllocs[self.m.frameIndex].clear();
   }
 
-  void RHI::debugUi() const {}
+  void RhiBase::debugUi(this const RHI& self) {}
 
-  void RHI::endFrame(CommandBuffer& cmd) {
+  void RhiBase::endFrame(this RHI& self, CommandBuffer& cmd) {
 #ifndef NDEBUG
-    debugUi();
+    self.debugUi();
 #endif
 
     ImGui::Render();
 
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m.swapchain.rtvHeap->GetCPUDescriptorHandleForHeapStart(), m.imageIndex,
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(self.m.swapchain.rtvHeap->GetCPUDescriptorHandleForHeapStart(), self.m.imageIndex,
                                             static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
 
     cmd->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-    cmd->SetDescriptorHeaps(1, m.imGui.srvHeap.GetAddressOf());
+    cmd->SetDescriptorHeaps(1, self.m.imGui.srvHeap.GetAddressOf());
 
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmd);
 
     CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-        m.swapchain.backbuffers[m.imageIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+        self.m.swapchain.backbuffers[self.m.imageIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 
     cmd->ResourceBarrier(1, &barrier);
 
     cmd->Close();
 
-    m.queues.graphics->Wait(m.fence, m.fence.getValue());
+    self.m.queues.graphics->Wait(self.m.fence, self.m.fence.getValue());
 
     std::array<ID3D12CommandList* const, 1> cmdLists = {cmd};
-    m.queues.graphics->ExecuteCommandLists(cmdLists.size(), cmdLists.data());
+    self.m.queues.graphics->ExecuteCommandLists(cmdLists.size(), cmdLists.data());
 
-    m.runningAllocs[m.frameIndex].push_back(std::move(cmd.dxGetAlloc()));
+    self.m.runningAllocs[self.m.frameIndex].push_back(std::move(cmd.dxGetAlloc()));
 
-    present();
+    self.present();
   }
 
-  void RHI::present() {
-    UINT syncInterval = m.swapchain.vSync ? 1 : 0;
-    UINT presentFlags = m.swapchain.vSync ? 0 : DXGI_PRESENT_ALLOW_TEARING;
+  void RhiBase::present(this RHI& self) {
+    UINT syncInterval = self.m.swapchain.vSync ? 1 : 0;
+    UINT presentFlags = self.m.swapchain.vSync ? 0 : DXGI_PRESENT_ALLOW_TEARING;
 
-    auto presentRes = m.swapchain.swapchain->Present(syncInterval, presentFlags);
+    auto presentRes = self.m.swapchain.swapchain->Present(syncInterval, presentFlags);
 
     switch (presentRes) {
     case S_OK:
       break;
     case DXGI_ERROR_DEVICE_RESET:
-      DX_ABORT("Device reset during present of swapchain image {} on frame index {}", m.imageIndex, m.frameIndex);
+      DX_ABORT("Device reset during present of swapchain image {} on frame index {}", self.m.imageIndex, self.m.frameIndex);
       break;
     case DXGI_ERROR_DEVICE_REMOVED:
-      DX_ABORT("Device lost during present of swapchain image {} on frame index {}", m.imageIndex, m.frameIndex);
+      DX_ABORT("Device lost during present of swapchain image {} on frame index {}", self.m.imageIndex, self.m.frameIndex);
       break;
     case DXGI_STATUS_OCCLUDED:
-      DX_DEBUG("Window occluded during present of swapchain image {} on frame index {}", m.imageIndex, m.frameIndex);
+      DX_DEBUG("Window occluded during present of swapchain image {} on frame index {}", self.m.imageIndex, self.m.frameIndex);
       break;
     default:
-      DX_WARN("Unknown error during present of swapchain image {} on frame index {}: {}", m.imageIndex, m.frameIndex, presentRes);
+      DX_WARN("Unknown error during present of swapchain image {} on frame index {}: {}", self.m.imageIndex, self.m.frameIndex, presentRes);
       break;
     }
 
-    m.frames[m.frameIndex].fenceValue = m.fence.signal(m.queues.graphics);
+    self.m.frames[self.m.frameIndex].fenceValue = self.m.fence.signal(self.m.queues.graphics);
 
-    m.frameIndex = (m.frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
-    m.fence.wait(m.frames[m.frameIndex].fenceValue);
+    self.m.frameIndex = (self.m.frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+    self.m.fence.wait(self.m.frames[self.m.frameIndex].fenceValue);
 
-    m.imageIndex = static_cast<uint8_t>(m.swapchain.swapchain->GetCurrentBackBufferIndex());
+    self.m.imageIndex = static_cast<uint8_t>(self.m.swapchain.swapchain->GetCurrentBackBufferIndex());
   }
 
-  void RHI::onResize() {
-    glm::uvec2 renderSize = m.window->getRenderSize();
+  void RhiBase::onResize(this RHI& self) {
+    glm::uvec2 renderSize = self.m.window->getRenderSize();
     DX_DEBUG("Window resized to {}x{}", renderSize.x, renderSize.y);
-    m.fence.flush(m.queues.graphics);
+    self.m.fence.flush(self.m.queues.graphics);
 
     for (uint32_t i = 0; i < SWAPCHAIN_IMAGE_COUNT; ++i) {
-      m.swapchain.backbuffers[i].Reset();
+      self.m.swapchain.backbuffers[i].Reset();
     }
 
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-      m.frames[i].fenceValue = m.frames[m.frameIndex].fenceValue;
+      self.m.frames[i].fenceValue = self.m.frames[self.m.frameIndex].fenceValue;
     }
 
     DXGI_SWAP_CHAIN_DESC swapchainDesc{};
-    DX_REQUIRE(SUCCEEDED(m.swapchain.swapchain->GetDesc(&swapchainDesc)), "Failed to get swapchain description");
-    DX_REQUIRE(SUCCEEDED(m.swapchain.swapchain->ResizeBuffers(SWAPCHAIN_IMAGE_COUNT, renderSize.x, renderSize.y,
-                                                              swapchainDesc.BufferDesc.Format, swapchainDesc.Flags)),
+    DX_REQUIRE(SUCCEEDED(self.m.swapchain.swapchain->GetDesc(&swapchainDesc)), "Failed to get swapchain description");
+    DX_REQUIRE(SUCCEEDED(self.m.swapchain.swapchain->ResizeBuffers(SWAPCHAIN_IMAGE_COUNT, renderSize.x, renderSize.y,
+                                                                   swapchainDesc.BufferDesc.Format, swapchainDesc.Flags)),
                "Failed to resize swapchain buffers");
 
-    m.swapchain.size = renderSize;
+    self.m.swapchain.size = renderSize;
 
-    m.imageIndex = static_cast<uint8_t>(m.swapchain.swapchain->GetCurrentBackBufferIndex());
-    auto res = updateBackbufferDescriptors();
+    self.m.imageIndex = static_cast<uint8_t>(self.m.swapchain.swapchain->GetCurrentBackBufferIndex());
+    auto res = self.updateBackbufferDescriptors();
     if (!res) {
       DX_ABORT("Failed to update backbuffer descriptors: {}", res.error());
     }
   }
 
-  RHI::~RHI() {
-    m.fence.flush(m.queues.graphics);
-
-    for (auto& frame : m.frames) {
-      for (auto* alloc : frame.allocsToDrop) {
-        alloc->Release();
-      }
+  void Swapchain::destroy() {
+    for (auto& backbuffer : backbuffers) {
+      backbuffer.Reset();
     }
-
-    for (auto& tex : m.loadedTextures) {
-      tex.destroy();
-    }
-
-    if (m.allocator) {
-      m.allocator->Release();
-      m.allocator = nullptr;
-    }
-
-    ImGui_ImplDX12_Shutdown();
-    imgui::shutdown();
+    rtvHeap.Reset();
+    swapchain.Reset();
   }
 
-  ImageRef RHI::getSwapchainImage() const {
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m.swapchain.rtvHeap->GetCPUDescriptorHandleForHeapStart(), m.imageIndex,
+  void RhiBase::shutdown(this RHI& self) {
+    auto& m = self.m;
+    if (m.allocator) {
+      self.waitIdle();
+
+      m.ongoingCopies.clear();
+
+      for (auto& frame : m.frames) {
+        for (auto* alloc : frame.allocsToDrop) {
+          alloc->Release();
+        }
+      }
+
+      for (auto& allocs : m.runningAllocs) {
+        for (auto& alloc : allocs) {
+          alloc.Reset();
+        }
+      }
+
+      for (auto& tex : m.loadedTextures) {
+        tex.destroy();
+      }
+
+      ImGui_ImplDX12_Shutdown();
+      imgui::shutdown();
+
+      m.integrateBRDFPipeline.destroy();
+      m.convoluteIrradiancePipeline.destroy();
+      m.cubeFromEquirectangularPipeline.destroy();
+      m.preFilterPipeline.destroy();
+      m.blitPipelines.clear();
+
+      m.imGui.srvHeap.Reset();
+      m.dsvHeap.heap.Reset();
+      m.rtvHeap.heap.Reset();
+      m.cbvSrvUavHeap.heap.Reset();
+      m.samplerHeap.heap.Reset();
+
+      m.drawIndexedIndirectSignature.Reset();
+      m.drawIndirectSignature.Reset();
+
+      m.copyFence.destroy();
+      m.fence.destroy();
+
+      m.copyCmdList.Reset();
+
+      m.queues.graphics.Reset();
+      m.queues.compute.Reset();
+      m.queues.copy.Reset();
+
+      m.swapchain.destroy();
+
+      D3D12MA::TotalStatistics stats{};
+      m.allocator->CalculateStatistics(&stats);
+      if (stats.Total.Stats.AllocationCount > 0) {
+        WCHAR* statsString = nullptr;
+        m.allocator->BuildStatsString(&statsString, TRUE);
+
+        std::wstring ws(statsString);
+        std::string statsStr(ws.begin(), ws.end());
+
+        std::cerr << "D3D12 MEMORY LEAK:\n" << statsStr << std::endl;
+
+        m.allocator->FreeStatsString(statsString);
+      }
+
+      m.allocator->Release();
+      m.allocator = nullptr;
+
+      m.device.Reset();
+
+#ifndef NDEBUG
+      Microsoft::WRL::ComPtr<IDXGIDebug1> dxgiDebug;
+      if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgiDebug)))) {
+        dxgiDebug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_DETAIL);
+      }
+#endif
+    }
+  }
+
+  ImageRef RhiBase::getSwapchainImage(this const RHI& self) {
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(self.m.swapchain.rtvHeap->GetCPUDescriptorHandleForHeapStart(), self.m.imageIndex,
                                             static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
     return {"Swapchain Image",
-            m.swapchain.backbuffers[m.imageIndex].Get(),
+            self.m.swapchain.backbuffers[self.m.imageIndex].Get(),
             ImageDim::e2D,
             ImageFormat::R8G8B8A8_UNORM,
-            {m.swapchain.size, 1},
+            {self.m.swapchain.size, 1},
             1,
             1,
             rtvHandle};
   }
-  glm::uvec2 RHI::getSwapchainSize() const { return m.swapchain.size; }
+  glm::uvec2 RhiBase::getSwapchainSize(this const RHI& self) { return self.m.swapchain.size; }
 
   CD3DX12_CPU_DESCRIPTOR_HANDLE RHI::dxGetRtvHandle(uint16_t index) const {
     if (index >= m.rtvHeap.count) {
@@ -355,7 +426,7 @@ namespace kt::rhi {
     }
 
     PipelineBuilder pipelineBuilder{};
-    pipelineBuilder.setShader(::shaders::kt::blit).addColorAttachment(format);
+    pipelineBuilder.setShader(::shaders::kt::blit).addColorAttachment(format).setName(fmt::format("{} Blit", format));
     auto pipelineRes = pipelineBuilder.build();
     if (!pipelineRes) {
       DX_ABORT("Failed to create blit pipeline for format {}: {}", format, pipelineRes.error());
@@ -488,92 +559,93 @@ namespace kt::rhi {
     m.device->CreateShaderResourceView(img.dxresource().Get(), &srvDesc, srvHandle);
   }
 
-  void RHI::submitGraphicsCmd(CommandBuffer& cmd, uint64_t waitFor, uint64_t signalTo, uint64_t waitForCopy) {
+  void RhiBase::submitGraphicsCmd(this RHI& self, CommandBuffer& cmd, uint64_t waitFor, uint64_t signalTo, uint64_t waitForCopy) {
     if (waitForCopy > 0) {
-      m.queues.graphics->Wait(m.copyFence, waitForCopy);
+      self.m.queues.graphics->Wait(self.m.copyFence, waitForCopy);
     }
     if (waitFor > 0) {
-      m.queues.graphics->Wait(m.fence, waitFor);
+      self.m.queues.graphics->Wait(self.m.fence, waitFor);
     }
 
     std::array<ID3D12CommandList* const, 1> cmdLists = {cmd};
-    m.queues.graphics->ExecuteCommandLists(cmdLists.size(), cmdLists.data());
+    self.m.queues.graphics->ExecuteCommandLists(cmdLists.size(), cmdLists.data());
 
     if (signalTo > 0) {
-      m.fence.signal(m.queues.graphics, signalTo);
+      self.m.fence.signal(self.m.queues.graphics, signalTo);
     }
 
-    m.runningAllocs[m.frameIndex].push_back(std::move(cmd.dxGetAlloc()));
+    self.m.runningAllocs[self.m.frameIndex].push_back(std::move(cmd.dxGetAlloc()));
   }
 
-  void RHI::submitComputeCmd(CommandBuffer& cmd, uint64_t waitFor, uint64_t signalTo, uint64_t waitForCopy) {
+  void RhiBase::submitComputeCmd(this RHI& self, CommandBuffer& cmd, uint64_t waitFor, uint64_t signalTo, uint64_t waitForCopy) {
     if (waitForCopy > 0) {
-      m.queues.compute->Wait(m.copyFence, waitForCopy);
+      self.m.queues.compute->Wait(self.m.copyFence, waitForCopy);
     }
     if (waitFor > 0) {
-      m.queues.compute->Wait(m.fence, waitFor);
+      self.m.queues.compute->Wait(self.m.fence, waitFor);
     }
 
     std::array<ID3D12CommandList* const, 1> cmdLists = {cmd};
-    m.queues.compute->ExecuteCommandLists(cmdLists.size(), cmdLists.data());
+    self.m.queues.compute->ExecuteCommandLists(cmdLists.size(), cmdLists.data());
 
     if (signalTo > 0) {
-      m.fence.signal(m.queues.compute, signalTo);
+      self.m.fence.signal(self.m.queues.compute, signalTo);
     }
 
-    m.runningAllocs[m.frameIndex].push_back(std::move(cmd.dxGetAlloc()));
+    self.m.runningAllocs[self.m.frameIndex].push_back(std::move(cmd.dxGetAlloc()));
   }
 
-  std::vector<CommandBuffer> RHI::allocateGraphicsCommandBuffers(uint32_t count) {
-    std::vector<CommandBuffer> cmdBuffers;
+  Vec<CommandBuffer> RhiBase::allocateGraphicsCommandBuffers(this RHI& self, uint32_t count) {
+    Vec<CommandBuffer> cmdBuffers;
     cmdBuffers.reserve(count);
 
     for (uint32_t i = 0; i < count; ++i) {
       ComPtr<ID3D12CommandAllocator> cmdAlloc;
-      DX_REQUIRE(SUCCEEDED(m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAlloc))),
+      DX_REQUIRE(SUCCEEDED(self.m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAlloc))),
                  "Failed to create graphics command allocator");
 
       ComPtr<ID3D12GraphicsCommandList> cmdList;
-      DX_REQUIRE(SUCCEEDED(m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&cmdList))),
-                 "Failed to create graphics command list");
-      ComPtr<ID3D12GraphicsCommandList4> cmdList4;
-      DX_REQUIRE(SUCCEEDED(cmdList.As(&cmdList4)), "Failed to query ID3D12GraphicsCommandList4 interface");
-      cmdBuffers.emplace_back(std::move(cmdAlloc), std::move(cmdList4));
+      DX_REQUIRE(
+          SUCCEEDED(self.m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&cmdList))),
+          "Failed to create graphics command list");
+      ComPtr<ID3D12GraphicsCommandList10> cmdList10;
+      DX_REQUIRE(SUCCEEDED(cmdList.As(&cmdList10)), "Failed to query ID3D12GraphicsCommandList10 interface");
+      cmdBuffers.emplace_back(std::move(cmdAlloc), std::move(cmdList10));
     }
     return cmdBuffers;
   }
 
-  std::vector<CommandBuffer> RHI::allocateComputeCommandBuffers(uint32_t count) {
-    std::vector<CommandBuffer> cmdBuffers;
+  Vec<CommandBuffer> RhiBase::allocateComputeCommandBuffers(this RHI& self, uint32_t count) {
+    Vec<CommandBuffer> cmdBuffers;
     cmdBuffers.reserve(count);
 
     for (uint32_t i = 0; i < count; ++i) {
       ComPtr<ID3D12CommandAllocator> cmdAlloc;
-      DX_REQUIRE(SUCCEEDED(m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&cmdAlloc))),
+      DX_REQUIRE(SUCCEEDED(self.m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&cmdAlloc))),
                  "Failed to create compute command allocator");
 
       ComPtr<ID3D12GraphicsCommandList> cmdList;
       DX_REQUIRE(
-          SUCCEEDED(m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE, cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&cmdList))),
+          SUCCEEDED(self.m.device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE, cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&cmdList))),
           "Failed to create compute command list");
-      ComPtr<ID3D12GraphicsCommandList4> cmdList4;
-      DX_REQUIRE(SUCCEEDED(cmdList.As(&cmdList4)), "Failed to query ID3D12GraphicsCommandList4 interface");
-      cmdBuffers.emplace_back(std::move(cmdAlloc), std::move(cmdList4));
+      ComPtr<ID3D12GraphicsCommandList10> cmdList10;
+      DX_REQUIRE(SUCCEEDED(cmdList.As(&cmdList10)), "Failed to query ID3D12GraphicsCommandList10 interface");
+      cmdBuffers.emplace_back(std::move(cmdAlloc), std::move(cmdList10));
     }
     return cmdBuffers;
   }
 
-  void RHI::submitBufferToDrop(Buffer& buffer) {
+  void RhiBase::submitBufferToDrop(this RHI& self, Buffer& buffer) {
     auto alloc = buffer.dxTakeAllocation();
     if (alloc) {
-      m.frames[m.frameIndex].allocsToDrop.emplace_back(alloc);
+      self.m.frames[self.m.frameIndex].allocsToDrop.emplace_back(alloc);
     }
   }
 
-  void RHI::submitImageToDrop(Image& image) {
+  void RhiBase::submitImageToDrop(this RHI& self, Image& image) {
     auto alloc = image.dxTakeAllocation();
     if (alloc) {
-      m.frames[m.frameIndex].allocsToDrop.emplace_back(alloc);
+      self.m.frames[self.m.frameIndex].allocsToDrop.emplace_back(alloc);
     }
   }
 } // namespace kt::rhi

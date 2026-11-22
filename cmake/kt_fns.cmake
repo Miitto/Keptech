@@ -17,6 +17,7 @@ set(KT_GNU_WARNINGS
   -Wno-missing-designated-field-initializers
   -Wno-nullability-extension
   -Wno-overriding-option
+  -Wno-language-extension-token
 )
 
 set(KT_MSVC_WARNINGS
