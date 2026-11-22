@@ -46,6 +46,7 @@ message(STATUS "RHI Backend: " ${RHI_BACKEND})
 
 # Deps
 include(kt_deps)
+add_subdirectory(shaders/lib)
 include(shaders)
 
 add_subdirectory(logging)

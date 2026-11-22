@@ -38,7 +38,7 @@ function(compile_shader target)
 
     add_custom_command(
       OUTPUT ${OUT_HEADER} ${OUT_SOURCE}
-      DEPENDS ${IN_FILE} ${INCLUDED_FILES} Keptech_shader_embedder
+      DEPENDS ${IN_FILE} ${KT_LIB_SHADER_FILES} Keptech_shader_embedder
       COMMAND Keptech_shader_embedder ${source} ${arg_NAMESPACE} ${IN_FILE} ${OUT_HEADER} ${OUT_SOURCE}
       $<$<CONFIG:DEBUG>:${KT_SHADER_OPT_LEVEL_DEBUG}>$<$<CONFIG:RELWITHDEBINFO>:${KT_SHADER_OPT_LEVEL_RELEASE}>$<$<CONFIG:RELEASE>:${KT_SHADER_OPT_LEVEL_RELEASE}>
       $<$<CONFIG:DEBUG>:d>$<$<CONFIG:RELWITHDEBINFO>:d>

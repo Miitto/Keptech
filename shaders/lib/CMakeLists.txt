@@ -1,0 +1,16 @@
+set(KT_LIB_SHADER_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/attribs.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/buffers.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/camera.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/frustum.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/keptech.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/lighting.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/material.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/maths.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/mesh.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/samplers.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/sphere.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/struct.slang
+    ${CMAKE_CURRENT_SOURCE_DIR}/vertex.slang
+    PARENT_SCOPE
+)
