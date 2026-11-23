@@ -14,7 +14,6 @@
 #include "keptech/rhi/imgui.hpp"
 #include "pipelineBuilder.hpp"
 #include "shaders/keptech/rhi/blit.h"
-#include <codecvt>
 #include <d3d12.h>
 #include <iostream>
 #ifndef NDEBUG
@@ -25,7 +24,7 @@
 
 namespace kt::rhi {
 
-  RHI RhiBase::singleton{};
+  RHI RhiBase::singleton{}; // NOLINT
   bool RhiBase::isInitialized = false;
 
   RHI& RhiBase::get() { return singleton; }
@@ -46,7 +45,7 @@ namespace kt::rhi {
   ImageFormat RhiBase::getSwapchainFormat(this const RHI&) { return static_cast<ImageFormat>(ImageFormat::R8G8B8A8_UNORM); }
 
   void RhiBase::waitGraphicsIdle(this RHI& self) { self.m.fence.flush(self.m.queues.graphics); }
-  void RhiBase::waitComputeIdle(this RHI& self) { self.m.fence.flush(self.m.queues.compute); }
+  void RhiBase::waitComputeIdle(this RHI& self) { self.m.computeFence.flush(self.m.queues.compute); }
   void RhiBase::waitCopyIdle(this RHI& self) { self.m.copyFence.flush(self.m.queues.copy); }
   void RhiBase::waitIdle(this RHI& self) {
     self.waitGraphicsIdle();
@@ -101,7 +100,7 @@ namespace kt::rhi {
     return static_cast<ImageRef>(img);
   }
 
-  DescriptorLayout RhiBase::createDescriptorLayout(this RHI& self, std::span<const DescriptorInfo> descriptorInfos) {
+  DescriptorLayout RhiBase::createDescriptorLayout(this RHI&, std::span<const DescriptorInfo> descriptorInfos) {
     DescriptorLayout layout{};
     auto& ranges = layout.dxGetRanges();
     ranges.reserve(descriptorInfos.size());
@@ -174,35 +173,37 @@ namespace kt::rhi {
     uint64_t fenceValue = self.m.fence.currentValue();
 
     for (auto& copy : self.m.ongoingCopies) {
-      if (copy.fenceValue <= fenceValue) {
+      if (copy.cmd.fenceValue <= fenceValue) {
         for (auto* alloc : copy.allocsToDrop) {
           alloc->Release();
         }
       }
     }
     self.m.ongoingCopies.erase(std::remove_if(self.m.ongoingCopies.begin(), self.m.ongoingCopies.end(),
-                                              [fenceValue](const Members::OngoingCopy& copy) { return copy.fenceValue <= fenceValue; }),
+                                              [fenceValue](const Members::OngoingCopy& copy) { return copy.cmd.fenceValue <= fenceValue; }),
                                self.m.ongoingCopies.end());
-
-    self.m.runningAllocs[self.m.frameIndex].clear();
   }
 
-  void RhiBase::debugUi(this const RHI& self) {}
+  void RhiBase::debugUi(this const RHI&) {}
 
   void RhiBase::endFrame(this RHI& self, CommandBuffer& cmd) {
 #ifndef NDEBUG
     self.debugUi();
 #endif
 
-    ImGui::Render();
+    {
+      auto evt = cmd.scopedEvent("ImGui Render", glm::u8vec3(150, 150, 255));
 
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(self.m.swapchain.rtvHeap->GetCPUDescriptorHandleForHeapStart(), self.m.imageIndex,
-                                            static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
+      ImGui::Render();
 
-    cmd->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-    cmd->SetDescriptorHeaps(1, self.m.imGui.srvHeap.GetAddressOf());
+      CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(self.m.swapchain.rtvHeap->GetCPUDescriptorHandleForHeapStart(), self.m.imageIndex,
+                                              static_cast<UINT>(RTV_DESCRIPTOR_SIZE));
 
-    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmd);
+      cmd->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+      cmd->SetDescriptorHeaps(1, self.m.imGui.srvHeap.GetAddressOf());
+
+      ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmd);
+    }
 
     CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
         self.m.swapchain.backbuffers[self.m.imageIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -216,7 +217,7 @@ namespace kt::rhi {
     std::array<ID3D12CommandList* const, 1> cmdLists = {cmd};
     self.m.queues.graphics->ExecuteCommandLists(cmdLists.size(), cmdLists.data());
 
-    self.m.runningAllocs[self.m.frameIndex].push_back(std::move(cmd.dxGetAlloc()));
+    self.m.submittedGraphicsCmds.push({std::move(cmd.dxGetAlloc()), std::move(cmd.dxGetCmd()), self.m.fence.getValue()});
 
     self.present();
   }
@@ -301,11 +302,8 @@ namespace kt::rhi {
         }
       }
 
-      for (auto& allocs : m.runningAllocs) {
-        for (auto& alloc : allocs) {
-          alloc.Reset();
-        }
-      }
+      m.submittedGraphicsCmds = {};
+      m.submittedComputeCmds = {};
 
       for (auto& tex : m.loadedTextures) {
         tex.destroy();
@@ -330,6 +328,7 @@ namespace kt::rhi {
       m.drawIndirectSignature.Reset();
 
       m.copyFence.destroy();
+      m.computeFence.destroy();
       m.fence.destroy();
 
       m.copyCmdList.Reset();
@@ -559,47 +558,62 @@ namespace kt::rhi {
     m.device->CreateShaderResourceView(img.dxresource().Get(), &srvDesc, srvHandle);
   }
 
-  void RhiBase::submitGraphicsCmd(this RHI& self, CommandBuffer& cmd, uint64_t waitFor, uint64_t signalTo, uint64_t waitForCopy) {
-    if (waitForCopy > 0) {
-      self.m.queues.graphics->Wait(self.m.copyFence, waitForCopy);
+  GraphicsWaitValue RhiBase::submitGraphicsCmd(this RHI& self, CommandBuffer& cmd, GraphicsWaitValue waitFor,
+                                               ComputeWaitValue waitForCompute, CopyWaitValue waitForCopy) {
+    if (waitForCopy.value() > 0) {
+      self.m.queues.graphics->Wait(self.m.copyFence, waitForCopy.value());
     }
-    if (waitFor > 0) {
-      self.m.queues.graphics->Wait(self.m.fence, waitFor);
+    if (waitForCompute.value() > 0) {
+      self.m.queues.graphics->Wait(self.m.computeFence, waitForCompute.value());
+    }
+    if (waitFor.value() > 0) {
+      self.m.queues.graphics->Wait(self.m.fence, waitFor.value());
     }
 
     std::array<ID3D12CommandList* const, 1> cmdLists = {cmd};
     self.m.queues.graphics->ExecuteCommandLists(cmdLists.size(), cmdLists.data());
 
-    if (signalTo > 0) {
-      self.m.fence.signal(self.m.queues.graphics, signalTo);
-    }
-
-    self.m.runningAllocs[self.m.frameIndex].push_back(std::move(cmd.dxGetAlloc()));
+    auto v = self.m.fence.signal(self.m.queues.graphics);
+    self.m.submittedGraphicsCmds.push({std::move(cmd.dxGetAlloc()), std::move(cmd.dxGetCmd()), v});
+    return v;
   }
 
-  void RhiBase::submitComputeCmd(this RHI& self, CommandBuffer& cmd, uint64_t waitFor, uint64_t signalTo, uint64_t waitForCopy) {
-    if (waitForCopy > 0) {
-      self.m.queues.compute->Wait(self.m.copyFence, waitForCopy);
+  ComputeWaitValue RhiBase::submitComputeCmd(this RHI& self, CommandBuffer& cmd, GraphicsWaitValue waitFor, ComputeWaitValue waitForCompute,
+                                             CopyWaitValue waitForCopy) {
+    if (waitForCopy.value() > 0) {
+      self.m.queues.compute->Wait(self.m.copyFence, waitForCopy.value());
     }
-    if (waitFor > 0) {
-      self.m.queues.compute->Wait(self.m.fence, waitFor);
+    if (waitForCompute.value() > 0) {
+      self.m.queues.compute->Wait(self.m.computeFence, waitForCompute.value());
+    }
+    if (waitFor.value() > 0) {
+      self.m.queues.compute->Wait(self.m.fence, waitFor.value());
     }
 
     std::array<ID3D12CommandList* const, 1> cmdLists = {cmd};
     self.m.queues.compute->ExecuteCommandLists(cmdLists.size(), cmdLists.data());
 
-    if (signalTo > 0) {
-      self.m.fence.signal(self.m.queues.compute, signalTo);
-    }
+    auto v = self.m.computeFence.signal(self.m.queues.compute);
 
-    self.m.runningAllocs[self.m.frameIndex].push_back(std::move(cmd.dxGetAlloc()));
+    self.m.submittedComputeCmds.push({std::move(cmd.dxGetAlloc()), std::move(cmd.dxGetCmd()), v});
+    return v;
   }
 
   Vec<CommandBuffer> RhiBase::allocateGraphicsCommandBuffers(this RHI& self, uint32_t count) {
     Vec<CommandBuffer> cmdBuffers;
     cmdBuffers.reserve(count);
 
+    auto graphicsVal = self.m.fence.currentValue();
     for (uint32_t i = 0; i < count; ++i) {
+      if (self.m.submittedGraphicsCmds.size() > 0 && self.m.submittedGraphicsCmds.front().fenceValue <= graphicsVal) {
+        auto& [alloc, cmd, _fenceVal] = self.m.submittedGraphicsCmds.front();
+        alloc->Reset();
+        cmd->Reset(alloc.Get(), nullptr);
+        cmdBuffers.emplace_back(std::move(alloc), std::move(cmd));
+        self.m.submittedGraphicsCmds.pop();
+        continue;
+      }
+
       ComPtr<ID3D12CommandAllocator> cmdAlloc;
       DX_REQUIRE(SUCCEEDED(self.m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAlloc))),
                  "Failed to create graphics command allocator");
@@ -619,7 +633,17 @@ namespace kt::rhi {
     Vec<CommandBuffer> cmdBuffers;
     cmdBuffers.reserve(count);
 
+    auto computeVal = self.m.computeFence.currentValue();
     for (uint32_t i = 0; i < count; ++i) {
+      if (self.m.submittedComputeCmds.size() > 0 && self.m.submittedComputeCmds.front().fenceValue <= computeVal) {
+        auto& [alloc, cmd, _fenceVal] = self.m.submittedComputeCmds.front();
+        alloc->Reset();
+        cmd->Reset(alloc.Get(), nullptr);
+        cmdBuffers.emplace_back(std::move(alloc), std::move(cmd));
+        self.m.submittedComputeCmds.pop();
+        continue;
+      }
+
       ComPtr<ID3D12CommandAllocator> cmdAlloc;
       DX_REQUIRE(SUCCEEDED(self.m.device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&cmdAlloc))),
                  "Failed to create compute command allocator");

@@ -40,8 +40,8 @@ namespace kt::rhi {
       uint8_t waitCount = 0;
       while (::WaitForSingleObject(event, 1000) == WAIT_TIMEOUT) {
         ++waitCount;
-        if (waitCount > 30) {
-          DX_ABORT("Fence wait timed out after 30 seconds.");
+        if (waitCount > 3) {
+          DX_ABORT("Fence wait timed out after 3 seconds.");
         }
 
         std::this_thread::yield(); // Yield to other threads while waiting

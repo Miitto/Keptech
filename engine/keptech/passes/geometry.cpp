@@ -4,6 +4,7 @@
 #include "keptech/buffers.hpp"
 #include "keptech/graph/builder.hpp"
 #include "keptech/maths/intersection.hpp"
+#include "keptech/maths/sizes.hpp"
 #include "keptech/rhi/cmdBuf.hpp"
 #include "keptech/rhi/drawCommands.hpp"
 #include "keptech/rhi/imageFormat.hpp"

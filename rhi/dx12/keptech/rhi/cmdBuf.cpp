@@ -5,8 +5,10 @@
 #include "dx/dx-logger.hpp"
 #include "image.hpp"
 #include "imageRef.hpp"
+#include "keptech/maths/sizes.hpp"
 #include "pipeline.hpp"
 #include "rhi.hpp"
+#include <WinPixEventRuntime/pix3.h>
 
 #ifndef KT_DISABLE_STATS
 #define STATS_INC(x) ++(RHI::get().getStats().x)
@@ -15,42 +17,44 @@
 #endif
 
 namespace kt::rhi {
-  CommandBuffer& CommandBuffer::bindGraphicsPipeline(const Pipeline& pipeline) {
-    cmdList->SetPipelineState(pipeline.pipelineState.Get());
+  CommandBuffer& CommandBufferBase::bindGraphicsPipeline(this CommandBuffer& self, const Pipeline& pipeline) {
+    self.cmdList->SetPipelineState(pipeline.pipelineState.Get());
     std::array<ID3D12DescriptorHeap*, 2> heaps = {
         rhi::RHI::get().dxGetMembers().samplerHeap.heap.Get(),
         rhi::RHI::get().dxGetMembers().cbvSrvUavHeap.heap.Get(),
     };
-    cmdList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
-    cmdList->SetGraphicsRootSignature(pipeline.rootSignature.Get());
-    cmdList->IASetPrimitiveTopology(pipeline.primitiveTopology);
-    gPipeline = &pipeline;
+    self.cmdList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
+    self.cmdList->SetGraphicsRootSignature(pipeline.rootSignature.Get());
+    self.cmdList->IASetPrimitiveTopology(pipeline.primitiveTopology);
+    self.gPipeline = &pipeline;
 
     STATS_INC(pipelineSwitches);
 
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::bindComputePipeline(const Pipeline& pipeline) {
-    cmdList->SetPipelineState(pipeline.pipelineState.Get());
+  CommandBuffer& CommandBufferBase::bindComputePipeline(this CommandBuffer& self, const Pipeline& pipeline) {
+    self.cmdList->SetPipelineState(pipeline.pipelineState.Get());
     std::array<ID3D12DescriptorHeap*, 2> heaps = {rhi::RHI::get().dxGetMembers().cbvSrvUavHeap.heap.Get(),
                                                   rhi::RHI::get().dxGetMembers().samplerHeap.heap.Get()};
-    cmdList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
-    cmdList->SetComputeRootSignature(pipeline.rootSignature.Get());
-    cPipeline = &pipeline;
+    self.cmdList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
+    self.cmdList->SetComputeRootSignature(pipeline.rootSignature.Get());
+    self.cPipeline = &pipeline;
 
     STATS_INC(pipelineSwitches);
 
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::clearColorImage(const rhi::ImageRef& image, const std::array<float, 4>& clearColor) {
-    cmdList->ClearRenderTargetView(image.dxGetRtvDsvHandle(), clearColor.data(), 0, nullptr);
+  CommandBuffer& CommandBufferBase::clearColorImage(this CommandBuffer& self, const rhi::ImageRef& image,
+                                                    const std::array<float, 4>& clearColor) {
+    self.cmdList->ClearRenderTargetView(image.dxGetRtvDsvHandle(), clearColor.data(), 0, nullptr);
 
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::clearDepthStencilImage(const rhi::ImageRef& image, float clearDepth, uint8_t clearStencil) {
+  CommandBuffer& CommandBufferBase::clearDepthStencilImage(this CommandBuffer& self, const rhi::ImageRef& image, float clearDepth,
+                                                           uint8_t clearStencil) {
     D3D12_CLEAR_FLAGS clearFlags = static_cast<D3D12_CLEAR_FLAGS>(0);
     switch (image.format()) {
     // TODO: Other depth formats
@@ -61,13 +65,13 @@ namespace kt::rhi {
     default:
       break;
     }
-    cmdList->ClearDepthStencilView(image.dxGetRtvDsvHandle(), clearFlags, clearDepth, clearStencil, 0, nullptr);
+    self.cmdList->ClearDepthStencilView(image.dxGetRtvDsvHandle(), clearFlags, clearDepth, clearStencil, 0, nullptr);
 
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::beginRendering(const std::span<ColorAttachmentDesc> colorAttachments,
-                                               std::optional<DepthStencilAttachmentDesc> depthStencilAttachment) {
+  CommandBuffer& CommandBufferBase::beginRendering(this CommandBuffer& self, const std::span<ColorAttachmentDesc> colorAttachments,
+                                                   std::optional<DepthStencilAttachmentDesc> depthStencilAttachment) {
     Vec<D3D12_RENDER_PASS_RENDER_TARGET_DESC> renderTargetDescs(colorAttachments.size());
     for (size_t i = 0; i < colorAttachments.size(); ++i) {
       renderTargetDescs[i] = {
@@ -146,24 +150,26 @@ namespace kt::rhi {
       }
     }
 
-    cmdList->BeginRenderPass(static_cast<UINT>(renderTargetDescs.size()), renderTargetDescs.data(),
-                             depthStencilAttachment.has_value() ? &depthStencilDesc : nullptr, D3D12_RENDER_PASS_FLAG_NONE);
+    self.cmdList->BeginRenderPass(static_cast<UINT>(renderTargetDescs.size()), renderTargetDescs.data(),
+                                  depthStencilAttachment.has_value() ? &depthStencilDesc : nullptr, D3D12_RENDER_PASS_FLAG_NONE);
 
     STATS_INC(renderPasses);
 
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::bindVertexBuffer(size_t slot, const BufferRef& buffer, size_t stride, size_t offset) {
+  CommandBuffer& CommandBufferBase::bindVertexBuffer(this CommandBuffer& self, size_t slot, const BufferRef& buffer, size_t stride,
+                                                     size_t offset) {
     D3D12_VERTEX_BUFFER_VIEW view{
         .BufferLocation = buffer.dxGetResource()->GetGPUVirtualAddress() + offset,
         .SizeInBytes = static_cast<UINT>(buffer.size() - offset),
         .StrideInBytes = static_cast<UINT>(stride),
     };
-    cmdList->IASetVertexBuffers(static_cast<UINT>(slot), 1, &view);
-    return *this;
+    self.cmdList->IASetVertexBuffers(static_cast<UINT>(slot), 1, &view);
+    return self;
   }
-  CommandBuffer& CommandBuffer::bindVertexBuffers(size_t firstSlot, const std::span<const VertexBufferBinding> bindings) {
+  CommandBuffer& CommandBufferBase::bindVertexBuffers(this CommandBuffer& self, size_t firstSlot,
+                                                      const std::span<const VertexBufferBinding> bindings) {
     Vec<D3D12_VERTEX_BUFFER_VIEW> views;
     views.reserve(bindings.size());
     for (const auto& binding : bindings) {
@@ -174,135 +180,145 @@ namespace kt::rhi {
       };
       views.push_back(view);
     }
-    cmdList->IASetVertexBuffers(static_cast<UINT>(firstSlot), static_cast<UINT>(views.size()), views.data());
-    return *this;
+    self.cmdList->IASetVertexBuffers(static_cast<UINT>(firstSlot), static_cast<UINT>(views.size()), views.data());
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::bindIndexBuffer(const BufferRef& buffer, IndexType indexType, size_t offset) {
+  CommandBuffer& CommandBufferBase::bindIndexBuffer(this CommandBuffer& self, const BufferRef& buffer, IndexType indexType, size_t offset) {
     D3D12_INDEX_BUFFER_VIEW view{
         .BufferLocation = buffer.dxGetResource()->GetGPUVirtualAddress() + offset,
         .SizeInBytes = static_cast<UINT>(buffer.size() - offset),
         .Format = indexType == IndexType::UInt16 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT,
     };
-    cmdList->IASetIndexBuffer(&view);
-    return *this;
+    self.cmdList->IASetIndexBuffer(&view);
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::writeGraphicsPushConstants(const void* data, size_t size, size_t offset) {
+  CommandBuffer& CommandBufferBase::writeGraphicsPushConstants(this CommandBuffer& self, const void* data, size_t size, size_t offset) {
     DX_ASSERT(size > 0, "Size must be greater than 0");
     DX_ASSERT(offset + size <= 128, "Push constant size must be less than or equal to 128 bytes");
     DX_ASSERT(size % sizeof(uint32_t) == 0, "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
     DX_ASSERT(offset % sizeof(uint32_t) == 0, "Push constant offset must be a multiple of 4 bytes (32 bits) for DX12");
-    cmdList->SetGraphicsRoot32BitConstants(gPipeline->constantSlot, static_cast<UINT>(size / sizeof(uint32_t)), data,
-                                           static_cast<UINT>(offset / sizeof(uint32_t)));
-    return *this;
+    self.cmdList->SetGraphicsRoot32BitConstants(self.gPipeline->constantSlot, static_cast<UINT>(size / sizeof(uint32_t)), data,
+                                                static_cast<UINT>(offset / sizeof(uint32_t)));
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::writeComputePushConstants(const void* data, size_t size, size_t offset) {
+  CommandBuffer& CommandBufferBase::writeComputePushConstants(this CommandBuffer& self, const void* data, size_t size, size_t offset) {
     DX_ASSERT(size > 0, "Size must be greater than 0");
     DX_ASSERT(offset + size <= 128, "Push constant size must be less than or equal to 128 bytes");
     DX_ASSERT(size % sizeof(uint32_t) == 0, "Push constant size must be a multiple of 4 bytes (32 bits) for DX12");
     DX_ASSERT(offset % sizeof(uint32_t) == 0, "Push constant offset must be a multiple of 4 bytes (32 bits) for DX12");
-    cmdList->SetComputeRoot32BitConstants(cPipeline->constantSlot, static_cast<UINT>(size / sizeof(uint32_t)), data,
-                                          static_cast<UINT>(offset / sizeof(uint32_t)));
-    return *this;
+    self.cmdList->SetComputeRoot32BitConstants(self.cPipeline->constantSlot, static_cast<UINT>(size / sizeof(uint32_t)), data,
+                                               static_cast<UINT>(offset / sizeof(uint32_t)));
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::pushGraphicsUniformBuffer(const BufferRef& buffer, uint32_t binding, size_t offset) {
+  CommandBuffer& CommandBufferBase::pushGraphicsUniformBuffer(this CommandBuffer& self, const BufferRef& buffer, uint32_t binding,
+                                                              size_t offset) {
     DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
     DX_ASSERT(offset < buffer.size(), "Offset is out of bounds of the buffer");
-    cmdList->SetGraphicsRootConstantBufferView(binding + gPipeline->cbvOffset, buffer.dxGetResource()->GetGPUVirtualAddress() + offset);
-    return *this;
+    self.cmdList->SetGraphicsRootConstantBufferView(binding + self.gPipeline->cbvOffset,
+                                                    buffer.dxGetResource()->GetGPUVirtualAddress() + offset);
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::pushGraphicsStorageBuffer(const BufferRef& buffer, uint32_t binding, size_t offset) {
+  CommandBuffer& CommandBufferBase::pushGraphicsStorageBuffer(this CommandBuffer& self, const BufferRef& buffer, uint32_t binding,
+                                                              size_t offset) {
     DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
     DX_ASSERT(offset < buffer.size(), "Offset is out of bounds of the buffer");
-    cmdList->SetGraphicsRootShaderResourceView(binding + gPipeline->srvOffset, buffer.dxGetResource()->GetGPUVirtualAddress() + offset);
-    return *this;
+    self.cmdList->SetGraphicsRootShaderResourceView(binding + self.gPipeline->srvOffset,
+                                                    buffer.dxGetResource()->GetGPUVirtualAddress() + offset);
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::bindGraphicsDescriptorSet(const DescriptorSet& set, uint32_t setIndex) {
+  CommandBuffer& CommandBufferBase::bindGraphicsDescriptorSet(this CommandBuffer& self, const DescriptorSet& set, uint32_t setIndex) {
     DX_ASSERT(set.dxGetGpuHandle().ptr != 0, "Descriptor set GPU handle is null");
-    cmdList->SetGraphicsRootDescriptorTable(setIndex, set.dxGetGpuHandle());
-    return *this;
+    self.cmdList->SetGraphicsRootDescriptorTable(setIndex, set.dxGetGpuHandle());
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) {
-    cmdList->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
+  CommandBuffer& CommandBufferBase::draw(this CommandBuffer& self, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex,
+                                         uint32_t firstInstance) {
+    self.cmdList->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
     STATS_INC(drawCalls);
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset,
-                                            uint32_t firstInstance) {
-    cmdList->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+  CommandBuffer& CommandBufferBase::drawIndexed(this CommandBuffer& self, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex,
+                                                int32_t vertexOffset, uint32_t firstInstance) {
+    self.cmdList->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     STATS_INC(drawCalls);
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::drawIndirect(const BufferRef& buffer, uint32_t drawCount, uint32_t offset) {
+  CommandBuffer& CommandBufferBase::drawIndirect(this CommandBuffer& self, const BufferRef& buffer, uint32_t drawCount, uint32_t offset) {
     DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
     DX_ASSERT(drawCount > 0, "Draw count must be greater than 0");
     DX_ASSERT(offset + drawCount * sizeof(D3D12_DRAW_ARGUMENTS) <= buffer.size(), "Buffer overflow");
 
-    cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndirectSignature.Get(), drawCount, buffer.dxGetResource(), offset, nullptr,
-                             0);
+    self.cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndirectSignature.Get(), drawCount, buffer.dxGetResource(), offset,
+                                  nullptr, 0);
     STATS_INC(drawCalls);
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::drawIndexedIndirect(const BufferRef& buffer, uint32_t drawCount, uint32_t offset) {
+  CommandBuffer& CommandBufferBase::drawIndexedIndirect(this CommandBuffer& self, const BufferRef& buffer, uint32_t drawCount,
+                                                        uint32_t offset) {
     DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
     DX_ASSERT(drawCount > 0, "Draw count must be greater than 0");
     DX_ASSERT(offset + drawCount * sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) <= buffer.size(), "Buffer overflow");
 
-    cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndexedIndirectSignature.Get(), drawCount, buffer.dxGetResource(), offset,
-                             nullptr, 0);
+    self.cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndexedIndirectSignature.Get(), drawCount, buffer.dxGetResource(),
+                                  offset, nullptr, 0);
     STATS_INC(drawCalls);
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::drawIndirectCount(const BufferRef& buffer, const BufferRef& countBuffer, uint32_t maxDrawCount,
-                                                  uint32_t drawOffset, uint32_t countBufferOffset) {
+  CommandBuffer& CommandBufferBase::drawIndirectCount(this CommandBuffer& self, const BufferRef& buffer, const BufferRef& countBuffer,
+                                                      uint32_t maxDrawCount, uint32_t drawOffset, uint32_t countBufferOffset) {
     DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
     DX_ASSERT(countBuffer.dxGetResource() != nullptr, "Count buffer resource is null");
     DX_ASSERT(maxDrawCount > 0, "Max draw count must be greater than 0");
     DX_ASSERT(drawOffset + maxDrawCount * sizeof(D3D12_DRAW_ARGUMENTS) <= buffer.size(), "Buffer overflow");
     DX_ASSERT(countBufferOffset + sizeof(uint32_t) <= countBuffer.size(), "Count buffer overflow");
 
-    cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndirectSignature.Get(), maxDrawCount, buffer.dxGetResource(), drawOffset,
-                             countBuffer.dxGetResource(), countBufferOffset);
+    self.cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndirectSignature.Get(), maxDrawCount, buffer.dxGetResource(),
+                                  drawOffset, countBuffer.dxGetResource(), countBufferOffset);
     STATS_INC(drawCalls);
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::drawIndexedIndirectCount(const BufferRef& buffer, const BufferRef& countBuffer, uint32_t maxDrawCount,
-                                                         uint32_t drawOffset, uint32_t countBufferOffset) {
+  CommandBuffer& CommandBufferBase::drawIndexedIndirectCount(this CommandBuffer& self, const BufferRef& buffer,
+                                                             const BufferRef& countBuffer, uint32_t maxDrawCount, uint32_t drawOffset,
+                                                             uint32_t countBufferOffset) {
     DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
     DX_ASSERT(countBuffer.dxGetResource() != nullptr, "Count buffer resource is null");
     DX_ASSERT(maxDrawCount > 0, "Max draw count must be greater than 0");
     DX_ASSERT(drawOffset + maxDrawCount * sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) <= buffer.size(), "Buffer overflow");
     DX_ASSERT(countBufferOffset + sizeof(uint32_t) <= countBuffer.size(), "Count buffer overflow");
 
-    cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndexedIndirectSignature.Get(), maxDrawCount, buffer.dxGetResource(),
-                             drawOffset, countBuffer.dxGetResource(), countBufferOffset);
+    self.cmdList->ExecuteIndirect(rhi::RHI::get().dxGetMembers().drawIndexedIndirectSignature.Get(), maxDrawCount, buffer.dxGetResource(),
+                                  drawOffset, countBuffer.dxGetResource(), countBufferOffset);
     STATS_INC(drawCalls);
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::drawMeshTasks(uint32_t taskGroupCountX, uint32_t taskGroupCountY, uint32_t taskGroupCountZ) {
-    cmdList->DispatchMesh(taskGroupCountX, taskGroupCountY, taskGroupCountZ);
+  CommandBuffer& CommandBufferBase::drawMeshTasks(this CommandBuffer& self, uint32_t taskGroupCountX, uint32_t taskGroupCountY,
+                                                  uint32_t taskGroupCountZ) {
+    DX_ASSERT(taskGroupCountX > 0 && taskGroupCountY > 0 && taskGroupCountZ > 0, "Task group counts must be greater than 0: ({}, {}, {})",
+              taskGroupCountX, taskGroupCountY, taskGroupCountZ);
+    self.cmdList->DispatchMesh(taskGroupCountX, taskGroupCountY, taskGroupCountZ);
     STATS_INC(drawCalls);
-    return *this;
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::endRendering() {
-    cmdList->EndRenderPass();
-    return *this;
+  CommandBuffer& CommandBufferBase::endRendering(this CommandBuffer& self) {
+    self.cmdList->EndRenderPass();
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::setViewport(const maths::Viewport& viewport) {
+  CommandBuffer& CommandBufferBase::setViewport(this CommandBuffer& self, const maths::Viewport& viewport) {
     D3D12_VIEWPORT dxViewport{
         .TopLeftX = viewport.x,
         .TopLeftY = viewport.y,
@@ -311,44 +327,45 @@ namespace kt::rhi {
         .MinDepth = viewport.minDepth,
         .MaxDepth = viewport.maxDepth,
     };
-    cmdList->RSSetViewports(1, &dxViewport);
-    return *this;
+    self.cmdList->RSSetViewports(1, &dxViewport);
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::setScissor(const maths::Rect2D<uint32_t, uint32_t>& rect) {
+  CommandBuffer& CommandBufferBase::setScissor(this CommandBuffer& self, const maths::Rect2D<uint32_t, uint32_t>& rect) {
     D3D12_RECT dxRect{
         .left = static_cast<LONG>(rect.x),
         .top = static_cast<LONG>(rect.y),
         .right = static_cast<LONG>(rect.x + rect.width),
         .bottom = static_cast<LONG>(rect.y + rect.height),
     };
-    cmdList->RSSetScissorRects(1, &dxRect);
-    return *this;
+    self.cmdList->RSSetScissorRects(1, &dxRect);
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::transitionImage(const rhi::ImageRef& image, ImageLayout oldLayout, ImageLayout newLayout) {
+  CommandBuffer& CommandBufferBase::transitionImage(this CommandBuffer& self, const rhi::ImageRef& image, ImageLayout oldLayout,
+                                                    ImageLayout newLayout) {
     CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(image, raw(oldLayout), raw(newLayout));
-    cmdList->ResourceBarrier(1, &barrier);
-    return *this;
+    self.cmdList->ResourceBarrier(1, &barrier);
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::transitionImage(const ImageLayoutTransition& transition) {
-    return transitionImage(transition.imageRef, transition.oldLayout, transition.newLayout);
+  CommandBuffer& CommandBufferBase::transitionImage(this CommandBuffer& self, const ImageLayoutTransition& transition) {
+    return self.transitionImage(transition.imageRef, transition.oldLayout, transition.newLayout);
   }
 
-  CommandBuffer& CommandBuffer::transitionImages(std::span<const ImageLayoutTransition> transitions) {
+  CommandBuffer& CommandBufferBase::transitionImages(this CommandBuffer& self, std::span<const ImageLayoutTransition> transitions) {
     Vec<D3D12_RESOURCE_BARRIER> barriers;
     barriers.reserve(transitions.size());
 
     for (const auto& transition : transitions) {
       barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(transition.imageRef, raw(transition.oldLayout), raw(transition.newLayout)));
     }
-    cmdList->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
-    return *this;
+    self.cmdList->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::copyBufferRegion(const rhi::BufferRef& dst, const rhi::BufferRef& src, size_t dstOffset, size_t srcOffset,
-                                                 size_t size) {
+  CommandBuffer& CommandBufferBase::copyBufferRegion(this CommandBuffer& self, const rhi::BufferRef& dst, const rhi::BufferRef& src,
+                                                     size_t dstOffset, size_t srcOffset, size_t size) {
     DX_ASSERT(
         size > 0,
         "Size must be greater than 0. Attempted to copy 0 bytes from src (\"{}\") to dst (\"{}\") with dstOffset {} and srcOffset {}.",
@@ -372,13 +389,13 @@ namespace kt::rhi {
     DX_ASSERT(src.dxGetResource() != nullptr,
               "Source buffer resource is null. Attempted to copy from src (\"{}\") to dst (\"{}\") with dstOffset {} and srcOffset {}.",
               src.getName(), dst.getName(), dstOffset, srcOffset);
-    cmdList->CopyBufferRegion(dst, dstOffset, src, srcOffset, size);
-    return *this;
+    self.cmdList->CopyBufferRegion(dst, dstOffset, src, srcOffset, size);
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::copyImageRegion(const rhi::ImageRef& dst, const rhi::ImageRef& src, size_t dstOffsetX, size_t dstOffsetY,
-                                                size_t srcOffsetX, size_t srcOffsetY, size_t width, size_t height, size_t dstMipLevel,
-                                                size_t srcMipLevel) {
+  CommandBuffer& CommandBufferBase::copyImageRegion(this CommandBuffer& self, const rhi::ImageRef& dst, const rhi::ImageRef& src,
+                                                    size_t dstOffsetX, size_t dstOffsetY, size_t srcOffsetX, size_t srcOffsetY,
+                                                    size_t width, size_t height, size_t dstMipLevel, size_t srcMipLevel) {
     DX_ASSERT(width > 0 && height > 0, "Width and height must be greater than 0");
     DX_ASSERT(dst.dxGetResource() != nullptr, "Destination image resource is null");
     DX_ASSERT(src.dxGetResource() != nullptr, "Source image resource is null");
@@ -404,12 +421,13 @@ namespace kt::rhi {
         .back = 1,
     };
 
-    cmdList->CopyTextureRegion(&dstLocation, static_cast<UINT>(dstOffsetX), static_cast<UINT>(dstOffsetY), 0, &srcLocation, &srcBox);
-    return *this;
+    self.cmdList->CopyTextureRegion(&dstLocation, static_cast<UINT>(dstOffsetX), static_cast<UINT>(dstOffsetY), 0, &srcLocation, &srcBox);
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::copyBufferToImage(const rhi::BufferRef& buffer, const rhi::ImageRef& image, size_t width, size_t height,
-                                                  size_t layer, size_t mipLevel, size_t bufferOffset, size_t offsetX, size_t offsetY) {
+  CommandBuffer& CommandBufferBase::copyBufferToImage(this CommandBuffer& self, const rhi::BufferRef& buffer, const rhi::ImageRef& image,
+                                                      size_t width, size_t height, size_t layer, size_t mipLevel, size_t bufferOffset,
+                                                      size_t offsetX, size_t offsetY) {
     DX_ASSERT(width > 0 && height > 0, "Width and height must be greater than 0");
     DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
     DX_ASSERT(image.dxGetResource() != nullptr, "Image resource is null");
@@ -442,26 +460,28 @@ namespace kt::rhi {
             },
     };
 
-    cmdList->CopyTextureRegion(&dstLocation, static_cast<UINT>(offsetX), static_cast<UINT>(offsetY), 0, &srcLocation, nullptr);
-    return *this;
+    self.cmdList->CopyTextureRegion(&dstLocation, static_cast<UINT>(offsetX), static_cast<UINT>(offsetY), 0, &srcLocation, nullptr);
+    return self;
   }
 
-  CommandBuffer& CommandBuffer::blitImage(const rhi::ImageRef& src, rhi::ImageLayout srcImageStart, rhi::ImageLayout srcImageEnd,
-                                          const rhi::ImageRef& dst, rhi::ImageLayout dstImageStart, rhi::ImageLayout dstImageEnd) {
+  CommandBuffer& CommandBufferBase::blitImage(this CommandBuffer& self, const rhi::ImageRef& src, rhi::ImageLayout srcImageStart,
+                                              rhi::ImageLayout srcImageEnd, const rhi::ImageRef& dst, rhi::ImageLayout dstImageStart,
+                                              rhi::ImageLayout dstImageEnd) {
     DX_ASSERT(src.dxGetResource() != nullptr, "Source image resource is null");
     DX_ASSERT(dst.dxGetResource() != nullptr, "Destination image resource is null");
+    auto evt = self.scopedEvent("Blit Image", {255, 255, 0});
 
     auto& rhi = RHI::get();
     auto& pipeline = rhi.dxGetBlitPipeline(dst.format());
 
     if (srcImageStart != ImageLayout::ShaderReadOnly) {
-      transitionImage(src, srcImageStart, ImageLayout::ShaderReadOnly);
+      self.transitionImage(src, srcImageStart, ImageLayout::ShaderReadOnly);
     }
     if (dstImageStart != ImageLayout::RenderTarget) {
-      transitionImage(dst, dstImageStart, ImageLayout::RenderTarget);
+      self.transitionImage(dst, dstImageStart, ImageLayout::RenderTarget);
     }
 
-    bindGraphicsPipeline(pipeline);
+    self.bindGraphicsPipeline(pipeline);
 
     struct BlitPushConstants {
       glm::vec2 offset;
@@ -479,10 +499,10 @@ namespace kt::rhi {
 
     DX_ASSERT(pc.src != UINT64_MAX,
               "Source image must have a valid texture index. Ensure that the source image was created with usage including "
-              "`kt::rhi::CommandBuffer::getBlitSrcUsage()`. The Render Graph also supports `requestRenderTargetsBlitable()` to "
+              "`kt::rhi::CommandBufferBase::getBlitSrcUsage()`. The Render Graph also supports `requestRenderTargetsBlitable()` to "
               "automatically set this usage for render targets created by it.");
 
-    cmdList->SetGraphicsRoot32BitConstants(0, sizeof(BlitPushConstants) / sizeof(uint32_t), &pc, 0);
+    self.cmdList->SetGraphicsRoot32BitConstants(0, sizeof(BlitPushConstants) / sizeof(uint32_t), &pc, 0);
 
     D3D12_VIEWPORT viewport{
         .TopLeftX = 0.f,
@@ -498,8 +518,8 @@ namespace kt::rhi {
         .right = static_cast<LONG>(dst.extent().x),
         .bottom = static_cast<LONG>(dst.extent().y),
     };
-    cmdList->RSSetViewports(1, &viewport);
-    cmdList->RSSetScissorRects(1, &scissorRect);
+    self.cmdList->RSSetViewports(1, &viewport);
+    self.cmdList->RSSetScissorRects(1, &scissorRect);
 
     auto rtvHandle = dst.dxGetRtvDsvHandle();
     DX_ASSERT(rtvHandle.ptr != 0, "Destination image must have a valid RTV handle");
@@ -516,34 +536,44 @@ namespace kt::rhi {
                 .Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE,
             },
     };
-    cmdList->BeginRenderPass(1, &renderTargetDesc, nullptr, D3D12_RENDER_PASS_FLAG_NONE);
+    self.cmdList->BeginRenderPass(1, &renderTargetDesc, nullptr, D3D12_RENDER_PASS_FLAG_NONE);
 
-    cmdList->DrawInstanced(3, 1, 0, 0);
+    self.cmdList->DrawInstanced(3, 1, 0, 0);
 
-    cmdList->EndRenderPass();
+    self.cmdList->EndRenderPass();
 
     if (srcImageEnd != ImageLayout::ShaderReadOnly) {
-      transitionImage(src, ImageLayout::ShaderReadOnly, srcImageEnd);
+      self.transitionImage(src, ImageLayout::ShaderReadOnly, srcImageEnd);
     }
 
     if (dstImageEnd != ImageLayout::RenderTarget) {
-      transitionImage(dst, ImageLayout::RenderTarget, dstImageEnd);
+      self.transitionImage(dst, ImageLayout::RenderTarget, dstImageEnd);
     }
 
-    return *this;
+    return self;
   }
 
-  rhi::ImageLayout CommandBuffer::getOptimalBlitSrcLayout() { return rhi::ImageLayout::ShaderReadOnly; }
+  rhi::ImageLayout CommandBufferBase::getOptimalBlitSrcLayout() { return rhi::ImageLayout::ShaderReadOnly; }
 
-  rhi::ImageLayout CommandBuffer::getOptimalBlitDstLayout() { return rhi::ImageLayout::RenderTarget; }
-  rhi::ImageUsage CommandBuffer::getBlitSrcUsage() { return rhi::ImageUsage::Sampled; }
+  rhi::ImageLayout CommandBufferBase::getOptimalBlitDstLayout() { return rhi::ImageLayout::RenderTarget; }
+  rhi::ImageUsage CommandBufferBase::getBlitSrcUsage() { return rhi::ImageUsage::Sampled; }
 
-  void CommandBuffer::end() {
-    auto res = cmdList->Close();
+  void CommandBufferBase::marker(this CommandBuffer& self, const std::string& name, glm::u8vec3 color) {
+    PIXSetMarker(self.cmdList.Get(), PIX_COLOR(color.r, color.g, color.b), name.c_str());
+  }
+
+  void CommandBufferBase::beginEvent(this CommandBuffer& self, const std::string& name, glm::u8vec3 color) {
+    PIXBeginEvent(self.cmdList.Get(), PIX_COLOR(color.r, color.g, color.b), name.c_str());
+  }
+
+  void CommandBufferBase::endEvent(this CommandBuffer& self) { PIXEndEvent(self.cmdList.Get()); }
+
+  void CommandBufferBase::end(this CommandBuffer& self) {
+    auto res = self.cmdList->Close();
     DX_ASSERT(SUCCEEDED(res), "Failed to close command list: {}", res);
   }
-  void CommandBuffer::label(std::string_view name) {
-    cmdList->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(name.size()), name.data());
+  void CommandBufferBase::label(this CommandBuffer& self, std::string_view name) {
+    self.cmdList->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(name.size()), name.data());
   }
   CommandBuffer::CommandBuffer(Microsoft::WRL::ComPtr<ID3D12CommandAllocator> allocator,
                                Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList10> cmdList)

@@ -2,6 +2,8 @@
 
 #include "keptech/graph/builder.hpp"
 #include "keptech/graph/pass.hpp"
+#include "keptech/maths/sizes.hpp"
+#include "keptech/rhi/cmdBuf.hpp"
 #include "keptech/rhi/rhi.hpp"
 #include "shaders/examples/triangle/triangle.h"
 #include <keptech/core/kt-logger.hpp>

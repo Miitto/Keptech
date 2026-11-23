@@ -38,7 +38,8 @@ namespace kt::gltf {
     }
   } // namespace
 
-  Scene::Scene(const gltf::Data& data, const Vec<Mesh>& meshes, uint64_t copyFenceValue) : meshes(meshes), copyFenceValue(copyFenceValue) {
+  Scene::Scene(const gltf::Data& data, const Vec<Mesh>& meshes, rhi::CopyWaitValue copyFenceValue)
+      : meshes(meshes), copyFenceValue(copyFenceValue) {
     roots.reserve(data.roots.size());
     for (auto& node : data.roots) {
       roots.push_back(createNode(node, meshes));

@@ -42,9 +42,13 @@ namespace kt {
     uint32_t graphicsCmdIndex = 0;
     uint32_t computeCmdIndex = 0;
 
-    uint64_t startWaitFor = rhi.getTimelineValue();
-
     uint32_t passIdx = 0;
+
+    Vec<GraphicsWaitValue> graphicsWaitValues{};
+    Vec<ComputeWaitValue> computeWaitValues{};
+    graphicsWaitValues.resize(passGroups.size());
+    computeWaitValues.resize(passGroups.size());
+
     for (const auto& [idxT, group] : passGroups | std::views::enumerate) {
       uint64_t idx = static_cast<uint64_t>(idxT);
       switch (group.queue) {
@@ -55,6 +59,7 @@ namespace kt {
         for (uint32_t i = 0; i < group.count; ++i) {
           auto& descriptorSet = passDescriptors[passIdx].sets[frameIndex];
           auto& pass = passes[passIdx++];
+          auto evt = cmd.scopedEvent(fmt::format("RenderGraph Pass {}", pass.getName()), glm::u8vec3(255, 255, 255));
           passBarriers(cmd, pass.getBarriers().pre);
           glm::uvec2 framebufferSize =
               pass.getQueue() == QueueType::Graphics ? resources.images[pass.getExtentSourceId()].getExtent() : glm::uvec2{0, 0};
@@ -63,7 +68,9 @@ namespace kt {
         }
 
         cmd.end();
-        rhi.submitGraphicsCmd(cmd, startWaitFor + group.waitFor + 1, startWaitFor + idx + 1);
+        graphicsWaitValues[idx] = group.waitFor == UINT64_MAX
+                                      ? rhi.submitGraphicsCmd(cmd)
+                                      : rhi.submitGraphicsCmd(cmd, graphicsWaitValues[group.waitFor], computeWaitValues[group.waitFor]);
         graphicsCmdIndex++;
       } break;
       case QueueType::AsyncCompute: {
@@ -72,12 +79,15 @@ namespace kt {
         for (uint32_t i = 0; i < group.count; ++i) {
           auto& descriptorSet = passDescriptors[passIdx].sets[frameIndex];
           auto& pass = passes[passIdx++];
+          auto evt = cmd.scopedEvent(fmt::format("RenderGraph Pass {}", pass.getName()), glm::u8vec3(255, 255, 255));
           passBarriers(cmd, pass.getBarriers().pre);
           pass.execute(cmd, descriptorSet, {});
           passBarriers(cmd, pass.getBarriers().post);
         }
         cmd.end();
-        rhi.submitComputeCmd(cmd, startWaitFor + group.waitFor + 1, startWaitFor + idx + 1);
+        computeWaitValues[idx] = group.waitFor == ~0u
+                                     ? rhi.submitComputeCmd(cmd)
+                                     : rhi.submitComputeCmd(cmd, graphicsWaitValues[group.waitFor], computeWaitValues[group.waitFor]);
         computeCmdIndex++;
 
       } break;
@@ -235,7 +245,7 @@ namespace kt {
     for (auto imageIdx : imagesToUpdate[frameIndex]) {
       auto& usedInPass = resources.imageUsedInPass[imageIdx];
       for (auto& used : usedInPass) {
-        auto& img = resources.images[imageIdx + ((historyFrame & 1) * used.history)];
+        auto& img = resources.images[imageIdx + ((static_cast<size_t>(historyFrame) & 1ull) * used.history)];
         writes[used.passIndex].push_back(rhi::DescriptorWriteInfo{
             .binding = used.binding,
             .arrayIndex = 0,
@@ -491,7 +501,7 @@ namespace kt {
     }
 
     cmd.end();
-    RHI::get().submitGraphicsCmd(cmd, 0, RHI::get().getTimelineValue() + 1);
+    RHI::get().submitGraphicsCmd(cmd);
   }
 
   void RenderGraph::onSwapchainSizeChanged(const glm::uvec2& newSize) {
@@ -547,7 +557,7 @@ namespace kt {
     }
 
     cmd.end();
-    RHI::get().submitGraphicsCmd(cmd, 0, RHI::get().getTimelineValue() + 1);
+    RHI::get().submitGraphicsCmd(cmd);
   }
 
   RenderGraph& RenderGraph::getActiveGraph() {

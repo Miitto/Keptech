@@ -19,7 +19,9 @@
 #include "keptech/maths/sphere.hpp"
 #include "keptech/maths/transform.hpp"
 #include "keptech/mesh.hpp"
+#include "keptech/rhi/sync.hpp"
 #include "keptech/std/vec.hpp"
+
 namespace kt::rhi {
   class ImageRef;
 }
@@ -113,7 +115,7 @@ namespace kt::gltf {
 
     struct UploadResult {
       Scene scene;
-      uint64_t copyFenceValue = 0;
+      rhi::CopyWaitValue copyFenceValue = 0;
     };
 
     std::expected<UploadResult, std::string> upload() const;
@@ -122,7 +124,7 @@ namespace kt::gltf {
 
   private:
     template <typename T> struct PartialUploadResult {
-      uint64_t copyFenceValue = 0;
+      rhi::CopyWaitValue copyFenceValue = 0;
       T result;
     };
 

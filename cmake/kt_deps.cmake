@@ -12,6 +12,7 @@ include(mesh_optimizer)
 include(fastgltf)
 include(entt)
 include(jolt)
+include(pix)
 
 add_library(Keptech_Deps INTERFACE)
 add_library(keptech::deps ALIAS Keptech_Deps)
@@ -29,8 +30,17 @@ if(RHI_BACKEND STREQUAL "Vulkan")
   target_compile_definitions(Keptech_Deps INTERFACE KT_VULKAN=1 KT_RHI_STRING="Vulkan")
 elseif(RHI_BACKEND STREQUAL "DX12")
   include(d3d12memalloc)
-  target_link_libraries(Keptech_Deps INTERFACE D3D12MemoryAllocator d3d12.lib dxgi.lib d3dcompiler.lib)
-  target_compile_definitions(Keptech_Deps INTERFACE KT_DX12=1 KT_RHI_STRING="DX12")
+  target_compile_definitions(Keptech_Deps INTERFACE KT_DX12=1 KT_RHI_STRING="DX12"
+    $<$<CONFIG:Debug>:USE_PIX=1>
+  )
+  add_pix_target(ktpix CACHE_PREFIX KT)
+  target_link_libraries(Keptech_Deps INTERFACE
+    D3D12MemoryAllocator
+    d3d12.lib
+    dxgi.lib
+    d3dcompiler.lib
+    ktpix
+  )
 endif()
 
 add_subdirectory(vendor/imgui imgui SYSTEM)

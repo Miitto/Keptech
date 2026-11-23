@@ -45,8 +45,8 @@ namespace kt::components {
   private:
     void removeChild(const ecs::Entity child);
 
-    maths::Transform local;
-    glm::mat4 global;
+    maths::Transform local{};
+    glm::mat4 global{};
     ecs::Entity parent = ecs::Entity{};
     Vec<ecs::Entity> children{};
     uint32_t depth = 0;

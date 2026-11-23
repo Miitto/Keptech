@@ -18,6 +18,9 @@ namespace kt::rhi {
           rtvDsvHandle(rtvDsvHandle), texIndex(texIndex) {}
     ImageRef(const ImageRef&) = default;
     ImageRef& operator=(const ImageRef&) = default;
+    ImageRef(ImageRef&&) = default;
+    ImageRef& operator=(ImageRef&&) = default;
+    ~ImageRef() = default;
 
     const char* getName() const { return name; }
     operator ID3D12Resource*() const { return resource; }
@@ -36,13 +39,13 @@ namespace kt::rhi {
     ID3D12Resource* dxGetResource() const { return resource; }
 
   private:
-    const char* name;
-    ID3D12Resource* resource;
-    ImageDim dimension;
-    ImageFormat _format;
-    uint32_t _mips;
-    uint32_t _layers;
-    glm::uvec3 _extent;
+    const char* name = nullptr;
+    ID3D12Resource* resource = nullptr;
+    ImageDim dimension = ImageDim::e2D;
+    ImageFormat _format = ImageFormat::Undefined;
+    uint32_t _mips = 1;
+    uint32_t _layers = 1;
+    glm::uvec3 _extent{};
     D3D12_CPU_DESCRIPTOR_HANDLE rtvDsvHandle{};
     uint64_t texIndex = ~0ul;
   };

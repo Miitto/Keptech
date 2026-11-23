@@ -8,18 +8,18 @@
 #include <D3D12MemAlloc.h>
 
 namespace kt::rhi {
-  const std::string& Image::getName() const { return name; }
-  ImageFormat Image::format() const { return _format; }
-  uint32_t Image::mips() const { return _mips; }
-  uint32_t Image::layers() const { return _layers; }
-  Bitflag<ImageUsage> Image::getUsage() const { return usage; }
-  glm::uvec3 Image::getExtent() const { return extent; }
-  ImageDim Image::dim() const { return _dim; }
+  void ImageBase::setName(this Image& self, const std::string& newName) {
+    self.name = newName;
+    std::string debugName = fmt::format("Image {}", self.name);
+    std::wstring wDebugName(debugName.begin(), debugName.end());
+    self.allocation->SetName(wDebugName.c_str());
+    self.allocation->GetResource()->SetName(wDebugName.c_str());
+  }
 
-  bool Image::operator==(const Image& other) const { return allocation == other.allocation; }
+  bool ImageBase::operator==(this const Image& self, const Image& other) { return self.allocation == other.allocation; }
 
-  bool Image::isDepth() const {
-    switch (_format) {
+  bool ImageBase::isDepth(this const Image& self) {
+    switch (self._format) {
     case ImageFormat::D16_UNORM:
     case ImageFormat::D32_FLOAT:
       return true;
@@ -35,7 +35,7 @@ namespace kt::rhi {
     return allocation->GetResource();
   }
 
-  kt::Result<Image, HRESULT, 0> Image::create(const ImageCreateInfo& info) {
+  kt::Result<Image, HRESULT, 0> ImageBase::create(const ImageCreateInfo& info) {
     DX_ASSERT(info.getExtent().x > 0 && info.getExtent().y > 0 && info.getExtent().z > 0, "Image extent must be greater than 0");
     DX_ASSERT(info.getUsage().intersect(kt::rhi::ImageUsage::RenderTarget | kt::rhi::ImageUsage::DepthStencil) !=
                   (kt::rhi::ImageUsage::RenderTarget | kt::rhi::ImageUsage::DepthStencil),
@@ -90,15 +90,10 @@ namespace kt::rhi {
                                                                      IID_NULL, NULL)),
                "Failed to create image resource");
 
-#ifndef NDEBUG
-    std::string debugName = fmt::format("Image {}", info.getName());
-    std::wstring wDebugName(debugName.begin(), debugName.end());
-    allocation->SetName(wDebugName.c_str());
-    allocation->GetResource()->SetName(wDebugName.c_str());
-#endif
-
     Image i(info.getName(), info.getImageDim(), info.getFormat(), info.getExtent(), info.getUsage(), info.getMipLevels(),
             info.getArrayLayers(), allocation);
+
+    i.setName(info.getName());
 
     if (info.getUsage().has(kt::rhi::ImageUsage::RenderTarget)) {
       RHI::get().dxRegisterRenderTargetImage(i);
@@ -113,64 +108,56 @@ namespace kt::rhi {
     return std::move(i);
   }
 
-  kt::Result<Image, HRESULT, S_OK> Image::resize(const glm::uvec3& newExtent) const {
-    if (allocation == nullptr) {
+  kt::Result<Image, HRESULT, S_OK> ImageBase::resize(this const Image& self, const glm::uvec3& newExtent) {
+    if (self.allocation == nullptr) {
       return {E_FAIL};
     }
 
-    auto i = Image::create({_dim, _format, newExtent, usage, _mips, _layers, name.c_str()});
+    auto i = ImageBase::create({self._dim, self._format, newExtent, self.usage, self._mips, self._layers, self.name.c_str()});
     if (i.isOk()) {
-      i.value().dxSetRtvDsvIndex(rtvDsvIndex);
-      if (usage.has(kt::rhi::ImageUsage::RenderTarget)) {
+      i.value().dxSetRtvDsvIndex(self.rtvDsvIndex);
+      if (self.usage.has(kt::rhi::ImageUsage::RenderTarget)) {
         RHI::get().dxUpdateRenderTargetImage(i.value());
-      } else if (usage.has(kt::rhi::ImageUsage::DepthStencil)) {
+      } else if (self.usage.has(kt::rhi::ImageUsage::DepthStencil)) {
         RHI::get().dxUpdateDepthStencilImage(i.value());
       }
-      if (usage.has(kt::rhi::ImageUsage::Sampled)) {
+      if (self.usage.has(kt::rhi::ImageUsage::Sampled)) {
         RHI::get().dxUpdateSampledImage(i.value());
       }
     }
     return i;
   }
 
-  void Image::destroy() {
-    if (allocation != nullptr) {
-      allocation->Release();
-      allocation = nullptr;
+  void ImageBase::destroy(this Image& self) {
+    if (self.allocation != nullptr) {
+      self.allocation->Release();
+      self.allocation = nullptr;
     }
   }
 
-  Image::Image(Image&& other) noexcept
-      : name(std::move(other.name)), _dim(other._dim), _format(other._format), extent(other.extent), usage(other.usage), _mips(other._mips),
-        _layers(other._layers), allocation(other.allocation), rtvDsvIndex(other.rtvDsvIndex), textureIndex(other.textureIndex) {
+  Image::Image(Image&& other) noexcept : ImageBase(std::move(other)), allocation(other.allocation), rtvDsvIndex(other.rtvDsvIndex) {
     other.allocation = nullptr;
   }
 
   Image& Image::operator=(Image&& other) noexcept {
     if (this != &other) {
-      name = std::move(other.name);
-      _dim = other._dim;
-      extent = other.extent;
-      _format = other._format;
-      _mips = other._mips;
-      _layers = other._layers;
+      ImageBase::operator=(std::move(other));
+
       allocation = other.allocation;
       rtvDsvIndex = other.rtvDsvIndex;
-      textureIndex = other.textureIndex;
-      usage = other.usage;
 
       other.allocation = nullptr;
     }
     return *this;
   }
 
-  Image::operator ImageRef() const {
+  ImageBase::operator ImageRef(this const Image& self) {
 
-    return ImageRef(name.c_str(), dxresource().Get(), _dim, _format, extent, _mips, _layers,
-                    usage.has(kt::rhi::ImageUsage::RenderTarget) ? RHI::get().dxGetRtvHandle(rtvDsvIndex)
-                    : usage.has(ImageUsage::DepthStencil)        ? RHI::get().dxGetDsvHandle(rtvDsvIndex)
-                                                                 : CD3DX12_CPU_DESCRIPTOR_HANDLE(),
-                    textureIndex);
+    return ImageRef(self.name.c_str(), self.dxresource().Get(), self._dim, self._format, self.extent, self._mips, self._layers,
+                    self.usage.has(kt::rhi::ImageUsage::RenderTarget) ? RHI::get().dxGetRtvHandle(self.rtvDsvIndex)
+                    : self.usage.has(ImageUsage::DepthStencil)        ? RHI::get().dxGetDsvHandle(self.rtvDsvIndex)
+                                                                      : CD3DX12_CPU_DESCRIPTOR_HANDLE(),
+                    self.textureIndex);
   }
 
   D3D12MA::Allocation* Image::dxTakeAllocation() {
@@ -178,4 +165,6 @@ namespace kt::rhi {
     allocation = nullptr;
     return alloc;
   }
+
+  Image::~Image() { destroy(); }
 } // namespace kt::rhi

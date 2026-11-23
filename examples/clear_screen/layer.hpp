@@ -4,7 +4,9 @@
 #include "keptech/core/window.hpp"
 #include "keptech/graph/builder.hpp"
 #include "keptech/graph/graph.hpp"
+#include "keptech/rhi/cmdBuf.hpp"
 #include "keptech/rhi/rhi.hpp"
+
 
 class ExampleLayer : public kt::Layer {
 public:

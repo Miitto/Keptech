@@ -1,25 +1,21 @@
 #pragma once
 
-#include "keptech/maths/sizes.hpp"
-#include "keptech/rhi/imageLayout.hpp"
-#include "keptech/rhi/imageRef.hpp"
-#include "keptech/rhi/loadStoreOps.hpp"
-#include <array>
+#include "keptech/rhi/interface/cmdBuf_base.hpp"
 #include <d3d12.h>
-#include <span>
 #include <wrl.h>
 
+
 namespace kt::rhi {
-  class ImageRef;
-  struct Pipeline;
   class BufferRef;
   class DescriptorSet;
 
-  class CommandBuffer {
-#include "keptech/rhi/interface/cmdBuf.inl"
+  class CommandBuffer : public CommandBufferBase {
 
   public:
+    friend class CommandBufferBase;
+
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator>& dxGetAlloc() { return allocator; }
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList10>& dxGetCmd() { return cmdList; }
 
     CommandBuffer(Microsoft::WRL::ComPtr<ID3D12CommandAllocator> allocator, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList10> cmdList);
 

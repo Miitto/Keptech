@@ -3,6 +3,7 @@
 #include "keptech/core/result.hpp"
 #include "keptech/rhi/imageFormat.hpp"
 #include "keptech/rhi/result.hpp"
+#include "keptech/rhi/sync.hpp"
 #include "keptech/std/vec.hpp"
 #include <expected>
 #include <span>
@@ -17,13 +18,15 @@ namespace kt {
     class CommandBuffer;
     class Buffer;
     class Image;
-    struct ImageCreateInfo;
+    class ImageCreateInfo;
     class DescriptorLayout;
     class DescriptorSet;
     struct DescriptorInfo;
 
     class RhiBase {
     public:
+      friend class RHI;
+
       static RHI& get();
       uint8_t getLastFrameIndex(this const RHI& self);
       uint8_t getFrameIndex(this const RHI& self);
@@ -50,8 +53,10 @@ namespace kt {
 
       uint64_t getTimelineValue(this const RHI& self);
 
-      void submitGraphicsCmd(this RHI& self, CommandBuffer& cmd, uint64_t waitFor = 0, uint64_t signalTo = 0, uint64_t waitForCopy = 0);
-      void submitComputeCmd(this RHI& self, CommandBuffer& cmd, uint64_t waitFor = 0, uint64_t signalTo = 0, uint64_t waitForCopy = 0);
+      GraphicsWaitValue submitGraphicsCmd(this RHI& self, CommandBuffer& cmd, GraphicsWaitValue graphicsWaitValue = {},
+                                          ComputeWaitValue computeWaitValue = {}, CopyWaitValue copyWaitValue = {});
+      ComputeWaitValue submitComputeCmd(this RHI& self, CommandBuffer& cmd, GraphicsWaitValue graphicsWaitValue = {},
+                                        ComputeWaitValue computeWaitValue = {}, CopyWaitValue copyWaitValue = {});
 
       Vec<CommandBuffer> allocateGraphicsCommandBuffers(this RHI& self, uint32_t count);
       Vec<CommandBuffer> allocateComputeCommandBuffers(this RHI& self, uint32_t count);
@@ -70,7 +75,7 @@ namespace kt {
 
       template <typename F>
         requires(std::is_invocable_v<F, CommandBuffer&> && std::is_same_v<std::invoke_result_t<F, CommandBuffer&>, Vec<Buffer>>)
-      uint64_t oneshotCopy(this RHI& self, const F& copyFunc);
+      CopyWaitValue oneshotCopy(this RHI& self, const F& copyFunc);
 
       // Called internally, don't use
       void newFrame(this RHI& self);
@@ -91,7 +96,7 @@ namespace kt {
 
       ~RhiBase() = default;
 
-    protected:
+    private:
       void present(this RHI& self);
 
       void debugUi(this const RHI& self);

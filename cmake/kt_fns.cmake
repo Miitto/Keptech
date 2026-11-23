@@ -66,7 +66,15 @@ endfunction()
 
 function(KT_BINARY_TARGET target)
     add_custom_command(TARGET ${target} POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:${target}> $<TARGET_RUNTIME_DLLS:${target}>
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different -t $<TARGET_FILE_DIR:${target}> $<TARGET_RUNTIME_DLLS:${target}>
       COMMAND_EXPAND_LISTS
     )
+
+    if (RHI_BACKEND STREQUAL "DX12")
+      add_custom_command(TARGET ${target} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${PIX_BIN_PATH}/WinPixEventRuntime.dll"
+          $<TARGET_FILE_DIR:${target}>
+      )
+    endif()
 endfunction()

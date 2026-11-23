@@ -2,6 +2,7 @@
 
 #include "graph/graph.hpp"
 #include "keptech/graph/builder.hpp"
+#include "keptech/maths/sizes.hpp"
 #include "keptech/rhi/cmdBuf.hpp"
 #include "keptech/rhi/imageFormat.hpp"
 #include "keptech/rhi/pipelineBuilder.hpp"

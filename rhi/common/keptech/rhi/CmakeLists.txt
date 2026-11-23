@@ -10,5 +10,8 @@ target_sources(Keptech_RHI
     imageUsage.cpp
     imgui.cpp
     pipelineBuilder.cpp
+    interface/buffer_base.cpp
+    interface/cmdBuf_base.cpp
+    interface/image_base.cpp
     interface/rhi_base.cpp
 )

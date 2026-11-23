@@ -2,11 +2,11 @@
 
 #include <d3d12.h>
 #include <dxgi1_6.h>
+#include <queue>
 #include <wrl.h>
 
 #include "d3dx12.h"
 #include "helpers/imGuiDescriptorAlloc.hpp"
-#include "keptech/rhi/cmdBuf.hpp"
 #include "keptech/rhi/dx/constants.hpp"
 #include "keptech/rhi/dx/fence.hpp"
 #include "keptech/rhi/imageFormat.hpp"
@@ -85,9 +85,10 @@ namespace kt::rhi {
     std::array<Frame, MAX_FRAMES_IN_FLIGHT> frames;
 
     Fence fence;
+    Fence computeFence;
+    Fence copyFence;
 
     ComPtr<ID3D12GraphicsCommandList10> copyCmdList;
-    Fence copyFence;
 
     DxImGui imGui;
 
@@ -101,17 +102,22 @@ namespace kt::rhi {
 
     Vec<rhi::Image> loadedTextures;
 
-    struct OngoingCopy {
-      ComPtr<ID3D12CommandAllocator> cmdAlloc{};
+    struct SubmittedCmd {
+      ComPtr<ID3D12CommandAllocator> alloc{};
+      ComPtr<ID3D12GraphicsCommandList10> cmd{};
       uint64_t fenceValue = 0;
+    };
+    std::queue<SubmittedCmd> submittedGraphicsCmds{};
+    std::queue<SubmittedCmd> submittedComputeCmds{};
+
+    struct OngoingCopy {
+      SubmittedCmd cmd{};
       Vec<D3D12MA::Allocation*> allocsToDrop{};
     };
     Vec<OngoingCopy> ongoingCopies{};
 
     uint8_t frameIndex = 0;
     uint8_t imageIndex = 0;
-
-    std::array<Vec<ComPtr<ID3D12CommandAllocator>>, MAX_FRAMES_IN_FLIGHT> runningAllocs{};
 
     std::unordered_map<ImageFormat, Pipeline> blitPipelines{};
     Pipeline cubeFromEquirectangularPipeline{};

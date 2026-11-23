@@ -9,7 +9,6 @@ namespace kt {
     struct DepthClearValue;
     struct ColorClearValue;
     struct ResourceLayout;
-    struct ResourceSet;
     class DescriptorSet;
     class DescriptorLayout;
   } // namespace rhi

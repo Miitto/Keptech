@@ -127,6 +127,8 @@ namespace kt::rhi {
 
     DX_MAKE(m.device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&*m.fence)), "Failed to create fence");
     m.fence.makeEvent();
+    DX_MAKE(m.device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&*m.computeFence)), "Failed to create fence");
+    m.computeFence.makeEvent();
     DX_MAKE(m.device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&*m.copyFence)), "Failed to create copy fence");
     m.copyFence.makeEvent();
 
@@ -164,8 +166,9 @@ namespace kt::rhi {
     m.queues.copy->SetName(L"Copy Queue");
 
     m.copyCmdList->SetName(L"Copy Command List");
+    m.fence->SetName(L"Graphics Fence");
+    m.computeFence->SetName(L"Compute Fence");
     m.copyFence->SetName(L"Copy Fence");
-    m.fence->SetName(L"Graphics-Compute Fence");
 
     m.drawIndirectSignature->SetName(L"Draw Indirect Command Signature");
     m.drawIndexedIndirectSignature->SetName(L"Draw Indexed Indirect Command Signature");

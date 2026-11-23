@@ -8,6 +8,7 @@
 #include "dx/constants.hpp"
 #include "dx/dx-logger.hpp"
 #include "dx/macros.hpp"
+#include "keptech/core/bitflag.hpp"
 #include "keptech/shaders/resources.hpp"
 #include "pipeline.hpp"
 #include "rhi.hpp"

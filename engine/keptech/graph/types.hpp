@@ -19,9 +19,7 @@
 #include <spdlog/fmt/bundled/format.h>
 #include <string>
 
-
 namespace kt::rhi {
-  struct ResourceSet;
   class CommandBuffer;
 } // namespace kt::rhi
 
@@ -195,7 +193,7 @@ namespace kt {
 
   struct ImageTransition {
     PhysResourceId resourceId;
-    rhi::ImageLayout newLayout;
+    rhi::ImageLayout newLayout{};
   };
 
   struct ImageBarrier {
@@ -244,7 +242,7 @@ namespace kt {
   struct UsedInPass {
     size_t passIndex = ~0u;
     uint32_t binding = ~0u;
-    rhi::DescriptorType descriptorType;
+    rhi::DescriptorType descriptorType{};
     rhi::ImageLayout layout = rhi::ImageLayout::Undefined;
     bool history = false;
   };

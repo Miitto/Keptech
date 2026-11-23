@@ -2,7 +2,9 @@
 
 #include "keptech/graph/builder.hpp"
 #include "keptech/graph/pass.hpp"
+#include "keptech/maths/sizes.hpp"
 #include "keptech/passes/data.hpp"
+#include "keptech/rhi/cmdBuf.hpp"
 #include "keptech/rhi/rhi.hpp"
 #include "shaders/examples/mesh/mesh.h"
 #include <keptech/buffers.hpp>

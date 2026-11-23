@@ -1025,7 +1025,7 @@ namespace kt::gltf {
 
     Vec<rhi::ImageRef> resultTextures;
     resultTextures.reserve(texturesToLoad.size());
-    uint64_t copyValue = rhi.oneshotCopy([&](rhi::CommandBuffer& cmd) {
+    auto copyValue = rhi.oneshotCopy([&](rhi::CommandBuffer& cmd) {
       Vec<rhi::Buffer> stagingBuffers;
       stagingBuffers.reserve(texturesToLoad.size());
 

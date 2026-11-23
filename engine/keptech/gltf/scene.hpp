@@ -5,6 +5,7 @@
 #include "keptech/material.hpp"
 #include "keptech/maths/transform.hpp"
 #include "keptech/mesh.hpp"
+#include "keptech/rhi/sync.hpp"
 #include "keptech/std/vec.hpp"
 #include <fastgltf/types.hpp>
 #include <string>
@@ -26,9 +27,9 @@ namespace kt::gltf {
     Vec<Mesh> meshes;
     Vec<Material> materials;
 
-    uint64_t copyFenceValue = 0;
+    rhi::CopyWaitValue copyFenceValue = 0;
 
-    Scene(const gltf::Data& data, const Vec<Mesh>& meshes, uint64_t copyFenceValue);
+    Scene(const gltf::Data& data, const Vec<Mesh>& meshes, rhi::CopyWaitValue copyFenceValue);
 
     void addToEcsScene(kt::Scene& scene, kt::ecs::EntityHandle parent) const;
   };

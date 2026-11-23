@@ -1586,7 +1586,7 @@ namespace kt {
 
     cmd.end();
 
-    rhi.submitGraphicsCmd(cmd, 0, rhi.getTimelineValue() + 1);
+    rhi.submitGraphicsCmd(cmd);
 
     return Resources{
         .images = std::move(images),
