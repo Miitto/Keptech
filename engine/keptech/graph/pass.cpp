@@ -98,7 +98,7 @@ namespace kt {
       passInterface->setupDependencies(*this, graph);
   }
 
-  bool RenderPassBuilder::validate() {
+  bool RenderPassBuilder::validate() const {
     if (passInterface)
       return passInterface->validate(*this, graph);
     return true;

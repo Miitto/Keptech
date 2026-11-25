@@ -11,7 +11,7 @@ namespace kt {
     GeometryPass() = default;
 
     void setupDependencies(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
-    bool validate(RenderPassBuilder& self, RenderGraphBuilder& graph) final;
+    bool validate(const RenderPassBuilder& self, RenderGraphBuilder& graph) const final;
     void setup(RenderGraph& graph, const rhi::DescriptorLayout&) final;
 
     void prepare(RenderGraph& graph) final;

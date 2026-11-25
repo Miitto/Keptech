@@ -87,19 +87,11 @@ namespace kt {
     struct Requirement {
       PhysResourceId resourceId;
       rhi::ImageLayout layout = rhi::ImageLayout::Undefined;
-#ifdef KT_VULKAN
-      VkAccessFlags2 access = 0;
-      VkPipelineStageFlags2 stages = 0;
-#endif
+      Bitflag<rhi::AccessFlags> access{};
+      Bitflag<rhi::PipelineStageFlags> stages{};
       bool history = false;
 
-      operator bool() const {
-        return layout != rhi::ImageLayout::Undefined
-#ifdef KT_VULKAN
-               || access != 0 || stages != 0
-#endif
-               || history;
-      }
+      operator bool() const { return layout != rhi::ImageLayout::Undefined || access.any() || stages.any() || history; }
     };
 
     struct Requirements {
@@ -131,8 +123,6 @@ namespace kt {
     /// Returns true if the pass with id `dst` depends on the pass with id `src`, false otherwise.
     [[nodiscard]] bool dependsOnPass(PassId dst, PassId src) const;
 
-    /// Deduplicate passOrder. The order of the passes is preserved.
-    void filterPasses(Vec<PassId>& passOrder);
     /// Reorder the passes in `passOrder` based on their dependencies.
     /// After this function completes, the passes in `passOrder` can be run in the order they appear in the vector without violating any
     /// dependencies.

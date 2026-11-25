@@ -27,7 +27,7 @@ namespace kt {
     self.addIndirectBufferInput("kt::geom::drawCommands");
   }
 
-  bool GeometryPass::validate(RenderPassBuilder&, RenderGraphBuilder& graph) {
+  bool GeometryPass::validate(const RenderPassBuilder&, RenderGraphBuilder& graph) const {
     if (!graph.hasBufferResource("kt::camera")) {
       KT_ERROR("Geometry pass requires a buffer resource named 'kt::camera'. Either add kt::DataPass or manage the camera buffer resource "
                "manually.");

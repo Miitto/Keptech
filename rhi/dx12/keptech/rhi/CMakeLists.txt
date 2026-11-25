@@ -16,9 +16,4 @@ target_sources(Keptech_RHI
     image.cpp
 )
 
-target_compile_definitions(Keptech_RHI
-  PRIVATE
-    WIN32_LEAN_AND_MEAN=1
-)
-
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "RHI/DX12")

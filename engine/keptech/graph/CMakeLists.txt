@@ -1,5 +1,10 @@
 target_sources(Keptech
   PRIVATE
+    building/barriers.cpp
+    building/interaction.cpp
+    building/ordering.cpp
+    building/resources.cpp
+    building/validation.cpp
     builder.cpp
     graph.cpp
     pass.cpp

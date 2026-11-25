@@ -57,7 +57,7 @@ target_link_libraries(Keptech_Deps INTERFACE
   fastgltf::fastgltf
   kt::jolt
 )
-target_compile_definitions(Keptech_Deps INTERFACE GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE GLM_FORCE_LEFT_HANDED)
+target_compile_definitions(Keptech_Deps INTERFACE GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE GLM_FORCE_LEFT_HANDED WIN32_LEAN_AND_MEAN NOMINMAX=1)
 
 foreach (lang IN ITEMS C CXX)
   set("CMAKE_${lang}_CLANG_TIDY" "${CMAKE_${lang}_CLANG_TIDY_save}")

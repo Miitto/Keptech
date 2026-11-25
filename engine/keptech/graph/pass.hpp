@@ -5,7 +5,6 @@
 #include <functional>
 #include <glm/ext/vector_uint2.hpp>
 
-
 #ifdef KT_VULKAN
 #include <volk.h>
 #define KT_PIPELINE_STAGES , VkPipelineStageFlags2 stages = 0
@@ -28,10 +27,8 @@ namespace kt {
   class RenderPassInterface;
 
   struct AccessedResource {
-#ifdef KT_VULKAN
-    VkPipelineStageFlags2 stages = 0;
-    VkAccessFlags2 access = 0;
-#endif
+    Bitflag<rhi::PipelineStageFlags> stages{};
+    Bitflag<rhi::AccessFlags> access{};
     rhi::ImageLayout layout = rhi::ImageLayout::Undefined;
   };
 
@@ -104,7 +101,7 @@ namespace kt {
     RenderPassBuilder& addProxyPass(const std::string& name, QueueType queue = QueueType::Graphics, bool autoBeginRendering = true);
 
     void setupDependencies();
-    bool validate();
+    bool validate() const;
 
     RenderPassBuilder& setName(const std::string& n);
     [[nodiscard]] std::string& getName();

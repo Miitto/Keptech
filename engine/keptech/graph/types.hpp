@@ -3,6 +3,7 @@
 #include "glm/ext/vector_uint3.hpp"
 #include "keptech/core/bitflag.hpp"
 #include "keptech/core/macros.hpp"
+#include "keptech/rhi/accessFlags.hpp"
 #include "keptech/rhi/buffer.hpp"
 #include "keptech/rhi/bufferTypes.hpp"
 #include "keptech/rhi/bufferUsage.hpp"
@@ -12,6 +13,7 @@
 #include "keptech/rhi/descriptorTypes.hpp"
 #include "keptech/rhi/image.hpp"
 #include "keptech/rhi/imageLayout.hpp"
+#include "keptech/rhi/pipelineStageFlags.hpp"
 #include "keptech/std/vec.hpp"
 #include <array>
 #include <cstdint>
@@ -198,12 +200,10 @@ namespace kt {
 
   struct ImageBarrier {
     PhysResourceId resourceId;
-#ifdef KT_VULKAN
-    VkPipelineStageFlags2 srcStages = 0;
-    VkPipelineStageFlags2 dstStages = 0;
-    VkAccessFlags2 srcAccess = 0;
-    VkAccessFlags2 dstAccess = 0;
-#endif
+    Bitflag<rhi::PipelineStageFlags> srcStages{};
+    Bitflag<rhi::PipelineStageFlags> dstStages{};
+    Bitflag<rhi::AccessFlags> srcAccess{};
+    Bitflag<rhi::AccessFlags> dstAccess{};
     rhi::ImageLayout oldLayout = rhi::ImageLayout::Undefined;
     rhi::ImageLayout newLayout = rhi::ImageLayout::Undefined;
     QueueHandoff handoff = QueueHandoff::No;
@@ -212,12 +212,10 @@ namespace kt {
 
   struct BufferBarrier {
     PhysResourceId resourceId;
-#ifdef KT_VULKAN
-    VkPipelineStageFlags2 srcStages = 0;
-    VkPipelineStageFlags2 dstStages = 0;
-    VkAccessFlags2 srcAccess = 0;
-    VkAccessFlags2 dstAccess = 0;
-#endif
+    Bitflag<rhi::PipelineStageFlags> srcStages{};
+    Bitflag<rhi::PipelineStageFlags> dstStages{};
+    Bitflag<rhi::AccessFlags> srcAccess{};
+    Bitflag<rhi::AccessFlags> dstAccess{};
     QueueHandoff handoff = QueueHandoff::No;
   };
 

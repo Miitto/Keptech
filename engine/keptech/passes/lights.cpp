@@ -29,7 +29,7 @@ namespace kt {
     self.addTextureInput("kt::depth");
   }
 
-  bool LightPass::validate(RenderPassBuilder&, RenderGraphBuilder& graph) {
+  bool LightPass::validate(const RenderPassBuilder&, RenderGraphBuilder& graph) const {
     if (!graph.hasBufferResource("kt::camera")) {
       KT_ERROR("Deferred lighting pass requires a uniform buffer resource named 'kt::camera'. Either add kt::DataPass or manage the camera "
                "buffer resource "
