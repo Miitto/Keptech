@@ -9,7 +9,11 @@ namespace kt {
   template <typename T> using R = ::kt::Result<Buffers::SB<T>, rhi::RawRhiResult, rhi::RawRhiResultOk>;
 
   namespace {
-    template <typename T> R<T> reallocBuffer(SubdivBuffer<T>& buffer, size_t newSize) {
+    template <typename T> R<T> reallocBuffer(SubdivBuffer<T>& buffer, size_t newSize, const char* name) {
+      if (buffer->size() == 0) {
+        auto newBuffer = rhi::Buffer::create(
+            {newSize * sizeof(T), rhi::BufferUsage::Storage, rhi::BufferType::Default, name, rhi::BufferCreateFlags::EngineBuffer});
+      }
       auto result = buffer->reallocate(newSize * sizeof(T));
       if (!result) {
         return result.error();
@@ -30,10 +34,7 @@ namespace kt {
 
     template <typename T>
     R<T> reallocAndWriteDescriptor(SubdivBuffer<T>& buffer, size_t newSize, rhi::DescriptorSet& set, uint32_t binding, const char* name) {
-      if (buffer->getName().empty()) {
-        buffer->setName(name);
-      }
-      auto result = reallocBuffer(buffer, newSize);
+      auto result = reallocBuffer(buffer, newSize, name);
       if (!result) {
         return result.error();
       }

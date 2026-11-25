@@ -1,13 +1,13 @@
 #pragma once
 
 #include "keptech/core/result.hpp"
+#include "keptech/rhi/bufferCreateInfo.hpp"
 #include "keptech/rhi/bufferTypes.hpp"
 #include "keptech/rhi/bufferUsage.hpp"
 #include "keptech/rhi/result.hpp"
 
 namespace kt::rhi {
   class BufferRef;
-  class BufferCreateInfo;
   class Buffer;
 
   class BufferBase {
@@ -59,5 +59,6 @@ namespace kt::rhi {
     size_t _size = 0;
     BufferType _type = BufferType::Default;
     Bitflag<BufferUsage> _usage = BufferUsage::None;
+    Bitflag<BufferCreateFlags> _flags = {};
   };
 } // namespace kt::rhi

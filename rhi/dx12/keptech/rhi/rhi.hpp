@@ -75,6 +75,7 @@ namespace kt::rhi {
   struct Members {
     const Window* window = nullptr;
 
+    ComPtr<IDXGIAdapter4> adapter;
     ComPtr<ID3D12Device2> device;
     D3D12MA::Allocator* allocator = nullptr;
 
@@ -167,9 +168,8 @@ namespace kt::rhi {
 
   private:
     std::expected<void, std::string> initInternal(const RendererCreateInfo& createInfo, const Window& window);
-    std::expected<ComPtr<IDXGIAdapter4>, std::string> getAdapter(const RendererCreateInfo& createInfo,
-                                                                 const ComPtr<IDXGIFactory4>& dxgiFactory);
-    std::expected<void, std::string> initDevice(const RendererCreateInfo& createInfo, const ComPtr<IDXGIAdapter4>& dxgiAdapter4);
+    std::expected<void, std::string> getAdapter(const RendererCreateInfo& createInfo, const ComPtr<IDXGIFactory4>& dxgiFactory);
+    std::expected<void, std::string> initDevice(const RendererCreateInfo& createInfo);
     std::expected<void, std::string> initSwapchain(const RendererCreateInfo& createInfo, const Window& window,
                                                    const ComPtr<IDXGIFactory4>& dxgiFactory);
     std::expected<void, std::string> initCommandLists();
@@ -178,6 +178,7 @@ namespace kt::rhi {
     std::expected<void, std::string> initDescriptorHeaps();
     std::expected<void, std::string> initSamplers();
     std::expected<void, std::string> initPipelines();
+    void populateGpuInfo();
 
     Members m;
   };

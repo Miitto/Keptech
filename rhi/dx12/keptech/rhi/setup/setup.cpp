@@ -2,7 +2,6 @@
 #include "dx/macros.hpp"
 #include "helpers/formatting.hpp"
 #include "keptech/core/window.hpp"
-#include "pipelineBuilder.hpp"
 #include "rhi.hpp"
 #include <d3d12.h>
 #include <expected>
@@ -68,10 +67,15 @@ namespace kt::rhi {
 
     DX_MAKE(CreateDXGIFactory2(createFactoryFlags, IID_PPV_ARGS(&dxgiFactory)), "Failed to create DXGI factory");
 
-    DX_CREATE(adapter, getAdapter(createInfo, dxgiFactory), "Failed to get suitable adapter");
+    {
+      auto res = getAdapter(createInfo, dxgiFactory);
+      if (!res) {
+        return std::unexpected(res.error());
+      }
+    }
 
     {
-      auto res = initDevice(createInfo, adapter);
+      auto res = initDevice(createInfo);
       if (!res) {
         return std::unexpected(res.error());
       }
@@ -180,10 +184,12 @@ namespace kt::rhi {
     m.imGui.srvHeap->SetName(L"ImGui SRV Descriptor Heap");
 #endif
 
+    populateGpuInfo();
+
     return {};
   }
 
-  std::expected<ComPtr<IDXGIAdapter4>, std::string> RHI::getAdapter(const RendererCreateInfo&, const ComPtr<IDXGIFactory4>& dxgiFactory) {
+  std::expected<void, std::string> RHI::getAdapter(const RendererCreateInfo&, const ComPtr<IDXGIFactory4>& dxgiFactory) {
     ComPtr<IDXGIAdapter1> dxgiAdapter1;
     ComPtr<IDXGIAdapter4> dxgiAdapter4;
 
@@ -206,11 +212,12 @@ namespace kt::rhi {
       }
     }
 
-    return dxgiAdapter4;
+    m.adapter = std::move(dxgiAdapter4);
+    return {};
   }
 
-  std::expected<void, std::string> RHI::initDevice(const RendererCreateInfo&, const ComPtr<IDXGIAdapter4>& dxgiAdapter4) {
-    DX_MAKE(D3D12CreateDevice(dxgiAdapter4.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&m.device)), "Failed to create D3D12 device");
+  std::expected<void, std::string> RHI::initDevice(const RendererCreateInfo&) {
+    DX_MAKE(D3D12CreateDevice(m.adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&m.device)), "Failed to create D3D12 device");
 
 #ifndef NDEBUG
     ComPtr<ID3D12InfoQueue1> infoQueue;
@@ -241,7 +248,7 @@ namespace kt::rhi {
 
     D3D12MA::ALLOCATOR_DESC allocatorDesc = {
         .pDevice = m.device.Get(),
-        .pAdapter = dxgiAdapter4.Get(),
+        .pAdapter = m.adapter.Get(),
         .Flags = D3D12MA_RECOMMENDED_ALLOCATOR_FLAGS,
     };
     DX_MAKE(D3D12MA::CreateAllocator(&allocatorDesc, &m.allocator), "Failed to create D3D12 memory allocator");
@@ -251,8 +258,9 @@ namespace kt::rhi {
     SAMPLER_DESCRIPTOR_SIZE = m.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
     CBV_SRV_UAV_DESCRIPTOR_SIZE = m.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-    D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
-    featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+    D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData{
+        .HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1,
+    };
     if (FAILED(m.device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData)))) {
       featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
     }
@@ -426,5 +434,22 @@ namespace kt::rhi {
     m.samplerHeap.count += 9; // 3 filters * 3 address modes
 
     return {};
+  }
+
+  void RHI::populateGpuInfo() {
+    DXGI_ADAPTER_DESC adapterDesc;
+    if (FAILED(m.adapter->GetDesc(&adapterDesc))) {
+      return;
+    }
+
+    std::wstring wName{adapterDesc.Description};
+    gpuInfo.name = {wName.begin(), wName.end()};
+    gpuInfo.vramSize = adapterDesc.DedicatedVideoMemory;
+    gpuInfo.hostRamSize = adapterDesc.SharedSystemMemory;
+
+    D3D12_FEATURE_DATA_D3D12_OPTIONS16 options16 = {};
+    if (SUCCEEDED(m.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS16, &options16, sizeof(options16)))) {
+      gpuInfo.reBar = options16.GPUUploadHeapSupported;
+    }
   }
 } // namespace kt::rhi

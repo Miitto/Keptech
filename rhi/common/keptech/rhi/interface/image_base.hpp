@@ -56,5 +56,6 @@ namespace kt::rhi {
     uint32_t _mips = 1;
     uint32_t _layers = 1;
     uint64_t textureIndex = UINT64_MAX;
+    Bitflag<ImageCreateFlags> _flags = {};
   };
 } // namespace kt::rhi

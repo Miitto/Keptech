@@ -17,7 +17,7 @@ namespace kt {
 
   RenderGraph* RenderGraph::activeGraph = nullptr;
 
-  void RenderGraph::execute() {
+  void RenderGraph::execute(kt::Timestep dt) {
     KT_PROFILE_FUNCTION
 
     updateDescriptors();
@@ -97,7 +97,7 @@ namespace kt {
       }
     }
 
-    debugUi();
+    debugUi(dt);
 
     auto& cmd = graphicsCmds.back();
     auto& backSource = getBackbufferImage();
@@ -112,7 +112,7 @@ namespace kt {
     historyFrame ^= 1;
   }
 
-  void RenderGraph::debugUi() {
+  void RenderGraph::debugUi(kt::Timestep dt) {
     auto camera = Scene::active().getActiveCamera();
     if (camera.isValid()) {
       ImGui::Begin("Debug View");
@@ -122,13 +122,37 @@ namespace kt {
       ImGui::Text("Camera Position: %.2f, %.2f, %.2f", static_cast<double>(camPos.x), static_cast<double>(camPos.y),
                   static_cast<double>(camPos.z));
 
+      static uint32_t framesPer = 0;
+      static float timeAcc = 0.f;
+
+      ++framesPer;
+      timeAcc += dt;
+
+      static float fps = 0.f;
+      static float avgDt = 0.f;
+
+      if (timeAcc > 500.f) {
+        avgDt = timeAcc / static_cast<float>(framesPer);
+        fps = static_cast<float>(framesPer) * (1000.f / timeAcc);
+        framesPer = 0;
+        timeAcc = 0.f;
+      }
+
 #ifndef KT_DISABLE_STATS
       auto& stats = RHI::get().getStats();
       ImGui::SeparatorText("Stats");
+      ImGui::Text("%.2fms %.0ffps (%.2fms this frame)", static_cast<double>(avgDt), static_cast<double>(fps), static_cast<double>(dt));
       ImGui::Text("Pipeline Switches: %llu", stats.pipelineSwitches);
       ImGui::Text("Draw Calls: %llu", stats.drawCalls);
       ImGui::Text("Dispatch Calls: %llu", stats.dispatchCalls);
       ImGui::Text("Render Passes: %llu", stats.renderPasses);
+      ImGui::NewLine();
+      ImGui::Text("Engine Buffers: %llu (%.2f MB)", stats.engineBufferCount,
+                  static_cast<double>(stats.engineBufferMemUsage) / (1024.0 * 1024.0));
+      ImGui::Text("User Buffers: %llu (%.2f MB)", stats.userBufferCount, static_cast<double>(stats.userBufferMemUsage) / (1024.0 * 1024.0));
+      ImGui::Text("Engine Images: %llu (%.2f MB)", stats.engineImageCount,
+                  static_cast<double>(stats.engineImageMemUsage) / (1024.0 * 1024.0));
+      ImGui::Text("User Images: %llu (%.2f MB)", stats.userImageCount, static_cast<double>(stats.userImageMemUsage) / (1024.0 * 1024.0));
 #endif
       ImGui::End();
     }

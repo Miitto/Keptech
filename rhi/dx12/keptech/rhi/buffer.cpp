@@ -63,6 +63,17 @@ namespace kt::rhi {
     }
 #endif
 
+#ifndef KT_DISABLE_STATS
+    auto& stats = RHI::get().getStats();
+    if (info.getFlags().has(BufferCreateFlags::EngineBuffer)) {
+      ++stats.engineBufferCount;
+      stats.engineBufferMemUsage += allocation->GetSize();
+    } else {
+      ++stats.userBufferCount;
+      stats.userBufferMemUsage += allocation->GetSize();
+    }
+#endif
+
     return Buffer(info.getName() == nullptr ? "<unnamed>" : info.getName(), info.getSize(), info.getUsage(), info.getType(), allocation);
   }
 
@@ -72,6 +83,17 @@ namespace kt::rhi {
 
   void BufferBase::destroy(this Buffer& self) {
     if (self.allocation) {
+#ifndef KT_DISABLE_STATS
+      auto& stats = RHI::get().getStats();
+      if (self._flags.has(BufferCreateFlags::EngineBuffer)) {
+        --stats.engineBufferCount;
+        stats.engineBufferMemUsage -= self.allocation->GetSize();
+      } else {
+        --stats.userBufferCount;
+        stats.userBufferMemUsage -= self.allocation->GetSize();
+      }
+#endif
+
       self.allocation->Release();
       self.allocation = nullptr;
     }

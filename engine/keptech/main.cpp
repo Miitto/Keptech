@@ -179,7 +179,7 @@ int main() {
 
       kt::gui::Frame::processInputPassthrough();
 
-      rg.execute();
+      rg.execute(dt);
 
       input.endFrame();
 

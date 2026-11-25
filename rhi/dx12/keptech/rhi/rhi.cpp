@@ -29,7 +29,9 @@ namespace kt::rhi {
 
   RHI& RhiBase::get() { return singleton; }
   bool RhiBase::isInit() { return isInitialized; }
-  uint64_t RhiBase::getTimelineValue(this const RHI& self) { return self.m.fence.currentValue(); }
+  GraphicsWaitValue RhiBase::getGraphicsWaitValue(this const RHI& self) { return self.m.fence.currentValue(); }
+  ComputeWaitValue RhiBase::getComputeWaitValue(this const RHI& self) { return self.m.computeFence.currentValue(); }
+  CopyWaitValue RhiBase::getCopyWaitValue(this const RHI& self) { return self.m.copyFence.currentValue(); }
 
   bool RhiBase::canRenderToFormat(this const RHI& self, ImageFormat format) {
     D3D12_FEATURE_DATA_FORMAT_SUPPORT formatSupport{.Format = raw(format)};
@@ -184,7 +186,125 @@ namespace kt::rhi {
                                self.m.ongoingCopies.end());
   }
 
-  void RhiBase::debugUi(this const RHI&) {}
+  void RhiBase::debugUi(this const RHI& self) {
+    constexpr float barWidth = 250.f;
+    constexpr float barHeight = 12.f;
+    constexpr float spacing = 15.f;
+    constexpr float borderThickness = 1.f;
+    constexpr float padding = 2.f;
+
+    auto vramInfo = self.getLiveVramInfo();
+    auto hostInfo = self.getLiveHostRamInfo();
+
+    auto viewportSize = ImGui::GetMainViewport()->Size;
+    // Needs to be always because of window resize
+    ImGui::SetNextWindowPos({viewportSize.x, viewportSize.y - (padding + barHeight)}, ImGuiCond_None, {1.0f, 1.f});
+    ImGui::SetNextWindowBgAlpha(0.2f);
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {padding, padding});
+
+    ImGui::Begin("KepTech RHI Debug Info", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing |
+                     ImGuiWindowFlags_NoNav);
+
+    enum class MemorySize {
+      B,
+      KB,
+      MB,
+      GB,
+    };
+
+    struct SizeInfo {
+      float value;
+      MemorySize type;
+    };
+
+    auto getSizeInfo = [&](uint64_t size) -> SizeInfo {
+      if (size < 1024) {
+        return {static_cast<float>(size), MemorySize::B};
+      } else if (size < 1024ull * 1024ull) {
+        return {static_cast<float>(size) / 1024.f, MemorySize::KB};
+      } else if (size < 1024ull * 1024ull * 1024ull) {
+        return {static_cast<float>(size) / (1024.f * 1024.f), MemorySize::MB};
+      } else {
+        return {static_cast<float>(size) / (1024.f * 1024.f * 1024.f), MemorySize::GB};
+      }
+    };
+
+    auto getMemTypeStr = [&](MemorySize type) -> const char* {
+      switch (type) {
+      case MemorySize::B:
+        return "B";
+      case MemorySize::KB:
+        return "KB";
+      case MemorySize::MB:
+        return "MB";
+      case MemorySize::GB:
+        return "GB";
+      default:
+        return "";
+      }
+    };
+
+    auto vramUsed = getSizeInfo(vramInfo.used);
+    auto vramBudget = getSizeInfo(vramInfo.budget);
+
+    std::string vramStr = vramUsed.type == vramBudget.type
+                              ? fmt::format("VRAM: {:.2f} / {:.2f} {}", vramUsed.value, vramBudget.value, getMemTypeStr(vramBudget.type))
+                              : fmt::format("VRAM: {:.2f} {} / {:.2f} {}", vramUsed.value, getMemTypeStr(vramUsed.type), vramBudget.value,
+                                            getMemTypeStr(vramBudget.type));
+
+    auto vramTextSize = ImGui::CalcTextSize(vramStr.c_str());
+
+    auto cursorPos = ImGui::GetCursorPos();
+
+    ImGui::SetCursorPos(
+        {viewportSize.x - (4 * padding + barWidth + spacing + vramTextSize.x + (2 * ImGui::GetStyle().ItemSpacing.x)), cursorPos.y});
+
+    ImGui::Text("%s", vramStr.c_str());
+
+    auto hostUsed = getSizeInfo(hostInfo.used);
+    auto hostBudget = getSizeInfo(hostInfo.budget);
+
+    std::string hostStr =
+        hostUsed.type == hostBudget.type
+            ? fmt::format("Host RAM: {:.2f} / {:.2f} {}", hostUsed.value, hostBudget.value, getMemTypeStr(hostBudget.type))
+            : fmt::format("Host RAM: {:.2f} {} / {:.2f} {}", hostUsed.value, getMemTypeStr(hostUsed.type), hostBudget.value,
+                          getMemTypeStr(hostBudget.type));
+
+    auto hostTextSize = ImGui::CalcTextSize(hostStr.c_str());
+
+    ImGui::SetCursorPos({viewportSize.x - (4 * padding + hostTextSize.x + (2 * ImGui::GetStyle().ItemSpacing.x)), cursorPos.y});
+
+    ImGui::Text("%s", hostStr.c_str());
+
+    auto drawList = ImGui::GetWindowDrawList();
+    drawList->PushClipRectFullScreen();
+
+    float vramBarEndPos = viewportSize.x - (padding + barWidth + spacing);
+    float vramBarStartPos = vramBarEndPos - barWidth;
+    float vramBarFillWidth = (static_cast<float>(vramInfo.used) / static_cast<float>(vramInfo.budget)) * barWidth;
+    float vramUsedBarEndPos = vramBarStartPos + vramBarFillWidth;
+
+    drawList->AddRect({vramBarStartPos, viewportSize.y - (padding + barHeight)}, {vramBarEndPos, viewportSize.y - padding},
+                      IM_COL32(100, 100, 100, 255), 0.f, 0, borderThickness);
+    drawList->AddRectFilled({vramBarStartPos, viewportSize.y - (padding + barHeight)}, {vramUsedBarEndPos, viewportSize.y - padding},
+                            IM_COL32(255, 255, 255, 255));
+
+    float hostBarEndPos = viewportSize.x - padding;
+    float hostBarStartPos = hostBarEndPos - barWidth;
+    float hostBarFillWidth = (static_cast<float>(hostInfo.used) / static_cast<float>(hostInfo.budget)) * barWidth;
+    float hostUsedBarEndPos = hostBarStartPos + hostBarFillWidth;
+
+    drawList->AddRect({hostBarStartPos, viewportSize.y - (padding + barHeight)}, {hostBarEndPos, viewportSize.y - padding},
+                      IM_COL32(150, 150, 150, 255), 0.f, 0, borderThickness);
+    drawList->AddRectFilled({hostBarStartPos, viewportSize.y - (padding + barHeight)}, {hostUsedBarEndPos, viewportSize.y - padding},
+                            IM_COL32(255, 255, 255, 255));
+
+    ImGui::End();
+    ImGui::PopStyleVar(2);
+  }
 
   void RhiBase::endFrame(this RHI& self, CommandBuffer& cmd) {
 #ifndef NDEBUG
@@ -671,5 +791,19 @@ namespace kt::rhi {
     if (alloc) {
       self.m.frames[self.m.frameIndex].allocsToDrop.emplace_back(alloc);
     }
+  }
+
+  RhiBase::LiveMemInfo RhiBase::getLiveVramInfo(this const RHI& self) {
+    DXGI_QUERY_VIDEO_MEMORY_INFO memInfo = {};
+    self.m.adapter->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &memInfo);
+
+    return {memInfo.CurrentUsage, memInfo.Budget};
+  }
+
+  RhiBase::LiveMemInfo RhiBase::getLiveHostRamInfo(this const RHI& self) {
+    DXGI_QUERY_VIDEO_MEMORY_INFO memInfo = {};
+    self.m.adapter->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &memInfo);
+
+    return {memInfo.CurrentUsage, memInfo.Budget};
   }
 } // namespace kt::rhi

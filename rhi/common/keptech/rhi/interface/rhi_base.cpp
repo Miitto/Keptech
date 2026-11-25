@@ -17,4 +17,6 @@ namespace kt::rhi {
 #endif
   }
 
+  const RhiBase::GPUInfo& RhiBase::getGPUInfo(this const RHI& self) { return self.gpuInfo; }
+
 } // namespace kt::rhi

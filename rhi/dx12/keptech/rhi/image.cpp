@@ -105,6 +105,17 @@ namespace kt::rhi {
       RHI::get().dxRegisterSampledImage(i);
     }
 
+#ifndef KT_DISABLE_STATS
+    auto& stats = RHI::get().getStats();
+    if (info.getFlags().has(ImageCreateFlags::EngineImage)) {
+      ++stats.engineImageCount;
+      stats.engineImageMemUsage += allocation->GetSize();
+    } else {
+      ++stats.userImageCount;
+      stats.userImageMemUsage += allocation->GetSize();
+    }
+#endif
+
     return std::move(i);
   }
 
@@ -130,6 +141,17 @@ namespace kt::rhi {
 
   void ImageBase::destroy(this Image& self) {
     if (self.allocation != nullptr) {
+#ifndef KT_DISABLE_STATS
+      auto& stats = RHI::get().getStats();
+      if (self._flags.has(ImageCreateFlags::EngineImage)) {
+        --stats.engineImageCount;
+        stats.engineImageMemUsage -= self.allocation->GetSize();
+      } else {
+        --stats.userImageCount;
+        stats.userImageMemUsage -= self.allocation->GetSize();
+      }
+#endif
+
       self.allocation->Release();
       self.allocation = nullptr;
     }

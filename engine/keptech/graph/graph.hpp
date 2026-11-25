@@ -1,5 +1,6 @@
 #pragma once
 
+#include "keptech/core/base.hpp"
 #include "keptech/maths/frustum.hpp"
 #include "keptech/rhi/buffer.hpp"
 #include "keptech/rhi/constants.hpp"
@@ -93,7 +94,7 @@ namespace kt {
     // Friend so it is the only thing that can construct a RenderGraph.
     friend class RenderGraphBuilder;
 
-    void execute();
+    void execute(kt::Timestep dt);
 
     const maths::Frustum& getEngineCameraFrustum() const { return engineCameraFrustum; }
 
@@ -197,7 +198,7 @@ namespace kt {
     void updateDescriptors();
     void passBarriers(rhi::CommandBuffer& cmd, const Barriers& barriers);
 
-    void debugUi();
+    void debugUi(kt::Timestep dt);
 
     static RenderGraph* activeGraph;
 

@@ -13,6 +13,11 @@ namespace kt::rhi {
     eCube,
   };
 
+  enum class ImageCreateFlags : uint8_t {
+    /// Internal use only. Indicates that the image is managed internally by the engine.
+    EngineImage = 1 << 7,
+  };
+
   class ImageCreateInfo {
   public:
     /// Creates an ImageCreateInfo object with the specified parameters.
@@ -23,9 +28,11 @@ namespace kt::rhi {
     /// @param mipLevels The number of mipmap levels for the image. Set to 0 to automatically calculate.
     /// @param arrayLayers The number of array layers for the image. Must be at least 1.
     /// @param name An optional name for the image, useful for debugging and profiling.
+    /// @param flags Additional flags for the image creation.
     constexpr ImageCreateInfo(ImageDim imageDim, ImageFormat format, glm::uvec3 extent, Bitflag<ImageUsage> usage, uint32_t mipLevels = 1,
-                              uint32_t arrayLayers = 1, const char* name = nullptr) noexcept
-        : imageDim(imageDim), format(format), extent(extent), usage(usage), mipLevels(mipLevels), arrayLayers(arrayLayers), name(name) {}
+                              uint32_t arrayLayers = 1, const char* name = nullptr, Bitflag<ImageCreateFlags> flags = {}) noexcept
+        : imageDim(imageDim), format(format), extent(extent), usage(usage), mipLevels(mipLevels), arrayLayers(arrayLayers), name(name),
+          flags(flags) {}
 
     ImageDim getImageDim() const noexcept { return imageDim; }
 
@@ -50,6 +57,8 @@ namespace kt::rhi {
       return name;
     }
 
+    Bitflag<ImageCreateFlags> getFlags() const noexcept { return flags; }
+
   private:
     ImageDim imageDim;
     ImageFormat format;
@@ -58,5 +67,8 @@ namespace kt::rhi {
     uint32_t mipLevels;
     uint32_t arrayLayers;
     const char* name = nullptr;
+    Bitflag<ImageCreateFlags> flags{};
   };
 } // namespace kt::rhi
+
+DEFINE_BITFLAG_ENUM_OPERATORS(kt::rhi::ImageCreateFlags)
