@@ -60,54 +60,56 @@ namespace kt {
       else
         KT_REQUIRE(pass != self.getId(), "Pass '{}' depends on itself", self.getName());
 
-      passStack.push_back(pass);
+      passStack.push_back(passes[pass].get());
       auto& depPass = *passes[pass];
       traverseDependencies(depPass, stackCount);
     }
   }
 
-  void RenderGraphBuilder::reorderPasses(Vec<PassId>& passOrder) {
-    passStack.clear();
+  void RenderGraphBuilder::reorderPasses() {
+    passStack.reserve(passes.size());
+
     passDependencies.clear();
     passDependencies.resize(passes.size());
 
     auto& backbuffer = *resources[resourceNameToId.find(backbufferSource)->second];
 
-    passStack.append_range(backbuffer.getWritePasses());
+    for (auto& pass : backbuffer.getWritePasses()) {
+      passStack.push_back(passes[pass].get());
+    }
 
     auto tmp = passStack;
-    for (auto& pushed : tmp) {
-      auto& pass = *passes[pushed];
-      traverseDependencies(pass, 0);
+    for (auto pass : tmp) {
+      traverseDependencies(*pass, 0);
     }
 
     std::ranges::reverse(passStack);
 
     // Filter out duplicates
     {
-      std::unordered_set<PassId> seen;
-      seen.reserve(passOrder.size());
+      std::unordered_set<RenderPassBuilder*> seen;
+      seen.reserve(passStack.size());
 
-      passOrder.retain([&](PassId id) {
-        if (seen.contains(id)) {
+      passStack.retain([&](RenderPassBuilder* pass) {
+        if (seen.contains(pass)) {
           return false;
         }
-        seen.insert(id);
+        seen.insert(pass);
         return true;
       });
     }
 
-    if (passOrder.size() <= 2)
+    if (passStack.size() <= 2)
       return;
 
-    Vec<PassId> unscheduled;
-    unscheduled.reserve(passOrder.size());
-    std::swap(passOrder, unscheduled);
+    Vec<RenderPassBuilder*> unscheduled;
+    unscheduled.reserve(passStack.size());
+    std::swap(passStack, unscheduled);
 
     const auto& schedule = [&](size_t i) {
-      passOrder.push_back(unscheduled[i]);
-      std::move(unscheduled.begin() + static_cast<Vec<PassId>::iterator::difference_type>(i) + 1, unscheduled.end(),
-                unscheduled.begin() + static_cast<Vec<PassId>::iterator::difference_type>(i));
+      passStack.push_back(unscheduled[i]);
+      std::move(unscheduled.begin() + static_cast<Vec<RenderPassBuilder*>::iterator::difference_type>(i) + 1, unscheduled.end(),
+                unscheduled.begin() + static_cast<Vec<RenderPassBuilder*>::iterator::difference_type>(i));
       unscheduled.pop_back();
     };
 
@@ -124,8 +126,8 @@ namespace kt {
 
         // Prefer maximum number of passes between the current pass and its first scheduled dependency, as this will reduce the number of
         // barriers needed.
-        for (auto& candidate : passOrder | std::views::reverse) {
-          if (dependsOnPass(pass, candidate))
+        for (auto& candidate : passStack | std::views::reverse) {
+          if (dependsOnPass(pass->getId(), candidate->getId()))
             break;
 
           ++overlap;
@@ -137,7 +139,7 @@ namespace kt {
         bool possible = true;
 
         for (size_t j = 0; j < idx; ++j) {
-          if (dependsOnPass(pass, unscheduled[j])) {
+          if (dependsOnPass(pass->getId(), unscheduled[j]->getId())) {
             possible = false;
             break;
           }

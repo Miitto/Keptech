@@ -63,8 +63,8 @@ namespace kt {
       }
     }
 
-    for (const auto& [idx, passId] : passStack | std::views::enumerate) {
-      auto& pass = *passes[passId];
+    for (const auto& [idx, passPtr] : passStack | std::views::enumerate) {
+      auto& pass = *passPtr;
       for (auto& input : pass.getGenericTextureInputs()) {
         if (!input.texture->getPhysicalId().used()) {
           physicalResourceInfos.push_back(getResourceInfo(*input.texture));
@@ -284,8 +284,8 @@ namespace kt {
     physicalImageHasHistory.clear();
     physicalImageHasHistory.resize(physicalResourceInfos.size());
 
-    for (auto& passId : passStack) {
-      auto& pass = *passes[passId];
+    for (auto passPtr : passStack) {
+      auto& pass = *passPtr;
 
       for (auto& history : pass.getHistoryInputs()) {
         KT_REQUIRE(history->getPhysicalId().used(), "Pass '{}': History input '{}' is used, but is never written to.", pass.getName(),

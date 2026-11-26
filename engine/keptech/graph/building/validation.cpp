@@ -24,20 +24,20 @@ namespace kt {
     KT_DEBUG("");
     KT_DEBUG("  Pass Execution Order:");
     KT_DEBUG("    Idx: Name (Id)");
-    for (const auto& [idx, passId] : passStack | std::views::enumerate) {
-      const auto& pass = *passes[passId];
-      KT_DEBUG("    {}: {} ({})", idx, pass.getName(), *passId);
+    for (const auto& [idx, passPtr] : passStack | std::views::enumerate) {
+      const auto& pass = *passPtr;
+      KT_DEBUG("    {}: {}", idx, pass.getName());
     }
     KT_DEBUG("");
 
 #if KT_LOG_LEVEL <= SPDLOG_LEVEL_DEBUG
 #define VERBOSE(...) KT_DEBUG(__VA_ARGS__)
     VERBOSE("  Requirements:");
-    for (const auto& [idx, passId] : passStack | std::views::enumerate) {
-      const auto& pass = *passes[passId];
+    for (const auto& [idx, passPtr] : passStack | std::views::enumerate) {
+      const auto& pass = *passPtr;
       const auto& reqs = passRequirements[static_cast<size_t>(idx)];
 
-      VERBOSE("    {}: {} ({})", idx, pass.getName(), *passId);
+      VERBOSE("    {}: {}", idx, pass.getName());
       VERBOSE("      Read Requirements: {}", reqs.invalidate.size());
       for (const auto& req : reqs.invalidate) {
         VERBOSE("        Resource: {}{}", physicalResourceInfos[req.resourceId].name, req.history ? " (History)" : "");
@@ -62,11 +62,11 @@ namespace kt {
     }
     VERBOSE("  Barriers:");
 
-    for (const auto& [idx, passId] : passStack | std::views::enumerate) {
-      const auto& pass = *passes[passId];
+    for (const auto& [idx, passPtr] : passStack | std::views::enumerate) {
+      const auto& pass = *passPtr;
       const auto& barriers = passBarriers[static_cast<size_t>(idx)];
 
-      VERBOSE("    {}: {} ({})", idx, pass.getName(), *passId);
+      VERBOSE("    {}: {}", idx, pass.getName());
       if (!barriers.pre.image.empty()) {
         VERBOSE("      Pre-pass Image Barriers: {}", barriers.pre.image.size());
         for (const auto& barrier : barriers.pre.image) {

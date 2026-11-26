@@ -18,8 +18,8 @@ namespace kt {
       return req.back();
     };
 
-    for (auto& passId : passStack) {
-      auto& pass = *passes[passId];
+    for (auto passPtr : passStack) {
+      auto& pass = *passPtr;
       Requirements reqs;
 
       const auto getInvalidAccess = [&](PhysResourceId id, bool history) -> Requirement& {
@@ -369,8 +369,8 @@ namespace kt {
 
     size_t mergedBarriers = 0;
 
-    for (const auto& [idx, passId] : passStack | std::views::enumerate) {
-      auto& pass = *passes[passId];
+    for (const auto& [idx, passPtr] : passStack | std::views::enumerate) {
+      auto& pass = *passPtr;
       auto& reqs = passRequirements[static_cast<size_t>(idx)];
 
       PrePostBarriers barriers;

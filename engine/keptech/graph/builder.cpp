@@ -42,7 +42,7 @@ namespace kt {
 
     validatePasses();
 
-    reorderPasses(passStack);
+    reorderPasses();
 
     buildPhysicalResources();
     buildRequirements();
@@ -136,9 +136,8 @@ namespace kt {
     builtResources.imageUsedInPass.resize(builtResources.images.size());
     builtResources.bufferUsedInPass.resize(builtResources.buffers.size());
 
-    for (const auto& [idxL, passId] : passStack | std::views::enumerate) {
+    for (const auto& [idxL, pass] : passStack | std::views::enumerate) {
       size_t idx = static_cast<size_t>(idxL);
-      auto& pass = passes[passId];
 
       struct PerFrameWrite {
         size_t writeIndex;
@@ -350,9 +349,9 @@ namespace kt {
   Vec<RenderPass> RenderGraphBuilder::bakePasses(const Resources& createdResources) {
     Vec<RenderPass> bakedPasses;
     bakedPasses.reserve(passStack.size());
-    for (const auto& [idx, passId] : passStack | std::views::enumerate) {
-      auto& pass = *passes[passId];
+    for (const auto& [idx, passPtr] : passStack | std::views::enumerate) {
       auto& barriers = passBarriers[static_cast<size_t>(idx)];
+      auto& pass = *passPtr;
 
       for (auto& barrier : barriers.pre.image) {
         barrier.resourceId = createdResources.nameToImage.at(physicalResourceInfos[barrier.resourceId].name);
