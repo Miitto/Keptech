@@ -42,9 +42,12 @@ namespace kt {
 
     validatePasses();
 
+    cullPasses();
+
     reorderPasses();
 
-    buildPhysicalResources();
+    deduplicateResources();
+    combineResources();
     buildRequirements();
     buildBarriers();
   }
@@ -218,9 +221,6 @@ namespace kt {
               .image = getImage(texture.texture->getName()),
           });
 
-          historyImageWrites.push_back(
-              PerFrameWrite{.writeIndex = writes.size() - 1, .bufferId = getImageIndex(texture.texture->getName())});
-
           builtResources.imageUsedInPass[getImageIndex(texture.texture->getName())].push_back(UsedInPass{
               .passIndex = idx,
               .binding = binding,
@@ -246,6 +246,8 @@ namespace kt {
               .image = getImage(texture->getName()),
           });
 
+          historyImageWrites.push_back(PerFrameWrite{.writeIndex = writes.size() - 1, .bufferId = getImageIndex(texture->getName())});
+
           builtResources.imageUsedInPass[getImageIndex(texture->getName())].push_back(UsedInPass{
               .passIndex = idx,
               .binding = binding,
@@ -253,6 +255,7 @@ namespace kt {
               .layout = rhi::ImageLayout::ShaderReadOnly,
               .history = true,
           });
+
           infos.push_back(rhi::DescriptorInfo{
               .type = rhi::DescriptorType::SampledImage,
               .binding = binding,

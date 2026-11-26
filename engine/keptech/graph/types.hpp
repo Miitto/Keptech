@@ -82,6 +82,8 @@ namespace kt {
 
     constexpr operator bool() const { return id != ~0u; }
     constexpr bool operator==(const PhysResourceId& other) const { return id == other.id; }
+    constexpr bool operator>(const PhysResourceId& other) const { return id > other.id; }
+    constexpr bool operator<(const PhysResourceId& other) const { return id < other.id; }
     constexpr operator size_t() const { return id; }
     constexpr size_t operator*() const { return id; }
 
@@ -101,6 +103,8 @@ namespace kt {
       id += offset;
       return *this;
     }
+
+    constexpr PhysResourceId operator-(size_t offset) const { return PhysResourceId(id - offset); }
 
     [[nodiscard]] constexpr bool used() const { return id != ~0u; }
     [[nodiscard]] constexpr bool unused() const { return id == ~0u; }
@@ -152,6 +156,32 @@ namespace kt {
     bool isHostAccessible() const;
   };
 
+  struct LifetimeRange {
+    size_t firstReadPass = ~0u;
+    size_t lastReadPass = 0;
+    size_t firstWritePass = ~0u;
+    size_t lastWritePass = 0;
+    bool blocked = false;
+
+    void readFrom(size_t passIndex);
+
+    void writtenFrom(size_t passIndex);
+
+    bool hasReads() const;
+    bool hasWrites() const;
+
+    bool used() const;
+
+    bool canBeCombined() const;
+
+    size_t lastUsedPass() const;
+    size_t firstUsedPass() const;
+
+    bool canCombineWith(const LifetimeRange& other) const;
+
+    void mergeWith(const LifetimeRange& other);
+  };
+
   struct ResourceInfo {
     std::string name;
     rhi::ImageFormat format = rhi::ImageFormat::Undefined;
@@ -165,6 +195,7 @@ namespace kt {
     bool persistent = true;
     Bitflag<QueueType> queues{};
     Bitflag<rhi::ImageUsage> imageUsage = rhi::ImageUsage::None;
+    LifetimeRange lifetime{};
 
     constexpr bool operator==(const ResourceInfo& other) const {
       return format == other.format && bufferInfo.size == other.bufferInfo.size &&

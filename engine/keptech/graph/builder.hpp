@@ -15,6 +15,10 @@ namespace kt {
 
   class RenderGraph;
 
+  struct RenderGraphBuilderSettings {
+    bool dontCombineResources = false;
+  };
+
   class RenderGraphBuilder {
   public:
     RenderGraphBuilder() = default;
@@ -70,7 +74,10 @@ namespace kt {
     void requestRenderTargetsBlitable() { renderTargetsBlitable = true; }
     [[nodiscard]] bool areRenderTargetsBlitable() const { return renderTargetsBlitable; }
 
+    [[nodiscard]] RenderGraphBuilderSettings& getSettings() { return settings; }
+
   private:
+    RenderGraphBuilderSettings settings;
     glm::uvec2 renderResolution{0, 0};
     glm::uvec2 swapchainSize{0, 0};
     rhi::ImageFormat swapchainFormat = rhi::ImageFormat::Undefined;
@@ -112,6 +119,8 @@ namespace kt {
 
     Vec<ImageTransition> finalLayouts;
 
+    std::unordered_map<PhysResourceId, Vec<std::string>> combinedPhysicalResourceNames;
+
     /// Validate the registered passes. Aborts if any pass has invalid inputs or outputs.
     void validatePasses() const;
 
@@ -122,13 +131,21 @@ namespace kt {
     /// Returns true if the pass with id `dst` depends on the pass with id `src`, false otherwise.
     [[nodiscard]] bool dependsOnPass(PassId dst, PassId src) const;
 
+    /// Populates `passStack` with the passes that are actually used in the render graph. Passes that are not used by any other pass or the
+    /// backbuffer will be culled. This function must be called before `reorderPasses()`. Passes will **not** be reordered by this function.
+    void cullPasses();
+
     /// Reorder the passes in `passOrder` based on their dependencies.
     /// After this function completes, the passes in `passOrder` can be run in the order they appear in the vector without violating any
     /// dependencies.
     void reorderPasses();
 
-    /// Create the actual resources described by the render graph.
-    void buildPhysicalResources();
+    /// Populates `physicalResourceInfos` with deduplicated resources based on the registered virtual resources. This function must be
+    /// called before `buildRequirements()`.
+    void deduplicateResources();
+
+    /// Combines image resources that share a format and are not used at the same time into a single physical resource.
+    void combineResources();
 
     /// Calculate what resources each pass needs to access and how they need to access them. This is used to build the barriers for each
     /// pass.

@@ -40,6 +40,7 @@ namespace kt {
       ImageFormat getSwapchainFormat(this const RHI& self);
       ImageRef getSwapchainImage(this const RHI& self);
       glm::uvec2 getSwapchainSize(this const RHI& self);
+      size_t getByteSize(this const RHI& self, ImageFormat format, glm::uvec3 size, uint32_t mipLevels = 1, uint32_t layers = 1);
 
       // Command Buffers
       GraphicsWaitValue submitGraphicsCmd(this RHI& self, CommandBuffer& cmd, GraphicsWaitValue graphicsWaitValue = {},

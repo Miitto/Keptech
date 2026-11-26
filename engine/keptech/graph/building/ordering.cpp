@@ -3,6 +3,37 @@
 #include <ranges>
 
 namespace kt {
+  void RenderGraphBuilder::cullPasses() {
+    passStack.reserve(passes.size());
+
+    passDependencies.clear();
+    passDependencies.resize(passes.size());
+
+    auto& backbuffer = *resources[resourceNameToId.find(backbufferSource)->second];
+
+    for (auto& pass : backbuffer.getWritePasses()) {
+      passStack.push_back(passes[pass].get());
+    }
+
+    auto tmp = passStack;
+    for (auto pass : tmp) {
+      traverseDependencies(*pass, 0);
+    }
+
+    std::ranges::reverse(passStack);
+
+    std::unordered_set<RenderPassBuilder*> seen;
+    seen.reserve(passStack.size());
+
+    passStack.retain([&](RenderPassBuilder* pass) {
+      if (seen.contains(pass)) {
+        return false;
+      }
+      seen.insert(pass);
+      return true;
+    });
+  }
+
   void RenderGraphBuilder::traverseDependencies(const RenderPassBuilder& pass, size_t stackCount) {
     if (pass.getDepthStencilInput()) {
       dependPassesRecursive(pass, pass.getDepthStencilInput()->getWritePasses(), stackCount, false, true);
@@ -67,38 +98,6 @@ namespace kt {
   }
 
   void RenderGraphBuilder::reorderPasses() {
-    passStack.reserve(passes.size());
-
-    passDependencies.clear();
-    passDependencies.resize(passes.size());
-
-    auto& backbuffer = *resources[resourceNameToId.find(backbufferSource)->second];
-
-    for (auto& pass : backbuffer.getWritePasses()) {
-      passStack.push_back(passes[pass].get());
-    }
-
-    auto tmp = passStack;
-    for (auto pass : tmp) {
-      traverseDependencies(*pass, 0);
-    }
-
-    std::ranges::reverse(passStack);
-
-    // Filter out duplicates
-    {
-      std::unordered_set<RenderPassBuilder*> seen;
-      seen.reserve(passStack.size());
-
-      passStack.retain([&](RenderPassBuilder* pass) {
-        if (seen.contains(pass)) {
-          return false;
-        }
-        seen.insert(pass);
-        return true;
-      });
-    }
-
     if (passStack.size() <= 2)
       return;
 
@@ -153,6 +152,10 @@ namespace kt {
       }
 
       schedule(best);
+    }
+
+    for (const auto& [idx, pass] : passStack | std::views::enumerate) {
+      pass->setIndex(static_cast<size_t>(idx));
     }
   }
 } // namespace kt

@@ -107,6 +107,7 @@ namespace kt {
         .persistent = info.persistent,
         .queues = resource.getUsedQueues(),
         .imageUsage = resource.getImageUsage(),
+        .lifetime = {},
     };
 
     switch (info.sizeType) {

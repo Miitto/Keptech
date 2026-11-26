@@ -7,9 +7,10 @@
 #include <ranges>
 
 namespace kt {
-  void RenderGraphBuilder::buildPhysicalResources() {
+  void RenderGraphBuilder::deduplicateResources() {
     PhysResourceId physId{0};
 
+#pragma region Lambda Helpers
     auto hasHistory = [&](PhysResourceId id) {
       if (static_cast<size_t>(id) >= physicalImageHasHistory.size())
         return false;
@@ -18,6 +19,7 @@ namespace kt {
     };
 
     auto postBufferId = [&](bool host) {
+      physicalResourceInfos.back().lifetime.blocked = true;
       if (host) {
         for (size_t i = 0; i < (MAX_FRAMES_IN_FLIGHT - 1); ++i) {
           physicalResourceInfos.push_back(physicalResourceInfos.back());
@@ -41,8 +43,11 @@ namespace kt {
       for (size_t i = 0; i < (host ? MAX_FRAMES_IN_FLIGHT : 1); ++i) {
         physicalResourceInfos[id + i].queues |= queues;
         physicalResourceInfos[id + i].bufferInfo.usage |= usage;
+
+        physicalResourceInfos[id + i].lifetime.blocked |= host;
       }
     };
+#pragma endregion
 
     for (auto& pass : passes) {
       for (auto& input : pass->getGenericBufferInputs()) {
@@ -63,7 +68,7 @@ namespace kt {
       }
     }
 
-    for (const auto& [idx, passPtr] : passStack | std::views::enumerate) {
+    for (const auto passPtr : passStack) {
       auto& pass = *passPtr;
       for (auto& input : pass.getGenericTextureInputs()) {
         if (!input.texture->getPhysicalId().used()) {
@@ -72,6 +77,8 @@ namespace kt {
         } else {
           updateImage(input.texture->getPhysicalId(), input.texture->getUsedQueues(), input.texture->getImageUsage(), false);
         }
+
+        physicalResourceInfos[input.texture->getPhysicalId()].lifetime.readFrom(pass.getIndex());
       }
 
       for (auto input : pass.getHistoryInputs()) {
@@ -107,6 +114,11 @@ namespace kt {
           physicalImageHasHistory.resize(static_cast<size_t>(input->getPhysicalId()) + 1, false);
 
         physicalImageHasHistory[static_cast<size_t>(input->getPhysicalId())] = true;
+
+        // History images cannot be combined.
+        for (size_t i = 0; i < (MAX_FRAMES_IN_FLIGHT - 1); ++i) {
+          physicalResourceInfos[static_cast<size_t>(input->getPhysicalId()) + i].lifetime.blocked = true;
+        }
       }
 
       for (auto& input : pass.getGenericBufferInputs()) {
@@ -139,6 +151,8 @@ namespace kt {
         KT_DEBUG("Pass '{}': Aliasing color output '{}' to input '{}'.", pass.getName(), pass.getColorOutputs()[jdx]->getName(),
                  input.getName());
         pass.getColorOutputs()[jdx]->setPhysicalId(input.getPhysicalId());
+
+        physicalResourceInfos[input.getPhysicalId()].lifetime.readFrom(pass.getIndex());
       }
 
       for (const auto& [jdxL, inputPtr] : pass.getStorageImageInputs() | std::views::enumerate) {
@@ -160,6 +174,8 @@ namespace kt {
         KT_DEBUG("Pass '{}': Aliasing storage image output '{}' to input '{}'.", pass.getName(),
                  pass.getStorageImageOutputs()[jdx]->getName(), input.getName());
         pass.getStorageImageOutputs()[jdx]->setPhysicalId(input.getPhysicalId());
+
+        physicalResourceInfos[input.getPhysicalId()].lifetime.readFrom(pass.getIndex());
       }
 
       for (const auto& [jdxL, inputPtr] : pass.getStorageInputs() | std::views::enumerate) {
@@ -196,6 +212,8 @@ namespace kt {
         } else {
           updateImage(output->getPhysicalId(), output->getUsedQueues(), output->getImageUsage(), hasHistory(output->getPhysicalId()));
         }
+
+        physicalResourceInfos[output->getPhysicalId()].lifetime.writtenFrom(pass.getIndex());
       }
 
       for (auto* output : pass.getStorageImageOutputs()) {
@@ -208,6 +226,7 @@ namespace kt {
         } else {
           updateImage(output->getPhysicalId(), output->getUsedQueues(), output->getImageUsage(), hasHistory(output->getPhysicalId()));
         }
+        physicalResourceInfos[output->getPhysicalId()].lifetime.writtenFrom(pass.getIndex());
       }
 
       for (auto* output : pass.getStorageOutputs()) {
@@ -223,6 +242,10 @@ namespace kt {
 
       for (auto* mapped : pass.getMappedBuffers()) {
         bool host = mapped->getBufferInfo().isHostAccessible();
+        if (!host) {
+          KT_WARN("Pass '{}': Mapped buffer '{}' is not host accessible. Mapped buffers should be host accessible.", pass.getName(),
+                  mapped->getName());
+        }
         if (!mapped->getPhysicalId().used()) {
           physicalResourceInfos.push_back(getResourceInfo(*mapped));
           mapped->setPhysicalId(physId++);
@@ -252,7 +275,8 @@ namespace kt {
         } else {
           updateImage(dsInput->getPhysicalId(), dsInput->getUsedQueues(), dsInput->getImageUsage(), hasHistory(dsInput->getPhysicalId()));
         }
-
+        physicalResourceInfos[dsInput->getPhysicalId()].lifetime.readFrom(pass.getIndex());
+        // If both, combine dsOutput and dsInput.
         if (dsOutput) {
           KT_REQUIRE(!dsOutput->getPhysicalId().used(), "Pass '{}': Cannot alias depth-stencil output '{}'. Physical ID already claimed.",
                      pass.getName(), dsOutput->getName());
@@ -260,6 +284,8 @@ namespace kt {
           dsOutput->setPhysicalId(dsInput->getPhysicalId());
 
           updateImage(dsInput->getPhysicalId(), dsOutput->getUsedQueues(), dsOutput->getImageUsage(), hasHistory(dsInput->getPhysicalId()));
+
+          physicalResourceInfos[dsOutput->getPhysicalId()].lifetime.writtenFrom(pass.getIndex());
         }
       } else if (dsOutput) {
         if (!dsOutput->getPhysicalId().used()) {
@@ -269,6 +295,8 @@ namespace kt {
           updateImage(dsOutput->getPhysicalId(), dsOutput->getUsedQueues(), dsOutput->getImageUsage(),
                       hasHistory(dsOutput->getPhysicalId()));
         }
+
+        physicalResourceInfos[dsOutput->getPhysicalId()].lifetime.writtenFrom(pass.getIndex());
       }
     }
 
@@ -295,6 +323,78 @@ namespace kt {
     }
   }
 
+  void RenderGraphBuilder::combineResources() {
+    if (settings.dontCombineResources) {
+      KT_DEBUG("Resource combining is disabled by settings. Skipping resource combining.");
+      return;
+    }
+
+#if KT_LOG_LEVEL >= KT_LOG_LEVEL_DEBUG
+    size_t combinedCount = physicalResourceInfos.size();
+    size_t savedBytes = 0;
+#endif
+
+    for (size_t i = 0; i < physicalResourceInfos.size(); ++i) {
+      auto& resA = physicalResourceInfos[i];
+      if (resA.lifetime.blocked)
+        continue;
+
+      // Attempt to combine with future resources.
+      for (size_t j = i + 1; j < physicalResourceInfos.size(); ++j) {
+        auto& resB = physicalResourceInfos[j];
+        if (resB.lifetime.blocked)
+          continue;
+
+        bool formatsMatch = resA.format == resB.format;
+        bool sizesMatch = resA.size == resB.size && resA.ratioSize == resB.ratioSize && resA.sizeType == resB.sizeType;
+        bool lifetimesCompatible = resA.lifetime.canCombineWith(resB.lifetime);
+
+        if (formatsMatch && sizesMatch && lifetimesCompatible) {
+          KT_DEBUG("Combining images '{}' and '{}'", resA.name, resB.name);
+
+          for (auto& resource : resources) {
+            if (resource->getPhysicalId() == PhysResourceId(j)) {
+              resource->setPhysicalId(PhysResourceId(i));
+            } else if (resource->getPhysicalId() > PhysResourceId(j)) {
+              resource->setPhysicalId(resource->getPhysicalId() - 1ull);
+            }
+          }
+
+          resA.queues |= resB.queues;
+          resA.imageUsage |= resB.imageUsage;
+          resA.mipLevels = std::max(resA.mipLevels, resB.mipLevels);
+          resA.layers = std::max(resA.layers, resB.layers);
+          resA.lifetime.mergeWith(resB.lifetime);
+
+#if KT_LOG_LEVEL >= KT_LOG_LEVEL_DEBUG
+          ++combinedCount;
+          savedBytes += rhi::RHI::get().getByteSize(resB.format, resB.size, resB.mipLevels, resB.layers);
+#endif
+          combinedPhysicalResourceNames[PhysResourceId(i)].push_back(resB.name);
+
+          physicalResourceInfos.erase(physicalResourceInfos.begin() + static_cast<ptrdiff_t>(j));
+          --j;
+        }
+      }
+    }
+
+#if KT_LOG_LEVEL >= KT_LOG_LEVEL_DEBUG
+    const char* memSuffix = "B";
+    double savedBytesDouble = static_cast<double>(savedBytes);
+    if (savedBytes > 1024) {
+      savedBytesDouble /= 1024;
+      memSuffix = "KB";
+    }
+    if (savedBytes > 1024) {
+      savedBytesDouble /= 1024;
+      memSuffix = "MB";
+    }
+
+    KT_DEBUG("Combined {} resources, saving {:.2f}{} of memory.", combinedCount - physicalResourceInfos.size(), savedBytesDouble,
+             memSuffix);
+#endif
+  }
+
   Resources RenderGraphBuilder::buildResources() {
     auto& rhi = rhi::RHI::get();
     auto cmd = rhi.allocateGraphicsCommandBuffers(1)[0];
@@ -315,6 +415,14 @@ namespace kt {
         buffers.push_back(std::move(buf));
         if (!nameToBuffer.contains(res.name)) // Mapped buffers share a name, we want the index to point to the first one, not the last
           nameToBuffer[res.name] = buffers.size() - 1;
+
+        if (combinedPhysicalResourceNames.contains(PhysResourceId(static_cast<size_t>(idx)))) {
+          auto& combinedNames = combinedPhysicalResourceNames[PhysResourceId(static_cast<size_t>(idx))];
+          for (const auto& combinedName : combinedNames) {
+            if (!nameToBuffer.contains(combinedName))
+              nameToBuffer[combinedName] = buffers.size() - 1;
+          }
+        }
         KT_DEBUG("Created buffer {} in slot {}", res.name, buffers.size() - 1);
       } else {
         auto result =
@@ -339,6 +447,15 @@ namespace kt {
         }
         if (!nameToImage.contains(res.name))
           nameToImage[res.name] = images.size() - 1;
+
+        if (combinedPhysicalResourceNames.contains(PhysResourceId(static_cast<size_t>(idx)))) {
+          const auto& combinedNames = combinedPhysicalResourceNames[PhysResourceId(static_cast<size_t>(idx))];
+          for (const auto& combinedName : combinedNames) {
+            if (!nameToImage.contains(combinedName))
+              nameToImage[combinedName] = images.size() - 1;
+          }
+        }
+
         KT_DEBUG("Created image {} in slot {}", res.name, images.size() - 1);
         switch (res.sizeType) {
         case AttachmentSize::SwapchainRelative:
