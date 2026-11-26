@@ -147,12 +147,24 @@ namespace kt {
       ImGui::Text("Dispatch Calls: %llu", stats.dispatchCalls);
       ImGui::Text("Render Passes: %llu", stats.renderPasses);
       ImGui::NewLine();
-      ImGui::Text("Engine Buffers: %llu (%.2f MB)", stats.engineBufferCount,
-                  static_cast<double>(stats.engineBufferMemUsage) / (1024.0 * 1024.0));
-      ImGui::Text("User Buffers: %llu (%.2f MB)", stats.userBufferCount, static_cast<double>(stats.userBufferMemUsage) / (1024.0 * 1024.0));
-      ImGui::Text("Engine Images: %llu (%.2f MB)", stats.engineImageCount,
-                  static_cast<double>(stats.engineImageMemUsage) / (1024.0 * 1024.0));
-      ImGui::Text("User Images: %llu (%.2f MB)", stats.userImageCount, static_cast<double>(stats.userImageMemUsage) / (1024.0 * 1024.0));
+
+#define KB(x) (static_cast<double>(x) / 1024.0)
+#define MB(x) (static_cast<double>(x) / (1024.0 * 1024.0))
+#define GB(x) (static_cast<double>(x) / (1024.0 * 1024.0 * 1024.0))
+
+#define FORMAT_MEM(_TEXT, _NUM, _MEM)                                                                                                      \
+  if ((_MEM) > 1024ull * 1024ull * 1024ull) {                                                                                              \
+    ImGui::Text(_TEXT ": %llu (%.2f GB)", _NUM, static_cast<double>(_MEM) / (1024.0 * 1024.0 * 1024.0));                                   \
+  } else if ((_MEM) > 1024ull * 1024ull) {                                                                                                 \
+    ImGui::Text(_TEXT ": %llu (%.2f MB)", _NUM, static_cast<double>(_MEM) / (1024.0 * 1024.0));                                            \
+  } else {                                                                                                                                 \
+    ImGui::Text(_TEXT ": %llu (%.2f KB)", _NUM, static_cast<double>(_MEM) / (1024.0));                                                     \
+  }
+
+      FORMAT_MEM("User Buffers", stats.userBufferCount, stats.userBufferMemUsage);
+      FORMAT_MEM("User Images", stats.userImageCount, stats.userImageMemUsage);
+      FORMAT_MEM("Engine Buffers", stats.engineBufferCount, stats.engineBufferMemUsage);
+      FORMAT_MEM("Engine Images", stats.engineImageCount, stats.engineImageMemUsage);
 #endif
       ImGui::End();
     }
