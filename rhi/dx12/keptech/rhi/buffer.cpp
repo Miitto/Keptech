@@ -22,7 +22,7 @@ namespace kt::rhi {
   bool BufferBase::isMapped(this const Buffer& self) { return self.mapPtr != nullptr; }
   void* BufferBase::mapping(this const Buffer& self, size_t offset) { return static_cast<uint8_t*>(self.mapPtr) + offset; }
 
-  bool BufferBase::isValid(this const Buffer& self) { return self.allocation != nullptr && self.allocation->GetResource() != nullptr; }
+  bool BufferBase::isValid(this const Buffer& self) { return self.allocation && self.allocation->GetResource() != nullptr; }
 
   kt::Result<Buffer, RawRhiResult, RawRhiResultOk> BufferBase::create(const BufferCreateInfo& info) {
     DX_ASSERT(info.getSize() > 0, "Buffer {}: size must be greater than 0", info.getName());
@@ -74,7 +74,8 @@ namespace kt::rhi {
     }
 #endif
 
-    return Buffer(info.getName() == nullptr ? "<unnamed>" : info.getName(), info.getSize(), info.getUsage(), info.getType(), allocation);
+    return Buffer(info.getName() == nullptr ? "<unnamed>" : info.getName(), info.getSize(), info.getUsage(), info.getType(),
+                  Allocation::unique(allocation));
   }
 
   kt::Result<Buffer, RawRhiResult, RawRhiResultOk> BufferBase::reallocate(this const Buffer& self, size_t newSize) {
@@ -94,49 +95,31 @@ namespace kt::rhi {
       }
 #endif
 
-      self.allocation->Release();
-      self.allocation = nullptr;
+      self.allocation.reset();
     }
   }
   Buffer::operator ID3D12Resource*() const { return allocation ? allocation->GetResource() : nullptr; }
 
-  Buffer::Buffer(Buffer&& other) noexcept : BufferBase(std::move(other)), mapPtr(other.mapPtr), allocation(other.allocation) {
-#ifndef NDEBUG
-    if (allocation == nullptr && _size > 0) {
-      DX_WARN("Moving from a moved from buffer: {}", getName());
-    }
-#endif
-
-    other.allocation = nullptr;
+  Buffer::Buffer(Buffer&& other) noexcept : BufferBase(std::move(other)), mapPtr(other.mapPtr), allocation(std::move(other.allocation)) {
     other.mapPtr = nullptr;
   }
 
   Buffer& Buffer::operator=(Buffer&& other) noexcept {
     if (this != &other) {
-#ifndef NDEBUG
-      if (other.allocation == nullptr && other.size() > 0) {
-        DX_WARN("Moving from a moved from buffer: {}", getName());
-      }
-#endif
       BufferBase::operator=(std::move(other));
 
       mapPtr = other.mapPtr;
-      allocation = other.allocation;
+      allocation = std::move(other.allocation);
 
-      other.allocation = nullptr;
       other.mapPtr = nullptr;
     }
     return *this;
   }
 
   Buffer::~Buffer() { destroy(); }
-  D3D12MA::Allocation* Buffer::dxTakeAllocation() {
-    auto* alloc = allocation;
-    allocation = nullptr;
-    return alloc;
-  }
+  Allocation&& Buffer::dxTakeAllocation() { return std::move(allocation); }
 
-  Buffer::Buffer(std::string name, size_t size, Bitflag<BufferUsage> usage, BufferType type, D3D12MA::Allocation* allocation)
+  Buffer::Buffer(std::string name, size_t size, Bitflag<BufferUsage> usage, BufferType type, Allocation allocation)
       : BufferBase(std::move(name), size, usage, type), allocation(allocation) {
     if (type != BufferType::Default) {
       CD3DX12_RANGE readRange(0, 0);

@@ -28,12 +28,7 @@ namespace kt::rhi {
     }
   }
 
-  Microsoft::WRL::ComPtr<ID3D12Resource> Image::dxresource() const {
-    if (allocation == nullptr) {
-      return nullptr;
-    }
-    return allocation->GetResource();
-  }
+  Microsoft::WRL::ComPtr<ID3D12Resource> Image::dxresource() const { return allocation ? allocation->GetResource() : nullptr; }
 
   kt::Result<Image, HRESULT, 0> ImageBase::create(const ImageCreateInfo& info) {
     DX_ASSERT(info.getExtent().x > 0 && info.getExtent().y > 0 && info.getExtent().z > 0, "Image extent must be greater than 0");
@@ -91,7 +86,7 @@ namespace kt::rhi {
                "Failed to create image resource");
 
     Image i(info.getName(), info.getImageDim(), info.getFormat(), info.getExtent(), info.getUsage(), info.getMipLevels(),
-            info.getArrayLayers(), allocation);
+            info.getArrayLayers(), Allocation::unique(allocation));
 
     i.setName(info.getName());
 
@@ -120,7 +115,7 @@ namespace kt::rhi {
   }
 
   kt::Result<Image, HRESULT, S_OK> ImageBase::resize(this const Image& self, const glm::uvec3& newExtent) {
-    if (self.allocation == nullptr) {
+    if (!self.allocation) {
       return {E_FAIL};
     }
 
@@ -140,7 +135,7 @@ namespace kt::rhi {
   }
 
   void ImageBase::destroy(this Image& self) {
-    if (self.allocation != nullptr) {
+    if (self.allocation) {
 #ifndef KT_DISABLE_STATS
       auto& stats = RHI::get().getStats();
       if (self._flags.has(ImageCreateFlags::EngineImage)) {
@@ -152,23 +147,19 @@ namespace kt::rhi {
       }
 #endif
 
-      self.allocation->Release();
-      self.allocation = nullptr;
+      self.allocation.reset();
     }
   }
 
-  Image::Image(Image&& other) noexcept : ImageBase(std::move(other)), allocation(other.allocation), rtvDsvIndex(other.rtvDsvIndex) {
-    other.allocation = nullptr;
-  }
+  Image::Image(Image&& other) noexcept
+      : ImageBase(std::move(other)), allocation(std::move(other.allocation)), rtvDsvIndex(other.rtvDsvIndex) {}
 
   Image& Image::operator=(Image&& other) noexcept {
     if (this != &other) {
       ImageBase::operator=(std::move(other));
 
-      allocation = other.allocation;
+      allocation = std::move(other.allocation);
       rtvDsvIndex = other.rtvDsvIndex;
-
-      other.allocation = nullptr;
     }
     return *this;
   }
@@ -182,11 +173,7 @@ namespace kt::rhi {
                     self.textureIndex);
   }
 
-  D3D12MA::Allocation* Image::dxTakeAllocation() {
-    auto* alloc = allocation;
-    allocation = nullptr;
-    return alloc;
-  }
+  Allocation Image::dxTakeAllocation() { return std::move(allocation); }
 
   Image::~Image() { destroy(); }
 } // namespace kt::rhi

@@ -26,14 +26,14 @@ namespace kt::components {
   class Camera {
   public:
     struct Uniforms {
-      glm::mat4 projectionMatrix;
-      glm::mat4 viewMatrix;
-      glm::mat4 viewProjectionMatrix;
+      glm::mat4 projectionMatrix{};
+      glm::mat4 viewMatrix{};
+      glm::mat4 viewProjectionMatrix{};
 
-      glm::mat4 invProjectionMatrix;
-      glm::mat4 invViewMatrix;
-      glm::mat4 invViewProjectionMatrix;
-      maths::Frustum frustum;
+      glm::mat4 invProjectionMatrix{};
+      glm::mat4 invViewMatrix{};
+      glm::mat4 invViewProjectionMatrix{};
+      maths::Frustum frustum{};
       uint64_t envMapIndex = ~0ull;
       uint64_t envMapIrrIndex = ~0ull;
       uint64_t envMapPreFilterIndex = ~0ull;

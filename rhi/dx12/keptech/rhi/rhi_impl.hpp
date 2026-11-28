@@ -28,10 +28,10 @@ namespace kt::rhi {
 
     uint64_t fenceValue = self.m.copyFence.signal(self.m.queues.copy);
 
-    Vec<D3D12MA::Allocation*> allocsToDrop;
+    Vec<Allocation> allocsToDrop;
     allocsToDrop.reserve(buffers.size());
     for (auto& buffer : buffers) {
-      allocsToDrop.push_back(buffer.dxTakeAllocation());
+      allocsToDrop.emplace_back(buffer.dxTakeAllocation());
     }
 
     self.m.ongoingCopies.push_back({{cmdBuf.dxGetAlloc(), cmdBuf.dxGetCmd(), fenceValue}, std::move(allocsToDrop)});

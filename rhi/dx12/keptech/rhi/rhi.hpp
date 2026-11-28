@@ -7,6 +7,7 @@
 
 #include "d3dx12.h"
 #include "helpers/imGuiDescriptorAlloc.hpp"
+#include "keptech/rhi/dx/allocation.hpp"
 #include "keptech/rhi/dx/constants.hpp"
 #include "keptech/rhi/dx/fence.hpp"
 #include "keptech/rhi/imageFormat.hpp"
@@ -57,7 +58,7 @@ namespace kt::rhi {
 
   struct Frame {
     uint64_t fenceValue = 0;
-    Vec<D3D12MA::Allocation*> allocsToDrop;
+    Vec<Allocation> allocsToDrop;
   };
 
   struct Queues {
@@ -113,7 +114,7 @@ namespace kt::rhi {
 
     struct OngoingCopy {
       SubmittedCmd cmd{};
-      Vec<D3D12MA::Allocation*> allocsToDrop{};
+      Vec<Allocation> allocsToDrop{};
     };
     Vec<OngoingCopy> ongoingCopies{};
 

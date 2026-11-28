@@ -167,23 +167,11 @@ namespace kt::rhi {
     // submitted work before dropping things.
     self.m.fence.wait(self.m.fence.getValue());
 
-    for (auto* alloc : frame.allocsToDrop) {
-      alloc->Release();
-    }
     frame.allocsToDrop.clear();
 
     uint64_t fenceValue = self.m.fence.currentValue();
 
-    for (auto& copy : self.m.ongoingCopies) {
-      if (copy.cmd.fenceValue <= fenceValue) {
-        for (auto* alloc : copy.allocsToDrop) {
-          alloc->Release();
-        }
-      }
-    }
-    self.m.ongoingCopies.erase(std::remove_if(self.m.ongoingCopies.begin(), self.m.ongoingCopies.end(),
-                                              [fenceValue](const Members::OngoingCopy& copy) { return copy.cmd.fenceValue <= fenceValue; }),
-                               self.m.ongoingCopies.end());
+    self.m.ongoingCopies.retain([fenceValue](const Members::OngoingCopy& copy) { return copy.cmd.fenceValue > fenceValue; });
   }
 
   void RhiBase::debugUi(this const RHI& self) {
@@ -417,9 +405,7 @@ namespace kt::rhi {
       m.ongoingCopies.clear();
 
       for (auto& frame : m.frames) {
-        for (auto* alloc : frame.allocsToDrop) {
-          alloc->Release();
-        }
+        frame.allocsToDrop.clear();
       }
 
       m.submittedGraphicsCmds = {};

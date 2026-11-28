@@ -12,6 +12,8 @@ namespace kt {
     self.addTextureInput(backbufferSource);
 
     b.requestRenderTargetsBlitable();
+
+    b.getSettings().dontCombineResources = true;
   }
 
   void DebugPass::setup(RenderGraph& graph, const rhi::DescriptorLayout&) {
@@ -63,8 +65,8 @@ namespace kt {
 
     auto& srcImage = graph.getImage(debugView);
 
+    // We've combined the debug source image with the debug image output, can skip the blit.
     if (srcImage == debugImage) {
-      KT_WARN("Debug pass source image is the same as the debug output image.");
       return;
     }
 

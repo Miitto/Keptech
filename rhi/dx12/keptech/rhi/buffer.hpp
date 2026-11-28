@@ -2,6 +2,7 @@
 
 #include "keptech/rhi/bufferTypes.hpp"
 #include "keptech/rhi/bufferUsage.hpp"
+#include "keptech/rhi/dx/allocation.hpp"
 #include "keptech/rhi/interface/buffer_base.hpp"
 
 namespace D3D12MA {
@@ -19,7 +20,7 @@ namespace kt::rhi {
 
     operator ID3D12Resource*() const;
     ID3D12Resource* operator->() const;
-    D3D12MA::Allocation* dxTakeAllocation();
+    Allocation&& dxTakeAllocation();
 
     Buffer() = default;
     Buffer(const Buffer&) = delete;
@@ -29,9 +30,9 @@ namespace kt::rhi {
     ~Buffer();
 
   private:
-    Buffer(std::string name, size_t size, Bitflag<BufferUsage> usage, BufferType type, D3D12MA::Allocation* allocation);
+    Buffer(std::string name, size_t size, Bitflag<BufferUsage> usage, BufferType type, Allocation allocation);
 
     void* mapPtr = nullptr;
-    D3D12MA::Allocation* allocation = nullptr;
+    Allocation allocation{};
   };
 } // namespace kt::rhi

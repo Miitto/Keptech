@@ -11,8 +11,10 @@ namespace kt {
   namespace {
     template <typename T> R<T> reallocBuffer(SubdivBuffer<T>& buffer, size_t newSize, const char* name) {
       if (buffer->size() == 0) {
-        auto newBuffer = rhi::Buffer::create(
+        auto newBufferRes = rhi::Buffer::create(
             {newSize * sizeof(T), rhi::BufferUsage::Storage, rhi::BufferType::Default, name, rhi::BufferCreateFlags::EngineBuffer});
+        KT_ASSERT(newBufferRes, "Failed to create buffer {}: {}", name, newBufferRes.error());
+        buffer = SubdivBuffer<T>(std::move(newBufferRes.value()), 0);
       }
       auto result = buffer->reallocate(newSize * sizeof(T));
       if (!result) {

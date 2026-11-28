@@ -428,9 +428,9 @@ namespace kt::rhi {
   CommandBuffer& CommandBufferBase::copyBufferToImage(this CommandBuffer& self, const rhi::BufferRef& buffer, const rhi::ImageRef& image,
                                                       size_t width, size_t height, size_t layer, size_t mipLevel, size_t bufferOffset,
                                                       size_t offsetX, size_t offsetY) {
-    DX_ASSERT(width > 0 && height > 0, "Width and height must be greater than 0");
-    DX_ASSERT(buffer.dxGetResource() != nullptr, "Buffer resource is null");
-    DX_ASSERT(image.dxGetResource() != nullptr, "Image resource is null");
+    DX_ASSERT(width > 0 && height > 0, "Error copying buffer to image: Width and height must be greater than 0");
+    DX_ASSERT(buffer.dxGetResource() != nullptr, "Error copying buffer to image: Buffer resource is null");
+    DX_ASSERT(image.dxGetResource() != nullptr, "Error copying buffer to image: Image resource is null");
 
     auto& rhi = RHI::get();
     auto device = rhi.dxGetDevice();
