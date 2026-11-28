@@ -20,6 +20,7 @@
         {
             "name": "clang-x64",
             "inherits": "clang",
+            "hidden": true,
             "binaryDir": "${sourceDir}/__output/clang-x64",
             "cacheVariables": {
                 "CMAKE_SYSTEM_PROCESSOR": "x86_64"
@@ -35,10 +36,6 @@
         }
     ],
     "buildPresets": [
-        {
-            "name": "clang-x64",
-            "configurePreset": "clang-x64"
-        },
         {
             "name": "clang-x64-dx12",
             "configurePreset": "clang-x64-dx12"

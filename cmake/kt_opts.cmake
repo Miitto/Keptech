@@ -8,9 +8,9 @@ set(KIT_LIB_TYPE_OPTIONS "STATIC;SHARED")
 set(KT_LIB_TYPE SHARED CACHE STRING "Set the library type to build (STATIC or SHARED)")
 
 set(LOG_LEVEL_OPTIONS "TRACE;DEBUG;INFO;WARN;ERROR;CRITICAL")
-set(RHI_BACKEND_OPTIONS "Vulkan;DX12")
+set(RHI_BACKEND_OPTIONS "DX12;Vulkan")
 
-set(RHI_BACKEND "Vulkan" CACHE STRING "Select the renderer backend to use")
+set(RHI_BACKEND "DX12" CACHE STRING "Select the renderer backend to use")
 
 set(RHI_DEBUG_LOG_LEVEL DEBUG CACHE STRING "Set the log level for the rendererer")
 set(RHI_RELEASE_LOG_LEVEL ERROR CACHE STRING "Set the log level for the rendererer in release mode")
